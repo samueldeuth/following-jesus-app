@@ -1096,6 +1096,8 @@
   }
   .disciple-app-scope .invite-toggle-btn svg { width: 18px; height: 18px; color: var(--ink-soft); transition: transform 0.2s ease; }
   .disciple-app-scope .invite-toggle-btn.open svg { transform: rotate(180deg); }
+  .disciple-app-scope .invite-toggle-body { display: none; }
+  .disciple-app-scope .invite-toggle-body.open { display: block; }
   .disciple-app-scope .code-display .label { font-family:var(--font-display); font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-soft); }
   .disciple-app-scope .code-display .code { font-family:var(--font-display); font-weight:900; font-size:38px; letter-spacing:0.1em; color:var(--black); margin-top:8px; }
   .disciple-app-scope .code-display .hint { font-size:11.5px; color:var(--ink-soft); margin-top:8px; }
@@ -1215,6 +1217,7 @@
   .disciple-app-scope .msg-input-row button { width:auto; padding:14px 18px; }
   .disciple-app-scope .chat-block { margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.08); }
   .disciple-app-scope .chat-panel-light { background: var(--paper); padding: 18px 18px 20px; border-radius: 0 0 2px 2px; margin-top: 0; border-top: 3px solid #0d7a6e; }
+  .disciple-app-scope .chat-panel-title { color: var(--ink-soft); margin-top: 0; margin-bottom: 12px; }
   .disciple-app-scope .chat-pane { background: var(--paper); padding: 18px 18px 20px; border-radius: 0 0 2px 2px; margin-top: 0; border-top: 3px solid #0d7a6e; }
   .disciple-app-scope .chat-pane .msg-input-row input { background: var(--white); border-color: rgba(10,10,10,0.18); color: var(--black); }
   .disciple-app-scope .chat-pane .msg-input-row input::placeholder { color: rgba(10,10,10,0.35); }
@@ -1272,6 +1275,7 @@
     border-radius: 2px; padding: 14px; margin-bottom: 20px;
   }
   .disciple-app-scope .action-block .section-label { color: var(--ink-soft); }
+  .disciple-app-scope .action-block .msg-empty { color: var(--ink-soft); }
   .disciple-app-scope .action-list { display: flex; flex-direction: column; gap: 8px; }
   .disciple-app-scope .action-row {
     display: flex; align-items: flex-start; gap: 10px;
@@ -1967,6 +1971,20 @@
     const approvalHtml = (leaderApp && leaderApp.status === 'approved')
       ? `<div class="approval-badge">✓ Approved as a leader by ${escapeHtmlMain(leaderApp.pastorName)} at ${escapeHtmlMain(leaderApp.church)}</div>`
       : '';
+    const myWalkoutProgress = account ? ((await safeGet(`walkout-progress:${account.id}`, true)) || {}) : {};
+    const myStats = overallWalkoutStats(myWalkoutProgress);
+    const ownJourneyHtml = myStats.done === 0
+      ? `<button type="button" class="own-journey-card own-journey-prompt" id="ownJourneyBtn">
+           <div class="own-journey-title">Would you like to walk through the Following Jesus foundations yourself?</div>
+           <div class="own-journey-sub">See your own steps →</div>
+         </button>`
+      : `<button type="button" class="own-journey-card" id="ownJourneyBtn">
+           <div class="own-journey-top">
+             <div class="own-journey-title">Your Own Journey</div>
+             <div class="own-journey-pct">${myStats.pct}%</div>
+           </div>
+           <div class="walkout-progress-bar"><div class="walkout-progress-fill" style="width:${myStats.pct}%;"></div></div>
+         </button>`;
     discipleBody.innerHTML = `
       <a class="back-link" id="profileBackBtn">← My Discipleship</a>
       <div class="profile-photo-row">
@@ -1977,6 +1995,7 @@
         </label>
       </div>
       ${approvalHtml}
+      ${ownJourneyHtml}
       <p class="dm-p">Update your name or email below.</p>
       <input type="text" id="profName" placeholder="Your full name" value="${account ? escapeHtmlMain(account.name) : ''}" />
       <input type="text" id="profEmail" placeholder="Your email" value="${account ? escapeHtmlMain(account.email) : ''}" />
@@ -1985,6 +2004,7 @@
       <p class="dm-note">Heads up: this only clears the profile on this device — nothing you've built (groups, disciples, progress) is deleted, it's still tied to your account in the background. But there's currently no way to "log back in" to it afterward, since accounts aren't looked up by name or email — so only log out if you're sure, or if you're setting this device up for someone else.</p>
     `;
     document.getElementById('profileBackBtn').onclick = () => { topView = 'hub'; renderDiscipleStep(); };
+    document.getElementById('ownJourneyBtn').onclick = () => { topView = 'hub'; renderDiscipleStep(); };
     document.getElementById('profPhotoInput').onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -2827,25 +2847,10 @@ async function renderMentor() {
   const groups = (await safeGet(`leader-groups:${myId}`, true)) || [];
   const disciples = (await safeGet(`leader-disciples:${myId}`, true)) || [];
   let directCode = await safeGet(`leader-direct-code:${myId}`, true);
-  const myWalkoutProgress = (await safeGet(`walkout-progress:${myId}`, true)) || {};
-  const myStats = overallWalkoutStats(myWalkoutProgress);
   const discipledCount = await computeDiscipledCount(myId);
-  const ownJourneyHtml = myStats.done === 0
-    ? `<button type="button" class="own-journey-card own-journey-prompt" id="ownJourneyBtn">
-         <div class="own-journey-title">Would you like to walk through the Following Jesus foundations yourself?</div>
-         <div class="own-journey-sub">Leaders grow too — see your own steps →</div>
-       </button>`
-    : `<button type="button" class="own-journey-card" id="ownJourneyBtn">
-         <div class="own-journey-top">
-           <div class="own-journey-title">Your Own Journey</div>
-           <div class="own-journey-pct">${myStats.pct}%</div>
-         </div>
-         <div class="walkout-progress-bar"><div class="walkout-progress-fill" style="width:${myStats.pct}%;"></div></div>
-       </button>`;
 
   main.innerHTML = `
     <a class="back-link" id="backToHubBtn">← My Discipleship</a>
-    ${ownJourneyHtml}
     <div class="discipled-stat-card">
       <div class="discipled-stat-number">${discipledCount}</div>
       <div class="discipled-stat-label">${discipledCount === 1 ? 'Person' : 'People'} You've Discipled</div>
@@ -2866,7 +2871,6 @@ async function renderMentor() {
   document.getElementById('backToHubBtn').onclick = () => {
     topView = 'hub'; view = 'home'; activeGroupCode = null; activeMemberId = null; render();
   };
-  document.getElementById('ownJourneyBtn').onclick = () => { topView = 'hub'; render(); };
 
 async function wireLeaderQuickActions() {
   let directCode = await safeGet(`leader-direct-code:${myId}`, true);
@@ -3033,7 +3037,7 @@ async function renderGroupDetail(code) {
       <span>Invite Someone to Join</span>
       <svg class="course-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
     </button>
-    <div class="card invite-toggle-body" id="inviteToggleBody" style="border-radius:0 0 2px 2px; margin-top:0; display:none;">
+    <div class="card invite-toggle-body" id="inviteToggleBody" style="border-radius:0 0 2px 2px; margin-top:0;">
       <div class="code-display">
         <div class="code">${code}</div>
         <div class="hint">Share this code — anyone who enters it joins this group</div>
@@ -3041,8 +3045,8 @@ async function renderGroupDetail(code) {
       <button class="secondary" id="reshareBtn">Share Invite</button>
     </div>
     <div class="chat-block">
-      <div class="section-label">Group Chat — everyone in this group can see this</div>
       <div class="chat-panel-light">
+        <div class="section-label chat-panel-title">Group Chat — everyone in this group can see this</div>
         <div class="msg-thread">${groupChatHtml}</div>
         <div class="msg-input-row">
           <input type="text" id="groupMsgInput" placeholder="Message the whole group…" />
@@ -3070,9 +3074,8 @@ async function renderGroupDetail(code) {
   document.getElementById('inviteToggleBtn').onclick = () => {
     const body = document.getElementById('inviteToggleBody');
     const btn = document.getElementById('inviteToggleBtn');
-    const isOpen = body.style.display !== 'none';
-    body.style.display = isOpen ? 'none' : 'block';
-    btn.classList.toggle('open', !isOpen);
+    const nowOpen = body.classList.toggle('open');
+    btn.classList.toggle('open', nowOpen);
   };
   document.getElementById('closeGroupBtn').onclick = async () => {
     const memberCount = members.length;
@@ -3220,8 +3223,8 @@ async function renderMemberDetail(memberId) {
       <p>Following their progress through the 7 essentials</p>
     </div>
     <div class="chat-block">
-      <div class="section-label">Messages</div>
       <div class="chat-panel-light">
+        <div class="section-label chat-panel-title">Messages</div>
         <div class="msg-thread">${msgHtml}</div>
         <div class="msg-input-row">
           <input type="text" id="msgInput" placeholder="Send encouragement…" />
@@ -3405,7 +3408,7 @@ async function renderDisciple() {
         <button type="button" class="chat-toggle-btn" data-pane="leader">Message ${escapeHtml(gLeaderName)}</button>
       </div>
       <div class="chat-block chat-pane" data-pane="group" data-code="${g.code}">
-        <div class="section-label" style="color: var(--ink-soft); margin-top:0;">Group Chat — everyone here can see this</div>
+        <div class="section-label chat-panel-title">Group Chat — everyone here can see this</div>
         <div class="msg-thread">${groupChatHtml}</div>
         <div class="msg-input-row">
           <input type="text" class="groupChatInput" data-code="${g.code}" placeholder="Message the group…" />
@@ -3413,7 +3416,7 @@ async function renderDisciple() {
         </div>
       </div>
       <div class="chat-block chat-pane" data-pane="leader" data-code="${g.code}" style="display:none;">
-        <div class="section-label" style="color: var(--ink-soft); margin-top:0;">Private — only you and ${escapeHtml(gLeaderName)} can see this</div>
+        <div class="section-label chat-panel-title">Private — only you and ${escapeHtml(gLeaderName)} can see this</div>
         <div class="msg-thread">${gMsgHtml}</div>
         <div class="msg-input-row">
           <input type="text" class="leaderMsgInputInline" data-leader-id="${g.leaderId}" placeholder="Message ${escapeHtml(gLeaderName)}…" />
@@ -3446,8 +3449,8 @@ async function renderDisciple() {
     ${groupPeersHtml}
     ${myGroups.length === 0 ? `
     <div class="chat-block">
-      <div class="section-label">Messages With ${escapeHtml(leaderName)}</div>
       <div class="chat-panel-light">
+        <div class="section-label chat-panel-title">Messages With ${escapeHtml(leaderName)}</div>
         <div class="msg-thread">${msgHtml}</div>
         <div class="msg-input-row">
           <input type="text" id="msgInput" placeholder="Send a message…" />
