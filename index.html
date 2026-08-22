@@ -1005,6 +1005,29 @@
     text-align: center;
   }
   .disciple-app-scope .compact-action-btn:active { background: #a8752a; }
+
+  .disciple-app-scope .hub-role-grid { display: flex; gap: 10px; margin-bottom: 20px; }
+  .disciple-app-scope .hub-role-card {
+    flex: 1;
+    background: var(--paper);
+    border: none;
+    border-radius: 2px;
+    padding: 18px 14px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .disciple-app-scope .hub-role-card.hub-role-cta { background: #0d7a6e; }
+  .disciple-app-scope .hub-role-title {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 13.5px;
+    color: var(--black);
+    margin-bottom: 6px;
+  }
+  .disciple-app-scope .hub-role-card.hub-role-cta .hub-role-title { color: var(--white); }
+  .disciple-app-scope .hub-role-sub { font-size: 11px; color: var(--ink-soft); line-height: 1.4; }
+  .disciple-app-scope .hub-role-card.hub-role-cta .hub-role-sub { color: rgba(255,255,255,0.8); }
+
   .disciple-app-scope .code-display { text-align:center; padding: 24px 0 18px; }
   .disciple-app-scope .code-display .label { font-family:var(--font-display); font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-soft); }
   .disciple-app-scope .code-display .code { font-family:var(--font-display); font-weight:900; font-size:38px; letter-spacing:0.1em; color:var(--black); margin-top:8px; }
@@ -1633,8 +1656,6 @@
   async function renderDiscipleStep() {
     const account = await dSafeGet('account');
     if (!account) { renderAccountStep(); return; }
-    const intent = await dSafeGet('intent');
-    if (!intent) { renderIntentStep(account); return; }
     await renderDiscipleshipApp();
   }
 
@@ -1652,18 +1673,6 @@
       await dSafeSet('account', { name, email, id: uid() });
       renderDiscipleStep();
     };
-  }
-
-  function renderIntentStep(account) {
-    discipleBody.innerHTML = `
-      <p class="dm-p">Hey ${escapeHtmlMain(account.name)} — what brings you here?</p>
-      <button class="primary-btn" id="intentLead">I Want to Disciple Someone</button>
-      <button class="secondary-btn" id="intentJoin">I'm Being Discipled by Someone</button>
-      <button class="secondary-btn" id="intentSolo">I Want to Walk Through This on My Own</button>
-    `;
-    document.getElementById('intentLead').onclick = async () => { await dSafeSet('intent', 'lead'); renderDiscipleStep(); };
-    document.getElementById('intentJoin').onclick = async () => { await dSafeSet('intent', 'join'); renderDiscipleStep(); };
-    document.getElementById('intentSolo').onclick = async () => { await dSafeSet('intent', 'solo'); renderDiscipleStep(); };
   }
 
   function escapeHtmlMain(s) {
@@ -2055,10 +2064,13 @@ async function safeDelete(key, shared) {
   localStorage.removeItem('fj_proto_' + key);
 }
 
+let topView = 'hub'; // 'hub' | 'leader' | 'disciple'
+
 async function render() {
   main.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
-  const intent = await dSafeGet('intent');
-  if (intent === 'lead') { await renderMentor(); } else { await renderDisciple(); }
+  if (topView === 'leader') { await renderMentor(); }
+  else if (topView === 'disciple') { await renderDisciple(); }
+  else { await renderDiscipleshipHub(); }
 }
 
 // ============ LEADER ============
@@ -2067,6 +2079,7 @@ async function renderMentor() {
 
   if (!application) {
     main.innerHTML = `
+      <a class="back-link" id="backToHubBtn">← My Discipleship</a>
       <div class="card">
         <h2>Make Disciples</h2>
         <p>Use this app to walk friends through the 7 essentials of following Jesus — with a shared checklist and a private way to check in on them.</p>
@@ -2077,6 +2090,7 @@ async function renderMentor() {
         <input type="text" id="appPastorEmail" placeholder="Your pastor's email" />
         <button class="primary" id="applyBtn">Apply to Become a Leader</button>
       </div>`;
+    document.getElementById('backToHubBtn').onclick = () => { topView = 'hub'; render(); };
     document.getElementById('applyBtn').onclick = async () => {
       const name = document.getElementById('appName').value.trim();
       const church = document.getElementById('appChurch').value.trim();
@@ -2091,11 +2105,13 @@ async function renderMentor() {
 
   if (application.status === 'pending') {
     main.innerHTML = `
+      <a class="back-link" id="backToHubBtn">← My Discipleship</a>
       <div class="card">
         <h2>Application Pending</h2>
         <p>Your application is in as a leader under <strong>${escapeHtml(application.pastorName)}</strong> (${escapeHtml(application.pastorEmail)}) at ${escapeHtml(application.church)}. Real pastor-approval emails aren't connected yet — until they are, you can confirm it yourself below to keep testing.</p>
         <button class="primary" id="simulateApproveBtn">Confirm My Own Application (Temporary) →</button>
       </div>`;
+    document.getElementById('backToHubBtn').onclick = () => { topView = 'hub'; render(); };
     document.getElementById('simulateApproveBtn').onclick = async () => {
       application.status = 'approved';
       await safeSet(`leader-application:${myId}`, application, true);
@@ -2112,6 +2128,7 @@ async function renderMentor() {
   let directCode = await safeGet(`leader-direct-code:${myId}`, true);
 
   main.innerHTML = `
+    <a class="back-link" id="backToHubBtn">← My Discipleship</a>
     <div class="two-col two-col-compact">
       <button class="compact-action-btn" id="inviteFriendBtn">${directCode ? 'Show My Link' : 'Invite an Individual'}</button>
       <button class="compact-action-btn" id="newGroupBtn">Create a Group</button>
@@ -2124,6 +2141,10 @@ async function renderMentor() {
 
     <div id="tabContent" style="margin-top:18px;"></div>
   `;
+
+  document.getElementById('backToHubBtn').onclick = () => {
+    topView = 'hub'; view = 'home'; activeGroupCode = null; activeMemberId = null; render();
+  };
 
   document.getElementById('inviteFriendBtn').onclick = async () => {
     if (!directCode) {
@@ -2176,7 +2197,7 @@ async function renderMentor() {
     } else {
       let html = '';
       for (const d of disciples) {
-        const progress = (await safeGet(`progress:${myId}:${d.id}`, true)) || {};
+        const progress = (await safeGet(`progress:${d.id}`, true)) || {};
         const doneCount = Object.values(progress).filter(s => s === 'done').length;
         const groupLabels = (d.groups || []).length ? (d.groups || []).join(', ') : 'Direct';
         html += `
@@ -2216,7 +2237,8 @@ async function removeDisciple(discipleId) {
       await safeSet(`group-members:${g.code}`, members, true);
     }
   }
-  await safeDelete(`progress:${myId}:${discipleId}`, true);
+  // Note: intentionally not deleting progress:${discipleId} — that's the
+  // person's own personal record now, not the leader's to remove.
   await safeDelete(`messages:${myId}:${discipleId}`, true);
 }
 
@@ -2245,7 +2267,7 @@ async function renderGroupDetail(code) {
     membersHtml = `<div class="empty-state"><p>No one in this group yet. Share the code below, or add an existing disciple.</p></div>`;
   } else {
     for (const m of members) {
-      const progress = (await safeGet(`progress:${myId}:${m.id}`, true)) || {};
+      const progress = (await safeGet(`progress:${m.id}`, true)) || {};
       const doneCount = Object.values(progress).filter(s => s === 'done').length;
       membersHtml += `
         <div class="row">
@@ -2418,7 +2440,7 @@ async function removeFromGroup(code, discipleId) {
 async function renderMemberDetail(memberId) {
   const disciples = (await safeGet(`leader-disciples:${myId}`, true)) || [];
   const member = disciples.find(d => d.id === memberId);
-  const progress = (await safeGet(`progress:${myId}:${memberId}`, true)) || {};
+  const progress = (await safeGet(`progress:${memberId}`, true)) || {};
   const messages = (await safeGet(`messages:${myId}:${memberId}`, true)) || [];
   const walkoutProgress = (await safeGet(`walkout-progress:${memberId}`, true)) || {};
 
@@ -2485,6 +2507,7 @@ async function renderDisciple() {
 
   if (!membership) {
     main.innerHTML = `
+      <a class="back-link" id="backToHubBtn">← My Discipleship</a>
       <div class="card">
         <h2>Join Someone Discipling You</h2>
         <p>Enter the invite code they gave you — either a personal link or a group code.</p>
@@ -2492,6 +2515,7 @@ async function renderDisciple() {
         <button class="primary" id="joinBtn">Join</button>
         <p id="joinError" style="color:#a5453f; margin-top:10px; margin-bottom:0;"></p>
       </div>`;
+    document.getElementById('backToHubBtn').onclick = () => { topView = 'hub'; render(); };
     document.getElementById('joinBtn').onclick = async () => {
       const codeInput = document.getElementById('joinCodeInput').value.trim().toUpperCase();
       const group = await safeGet(`group:${codeInput}`, true);
@@ -2521,7 +2545,7 @@ async function renderDisciple() {
   }
 
   const leaderId = membership.leaderId;
-  const progress = (await safeGet(`progress:${leaderId}:${myId}`, true)) || {};
+  const progress = (await safeGet(`progress:${myId}`, true)) || {};
   const messages = (await safeGet(`messages:${leaderId}:${myId}`, true)) || [];
   const myGroups = (await safeGet(`disciple-groups:${myId}`, true)) || [];
   const leaderApp = await safeGet(`leader-application:${leaderId}`, true);
@@ -2548,7 +2572,7 @@ async function renderDisciple() {
       peerRows = `<div class="msg-empty">No one else has joined yet.</div>`;
     } else {
       for (const p of peers) {
-        const pProgress = (await safeGet(`progress:${g.leaderId}:${p.id}`, true)) || {};
+        const pProgress = (await safeGet(`progress:${p.id}`, true)) || {};
         const doneCount = Object.values(pProgress).filter(s => s === 'done').length;
         peerRows += `<div class="row"><div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="sub">${doneCount} of ${STEPS.length} steps complete</div></div></div>`;
       }
@@ -2611,6 +2635,7 @@ async function renderDisciple() {
        </div>`;
 
   main.innerHTML = `
+    <a class="back-link" id="backToHubBtn">← My Discipleship</a>
     ${groupPeersHtml}
     ${myGroups.length === 0 ? `
     <div class="chat-block">
@@ -2627,6 +2652,7 @@ async function renderDisciple() {
     <div class="section-label">Your Next Steps</div>
     ${stepsHtml}
   `;
+  document.getElementById('backToHubBtn').onclick = () => { topView = 'hub'; render(); };
 
   [...document.querySelectorAll('.chat-toggle')].forEach(toggle => {
     const buttons = toggle.querySelectorAll('.chat-toggle-btn');
@@ -2664,14 +2690,14 @@ async function renderDisciple() {
       const cur = progress[i] || 'not_started';
       const next = cur === 'done' ? 'not_started' : 'done';
       progress[i] = next;
-      await safeSet(`progress:${leaderId}:${myId}`, progress, true);
+      await safeSet(`progress:${myId}`, progress, true);
       render();
     };
   });
   wireWalkoutToggles(main, 'Friend');
   wireWalkoutItemToggles(main, myId, async (stepIdx, newStatus) => {
     progress[stepIdx] = newStatus;
-    await safeSet(`progress:${leaderId}:${myId}`, progress, true);
+    await safeSet(`progress:${myId}`, progress, true);
   });
 
   [...document.querySelectorAll('[data-leave-code]')].forEach(btn => {
@@ -2859,21 +2885,43 @@ function showShareModal(code, label) {
 
 
 // ---------- Solo (self-guided, no leader needed) ----------
-async function renderSolo() {
-  const progress = (await dSafeGet('soloProgress')) || {};
+async function renderDiscipleshipHub() {
+  const leaderApp = await safeGet(`leader-application:${myId}`, true);
+  const membership = await safeGet(`disciple-membership:${myId}`, true);
+  const progress = (await safeGet(`progress:${myId}`, true)) || {};
   const walkoutProgress = (await safeGet(`walkout-progress:${myId}`, true)) || {};
 
   let stepsHtml = '';
   STEPS.forEach((title, i) => {
     const status = progress[i] || 'not_started';
-    stepsHtml += stepBlockHtml(i, title, status, { clickable: true, suffix: 'tap to update', prefix: 'Solo', walkoutChecked: walkoutProgress[i], interactive: true });
+    stepsHtml += stepBlockHtml(i, title, status, { clickable: true, prefix: 'Hub', walkoutChecked: walkoutProgress[i], interactive: true });
   });
 
+  const leaderCardHtml = (leaderApp && leaderApp.status === 'approved')
+    ? `<button type="button" class="hub-role-card" id="goLeaderDash">
+         <div class="hub-role-title">Discipling Others</div>
+         <div class="hub-role-sub">Open your leader dashboard →</div>
+       </button>`
+    : `<button type="button" class="hub-role-card hub-role-cta" id="goLeaderDash">
+         <div class="hub-role-title">Disciple Someone</div>
+         <div class="hub-role-sub">${leaderApp ? 'Application pending →' : 'Walk a friend or group through this →'}</div>
+       </button>`;
+
+  const discipleCardHtml = membership
+    ? `<button type="button" class="hub-role-card" id="goDiscipleDash">
+         <div class="hub-role-title">Being Discipled</div>
+         <div class="hub-role-sub">Open your chat and groups →</div>
+       </button>`
+    : `<button type="button" class="hub-role-card hub-role-cta" id="goDiscipleDash">
+         <div class="hub-role-title">Get a Leader</div>
+         <div class="hub-role-sub">Have someone walk alongside you →</div>
+       </button>`;
+
   main.innerHTML = `
-    <div class="card">
-      <h2>Walking This Out on Your Own</h2>
-      <p>You've got this. Work through the 7 essentials at your own pace. If you'd ever like a leader alongside you, you can add one anytime — your progress carries over.</p>
-      <button class="secondary" id="soloGetLeaderBtn">Get a Leader to Walk With Me</button>
+    <p class="dm-p" style="margin-bottom:18px;">Everyone here can grow, disciple others, and be discipled — all at once. This is your home base for all of it.</p>
+    <div class="hub-role-grid">
+      ${leaderCardHtml}
+      ${discipleCardHtml}
     </div>
     ${renderResourcesHtml()}
     ${overallProgressHtml(walkoutProgress)}
@@ -2881,11 +2929,8 @@ async function renderSolo() {
     ${stepsHtml}
   `;
 
-  document.getElementById('soloGetLeaderBtn').onclick = async () => {
-    if (!(await showAppConfirm("Switch to being discipled by a leader? You'll enter an invite code from them next."))) return;
-    await dSafeSet('intent', 'join');
-    renderDiscipleStep();
-  };
+  document.getElementById('goLeaderDash').onclick = () => { topView = 'leader'; render(); };
+  document.getElementById('goDiscipleDash').onclick = () => { topView = 'disciple'; render(); };
 
   [...main.querySelectorAll('.step-row[data-clickable="true"]')].forEach(el => {
     let busy = false;
@@ -2896,14 +2941,14 @@ async function renderSolo() {
       const cur = progress[i] || 'not_started';
       const next = cur === 'done' ? 'not_started' : 'done';
       progress[i] = next;
-      await dSafeSet('soloProgress', progress);
-      renderSolo();
+      await safeSet(`progress:${myId}`, progress, true);
+      renderDiscipleshipHub();
     };
   });
-  wireWalkoutToggles(main, 'Solo');
+  wireWalkoutToggles(main, 'Hub');
   wireWalkoutItemToggles(main, myId, async (stepIdx, newStatus) => {
     progress[stepIdx] = newStatus;
-    await dSafeSet('soloProgress', progress);
+    await safeSet(`progress:${myId}`, progress, true);
   });
 }
 
@@ -2915,8 +2960,6 @@ async function renderDiscipleshipApp() {
     await dSafeSet('account', account);
   }
   myId = account.id;
-  const intent = await dSafeGet('intent');
-  if (intent === 'solo') { await renderSolo(); return; }
   await render();
 }
 
