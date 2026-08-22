@@ -1125,6 +1125,27 @@
   .disciple-app-scope .invite-toggle-btn.open svg { transform: rotate(180deg); }
   .disciple-app-scope .invite-toggle-body { display: none; }
   .disciple-app-scope .invite-toggle-body.open { display: block; }
+  .disciple-app-scope .group-section-spacer { height: 24px; }
+
+  .disciple-app-scope .group-course-card {
+    background: var(--paper); border-radius: 2px; padding: 18px; margin: 20px 0;
+  }
+  .disciple-app-scope .course-select-row { display: flex; gap: 8px; margin: 10px 0 16px; flex-wrap: wrap; }
+  .disciple-app-scope .course-select-btn {
+    flex: 1; min-width: 120px; background: var(--white); border: 1px solid rgba(10,10,10,0.15);
+    border-radius: 20px; padding: 8px 14px; font-family: var(--font-display); font-size: 11.5px;
+    font-weight: 700; color: var(--ink-soft); cursor: pointer; text-align: center;
+  }
+  .disciple-app-scope .course-select-btn.active { background: var(--ember); border-color: var(--ember); color: var(--white); }
+  .disciple-app-scope .group-progress-row { display: flex; align-items: center; gap: 10px; }
+
+  .disciple-app-scope .chat-action-tag {
+    display: inline-block; font-family: var(--font-display); font-size: 9.5px; font-weight: 700;
+    letter-spacing: 0.03em; text-transform: uppercase; color: var(--ember);
+    background: rgba(200,155,60,0.15); border-radius: 10px; padding: 2px 8px; margin-bottom: 4px;
+  }
+  .disciple-app-scope .msg.msg-action { border: 1.5px solid var(--ember); }
+  .disciple-app-scope .msg-input-row #assignActionBtn { flex: 0 0 auto; width: auto; padding: 14px 16px; }
   .disciple-app-scope .code-display .label { font-family:var(--font-display); font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-soft); }
   .disciple-app-scope .code-display .code { font-family:var(--font-display); font-weight:900; font-size:38px; letter-spacing:0.1em; color:var(--black); margin-top:8px; }
   .disciple-app-scope .code-display .hint { font-size:11.5px; color:var(--ink-soft); margin-top:8px; }
@@ -3083,6 +3104,8 @@ async function removeDisciple(discipleId) {
 async function renderGroupDetail(code) {
   const groups = (await safeGet(`leader-groups:${myId}`, true)) || [];
   const group = groups.find(g => g.code === code);
+  const groupCourseId = (group && group.courseId && COURSES[group.courseId]) ? group.courseId : 'essentials';
+  const course = COURSES[groupCourseId];
   const memberIds = (await safeGet(`group-members:${code}`, true)) || [];
   const allDisciples = (await safeGet(`leader-disciples:${myId}`, true)) || [];
   const members = allDisciples.filter(d => memberIds.includes(d.id));
@@ -3096,39 +3119,49 @@ async function renderGroupDetail(code) {
     groupChatHtml = '<div class="msg-empty">No group messages yet.</div>';
   } else {
     groupMessages.forEach(m => {
-      groupChatHtml += `<div class="msg ${m.senderId === myId ? 'me' : 'them'}"><strong style="display:block;font-size:10px;opacity:0.7;margin-bottom:2px;">${escapeHtml(m.senderName)}</strong>${linkify(m.body)}</div>`;
+      const actionTag = m.isAction ? `<span class="chat-action-tag">📋 Action</span>` : '';
+      groupChatHtml += `<div class="msg ${m.senderId === myId ? 'me' : 'them'}${m.isAction ? ' msg-action' : ''}"><strong style="display:block;font-size:10px;opacity:0.7;margin-bottom:2px;">${escapeHtml(m.senderName)}</strong>${actionTag}${linkify(m.body)}</div>`;
     });
   }
 
+  // Each member's progress is shown against whichever course this group
+  // is currently focused on — everyone still checks off their own
+  // personal journey, this is just the leader (and group) seeing it in
+  // aggregate.
   let membersHtml = '';
+  let totalPct = 0;
+  let completedCount = 0;
   if (members.length === 0) {
-    membersHtml = `<div class="empty-state"><p>No one in this group yet. Share the code below, or add an existing disciple.</p></div>`;
+    membersHtml = `<div class="empty-state"><p>No one in this group yet. Share the code above, or add an existing disciple.</p></div>`;
   } else {
     for (const m of members) {
-      const progress = (await safeGet(`progress:${m.id}`, true)) || {};
-      const doneCount = Object.values(progress).filter(s => s === 'done').length;
+      const mProgress = (await safeGet(course.progressKey(m.id), true)) || {};
+      const mWalkout = (await safeGet(course.walkoutKey(m.id), true)) || {};
+      const doneCount = course.steps.filter((_, i) => displayStepStatus(i, mProgress, mWalkout, course.walkItOut) === 'done').length;
+      const pct = Math.round((doneCount / course.steps.length) * 100);
+      totalPct += pct;
+      if (pct === 100) completedCount++;
       membersHtml += `
         <div class="row">
           <div class="info" data-id="${m.id}">
             <div class="name">${escapeHtml(m.name)}</div>
-            <div class="sub">${doneCount} of ${STEPS.length} steps complete</div>
+            <div class="sub">${doneCount} of ${course.steps.length} steps · ${escapeHtml(course.title)}</div>
           </div>
           <div class="arrow" data-id="${m.id}">→</div>
           <button class="del-btn" data-removeid="${m.id}" title="Remove from group">✕</button>
         </div>`;
     }
   }
+  const groupAvgPct = members.length > 0 ? Math.round(totalPct / members.length) : 0;
 
   let addOptions = notInGroup.map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('');
-  const actionsBlockHtml = await renderLeaderActionsBlock('Actions for This Group', `group-actions:${code}`);
+  const courseOptionsHtml = Object.keys(COURSES).map(cid => `
+    <button type="button" class="course-select-btn ${cid === groupCourseId ? 'active' : ''}" data-course="${cid}">${escapeHtml(COURSES[cid].title)}</button>
+  `).join('');
 
   main.innerHTML = `
     <a class="back-link" id="backToHubBtn">← My Discipleship</a>
     <a class="back-link" id="backBtn">← All Groups</a>
-    <div class="two-col two-col-compact">
-      <button class="compact-action-btn" id="inviteFriendBtn">Invite an Individual</button>
-      <button class="compact-action-btn" id="newGroupBtn">Create Another Group</button>
-    </div>
     <div class="group-header-bar">
       <div class="eyebrow">Group</div>
       <div class="name">${escapeHtml(group ? group.label : '')}</div>
@@ -3144,32 +3177,51 @@ async function renderGroupDetail(code) {
       </div>
       <button class="secondary" id="reshareBtn">Share Invite</button>
     </div>
+    <div class="group-section-spacer"></div>
+
+    <button type="button" class="invite-toggle-btn" id="peopleToggleBtn">
+      <span>People in This Group (${members.length})</span>
+      <svg class="course-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="card invite-toggle-body" id="peopleToggleBody" style="border-radius:0 0 2px 2px; margin-top:0;">
+      <p class="dm-p" style="margin-bottom:14px;">Everyone here can see each other's progress on the group's course.</p>
+      ${membersHtml}
+      ${notInGroup.length > 0 ? `
+      <div class="card" style="margin-top:14px;">
+        <h2>Add an Existing Disciple</h2>
+        <p>Bring someone you're already discipling into this group.</p>
+        <select class="picker" id="addExistingSelect">${addOptions}</select>
+        <button class="secondary" id="addExistingBtn">Add to Group</button>
+      </div>` : ''}
+    </div>
+
+    <div class="group-course-card">
+      <div class="section-label" style="margin-top:0;">This Group's Course</div>
+      <div class="course-select-row">${courseOptionsHtml}</div>
+      <div class="group-progress-row">
+        <div class="walkout-progress-bar overall"><div class="walkout-progress-fill" style="width:${groupAvgPct}%;"></div></div>
+        <div class="overall-progress-pct">${groupAvgPct}%</div>
+      </div>
+      <div class="overall-progress-sub">${completedCount} of ${members.length} ${members.length === 1 ? 'person has' : 'people have'} completed ${escapeHtml(course.title)}</div>
+    </div>
+
     <div class="chat-block">
       <div class="chat-panel-light">
-        <div class="section-label chat-panel-title">Group Chat — everyone in this group can see this</div>
+        <div class="section-label chat-panel-title">Group Chat &amp; Actions — everyone in this group can see this</div>
         <div class="msg-thread">${groupChatHtml}</div>
         <div class="msg-input-row">
-          <input type="text" id="groupMsgInput" placeholder="Message the whole group…" />
+          <input type="text" id="groupMsgInput" placeholder="Message the group, or assign an action…" />
+          <button class="secondary" id="assignActionBtn" title="Assign as an action">📋</button>
           <button class="primary" id="sendGroupMsgBtn">Send</button>
         </div>
       </div>
     </div>
-    ${actionsBlockHtml}
-    ${notInGroup.length > 0 ? `
-    <div class="card">
-      <h2>Add an Existing Disciple</h2>
-      <p>Bring someone you're already discipling into this group.</p>
-      <select class="picker" id="addExistingSelect">${addOptions}</select>
-      <button class="secondary" id="addExistingBtn">Add to Group</button>
-    </div>` : ''}
-    <div class="section-label">People in This Group — everyone here can see each other's progress</div>
-    ${membersHtml}
+
     <a class="close-group-link" id="closeGroupBtn">Close This Group</a>
   `;
 
   document.getElementById('backBtn').onclick = () => { view = 'home'; activeGroupCode = null; render(); };
   document.getElementById('backToHubBtn').onclick = () => { topView = 'hub'; view = 'home'; activeGroupCode = null; activeMemberId = null; render(); };
-  await wireLeaderQuickActions();
   document.getElementById('reshareBtn').onclick = () => showShareModal(code, group ? group.label : '');
   document.getElementById('inviteToggleBtn').onclick = () => {
     const body = document.getElementById('inviteToggleBody');
@@ -3177,6 +3229,24 @@ async function renderGroupDetail(code) {
     const nowOpen = body.classList.toggle('open');
     btn.classList.toggle('open', nowOpen);
   };
+  document.getElementById('peopleToggleBtn').onclick = () => {
+    const body = document.getElementById('peopleToggleBody');
+    const btn = document.getElementById('peopleToggleBtn');
+    const nowOpen = body.classList.toggle('open');
+    btn.classList.toggle('open', nowOpen);
+  };
+  [...document.querySelectorAll('.course-select-btn')].forEach(btn => {
+    btn.onclick = async () => {
+      const chosenId = btn.dataset.course;
+      const gs = (await safeGet(`leader-groups:${myId}`, true)) || [];
+      const g = gs.find(x => x.code === code);
+      if (g) {
+        g.courseId = chosenId;
+        await safeSet(`leader-groups:${myId}`, gs, true);
+      }
+      render();
+    };
+  });
   document.getElementById('closeGroupBtn').onclick = async () => {
     const memberCount = members.length;
     const warnText = memberCount > 0
@@ -3193,6 +3263,18 @@ async function renderGroupDetail(code) {
     if (!input.value.trim()) return;
     const msgs = (await safeGet(`group-messages:${code}`, true)) || [];
     msgs.push({ senderId: myId, senderName: myName, body: input.value.trim(), at: Date.now() });
+    await safeSet(`group-messages:${code}`, msgs, true);
+    render();
+  };
+  document.getElementById('assignActionBtn').onclick = async () => {
+    const input = document.getElementById('groupMsgInput');
+    const text = input.value.trim();
+    if (!text) { await showAppAlert('Type what you want to assign in the message box first, then tap this button.'); return; }
+    const actions = (await safeGet(`group-actions:${code}`, true)) || [];
+    actions.push({ id: uid(), text, createdAt: Date.now() });
+    await safeSet(`group-actions:${code}`, actions, true);
+    const msgs = (await safeGet(`group-messages:${code}`, true)) || [];
+    msgs.push({ senderId: myId, senderName: myName, body: text, isAction: true, at: Date.now() });
     await safeSet(`group-messages:${code}`, msgs, true);
     render();
   };
@@ -3906,7 +3988,7 @@ async function renderDiscipleshipHub() {
       <div class="hub-profile-photo">${account && account.photoUrl ? `<img src="${account.photoUrl}" alt="${escapeHtml(account.name)}" />` : `<span>${account ? escapeHtml(account.name.charAt(0).toUpperCase()) : '?'}</span>`}</div>
       <div class="hub-profile-name-col">
         <div class="hub-profile-name">${account ? escapeHtml(account.name) : 'Your Profile'}</div>
-        ${isApprovedLeader ? `<div class="hub-leader-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg> Verified Leader</div>` : ''}
+        ${isApprovedLeader ? `<div class="hub-leader-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg> Leader</div>` : ''}
       </div>
       <svg class="hub-profile-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg>
     </button>
