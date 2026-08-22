@@ -1059,6 +1059,7 @@
     cursor: pointer;
   }
   .disciple-app-scope .hub-role-card.hub-role-cta { background: #0d7a6e; }
+  .disciple-app-scope .hub-role-card.hub-role-cta-gold { background: var(--ember); }
   .disciple-app-scope .hub-role-card-standalone { display: block; width: 100%; margin-top: 16px; }
   .disciple-app-scope .hub-role-title {
     font-family: var(--font-display);
@@ -1067,9 +1068,11 @@
     color: var(--black);
     margin-bottom: 6px;
   }
-  .disciple-app-scope .hub-role-card.hub-role-cta .hub-role-title { color: var(--white); }
+  .disciple-app-scope .hub-role-card.hub-role-cta .hub-role-title,
+  .disciple-app-scope .hub-role-card.hub-role-cta-gold .hub-role-title { color: var(--white); }
   .disciple-app-scope .hub-role-sub { font-size: 11px; color: var(--ink-soft); line-height: 1.4; }
-  .disciple-app-scope .hub-role-card.hub-role-cta .hub-role-sub { color: rgba(255,255,255,0.8); }
+  .disciple-app-scope .hub-role-card.hub-role-cta .hub-role-sub,
+  .disciple-app-scope .hub-role-card.hub-role-cta-gold .hub-role-sub { color: rgba(255,255,255,0.8); }
 
   .disciple-app-scope .own-journey-card {
     display: block; width: 100%; text-align: left; border: none; cursor: pointer;
@@ -1177,6 +1180,8 @@
   .disciple-app-scope .overall-progress-sub { font-size: 11.5px; color: var(--ink-soft); margin-top: 8px; }
 
   .disciple-app-scope .course-card { margin-bottom: 20px; }
+  .disciple-app-scope .course-card-nested { margin-bottom: 12px; }
+  .disciple-app-scope .course-card-nested:last-child { margin-bottom: 0; }
   .disciple-app-scope .course-card-header {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
     width: 100%; text-align: left; cursor: pointer; border: none;
@@ -2350,6 +2355,57 @@ const WALK_IT_OUT = {
   ]
 };
 
+// "Water Baptism" — a second, shorter course (3 chapters), from the
+// Water Baptism handbook. Action items are paraphrased from each
+// chapter's reflection questions, not quoted directly — same approach
+// used for the Following Jesus Essentials course above.
+const WB_STEPS = [
+  "The Call to Follow Jesus", "Being Baptized in Water", "The Life of a Believer"
+];
+const WB_WALK_IT_OUT = {
+  0: [
+    "Write down when you were born again and first declared Jesus as Lord of your life.",
+    "Reflect on who God used to lead you to Jesus — thank them if you're able to.",
+    "Identify one person you can share your story of following Jesus with this week.",
+    "Read Matthew 6:33, and write down one way you can seek God's kingdom first this week."
+  ],
+  1: [
+    "Write down the sins and old ways of living you're ready to leave under the water.",
+    "Talk to your pastor or leader about scheduling your water baptism.",
+    "Invite family, friends, or coworkers to come watch you get baptized.",
+    "Pray and ask God what breakthrough you're trusting Him for as you take this step."
+  ],
+  2: [
+    "Write out your testimony — your life before Jesus, how you encountered Him, and where you are now.",
+    "Name three people you'll commit to praying for and sharing your story with.",
+    "Read the fruit of the Spirit (Galatians 5:22-23) and identify one you want to grow in.",
+    "Read the armor of God (Ephesians 6:10-18) and put it on in prayer this week."
+  ]
+};
+
+// Registry of every course — this is what makes adding a third course
+// later (Gifts of the Spirit, etc.) just a data addition instead of
+// another round of restructuring. Each course's steps/walkItOut/progress
+// keys stay fully independent, so nothing here can affect another course.
+const COURSES = {
+  essentials: {
+    title: 'Following Jesus Essentials',
+    subtitle: '7 essentials for every follower of Jesus',
+    steps: STEPS,
+    walkItOut: WALK_IT_OUT,
+    progressKey: (id) => `progress:${id}`,
+    walkoutKey: (id) => `walkout-progress:${id}`
+  },
+  waterBaptism: {
+    title: 'Water Baptism',
+    subtitle: 'Preparing for your next step in following Jesus',
+    steps: WB_STEPS,
+    walkItOut: WB_WALK_IT_OUT,
+    progressKey: (id) => `wb-progress:${id}`,
+    walkoutKey: (id) => `wb-walkout-progress:${id}`
+  }
+};
+
 const RESOURCES = [
   { label: "Following Jesus Book", url: "https://followingjesusbook.com/collections/online-resources/products/following-jesus-book-for-churches" },
   { label: "52 Verse Devotionals", url: "https://followingjesusbook.com/collections/books" },
@@ -2375,10 +2431,10 @@ function renderResourcesHtml() {
     </div>`;
 }
 
-function overallWalkoutStats(walkoutProgress) {
+function overallWalkoutStats(walkoutProgress, walkItOutData = WALK_IT_OUT) {
   let done = 0, total = 0;
-  Object.keys(WALK_IT_OUT).forEach(stepIdx => {
-    const items = WALK_IT_OUT[stepIdx];
+  Object.keys(walkItOutData).forEach(stepIdx => {
+    const items = walkItOutData[stepIdx];
     total += items.length;
     const checked = (walkoutProgress[stepIdx] && walkoutProgress[stepIdx].length === items.length) ? walkoutProgress[stepIdx] : items.map(() => false);
     done += checked.filter(Boolean).length;
@@ -2387,8 +2443,8 @@ function overallWalkoutStats(walkoutProgress) {
   return { done, total, pct };
 }
 
-function overallProgressHtml(walkoutProgress) {
-  const { done, total, pct } = overallWalkoutStats(walkoutProgress);
+function overallProgressHtml(walkoutProgress, walkItOutData = WALK_IT_OUT) {
+  const { done, total, pct } = overallWalkoutStats(walkoutProgress, walkItOutData);
   return `
     <div class="overall-progress-card">
       <div class="overall-progress-top">
@@ -2406,19 +2462,20 @@ function overallProgressHtml(walkoutProgress) {
 // later without another rebuild. Expand state is session-only (resets on
 // full page reload), not persisted — a course auto-collapses once every
 // step in it is done, but can always be manually reopened to review.
-let essentialsExpanded = false;
+let journeyExpanded = false;
+let courseExpandState = { essentials: false, waterBaptism: false };
 
-function courseCardHtml(courseId, title, subtitle, stepsHtml, walkoutProgress, progress) {
-  const doneCount = STEPS.filter((_, i) => displayStepStatus(i, progress, walkoutProgress) === 'done').length;
-  const totalCount = STEPS.length;
+function courseCardHtml(courseId, title, subtitle, stepsHtml, walkoutProgress, progress, stepsData = STEPS, walkItOutData = WALK_IT_OUT) {
+  const doneCount = stepsData.filter((_, i) => displayStepStatus(i, progress, walkoutProgress, walkItOutData) === 'done').length;
+  const totalCount = stepsData.length;
   const isComplete = doneCount === totalCount;
   const pct = Math.round((doneCount / totalCount) * 100);
-  const expanded = essentialsExpanded;
+  const expanded = courseExpandState[courseId];
   const badgeHtml = isComplete
     ? `<span class="course-complete-badge">✓ Complete</span>`
     : `<span class="course-progress-pct">${pct}%</span>`;
   return `
-    <div class="course-card">
+    <div class="course-card course-card-nested">
       <button type="button" class="course-card-header" id="courseToggle-${courseId}">
         <div class="course-card-header-left">
           <div class="course-card-title">${escapeHtml(title)}</div>
@@ -2429,61 +2486,62 @@ function courseCardHtml(courseId, title, subtitle, stepsHtml, walkoutProgress, p
           <svg class="course-chevron ${expanded ? 'open' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
         </div>
       </button>
-      <div class="course-card-body ${expanded ? 'open' : ''}">
-        ${overallProgressHtml(walkoutProgress)}
+      <div class="course-card-body ${expanded ? 'open' : ''}" id="courseCardBody-${courseId}">
+        ${overallProgressHtml(walkoutProgress, walkItOutData)}
         ${stepsHtml}
       </div>
     </div>`;
 }
 
-// "Your Own Journey" — the umbrella for a person's own growth, regardless
-// of who they lead. Wraps the current course (Following Jesus Essentials)
-// and is built so a second course later just becomes another block inside
-// this same expanded body, without needing another restructure. For an
-// approved leader, the "Get a Leader / Being Discipled" action lives at
-// the bottom of this section instead of sitting in the top row, since
-// that's part of their own growth too, not a separate mode.
-function ownJourneySectionHtml(walkoutProgress, progress, stepsHtml, bottomActionHtml) {
-  const stats = overallWalkoutStats(walkoutProgress);
-  const expanded = essentialsExpanded;
-  const isComplete = stats.pct === 100;
-
-  const badgeHtml = isComplete
-    ? `<span class="course-complete-badge">✓ Complete</span>`
-    : `<span class="course-progress-pct">${stats.pct}%</span>`;
-  const subtitle = `Following Jesus Essentials · ${stats.done} of ${stats.total} action steps complete`;
-
+// "My Discipleship Journey" — the umbrella for a person's own growth,
+// regardless of who they lead. Each individual course (Following Jesus
+// Essentials, Water Baptism, and whatever comes next) renders as its own
+// nested collapsible card inside this wrapper's expanded body — adding a
+// third course later is just another courseCardHtml(...) call here, not
+// another restructure. For an approved leader, the "Get a Leader / Being
+// Discipled" action lives at the bottom instead of sitting in the top
+// row, since that's part of their own growth too, not a separate mode.
+function ownJourneySectionHtml(nestedCoursesHtml, bottomActionHtml) {
+  const expanded = journeyExpanded;
   return `
     <div class="course-card">
-      <button type="button" class="course-card-header" id="courseToggle-essentials">
+      <button type="button" class="course-card-header" id="journeyToggle">
         <div class="course-card-header-left">
           <div class="course-card-title">My Discipleship Journey</div>
-          <div class="course-card-sub">${subtitle}</div>
+          <div class="course-card-sub">Your courses and personal growth</div>
         </div>
         <div class="course-card-header-right">
-          ${badgeHtml}
           <svg class="course-chevron ${expanded ? 'open' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
         </div>
       </button>
       <div class="course-card-body ${expanded ? 'open' : ''}">
-        ${overallProgressHtml(walkoutProgress)}
-        ${stepsHtml}
+        ${nestedCoursesHtml}
         ${bottomActionHtml || ''}
       </div>
     </div>`;
 }
 
-function wireCourseToggle(courseId, rerenderFn) {
-  const btn = document.getElementById(`courseToggle-${courseId}`);
+function wireJourneyToggle(rerenderFn) {
+  const btn = document.getElementById('journeyToggle');
   if (!btn) return;
   btn.onclick = () => {
-    essentialsExpanded = !essentialsExpanded;
+    journeyExpanded = !journeyExpanded;
     rerenderFn();
   };
 }
 
-function walkItOutHtml(stepIndex, checkedArr, interactive) {
-  const items = WALK_IT_OUT[stepIndex];
+function wireCourseToggle(courseId, rerenderFn) {
+  const btn = document.getElementById(`courseToggle-${courseId}`);
+  if (!btn) return;
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    courseExpandState[courseId] = !courseExpandState[courseId];
+    rerenderFn();
+  };
+}
+
+function walkItOutHtml(stepIndex, checkedArr, interactive, walkItOutData = WALK_IT_OUT) {
+  const items = walkItOutData[stepIndex];
   if (!items || items.length === 0) return '';
   const checked = (checkedArr && checkedArr.length === items.length) ? checkedArr : items.map(() => false);
   const doneCount = checked.filter(Boolean).length;
@@ -2503,9 +2561,9 @@ function walkItOutHtml(stepIndex, checkedArr, interactive) {
     <div class="walk-it-out-list">${rows}</div>`;
 }
 
-function stepBlockHtml(i, title, status, opts) {
+function stepBlockHtml(i, title, status, opts, walkItOutData = WALK_IT_OUT) {
   opts = opts || {};
-  const hasWalkout = !!(WALK_IT_OUT[i] && WALK_IT_OUT[i].length > 0);
+  const hasWalkout = !!(walkItOutData[i] && walkItOutData[i].length > 0);
   const icon = status === 'done' ? '✓' : (status === 'in_progress' ? '•' : '');
   let suffixText;
   if (!opts.clickable) {
@@ -2518,7 +2576,7 @@ function stepBlockHtml(i, title, status, opts) {
   const statusText = suffixText ? `${status.replace('_',' ')} · ${suffixText}` : status.replace('_',' ');
   const clickableNow = opts.clickable && !hasWalkout;
   const rowAttr = `data-step="${i}" data-clickable="${clickableNow ? 'true' : 'false'}"`;
-  const walkout = walkItOutHtml(i, opts.walkoutChecked, opts.interactive);
+  const walkout = walkItOutHtml(i, opts.walkoutChecked, opts.interactive, walkItOutData);
   const toggleBtn = walkout ? `<button type="button" class="walk-it-out-toggle" data-walkout="${i}">Action steps ▾</button>` : '';
   return `
     <div class="step-block">
@@ -2630,8 +2688,8 @@ function triggerConfetti() {
   animate();
 }
 
-function computeStepStatusFromWalkout(stepIdx, arr) {
-  const total = WALK_IT_OUT[stepIdx].length;
+function computeStepStatusFromWalkout(stepIdx, arr, walkItOutData = WALK_IT_OUT) {
+  const total = walkItOutData[stepIdx].length;
   const doneCount = arr.filter(Boolean).length;
   if (doneCount === 0) return 'not_started';
   if (doneCount === total) return 'done';
@@ -2643,15 +2701,16 @@ function computeStepStatusFromWalkout(stepIdx, arr) {
 // this way, any status saved by older app versions (or any other edge
 // case where the two ever drift) self-heals on the next render instead of
 // staying stuck.
-function displayStepStatus(stepIdx, progress, walkoutProgress) {
-  const items = WALK_IT_OUT[stepIdx];
+function displayStepStatus(stepIdx, progress, walkoutProgress, walkItOutData = WALK_IT_OUT) {
+  const items = walkItOutData[stepIdx];
   if (items && items.length > 0) {
     const arr = walkoutProgress[stepIdx];
     if (!arr || arr.length !== items.length) return 'not_started';
-    return computeStepStatusFromWalkout(stepIdx, arr);
+    return computeStepStatusFromWalkout(stepIdx, arr, walkItOutData);
   }
   return progress[stepIdx] || 'not_started';
 }
+
 
 function updateStepRowUI(container, stepIdx, status) {
   const row = container.querySelector(`.step-row[data-step="${stepIdx}"]`);
@@ -2670,7 +2729,7 @@ function updateStepRowUI(container, stepIdx, status) {
 }
 
 
-function wireWalkoutItemToggles(container, discipleId, onStepStatusChange) {
+function wireWalkoutItemToggles(container, discipleId, onStepStatusChange, walkItOutData = WALK_IT_OUT, walkoutKeyFn = (id) => `walkout-progress:${id}`) {
   [...container.querySelectorAll('.walkout-item.interactive')].forEach(el => {
     let busy = false;
     el.onclick = async (e) => {
@@ -2679,10 +2738,10 @@ function wireWalkoutItemToggles(container, discipleId, onStepStatusChange) {
       busy = true;
       const stepIdx = el.dataset.walkoutStep;
       const idx = parseInt(el.dataset.walkoutIdx, 10);
-      const key = `walkout-progress:${discipleId}`;
+      const key = walkoutKeyFn(discipleId);
       const progress = (await safeGet(key, true)) || {};
-      const total = WALK_IT_OUT[stepIdx].length;
-      const arr = (progress[stepIdx] && progress[stepIdx].length === total) ? progress[stepIdx] : WALK_IT_OUT[stepIdx].map(() => false);
+      const total = walkItOutData[stepIdx].length;
+      const arr = (progress[stepIdx] && progress[stepIdx].length === total) ? progress[stepIdx] : walkItOutData[stepIdx].map(() => false);
       arr[idx] = !arr[idx];
       progress[stepIdx] = arr;
       await safeSet(key, progress, true);
@@ -2701,8 +2760,11 @@ function wireWalkoutItemToggles(container, discipleId, onStepStatusChange) {
         if (pctLabel) pctLabel.textContent = pct + '%';
       }
 
-      // Also refresh the overall progress card at the top of the page.
-      const overallStats = overallWalkoutStats(progress);
+      // Also refresh the overall progress card at the top of this course
+      // (the container passed in should be scoped to just this course's
+      // own card when multiple courses render on the same page, so this
+      // never touches a different course's progress card).
+      const overallStats = overallWalkoutStats(progress, walkItOutData);
       const overallCard = container.querySelector('.overall-progress-card');
       if (overallCard) {
         const overallFill = overallCard.querySelector('.walkout-progress-fill');
@@ -2714,7 +2776,7 @@ function wireWalkoutItemToggles(container, discipleId, onStepStatusChange) {
       }
 
       // The step itself is done only once every one of its action steps is checked.
-      const newStepStatus = computeStepStatusFromWalkout(stepIdx, arr);
+      const newStepStatus = computeStepStatusFromWalkout(stepIdx, arr, walkItOutData);
       updateStepRowUI(container, stepIdx, newStepStatus);
       if (onStepStatusChange) await onStepStatusChange(stepIdx, newStepStatus);
 
@@ -3517,7 +3579,7 @@ async function renderDisciple() {
       await safeSet(`progress:${myId}`, progress, true);
       const freshWalkout = (await safeGet(`walkout-progress:${myId}`, true)) || {};
       const allDone = STEPS.every((_, idx) => displayStepStatus(idx, progress, freshWalkout) === 'done');
-      if (allDone) { essentialsExpanded = false; triggerConfetti(); incrementGlobalDiscipleCount(); }
+      if (allDone) { courseExpandState.essentials = false; triggerConfetti(); incrementGlobalDiscipleCount(); }
       render();
     };
   });
@@ -3527,7 +3589,7 @@ async function renderDisciple() {
     await safeSet(`progress:${myId}`, progress, true);
     const freshWalkout = (await safeGet(`walkout-progress:${myId}`, true)) || {};
     const allDone = STEPS.every((_, i) => displayStepStatus(i, progress, freshWalkout) === 'done');
-    if (allDone && essentialsExpanded) { essentialsExpanded = false; triggerConfetti(); incrementGlobalDiscipleCount(); render(); }
+    if (allDone && courseExpandState.essentials) { courseExpandState.essentials = false; triggerConfetti(); incrementGlobalDiscipleCount(); render(); }
   });
 
   [...document.querySelectorAll('[data-leave-code]')].forEach(btn => {
@@ -3721,14 +3783,26 @@ async function renderDiscipleshipHub() {
   const membership = await safeGet(`disciple-membership:${myId}`, true);
   const progress = (await safeGet(`progress:${myId}`, true)) || {};
   const walkoutProgress = (await safeGet(`walkout-progress:${myId}`, true)) || {};
+  const wbProgress = (await safeGet(`wb-progress:${myId}`, true)) || {};
+  const wbWalkoutProgress = (await safeGet(`wb-walkout-progress:${myId}`, true)) || {};
   const isApprovedLeader = leaderApp && leaderApp.status === 'approved';
   const globalCount = await getGlobalDiscipleCount();
 
   let stepsHtml = '';
   STEPS.forEach((title, i) => {
     const status = displayStepStatus(i, progress, walkoutProgress);
-    stepsHtml += stepBlockHtml(i, title, status, { clickable: true, prefix: 'Hub', walkoutChecked: walkoutProgress[i], interactive: true });
+    stepsHtml += stepBlockHtml(i, title, status, { clickable: true, prefix: 'HubEssentials', walkoutChecked: walkoutProgress[i], interactive: true });
   });
+
+  let wbStepsHtml = '';
+  WB_STEPS.forEach((title, i) => {
+    const status = displayStepStatus(i, wbProgress, wbWalkoutProgress, WB_WALK_IT_OUT);
+    wbStepsHtml += stepBlockHtml(i, title, status, { clickable: true, prefix: 'HubWaterBaptism', walkoutChecked: wbWalkoutProgress[i], interactive: true }, WB_WALK_IT_OUT);
+  });
+
+  const nestedCoursesHtml =
+    courseCardHtml('essentials', COURSES.essentials.title, COURSES.essentials.subtitle, stepsHtml, walkoutProgress, progress) +
+    courseCardHtml('waterBaptism', COURSES.waterBaptism.title, COURSES.waterBaptism.subtitle, wbStepsHtml, wbWalkoutProgress, wbProgress, WB_STEPS, WB_WALK_IT_OUT);
 
   const discipleCardHtml = membership
     ? `<button type="button" class="hub-role-card${isApprovedLeader ? ' hub-role-card-standalone' : ''}" id="goDiscipleDash">
@@ -3761,7 +3835,7 @@ async function renderDiscipleshipHub() {
         </button>
         ${discipleCardHtml}
       </div>
-      <button type="button" class="hub-role-card hub-role-cta hub-role-card-standalone" id="goLeaderDash">
+      <button type="button" class="hub-role-card hub-role-cta-gold hub-role-card-standalone" id="goLeaderDash">
         <div class="hub-role-title">Become a Disciple Maker</div>
         <div class="hub-role-sub">${leaderApp ? 'Application pending →' : 'Get approved to formally lead others →'}</div>
       </button>
@@ -3797,7 +3871,7 @@ async function renderDiscipleshipHub() {
       <div class="hub-profile-name">${account ? escapeHtml(account.name) : 'Your Profile'}</div>
       <svg class="hub-profile-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg>
     </button>
-    ${ownJourneySectionHtml(walkoutProgress, progress, stepsHtml, isApprovedLeader ? discipleCardHtml : '')}
+    ${ownJourneySectionHtml(nestedCoursesHtml, isApprovedLeader ? discipleCardHtml : '')}
     ${leaderSectionHtml}
     <div class="global-count-banner">🎉 ${globalCount.toLocaleString()} ${globalCount === 1 ? 'disciple' : 'disciples'} made through this app</div>
     ${renderResourcesHtml()}
@@ -3877,9 +3951,14 @@ async function renderDiscipleshipHub() {
     }
   }
 
+  wireJourneyToggle(renderDiscipleshipHub);
   wireCourseToggle('essentials', renderDiscipleshipHub);
+  wireCourseToggle('waterBaptism', renderDiscipleshipHub);
 
-  [...main.querySelectorAll('.step-row[data-clickable="true"]')].forEach(el => {
+  const essentialsBody = document.getElementById('courseCardBody-essentials');
+  const wbBody = document.getElementById('courseCardBody-waterBaptism');
+
+  [...essentialsBody.querySelectorAll('.step-row[data-clickable="true"]')].forEach(el => {
     let busy = false;
     el.onclick = async () => {
       if (busy) return;
@@ -3891,18 +3970,29 @@ async function renderDiscipleshipHub() {
       await safeSet(`progress:${myId}`, progress, true);
       const freshWalkout = (await safeGet(`walkout-progress:${myId}`, true)) || {};
       const allDone = STEPS.every((_, idx) => displayStepStatus(idx, progress, freshWalkout) === 'done');
-      if (allDone) { essentialsExpanded = false; triggerConfetti(); incrementGlobalDiscipleCount(); }
+      if (allDone) { courseExpandState.essentials = false; triggerConfetti(); incrementGlobalDiscipleCount(); }
       renderDiscipleshipHub();
     };
   });
-  wireWalkoutToggles(main, 'Hub');
-  wireWalkoutItemToggles(main, myId, async (stepIdx, newStatus) => {
+  wireWalkoutToggles(essentialsBody, 'HubEssentials');
+  wireWalkoutItemToggles(essentialsBody, myId, async (stepIdx, newStatus) => {
     progress[stepIdx] = newStatus;
     await safeSet(`progress:${myId}`, progress, true);
     const freshWalkout = (await safeGet(`walkout-progress:${myId}`, true)) || {};
     const allDone = STEPS.every((_, i) => displayStepStatus(i, progress, freshWalkout) === 'done');
-    if (allDone && essentialsExpanded) { essentialsExpanded = false; triggerConfetti(); incrementGlobalDiscipleCount(); renderDiscipleshipHub(); }
+    if (allDone && courseExpandState.essentials) { courseExpandState.essentials = false; triggerConfetti(); incrementGlobalDiscipleCount(); renderDiscipleshipHub(); }
   });
+
+  wireWalkoutToggles(wbBody, 'HubWaterBaptism');
+  wireWalkoutItemToggles(
+    wbBody, myId,
+    async (stepIdx, newStatus) => {
+      wbProgress[stepIdx] = newStatus;
+      await safeSet(`wb-progress:${myId}`, wbProgress, true);
+    },
+    WB_WALK_IT_OUT,
+    (id) => `wb-walkout-progress:${id}`
+  );
 }
 
 // ---------- Entry point: called from renderDiscipleStep() once intent is known ----------
