@@ -2878,37 +2878,6 @@ async function renderMentor() {
     topView = 'hub'; view = 'home'; activeGroupCode = null; activeMemberId = null; render();
   };
 
-async function wireLeaderQuickActions() {
-  let directCode = await safeGet(`leader-direct-code:${myId}`, true);
-  const inviteFriendBtn = document.getElementById('inviteFriendBtn');
-  const newGroupBtn = document.getElementById('newGroupBtn');
-  if (inviteFriendBtn) {
-    inviteFriendBtn.textContent = directCode ? 'Show My Link' : 'Invite an Individual';
-    inviteFriendBtn.onclick = async () => {
-      if (!directCode) {
-        directCode = genCode();
-        await safeSet(`leader-direct-code:${myId}`, directCode, true);
-        await safeSet(`group:${directCode}`, { leaderId: myId, label: 'Direct Invite', isDirect: true, createdAt: Date.now() }, true);
-      }
-      showShareModal(directCode, 'Your Personal Invite');
-    };
-  }
-  if (newGroupBtn) {
-    newGroupBtn.onclick = async () => {
-      const label = await showAppPrompt('Name this group', 'e.g. "Wednesday Youth Group"');
-      if (!label || !label.trim()) return;
-      const newCode = genCode();
-      await safeSet(`group:${newCode}`, { leaderId: myId, label: label.trim(), isDirect: false, createdAt: Date.now() }, true);
-      await safeSet(`group-members:${newCode}`, [], true);
-      const gs = (await safeGet(`leader-groups:${myId}`, true)) || [];
-      gs.push({ code: newCode, label: label.trim() });
-      await safeSet(`leader-groups:${myId}`, gs, true);
-      render();
-      showShareModal(newCode, label.trim());
-    };
-  }
-}
-
   await wireLeaderQuickActions();
   document.getElementById('tabGroups').onclick = () => { leaderTab = 'groups'; render(); };
   document.getElementById('tabDisciples').onclick = () => { leaderTab = 'disciples'; render(); };
@@ -2966,6 +2935,37 @@ async function wireLeaderQuickActions() {
         };
       });
     }
+  }
+}
+
+async function wireLeaderQuickActions() {
+  let directCode = await safeGet(`leader-direct-code:${myId}`, true);
+  const inviteFriendBtn = document.getElementById('inviteFriendBtn');
+  const newGroupBtn = document.getElementById('newGroupBtn');
+  if (inviteFriendBtn) {
+    inviteFriendBtn.textContent = directCode ? 'Show My Link' : 'Invite an Individual';
+    inviteFriendBtn.onclick = async () => {
+      if (!directCode) {
+        directCode = genCode();
+        await safeSet(`leader-direct-code:${myId}`, directCode, true);
+        await safeSet(`group:${directCode}`, { leaderId: myId, label: 'Direct Invite', isDirect: true, createdAt: Date.now() }, true);
+      }
+      showShareModal(directCode, 'Your Personal Invite');
+    };
+  }
+  if (newGroupBtn) {
+    newGroupBtn.onclick = async () => {
+      const label = await showAppPrompt('Name this group', 'e.g. "Wednesday Youth Group"');
+      if (!label || !label.trim()) return;
+      const newCode = genCode();
+      await safeSet(`group:${newCode}`, { leaderId: myId, label: label.trim(), isDirect: false, createdAt: Date.now() }, true);
+      await safeSet(`group-members:${newCode}`, [], true);
+      const gs = (await safeGet(`leader-groups:${myId}`, true)) || [];
+      gs.push({ code: newCode, label: label.trim() });
+      await safeSet(`leader-groups:${myId}`, gs, true);
+      render();
+      showShareModal(newCode, label.trim());
+    };
   }
 }
 
