@@ -420,6 +420,25 @@
   .disciple-banner:active { background: #0a5f56; }
   .disciple-banner-secondary { background: var(--black); margin-top: 10px; }
   .disciple-banner-secondary:active { background: #1a1a1a; }
+  .disciple-banner-tertiary { background: var(--ember); margin-top: 10px; }
+  .disciple-banner-tertiary:active { background: #a8752a; }
+
+  .disciple-app-scope .gospel-grid { display: flex; flex-direction: column; gap: 10px; }
+  .disciple-app-scope .gospel-card-preview {
+    display: block; width: 100%; text-align: left; cursor: pointer;
+    background: linear-gradient(135deg, #0a0a0a, #241d12);
+    border: 1px solid rgba(200,155,60,0.3); border-radius: 2px; padding: 20px 18px;
+  }
+  .disciple-app-scope .gospel-card-title {
+    font-family: var(--font-display); font-weight: 700; font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--ember); margin-bottom: 10px;
+  }
+  .disciple-app-scope .gospel-card-message {
+    font-family: var(--font-serif); font-size: 15px; color: var(--white); line-height: 1.5; margin-bottom: 8px;
+  }
+  .disciple-app-scope .gospel-card-ref { font-family: var(--font-display); font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); }
+  .disciple-app-scope .gospel-preview-canvas { width: 100%; height: auto; border-radius: 2px; display: block; }
+
   .disciple-banner svg { width: 26px; height: 26px; flex-shrink: 0; }
   .disciple-banner-title {
     display: block;
@@ -1028,6 +1047,17 @@
   .disciple-app-scope .hub-role-sub { font-size: 11px; color: var(--ink-soft); line-height: 1.4; }
   .disciple-app-scope .hub-role-card.hub-role-cta .hub-role-sub { color: rgba(255,255,255,0.8); }
 
+  .disciple-app-scope .own-journey-card {
+    display: block; width: 100%; text-align: left; border: none; cursor: pointer;
+    background: var(--paper); border-radius: 2px; padding: 16px 16px; margin-bottom: 14px;
+  }
+  .disciple-app-scope .own-journey-card.own-journey-prompt { background: #0d7a6e; }
+  .disciple-app-scope .own-journey-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .disciple-app-scope .own-journey-title { font-family: var(--font-display); font-weight: 800; font-size: 13px; color: var(--black); }
+  .disciple-app-scope .own-journey-card.own-journey-prompt .own-journey-title { color: var(--white); font-size: 13.5px; line-height: 1.4; }
+  .disciple-app-scope .own-journey-pct { font-family: var(--font-display); font-weight: 900; font-size: 16px; color: var(--black); }
+  .disciple-app-scope .own-journey-sub { font-size: 11px; color: rgba(255,255,255,0.85); margin-top: 6px; }
+
   .disciple-app-scope .code-display { text-align:center; padding: 24px 0 18px; }
   .disciple-app-scope .code-display .label { font-family:var(--font-display); font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-soft); }
   .disciple-app-scope .code-display .code { font-family:var(--font-display); font-weight:900; font-size:38px; letter-spacing:0.1em; color:var(--black); margin-top:8px; }
@@ -1045,6 +1075,12 @@
     display: block; margin: 10px auto 0; background: none; border: none;
     color: rgba(255,255,255,0.4); font-family: var(--font-display); font-size: 10.5px;
     letter-spacing: 0.03em; text-decoration: underline; cursor: pointer;
+  }
+  .disciple-app-scope .join-another-btn {
+    display: block; width: 100%; background: rgba(255,255,255,0.06);
+    border: 1px dashed rgba(255,255,255,0.25); border-radius: 2px; padding: 12px;
+    color: var(--white); font-family: var(--font-display); font-size: 12px;
+    font-weight: 700; letter-spacing: 0.02em; cursor: pointer; margin-bottom: 18px;
   }
   .disciple-app-scope .section-label { font-family:var(--font-display); font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:rgba(255,255,255,0.4); margin: 22px 0 10px; display:flex; justify-content:space-between; align-items:center; }
   .disciple-app-scope .section-label a { color: var(--ember); text-decoration:none; font-size:10.5px; cursor:pointer; }
@@ -1350,6 +1386,15 @@
         <span class="disciple-banner-arrow">→</span>
       </button>
 
+      <button type="button" class="disciple-banner disciple-banner-tertiary" id="shareGospelBannerBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4v16l4-4h12V4H4z"/><path d="M8 9h8M8 12h5"/></svg>
+        <span>
+          <span class="disciple-banner-title">Share the Gospel</span>
+          <span class="disciple-banner-sub">Ready-to-share graphics for your social media</span>
+        </span>
+        <span class="disciple-banner-arrow">→</span>
+      </button>
+
       <div class="section-label">More</div>
       <div class="icon-grid">
         <a class="grid-item" href="https://courses.followingjesusbook.com/courses/followingjesus" target="_blank" rel="noopener">
@@ -1595,6 +1640,16 @@
     <div class="disciple-modal-body disciple-app-scope" id="discipleModalBody"></div>
   </div>
 
+  <div class="disciple-modal" id="gospelModal">
+    <div class="embed-header">
+      <div class="embed-title">Share the Gospel</div>
+      <div class="embed-actions">
+        <button class="embed-close" id="gospelModalClose" aria-label="Close">✕</button>
+      </div>
+    </div>
+    <div class="disciple-modal-body disciple-app-scope" id="gospelModalBody"></div>
+  </div>
+
   <div class="article-modal" id="articleModal">
     <div class="embed-header">
       <div class="embed-title" id="articleModalTag">Blog</div>
@@ -1650,8 +1705,36 @@
     renderDiscipleStep();
   });
   document.getElementById('discipleModalClose').addEventListener('click', () => {
-    discipleModal.classList.remove('open');
+    // Acts like a "back" button when nested inside the discipleship flow —
+    // only fully closes the modal once we're back at the top-level hub.
+    if (view === 'groupDetail' || view === 'memberDetail') {
+      view = 'home'; activeGroupCode = null; activeMemberId = null;
+      render();
+    } else if (topView === 'leader' || topView === 'disciple') {
+      topView = 'hub';
+      render();
+    } else {
+      discipleModal.classList.remove('open');
+    }
   });
+
+  document.getElementById('shareGospelBannerBtn').addEventListener('click', () => {
+    document.getElementById('gospelModal').classList.add('open');
+    renderGospelGrid();
+  });
+  document.getElementById('gospelModalClose').addEventListener('click', () => {
+    document.getElementById('gospelModal').classList.remove('open');
+  });
+
+  // If someone opened the app via a shared invite link (?join=CODE), take
+  // them straight into the join flow with the code already filled in,
+  // instead of leaving them to find the banner and type it in by hand.
+  window.pendingJoinCode = new URLSearchParams(window.location.search).get('join');
+  if (window.pendingJoinCode) {
+    discipleModal.classList.add('open');
+    updateSyncStatusBadge();
+    renderDiscipleStep();
+  }
 
   async function renderDiscipleStep() {
     const account = await dSafeGet('account');
@@ -1677,6 +1760,157 @@
 
   function escapeHtmlMain(s) {
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---------- Share the Gospel ----------
+  // Quotes are World English Bible (WEB) — the same public-domain
+  // translation used throughout the Bible tab, safe to reproduce in full.
+  const GOSPEL_CARDS = [
+    {
+      id: 'loved',
+      title: 'You Are Loved',
+      message: 'For God so loved the world, that he gave his one and only Son, that whoever believes in him should not perish, but have eternal life.',
+      ref: 'John 3:16'
+    },
+    {
+      id: 'hope',
+      title: 'There Is Hope',
+      message: 'If you will confess with your mouth the Lord Jesus, and believe in your heart that God raised him from the dead, you will be saved.',
+      ref: 'Romans 10:9'
+    },
+    {
+      id: 'newlife',
+      title: 'A New Life Is Possible',
+      message: 'If anyone is in Christ, he is a new creation. The old things have passed away. Behold, all things have become new.',
+      ref: '2 Corinthians 5:17'
+    },
+    {
+      id: 'calling',
+      title: "He's Calling You",
+      message: 'Come to me, all you who labor and are heavily burdened, and I will give you rest.',
+      ref: 'Matthew 11:28'
+    },
+    {
+      id: 'life',
+      title: 'Eternal Life Is a Gift',
+      message: 'One who believes in the Son has eternal life.',
+      ref: 'John 3:36'
+    }
+  ];
+
+  function wrapCanvasText(ctx, text, maxWidth) {
+    const words = text.split(' ');
+    const lines = [];
+    let currentLine = words[0];
+    for (let i = 1; i < words.length; i++) {
+      const testLine = currentLine + ' ' + words[i];
+      if (ctx.measureText(testLine).width > maxWidth) {
+        lines.push(currentLine);
+        currentLine = words[i];
+      } else {
+        currentLine = testLine;
+      }
+    }
+    lines.push(currentLine);
+    return lines;
+  }
+
+  function drawGospelCard(canvas, card) {
+    const size = 1080;
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    const grad = ctx.createLinearGradient(0, 0, size, size);
+    grad.addColorStop(0, '#0a0a0a');
+    grad.addColorStop(1, '#241d12');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.fillStyle = '#c89b3c';
+    ctx.fillRect(size / 2 - 40, 120, 80, 5);
+
+    ctx.fillStyle = '#c89b3c';
+    ctx.font = '700 34px Archivo, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(card.title.toUpperCase(), size / 2, 200);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '500 50px Fraunces, serif';
+    const lines = wrapCanvasText(ctx, card.message, size - 160);
+    const lineHeight = 66;
+    const totalHeight = lines.length * lineHeight;
+    let y = (size - totalHeight) / 2 + 40;
+    lines.forEach(line => {
+      ctx.fillText(line, size / 2, y);
+      y += lineHeight;
+    });
+
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = '600 28px Archivo, sans-serif';
+    ctx.fillText(card.ref, size / 2, y + 28);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '700 22px Archivo, sans-serif';
+    ctx.fillText('FOLLOWING JESUS', size / 2, size - 70);
+  }
+
+  async function shareGospelCard(card) {
+    const canvas = document.createElement('canvas');
+    drawGospelCard(canvas, card);
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      const file = new File([blob], `${card.id}.png`, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: card.title, text: `${card.message} — ${card.ref}` });
+          return;
+        } catch (e) { /* cancelled or unsupported — fall through to download */ }
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${card.id}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }, 'image/png', 0.95);
+  }
+
+  function renderGospelGrid() {
+    const body = document.getElementById('gospelModalBody');
+    body.innerHTML = `
+      <p class="dm-p">Tap any card to preview and share it — to your social media, in a text, or wherever you'd like.</p>
+      <div class="gospel-grid">
+        ${GOSPEL_CARDS.map(c => `
+          <button type="button" class="gospel-card-preview" data-card="${c.id}">
+            <div class="gospel-card-title">${escapeHtmlMain(c.title)}</div>
+            <div class="gospel-card-message">${escapeHtmlMain(c.message)}</div>
+            <div class="gospel-card-ref">${escapeHtmlMain(c.ref)}</div>
+          </button>
+        `).join('')}
+      </div>
+    `;
+    [...body.querySelectorAll('.gospel-card-preview')].forEach(btn => {
+      btn.onclick = () => openGospelCardPreview(btn.dataset.card);
+    });
+  }
+
+  function openGospelCardPreview(cardId) {
+    const card = GOSPEL_CARDS.find(c => c.id === cardId);
+    if (!card) return;
+    const body = document.getElementById('gospelModalBody');
+    body.innerHTML = `
+      <a class="back-link" id="gospelBackBtn">← All Cards</a>
+      <canvas id="gospelPreviewCanvas" class="gospel-preview-canvas"></canvas>
+      <button class="primary-btn" id="gospelShareBtn" style="margin-top:16px;">Share This Image</button>
+    `;
+    const canvas = document.getElementById('gospelPreviewCanvas');
+    drawGospelCard(canvas, card);
+    document.getElementById('gospelBackBtn').onclick = () => renderGospelGrid();
+    document.getElementById('gospelShareBtn').onclick = () => shareGospelCard(card);
   }
 
 
@@ -2126,9 +2360,24 @@ async function renderMentor() {
   const groups = (await safeGet(`leader-groups:${myId}`, true)) || [];
   const disciples = (await safeGet(`leader-disciples:${myId}`, true)) || [];
   let directCode = await safeGet(`leader-direct-code:${myId}`, true);
+  const myWalkoutProgress = (await safeGet(`walkout-progress:${myId}`, true)) || {};
+  const myStats = overallWalkoutStats(myWalkoutProgress);
+  const ownJourneyHtml = myStats.done === 0
+    ? `<button type="button" class="own-journey-card own-journey-prompt" id="ownJourneyBtn">
+         <div class="own-journey-title">Would you like to walk through the Following Jesus foundations yourself?</div>
+         <div class="own-journey-sub">Leaders grow too — see your own steps →</div>
+       </button>`
+    : `<button type="button" class="own-journey-card" id="ownJourneyBtn">
+         <div class="own-journey-top">
+           <div class="own-journey-title">Your Own Journey</div>
+           <div class="own-journey-pct">${myStats.pct}%</div>
+         </div>
+         <div class="walkout-progress-bar"><div class="walkout-progress-fill" style="width:${myStats.pct}%;"></div></div>
+       </button>`;
 
   main.innerHTML = `
     <a class="back-link" id="backToHubBtn">← My Discipleship</a>
+    ${ownJourneyHtml}
     <div class="two-col two-col-compact">
       <button class="compact-action-btn" id="inviteFriendBtn">${directCode ? 'Show My Link' : 'Invite an Individual'}</button>
       <button class="compact-action-btn" id="newGroupBtn">Create a Group</button>
@@ -2145,27 +2394,40 @@ async function renderMentor() {
   document.getElementById('backToHubBtn').onclick = () => {
     topView = 'hub'; view = 'home'; activeGroupCode = null; activeMemberId = null; render();
   };
+  document.getElementById('ownJourneyBtn').onclick = () => { topView = 'hub'; render(); };
 
-  document.getElementById('inviteFriendBtn').onclick = async () => {
-    if (!directCode) {
-      directCode = genCode();
-      await safeSet(`leader-direct-code:${myId}`, directCode, true);
-      await safeSet(`group:${directCode}`, { leaderId: myId, label: 'Direct Invite', isDirect: true, createdAt: Date.now() }, true);
-    }
-    showShareModal(directCode, 'Your Personal Invite');
-  };
-  document.getElementById('newGroupBtn').onclick = async () => {
-    const label = await showAppPrompt('Name this group', 'e.g. "Wednesday Youth Group"');
-    if (!label || !label.trim()) return;
-    const newCode = genCode();
-    await safeSet(`group:${newCode}`, { leaderId: myId, label: label.trim(), isDirect: false, createdAt: Date.now() }, true);
-    await safeSet(`group-members:${newCode}`, [], true);
-    const gs = (await safeGet(`leader-groups:${myId}`, true)) || [];
-    gs.push({ code: newCode, label: label.trim() });
-    await safeSet(`leader-groups:${myId}`, gs, true);
-    render();
-    showShareModal(newCode, label.trim());
-  };
+async function wireLeaderQuickActions() {
+  let directCode = await safeGet(`leader-direct-code:${myId}`, true);
+  const inviteFriendBtn = document.getElementById('inviteFriendBtn');
+  const newGroupBtn = document.getElementById('newGroupBtn');
+  if (inviteFriendBtn) {
+    inviteFriendBtn.textContent = directCode ? 'Show My Link' : 'Invite an Individual';
+    inviteFriendBtn.onclick = async () => {
+      if (!directCode) {
+        directCode = genCode();
+        await safeSet(`leader-direct-code:${myId}`, directCode, true);
+        await safeSet(`group:${directCode}`, { leaderId: myId, label: 'Direct Invite', isDirect: true, createdAt: Date.now() }, true);
+      }
+      showShareModal(directCode, 'Your Personal Invite');
+    };
+  }
+  if (newGroupBtn) {
+    newGroupBtn.onclick = async () => {
+      const label = await showAppPrompt('Name this group', 'e.g. "Wednesday Youth Group"');
+      if (!label || !label.trim()) return;
+      const newCode = genCode();
+      await safeSet(`group:${newCode}`, { leaderId: myId, label: label.trim(), isDirect: false, createdAt: Date.now() }, true);
+      await safeSet(`group-members:${newCode}`, [], true);
+      const gs = (await safeGet(`leader-groups:${myId}`, true)) || [];
+      gs.push({ code: newCode, label: label.trim() });
+      await safeSet(`leader-groups:${myId}`, gs, true);
+      render();
+      showShareModal(newCode, label.trim());
+    };
+  }
+}
+
+  await wireLeaderQuickActions();
   document.getElementById('tabGroups').onclick = () => { leaderTab = 'groups'; render(); };
   document.getElementById('tabDisciples').onclick = () => { leaderTab = 'disciples'; render(); };
 
@@ -2285,7 +2547,12 @@ async function renderGroupDetail(code) {
   const actionsBlockHtml = await renderLeaderActionsBlock('Actions for This Group', `group-actions:${code}`);
 
   main.innerHTML = `
+    <a class="back-link" id="backToHubBtn">← My Discipleship</a>
     <a class="back-link" id="backBtn">← All Groups</a>
+    <div class="two-col two-col-compact">
+      <button class="compact-action-btn" id="inviteFriendBtn">Invite an Individual</button>
+      <button class="compact-action-btn" id="newGroupBtn">Create Another Group</button>
+    </div>
     <div class="group-header-bar">
       <div class="eyebrow">Group</div>
       <div class="name">${escapeHtml(group ? group.label : '')}</div>
@@ -2319,6 +2586,8 @@ async function renderGroupDetail(code) {
   `;
 
   document.getElementById('backBtn').onclick = () => { view = 'home'; activeGroupCode = null; render(); };
+  document.getElementById('backToHubBtn').onclick = () => { topView = 'hub'; view = 'home'; activeGroupCode = null; activeMemberId = null; render(); };
+  await wireLeaderQuickActions();
   document.getElementById('reshareBtn').onclick = () => showShareModal(code, group ? group.label : '');
   document.getElementById('closeGroupBtn').onclick = async () => {
     const memberCount = members.length;
@@ -2502,6 +2771,56 @@ async function renderMemberDetail(memberId) {
 }
 
 // ============ FRIEND ============
+// Shared join logic — used both for someone's very first group and for
+// joining additional groups later. Only sets up disciple-membership (the
+// "primary" leader used for 1:1 messaging when not in any group) the first
+// time; after that it just adds the new group without disturbing it.
+async function attemptJoinGroup(codeInput) {
+  const group = await safeGet(`group:${codeInput}`, true);
+  if (!group) return { ok: false, error: "Code not found. Check it and try again." };
+
+  const existingGroups = (await safeGet(`disciple-groups:${myId}`, true)) || [];
+  if (existingGroups.some(g => g.code === codeInput)) {
+    return { ok: false, error: "You're already in this group." };
+  }
+
+  const leaderApp = await safeGet(`leader-application:${group.leaderId}`, true);
+  if (!(await showAppConfirm(`Join "${group.label}"?\n\nLed by ${leaderApp ? leaderApp.name : 'this leader'}`))) {
+    return { ok: false, cancelled: true };
+  }
+
+  let membership = await safeGet(`disciple-membership:${myId}`, true);
+  let name;
+  if (membership) {
+    name = membership.name;
+  } else {
+    name = (await showAppPrompt("What's your name?", "Your full name")) || "Friend";
+    await safeSet(`disciple-membership:${myId}`, { leaderId: group.leaderId, name }, true);
+  }
+
+  const disciples = (await safeGet(`leader-disciples:${group.leaderId}`, true)) || [];
+  const existingDisciple = disciples.find(d => d.id === myId);
+  if (!existingDisciple) {
+    disciples.push({ id: myId, name, groups: group.isDirect ? [] : [group.label] });
+    await safeSet(`leader-disciples:${group.leaderId}`, disciples, true);
+  } else if (!group.isDirect && !(existingDisciple.groups || []).includes(group.label)) {
+    existingDisciple.groups = [...(existingDisciple.groups || []), group.label];
+    await safeSet(`leader-disciples:${group.leaderId}`, disciples, true);
+  }
+
+  if (!group.isDirect) {
+    const members = (await safeGet(`group-members:${codeInput}`, true)) || [];
+    if (!members.includes(myId)) members.push(myId);
+    await safeSet(`group-members:${codeInput}`, members, true);
+    const discGroups = (await safeGet(`disciple-groups:${myId}`, true)) || [];
+    discGroups.push({ code: codeInput, label: group.label, leaderId: group.leaderId });
+    await safeSet(`disciple-groups:${myId}`, discGroups, true);
+  }
+
+  window.pendingJoinCode = null;
+  return { ok: true };
+}
+
 async function renderDisciple() {
   const membership = await safeGet(`disciple-membership:${myId}`, true);
 
@@ -2511,33 +2830,17 @@ async function renderDisciple() {
       <div class="card">
         <h2>Join Someone Discipling You</h2>
         <p>Enter the invite code they gave you — either a personal link or a group code.</p>
-        <input type="text" id="joinCodeInput" placeholder="e.g. AB12CD" />
+        <input type="text" id="joinCodeInput" placeholder="e.g. AB12CD" value="${window.pendingJoinCode ? escapeHtml(window.pendingJoinCode) : ''}" />
         <button class="primary" id="joinBtn">Join</button>
         <p id="joinError" style="color:#a5453f; margin-top:10px; margin-bottom:0;"></p>
       </div>`;
     document.getElementById('backToHubBtn').onclick = () => { topView = 'hub'; render(); };
     document.getElementById('joinBtn').onclick = async () => {
       const codeInput = document.getElementById('joinCodeInput').value.trim().toUpperCase();
-      const group = await safeGet(`group:${codeInput}`, true);
-      if (!group) { document.getElementById('joinError').textContent = "Code not found. Check it and try again."; return; }
-      const leaderApp = await safeGet(`leader-application:${group.leaderId}`, true);
-      if (!(await showAppConfirm(`Join "${group.label}"?\n\nLed by ${leaderApp ? leaderApp.name : 'this leader'}`))) return;
-
-      const name = (await showAppPrompt("What's your name?", "Your full name")) || "Friend";
-      await safeSet(`disciple-membership:${myId}`, { leaderId: group.leaderId, name }, true);
-
-      const disciples = (await safeGet(`leader-disciples:${group.leaderId}`, true)) || [];
-      if (!disciples.find(d => d.id === myId)) {
-        disciples.push({ id: myId, name, groups: group.isDirect ? [] : [group.label] });
-        await safeSet(`leader-disciples:${group.leaderId}`, disciples, true);
-      }
-      if (!group.isDirect) {
-        const members = (await safeGet(`group-members:${codeInput}`, true)) || [];
-        if (!members.includes(myId)) members.push(myId);
-        await safeSet(`group-members:${codeInput}`, members, true);
-        const discGroups = (await safeGet(`disciple-groups:${myId}`, true)) || [];
-        discGroups.push({ code: codeInput, label: group.label, leaderId: group.leaderId });
-        await safeSet(`disciple-groups:${myId}`, discGroups, true);
+      const result = await attemptJoinGroup(codeInput);
+      if (!result.ok) {
+        if (result.error) document.getElementById('joinError').textContent = result.error;
+        return;
       }
       render();
     };
@@ -2588,6 +2891,16 @@ async function renderDisciple() {
       });
     }
 
+    // Each group can have its own leader, so this can't reuse the outer
+    // singular leaderName/messages — those are just for the "no groups yet"
+    // fallback case further down.
+    const gLeaderApp = await safeGet(`leader-application:${g.leaderId}`, true);
+    const gLeaderName = gLeaderApp ? gLeaderApp.name : 'Your Leader';
+    const gPrivateMessages = (await safeGet(`messages:${g.leaderId}:${myId}`, true)) || [];
+    let gMsgHtml = '';
+    if (gPrivateMessages.length === 0) { gMsgHtml = '<div class="msg-empty">No messages yet.</div>'; }
+    else { gPrivateMessages.forEach(m => { gMsgHtml += `<div class="msg ${m.from === 'disciple' ? 'me' : 'them'}">${linkify(m.body)}</div>`; }); }
+
     groupPeersHtml += `
       <div class="group-header-bar" style="margin:28px 0 0;">
         <div class="eyebrow">Group</div>
@@ -2596,7 +2909,7 @@ async function renderDisciple() {
       </div>
       <div class="chat-toggle" data-code="${g.code}">
         <button type="button" class="chat-toggle-btn active" data-pane="group">Group Chat</button>
-        <button type="button" class="chat-toggle-btn" data-pane="leader">Message ${escapeHtml(leaderName)}</button>
+        <button type="button" class="chat-toggle-btn" data-pane="leader">Message ${escapeHtml(gLeaderName)}</button>
       </div>
       <div class="chat-block chat-pane" data-pane="group" data-code="${g.code}" style="margin-top:0; background: var(--paper); padding: 18px 18px 20px; border-radius: 0 0 2px 2px;">
         <div class="section-label" style="color: var(--ink-soft); margin-top:0;">Group Chat — everyone here can see this</div>
@@ -2607,11 +2920,11 @@ async function renderDisciple() {
         </div>
       </div>
       <div class="chat-block chat-pane" data-pane="leader" data-code="${g.code}" style="display:none; margin-top:0; background: var(--paper); padding: 18px 18px 20px; border-radius: 0 0 2px 2px;">
-        <div class="section-label" style="color: var(--ink-soft); margin-top:0;">Private — only you and ${escapeHtml(leaderName)} can see this</div>
-        <div class="msg-thread">${msgHtml}</div>
+        <div class="section-label" style="color: var(--ink-soft); margin-top:0;">Private — only you and ${escapeHtml(gLeaderName)} can see this</div>
+        <div class="msg-thread">${gMsgHtml}</div>
         <div class="msg-input-row">
-          <input type="text" class="leaderMsgInputInline" placeholder="Message ${escapeHtml(leaderName)}…" style="background:var(--white); border-color:rgba(10,10,10,0.18); color:var(--black);" />
-          <button class="primary leaderMsgSendInline">Send</button>
+          <input type="text" class="leaderMsgInputInline" data-leader-id="${g.leaderId}" placeholder="Message ${escapeHtml(gLeaderName)}…" style="background:var(--white); border-color:rgba(10,10,10,0.18); color:var(--black);" />
+          <button class="primary leaderMsgSendInline" data-leader-id="${g.leaderId}">Send</button>
         </div>
       </div>
       <div class="section-label">Who's In This Group</div>
@@ -2636,6 +2949,7 @@ async function renderDisciple() {
 
   main.innerHTML = `
     <a class="back-link" id="backToHubBtn">← My Discipleship</a>
+    <button type="button" class="join-another-btn" id="joinAnotherBtn">+ Join Another Group</button>
     ${groupPeersHtml}
     ${myGroups.length === 0 ? `
     <div class="chat-block">
@@ -2653,6 +2967,16 @@ async function renderDisciple() {
     ${stepsHtml}
   `;
   document.getElementById('backToHubBtn').onclick = () => { topView = 'hub'; render(); };
+  document.getElementById('joinAnotherBtn').onclick = async () => {
+    const codeInput = (await showAppPrompt("Enter the invite code", "e.g. AB12CD"))?.trim().toUpperCase();
+    if (!codeInput) return;
+    const result = await attemptJoinGroup(codeInput);
+    if (!result.ok) {
+      if (result.error) await showAppAlert(result.error);
+      return;
+    }
+    render();
+  };
 
   [...document.querySelectorAll('.chat-toggle')].forEach(toggle => {
     const buttons = toggle.querySelectorAll('.chat-toggle-btn');
@@ -2673,9 +2997,10 @@ async function renderDisciple() {
       const input = btn.parentElement.querySelector('.leaderMsgInputInline');
       const body = input.value.trim();
       if (!body) return;
-      const msgs = (await safeGet(`messages:${leaderId}:${myId}`, true)) || [];
+      const targetLeaderId = btn.dataset.leaderId || leaderId;
+      const msgs = (await safeGet(`messages:${targetLeaderId}:${myId}`, true)) || [];
       msgs.push({ from: 'disciple', body, at: Date.now() });
-      await safeSet(`messages:${leaderId}:${myId}`, msgs, true);
+      await safeSet(`messages:${targetLeaderId}:${myId}`, msgs, true);
       render();
     };
   });
@@ -2819,7 +3144,7 @@ function linkify(text) {
 }
 
 function showShareModal(code, label) {
-  const link = `https://followingjesusbook.com/join/${code}`;
+  const link = `https://followingjesusapp.netlify.app/?join=${code}`;
   const shareText = `Join me on Following Jesus — I'm inviting you to "${label}". Enter code ${code} in the app, or use this link: ${link}`;
   const ua = navigator.userAgent || '';
   const isIOS = /iPhone|iPad|iPod/.test(ua);
@@ -2960,6 +3285,7 @@ async function renderDiscipleshipApp() {
     await dSafeSet('account', account);
   }
   myId = account.id;
+  if (window.pendingJoinCode) { topView = 'disciple'; }
   await render();
 }
 
