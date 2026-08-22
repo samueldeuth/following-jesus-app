@@ -1315,6 +1315,11 @@
   @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   .dm-p { font-size: 14px; line-height: 1.6; color: rgba(255,255,255,0.82); margin-bottom: 18px; }
   .dm-note { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: -8px; }
+  .dm-divider {
+    text-align: center; font-family: var(--font-display); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.3);
+    margin: 26px 0 18px;
+  }
 
   .profile-photo-row { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
   .profile-photo-preview {
@@ -1836,6 +1841,12 @@
       <input type="text" id="accName" placeholder="Your full name" />
       <input type="text" id="accEmail" placeholder="Your email" />
       <button class="primary-btn" id="accContinue">Create Account</button>
+
+      <div class="dm-divider">— or —</div>
+      <p class="dm-p">Already had a profile on this or another device?</p>
+      <input type="text" id="loginEmail" placeholder="Your email" />
+      <button class="secondary-btn" id="loginBtn">Log In</button>
+      <p id="loginError" style="color:#e0a458; margin-top:10px; margin-bottom:0; font-size:12px;"></p>
     `;
     document.getElementById('accContinue').onclick = async () => {
       const name = document.getElementById('accName').value.trim();
@@ -1844,6 +1855,22 @@
       const account = { name, email, id: uid() };
       await dSafeSet('account', account);
       syncSharedProfile(account); // best-effort, don't block on it
+      renderDiscipleStep();
+    };
+    document.getElementById('loginBtn').onclick = async () => {
+      const email = document.getElementById('loginEmail').value.trim();
+      const errEl = document.getElementById('loginError');
+      errEl.textContent = '';
+      if (!email) { errEl.textContent = 'Please enter your email.'; return; }
+      const btn = document.getElementById('loginBtn');
+      btn.textContent = 'Looking...';
+      const found = await findAccountByEmail(email);
+      btn.textContent = 'Log In';
+      if (!found) {
+        errEl.textContent = "Couldn't find a profile with that email — double check it, or create a new account above.";
+        return;
+      }
+      await dSafeSet('account', found);
       renderDiscipleStep();
     };
   }
@@ -1878,7 +1905,9 @@
   // Keeps a shared, centralized record of everyone's profile — separate
   // from the personal on-device "account" copy, so this data actually
   // exists somewhere Samuel can see it (a growing list, not scattered
-  // across everyone's individual phones).
+  // across everyone's individual phones). Also writes a fast email->id
+  // lookup pointer, used by findAccountByEmail below to support logging
+  // back in.
   async function syncSharedProfile(account) {
     if (!account || !account.id) return;
     try {
@@ -1888,7 +1917,48 @@
         photoUrl: account.photoUrl || null,
         updatedAt: new Date().toISOString()
       }, true);
+      if (account.email) {
+        await safeSet(`email-login:${account.email.trim().toLowerCase()}`, { id: account.id }, true);
+      }
     } catch (e) { /* best effort — the local account copy is still saved regardless */ }
+  }
+
+  // Looks up an account by email so someone can log back in after logging
+  // out (or on a new device). Tries the fast direct pointer first; if
+  // that's missing — which is expected for any account created before this
+  // feature existed — falls back to searching existing profile records
+  // directly, then backfills the pointer so the lookup is fast next time.
+  // This is a simple email-based lookup, not real password authentication
+  // — consistent with how the rest of this app doesn't have real per-person
+  // login yet, worth revisiting if that ever changes.
+  async function findAccountByEmail(email) {
+    const normalized = email.trim().toLowerCase();
+    if (!supabaseConfigured) return null;
+
+    try {
+      const pointer = await safeGet(`email-login:${normalized}`, true);
+      if (pointer && pointer.id) {
+        const profile = await safeGet(`profile:${pointer.id}`, true);
+        if (profile) return { id: pointer.id, name: profile.name, email: profile.email, photoUrl: profile.photoUrl };
+      }
+    } catch (e) { /* fall through to the search below */ }
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/shared_kv?key=like.profile:*&select=key,value`, {
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        const match = rows.find(r => r.value && r.value.email && r.value.email.trim().toLowerCase() === normalized);
+        if (match) {
+          const id = match.key.replace('profile:', '');
+          await safeSet(`email-login:${normalized}`, { id }, true); // backfill for next time
+          return { id, name: match.value.name, email: match.value.email, photoUrl: match.value.photoUrl };
+        }
+      }
+    } catch (e) { /* network error or not configured — give up gracefully */ }
+
+    return null;
   }
 
   async function renderProfileSettings() {
