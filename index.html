@@ -438,6 +438,16 @@
   }
   .disciple-app-scope .gospel-card-ref { font-family: var(--font-display); font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); }
   .disciple-app-scope .gospel-preview-canvas { width: 100%; height: auto; border-radius: 2px; display: block; }
+  .disciple-app-scope .gospel-preview-canvas.gospel-preview-story { max-width: 260px; margin: 0 auto; }
+  .disciple-app-scope .gospel-format-toggle {
+    display: flex; background: rgba(255,255,255,0.06); border-radius: 20px; padding: 3px; margin-bottom: 14px;
+  }
+  .disciple-app-scope .gospel-format-btn {
+    flex: 1; padding: 9px 10px; background: transparent; border: none; border-radius: 17px;
+    color: rgba(255,255,255,0.55); font-family: var(--font-display); font-size: 11.5px;
+    font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;
+  }
+  .disciple-app-scope .gospel-format-btn.active { background: var(--ember); color: var(--white); }
 
   .disciple-banner svg { width: 26px; height: 26px; flex-shrink: 0; }
   .disciple-banner-title {
@@ -1122,6 +1132,25 @@
   .disciple-app-scope .overall-progress-pct { font-family: var(--font-display); font-weight: 900; font-size: 22px; color: var(--black); }
   .disciple-app-scope .walkout-progress-bar.overall { height: 10px; background: rgba(10,10,10,0.08); }
   .disciple-app-scope .overall-progress-sub { font-size: 11.5px; color: var(--ink-soft); margin-top: 8px; }
+
+  .disciple-app-scope .course-card { margin-bottom: 20px; }
+  .disciple-app-scope .course-card-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    width: 100%; text-align: left; cursor: pointer; border: none;
+    background: var(--paper); border-radius: 2px; padding: 18px 18px;
+  }
+  .disciple-app-scope .course-card-title { font-family: var(--font-display); font-weight: 800; font-size: 14.5px; color: var(--black); }
+  .disciple-app-scope .course-card-sub { font-size: 11px; color: var(--ink-soft); margin-top: 4px; }
+  .disciple-app-scope .course-card-header-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .disciple-app-scope .course-progress-pct { font-family: var(--font-display); font-weight: 800; font-size: 14px; color: var(--ember); }
+  .disciple-app-scope .course-complete-badge {
+    font-family: var(--font-display); font-weight: 700; font-size: 10.5px; letter-spacing: 0.03em;
+    text-transform: uppercase; color: var(--white); background: #0d7a6e; border-radius: 12px; padding: 5px 10px;
+  }
+  .disciple-app-scope .course-chevron { width: 18px; height: 18px; color: var(--ink-soft); transition: transform 0.2s ease; }
+  .disciple-app-scope .course-chevron.open { transform: rotate(180deg); }
+  .disciple-app-scope .course-card-body { display: none; padding-top: 14px; }
+  .disciple-app-scope .course-card-body.open { display: block; }
   .disciple-app-scope .walk-it-out-list { display: flex; flex-direction: column; gap: 10px; }
   .disciple-app-scope .walkout-item { display: flex; align-items: flex-start; gap: 10px; }
   .disciple-app-scope .walkout-item.interactive { cursor: pointer; touch-action: manipulation; }
@@ -1765,7 +1794,9 @@
   // ---------- Share the Gospel ----------
   // Quotes are World English Bible (WEB) — the same public-domain
   // translation used throughout the Bible tab, safe to reproduce in full.
-  const GOSPEL_CARDS = [
+  // Worth a quick read-through against the actual text before this goes
+  // live, same as anything quoted from memory rather than fetched live.
+  const GOSPEL_CARDS_POOL = [
     {
       id: 'loved',
       title: 'You Are Loved',
@@ -1795,8 +1826,51 @@
       title: 'Eternal Life Is a Gift',
       message: 'One who believes in the Son has eternal life.',
       ref: 'John 3:36'
+    },
+    {
+      id: 'grace',
+      title: 'Saved by Grace',
+      message: 'By grace you have been saved through faith, and that not of yourselves; it is the gift of God, not of works, that no one would boast.',
+      ref: 'Ephesians 2:8-9'
+    },
+    {
+      id: 'gift',
+      title: 'A Free Gift',
+      message: 'The wages of sin is death, but the free gift of God is eternal life in Christ Jesus our Lord.',
+      ref: 'Romans 6:23'
+    },
+    {
+      id: 'way',
+      title: 'The Way, the Truth, the Life',
+      message: 'I am the way, the truth, and the life. No one comes to the Father, except through me.',
+      ref: 'John 14:6'
+    },
+    {
+      id: 'forgiven',
+      title: 'Fully Forgiven',
+      message: 'If we confess our sins, he is faithful and righteous to forgive us the sins, and to cleanse us from all unrighteousness.',
+      ref: '1 John 1:9'
+    },
+    {
+      id: 'knock',
+      title: "He's Knocking",
+      message: 'Behold, I stand at the door and knock. If anyone hears my voice and opens the door, then I will come in to him.',
+      ref: 'Revelation 3:20'
     }
   ];
+
+  const GOSPEL_CARDS_PER_WEEK = 5;
+
+  function getWeeklyGospelCards() {
+    const poolSize = GOSPEL_CARDS_POOL.length;
+    const weekIndex = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+    const startIdx = (weekIndex * GOSPEL_CARDS_PER_WEEK) % poolSize;
+    const selected = [];
+    for (let i = 0; i < GOSPEL_CARDS_PER_WEEK; i++) {
+      selected.push(GOSPEL_CARDS_POOL[(startIdx + i) % poolSize]);
+    }
+    return selected;
+  }
 
   function wrapCanvasText(ctx, text, maxWidth) {
     const words = text.split(' ');
@@ -1815,53 +1889,55 @@
     return lines;
   }
 
-  function drawGospelCard(canvas, card) {
-    const size = 1080;
-    canvas.width = size;
-    canvas.height = size;
+  function drawGospelCard(canvas, card, format) {
+    const width = 1080;
+    const height = format === 'story' ? 1920 : 1080;
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext('2d');
 
-    const grad = ctx.createLinearGradient(0, 0, size, size);
+    const grad = ctx.createLinearGradient(0, 0, width, height);
     grad.addColorStop(0, '#0a0a0a');
     grad.addColorStop(1, '#241d12');
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, size, size);
+    ctx.fillRect(0, 0, width, height);
 
+    const accentY = height * 0.12;
     ctx.fillStyle = '#c89b3c';
-    ctx.fillRect(size / 2 - 40, 120, 80, 5);
+    ctx.fillRect(width / 2 - 40, accentY, 80, 5);
 
     ctx.fillStyle = '#c89b3c';
     ctx.font = '700 34px Archivo, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText(card.title.toUpperCase(), size / 2, 200);
+    ctx.fillText(card.title.toUpperCase(), width / 2, accentY + 80);
 
     ctx.fillStyle = '#ffffff';
     ctx.font = '500 50px Fraunces, serif';
-    const lines = wrapCanvasText(ctx, card.message, size - 160);
+    const lines = wrapCanvasText(ctx, card.message, width - 160);
     const lineHeight = 66;
     const totalHeight = lines.length * lineHeight;
-    let y = (size - totalHeight) / 2 + 40;
+    let y = (height - totalHeight) / 2 + 40;
     lines.forEach(line => {
-      ctx.fillText(line, size / 2, y);
+      ctx.fillText(line, width / 2, y);
       y += lineHeight;
     });
 
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.font = '600 28px Archivo, sans-serif';
-    ctx.fillText(card.ref, size / 2, y + 28);
+    ctx.fillText(card.ref, width / 2, y + 28);
 
     ctx.fillStyle = 'rgba(255,255,255,0.35)';
     ctx.font = '700 22px Archivo, sans-serif';
-    ctx.fillText('FOLLOWING JESUS', size / 2, size - 70);
+    ctx.fillText('FOLLOWING JESUS', width / 2, height - 70);
   }
 
-  async function shareGospelCard(card) {
+  async function shareGospelCard(card, format) {
     const canvas = document.createElement('canvas');
-    drawGospelCard(canvas, card);
+    drawGospelCard(canvas, card, format);
     canvas.toBlob(async (blob) => {
       if (!blob) return;
-      const file = new File([blob], `${card.id}.png`, { type: 'image/png' });
+      const file = new File([blob], `${card.id}-${format}.png`, { type: 'image/png' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({ files: [file], title: card.title, text: `${card.message} — ${card.ref}` });
@@ -1871,7 +1947,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${card.id}.png`;
+      a.download = `${card.id}-${format}.png`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1880,11 +1956,12 @@
   }
 
   function renderGospelGrid() {
+    const cards = getWeeklyGospelCards();
     const body = document.getElementById('gospelModalBody');
     body.innerHTML = `
-      <p class="dm-p">Tap any card to preview and share it — to your social media, in a text, or wherever you'd like.</p>
+      <p class="dm-p">This week's set — tap any card to preview and share it, in square or story size, to your social media, in a text, or wherever you'd like. New cards rotate in each week.</p>
       <div class="gospel-grid">
-        ${GOSPEL_CARDS.map(c => `
+        ${cards.map(c => `
           <button type="button" class="gospel-card-preview" data-card="${c.id}">
             <div class="gospel-card-title">${escapeHtmlMain(c.title)}</div>
             <div class="gospel-card-message">${escapeHtmlMain(c.message)}</div>
@@ -1899,18 +1976,33 @@
   }
 
   function openGospelCardPreview(cardId) {
-    const card = GOSPEL_CARDS.find(c => c.id === cardId);
+    const card = GOSPEL_CARDS_POOL.find(c => c.id === cardId);
     if (!card) return;
+    let currentFormat = 'square';
     const body = document.getElementById('gospelModalBody');
     body.innerHTML = `
       <a class="back-link" id="gospelBackBtn">← All Cards</a>
-      <canvas id="gospelPreviewCanvas" class="gospel-preview-canvas"></canvas>
+      <div class="gospel-format-toggle">
+        <button type="button" class="gospel-format-btn active" data-format="square">Square</button>
+        <button type="button" class="gospel-format-btn" data-format="story">Story</button>
+      </div>
+      <canvas id="gospelPreviewCanvas" class="gospel-preview-canvas gospel-preview-square"></canvas>
       <button class="primary-btn" id="gospelShareBtn" style="margin-top:16px;">Share This Image</button>
     `;
     const canvas = document.getElementById('gospelPreviewCanvas');
-    drawGospelCard(canvas, card);
+    drawGospelCard(canvas, card, currentFormat);
     document.getElementById('gospelBackBtn').onclick = () => renderGospelGrid();
-    document.getElementById('gospelShareBtn').onclick = () => shareGospelCard(card);
+    [...body.querySelectorAll('.gospel-format-btn')].forEach(btn => {
+      btn.onclick = () => {
+        body.querySelectorAll('.gospel-format-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFormat = btn.dataset.format;
+        canvas.classList.toggle('gospel-preview-square', currentFormat === 'square');
+        canvas.classList.toggle('gospel-preview-story', currentFormat === 'story');
+        drawGospelCard(canvas, card, currentFormat);
+      };
+    });
+    document.getElementById('gospelShareBtn').onclick = () => shareGospelCard(card, currentFormat);
   }
 
 
@@ -2010,6 +2102,51 @@ function overallProgressHtml(walkoutProgress) {
     </div>`;
 }
 
+// ---------- Course packaging ----------
+// "Following Jesus Essentials" is the first course — built so more courses
+// (Gifts of the Spirit, Water Baptism, etc.) can be added the same way
+// later without another rebuild. Expand state is session-only (resets on
+// full page reload), not persisted — a course auto-collapses once every
+// step in it is done, but can always be manually reopened to review.
+let essentialsExpanded = false;
+
+function courseCardHtml(courseId, title, subtitle, stepsHtml, walkoutProgress, progress) {
+  const doneCount = STEPS.filter((_, i) => displayStepStatus(i, progress, walkoutProgress) === 'done').length;
+  const totalCount = STEPS.length;
+  const isComplete = doneCount === totalCount;
+  const pct = Math.round((doneCount / totalCount) * 100);
+  const expanded = essentialsExpanded;
+  const badgeHtml = isComplete
+    ? `<span class="course-complete-badge">✓ Complete</span>`
+    : `<span class="course-progress-pct">${pct}%</span>`;
+  return `
+    <div class="course-card">
+      <button type="button" class="course-card-header" id="courseToggle-${courseId}">
+        <div class="course-card-header-left">
+          <div class="course-card-title">${escapeHtml(title)}</div>
+          <div class="course-card-sub">${escapeHtml(subtitle)} · ${doneCount} of ${totalCount} complete</div>
+        </div>
+        <div class="course-card-header-right">
+          ${badgeHtml}
+          <svg class="course-chevron ${expanded ? 'open' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </button>
+      <div class="course-card-body ${expanded ? 'open' : ''}">
+        ${overallProgressHtml(walkoutProgress)}
+        ${stepsHtml}
+      </div>
+    </div>`;
+}
+
+function wireCourseToggle(courseId, rerenderFn) {
+  const btn = document.getElementById(`courseToggle-${courseId}`);
+  if (!btn) return;
+  btn.onclick = () => {
+    essentialsExpanded = !essentialsExpanded;
+    rerenderFn();
+  };
+}
+
 function walkItOutHtml(stepIndex, checkedArr, interactive) {
   const items = WALK_IT_OUT[stepIndex];
   if (!items || items.length === 0) return '';
@@ -2075,12 +2212,83 @@ function wireWalkoutToggles(container, prefix) {
   });
 }
 
+// ---------- Celebration ----------
+// Lightweight, dependency-free confetti burst, self-removing after it
+// finishes. Fires the moment a course hits 100% complete.
+function triggerConfetti() {
+  const canvas = document.createElement('canvas');
+  canvas.style.position = 'fixed';
+  canvas.style.inset = '0';
+  canvas.style.zIndex = '9999';
+  canvas.style.pointerEvents = 'none';
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+
+  const colors = ['#c89b3c', '#0d7a6e', '#ffffff', '#a5453f'];
+  const pieces = [];
+  const count = 130;
+  for (let i = 0; i < count; i++) {
+    pieces.push({
+      x: Math.random() * canvas.width,
+      y: -20 - Math.random() * canvas.height * 0.5,
+      size: 6 + Math.random() * 6,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      speedY: 2 + Math.random() * 3,
+      speedX: (Math.random() - 0.5) * 2,
+      rotation: Math.random() * 360,
+      rotationSpeed: (Math.random() - 0.5) * 10
+    });
+  }
+
+  let frame = 0;
+  const maxFrames = 220;
+  function animate() {
+    frame++;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    pieces.forEach(p => {
+      p.y += p.speedY;
+      p.x += p.speedX;
+      p.rotation += p.rotationSpeed;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation * Math.PI / 180);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = frame > maxFrames - 40 ? Math.max(0, (maxFrames - frame) / 40) : 1;
+      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+      ctx.restore();
+    });
+    if (frame < maxFrames) {
+      requestAnimationFrame(animate);
+    } else {
+      canvas.remove();
+    }
+  }
+  animate();
+}
+
 function computeStepStatusFromWalkout(stepIdx, arr) {
   const total = WALK_IT_OUT[stepIdx].length;
   const doneCount = arr.filter(Boolean).length;
   if (doneCount === 0) return 'not_started';
   if (doneCount === total) return 'done';
   return 'in_progress';
+}
+
+// For steps with action items, the displayed status is always derived
+// fresh from the actual checked items rather than trusted from storage —
+// this way, any status saved by older app versions (or any other edge
+// case where the two ever drift) self-heals on the next render instead of
+// staying stuck.
+function displayStepStatus(stepIdx, progress, walkoutProgress) {
+  const items = WALK_IT_OUT[stepIdx];
+  if (items && items.length > 0) {
+    const arr = walkoutProgress[stepIdx];
+    if (!arr || arr.length !== items.length) return 'not_started';
+    return computeStepStatusFromWalkout(stepIdx, arr);
+  }
+  return progress[stepIdx] || 'not_started';
 }
 
 function updateStepRowUI(container, stepIdx, status) {
@@ -2715,7 +2923,7 @@ async function renderMemberDetail(memberId) {
 
   let stepsHtml = '';
   STEPS.forEach((title, i) => {
-    const status = progress[i] || 'not_started';
+    const status = displayStepStatus(i, progress, walkoutProgress);
     stepsHtml += stepBlockHtml(i, title, status, { prefix: 'Leader', walkoutChecked: walkoutProgress[i], interactive: false });
   });
 
@@ -2744,11 +2952,11 @@ async function renderMemberDetail(memberId) {
     </div>
     ${renderResourcesHtml()}
     ${actionsBlockHtml}
-    ${overallProgressHtml(walkoutProgress)}
-    ${stepsHtml}
+    ${courseCardHtml('essentials', 'Following Jesus Essentials', '7 essentials for every follower of Jesus', stepsHtml, walkoutProgress, progress)}
   `;
 
   document.getElementById('backBtn').onclick = () => { view = 'home'; activeMemberId = null; render(); };
+  wireCourseToggle('essentials', () => renderMemberDetail(memberId));
   wireWalkoutToggles(main, 'Leader');
   document.getElementById('sendMsgBtn').onclick = async () => {
     const input = document.getElementById('msgInput');
@@ -2857,7 +3065,7 @@ async function renderDisciple() {
 
   let stepsHtml = '';
   STEPS.forEach((title, i) => {
-    const status = progress[i] || 'not_started';
+    const status = displayStepStatus(i, progress, walkoutProgress);
     stepsHtml += stepBlockHtml(i, title, status, { clickable: true, suffix: 'tap to update', prefix: 'Friend', walkoutChecked: walkoutProgress[i], interactive: true });
   });
 
@@ -2962,11 +3170,10 @@ async function renderDisciple() {
     </div>` : ''}
     ${renderResourcesHtml()}
     ${actionsFeedHtml}
-    ${overallProgressHtml(walkoutProgress)}
-    <div class="section-label">Your Next Steps</div>
-    ${stepsHtml}
+    ${courseCardHtml('essentials', 'Following Jesus Essentials', '7 essentials for every follower of Jesus', stepsHtml, walkoutProgress, progress)}
   `;
   document.getElementById('backToHubBtn').onclick = () => { topView = 'hub'; render(); };
+  wireCourseToggle('essentials', render);
   document.getElementById('joinAnotherBtn').onclick = async () => {
     const codeInput = (await showAppPrompt("Enter the invite code", "e.g. AB12CD"))?.trim().toUpperCase();
     if (!codeInput) return;
@@ -3016,6 +3223,9 @@ async function renderDisciple() {
       const next = cur === 'done' ? 'not_started' : 'done';
       progress[i] = next;
       await safeSet(`progress:${myId}`, progress, true);
+      const freshWalkout = (await safeGet(`walkout-progress:${myId}`, true)) || {};
+      const allDone = STEPS.every((_, idx) => displayStepStatus(idx, progress, freshWalkout) === 'done');
+      if (allDone) { essentialsExpanded = false; triggerConfetti(); }
       render();
     };
   });
@@ -3023,6 +3233,9 @@ async function renderDisciple() {
   wireWalkoutItemToggles(main, myId, async (stepIdx, newStatus) => {
     progress[stepIdx] = newStatus;
     await safeSet(`progress:${myId}`, progress, true);
+    const freshWalkout = (await safeGet(`walkout-progress:${myId}`, true)) || {};
+    const allDone = STEPS.every((_, i) => displayStepStatus(i, progress, freshWalkout) === 'done');
+    if (allDone && essentialsExpanded) { essentialsExpanded = false; triggerConfetti(); render(); }
   });
 
   [...document.querySelectorAll('[data-leave-code]')].forEach(btn => {
@@ -3218,7 +3431,7 @@ async function renderDiscipleshipHub() {
 
   let stepsHtml = '';
   STEPS.forEach((title, i) => {
-    const status = progress[i] || 'not_started';
+    const status = displayStepStatus(i, progress, walkoutProgress);
     stepsHtml += stepBlockHtml(i, title, status, { clickable: true, prefix: 'Hub', walkoutChecked: walkoutProgress[i], interactive: true });
   });
 
@@ -3249,13 +3462,12 @@ async function renderDiscipleshipHub() {
       ${discipleCardHtml}
     </div>
     ${renderResourcesHtml()}
-    ${overallProgressHtml(walkoutProgress)}
-    <div class="section-label">Your Next Steps</div>
-    ${stepsHtml}
+    ${courseCardHtml('essentials', 'Following Jesus Essentials', '7 essentials for every follower of Jesus', stepsHtml, walkoutProgress, progress)}
   `;
 
   document.getElementById('goLeaderDash').onclick = () => { topView = 'leader'; render(); };
   document.getElementById('goDiscipleDash').onclick = () => { topView = 'disciple'; render(); };
+  wireCourseToggle('essentials', renderDiscipleshipHub);
 
   [...main.querySelectorAll('.step-row[data-clickable="true"]')].forEach(el => {
     let busy = false;
@@ -3267,6 +3479,9 @@ async function renderDiscipleshipHub() {
       const next = cur === 'done' ? 'not_started' : 'done';
       progress[i] = next;
       await safeSet(`progress:${myId}`, progress, true);
+      const freshWalkout = (await safeGet(`walkout-progress:${myId}`, true)) || {};
+      const allDone = STEPS.every((_, idx) => displayStepStatus(idx, progress, freshWalkout) === 'done');
+      if (allDone) { essentialsExpanded = false; triggerConfetti(); }
       renderDiscipleshipHub();
     };
   });
@@ -3274,6 +3489,9 @@ async function renderDiscipleshipHub() {
   wireWalkoutItemToggles(main, myId, async (stepIdx, newStatus) => {
     progress[stepIdx] = newStatus;
     await safeSet(`progress:${myId}`, progress, true);
+    const freshWalkout = (await safeGet(`walkout-progress:${myId}`, true)) || {};
+    const allDone = STEPS.every((_, i) => displayStepStatus(i, progress, freshWalkout) === 'done');
+    if (allDone && essentialsExpanded) { essentialsExpanded = false; triggerConfetti(); renderDiscipleshipHub(); }
   });
 }
 
