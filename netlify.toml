@@ -12,3 +12,8 @@
 # format is "minute hour day month weekday", all in UTC.
 [functions."send-daily-notifications"]
   schedule = "0 13 * * *"
+
+# Runs every 3 days — comfortably inside Supabase's 7-day auto-pause window,
+# so the free-tier database never goes to sleep from inactivity.
+[functions."keep-alive-ping"]
+  schedule = "0 12 */3 * *"
