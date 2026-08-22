@@ -2446,21 +2446,18 @@ function courseCardHtml(courseId, title, subtitle, stepsHtml, walkoutProgress, p
 function ownJourneySectionHtml(walkoutProgress, progress, stepsHtml, bottomActionHtml) {
   const stats = overallWalkoutStats(walkoutProgress);
   const expanded = essentialsExpanded;
-  const hasStarted = stats.done > 0;
   const isComplete = stats.pct === 100;
 
   const badgeHtml = isComplete
     ? `<span class="course-complete-badge">✓ Complete</span>`
     : `<span class="course-progress-pct">${stats.pct}%</span>`;
-  const subtitle = hasStarted
-    ? `Following Jesus Essentials · ${stats.done} of ${stats.total} action steps complete`
-    : `Would you like to walk through the Following Jesus foundations yourself?`;
+  const subtitle = `Following Jesus Essentials · ${stats.done} of ${stats.total} action steps complete`;
 
   return `
     <div class="course-card">
       <button type="button" class="course-card-header" id="courseToggle-essentials">
         <div class="course-card-header-left">
-          <div class="course-card-title">Your Own Journey</div>
+          <div class="course-card-title">My Discipleship Journey</div>
           <div class="course-card-sub">${subtitle}</div>
         </div>
         <div class="course-card-header-right">
@@ -3739,15 +3736,16 @@ async function renderDiscipleshipHub() {
          <div class="hub-role-sub">Open your chat and groups →</div>
        </button>`
     : `<button type="button" class="hub-role-card hub-role-cta${isApprovedLeader ? ' hub-role-card-standalone' : ''}" id="goDiscipleDash">
-         <div class="hub-role-title">Get a Leader</div>
+         <div class="hub-role-title">Join a Group</div>
          <div class="hub-role-sub">Have someone walk alongside you →</div>
        </button>`;
 
-  // Not yet an approved leader: show the CTA card alongside "Being
-  // Discipled," same two-card row as before. Once approved, "Being
-  // Discipled"/"Get a Leader" moves down into the Your Own Journey
-  // section instead, since it's part of personal growth, not a separate
-  // top-level mode.
+  // Not yet an approved leader: "Invite a Friend" and "Join a Group" side
+  // by side, with "Become a Disciple Maker" below as its own deliberate
+  // step. Invite a Friend is intentionally lightweight — reuses the same
+  // invite mechanism as a formal leader would, but doesn't require pastor
+  // approval, since plenty of people just want to go through a course
+  // with a friend without framing it as formal discipleship yet.
   let leaderSectionHtml = '';
   let groups = [];
   let disciples = [];
@@ -3755,11 +3753,19 @@ async function renderDiscipleshipHub() {
   let discipledCount = 0;
 
   if (!isApprovedLeader) {
-    const leaderCardHtml = `<button type="button" class="hub-role-card hub-role-cta" id="goLeaderDash">
-         <div class="hub-role-title">Disciple Someone</div>
-         <div class="hub-role-sub">${leaderApp ? 'Application pending →' : 'Walk a friend or group through this →'}</div>
-       </button>`;
-    leaderSectionHtml = `<div class="hub-role-grid">${leaderCardHtml}${discipleCardHtml}</div>`;
+    leaderSectionHtml = `
+      <div class="hub-role-grid">
+        <button type="button" class="hub-role-card" id="inviteAFriendBtn">
+          <div class="hub-role-title">Invite a Friend</div>
+          <div class="hub-role-sub">Go through a course together →</div>
+        </button>
+        ${discipleCardHtml}
+      </div>
+      <button type="button" class="hub-role-card hub-role-cta hub-role-card-standalone" id="goLeaderDash">
+        <div class="hub-role-title">Become a Disciple Maker</div>
+        <div class="hub-role-sub">${leaderApp ? 'Application pending →' : 'Get approved to formally lead others →'}</div>
+      </button>
+    `;
   } else {
     // Approved: the leader dashboard now lives directly on the Hub instead
     // of behind a separate screen — this is that merged content.
@@ -3801,6 +3807,15 @@ async function renderDiscipleshipHub() {
   document.getElementById('goDiscipleDash').onclick = () => { topView = 'disciple'; render(); };
   if (!isApprovedLeader) {
     document.getElementById('goLeaderDash').onclick = () => { topView = 'leader'; render(); };
+    document.getElementById('inviteAFriendBtn').onclick = async () => {
+      let code = await safeGet(`leader-direct-code:${myId}`, true);
+      if (!code) {
+        code = genCode();
+        await safeSet(`leader-direct-code:${myId}`, code, true);
+        await safeSet(`group:${code}`, { leaderId: myId, label: 'Direct Invite', isDirect: true, createdAt: Date.now() }, true);
+      }
+      showShareModal(code, 'Your Personal Invite');
+    };
   } else {
     await wireLeaderQuickActions();
     document.getElementById('tabGroups').onclick = () => { leaderTab = 'groups'; render(); };
