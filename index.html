@@ -1035,13 +1035,19 @@
   }
   .disciple-app-scope .compact-action-btn:active { background: #a8752a; }
 
-  .disciple-app-scope .hub-top-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
-  .disciple-app-scope .profile-link-btn {
-    flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
-    background: rgba(255,255,255,0.08); border: none; color: var(--white);
-    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  .disciple-app-scope .hub-top-row {
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    background: rgba(255,255,255,0.06); border: none; border-radius: 2px;
+    padding: 12px 14px; cursor: pointer; margin-bottom: 18px;
   }
-  .disciple-app-scope .profile-link-btn svg { width: 18px; height: 18px; }
+  .disciple-app-scope .hub-profile-photo {
+    flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; overflow: hidden;
+    background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-weight: 800; font-size: 15px; color: var(--ember);
+  }
+  .disciple-app-scope .hub-profile-photo img { width: 100%; height: 100%; object-fit: cover; }
+  .disciple-app-scope .hub-profile-name { flex: 1; font-family: var(--font-display); font-weight: 700; font-size: 14.5px; color: var(--white); }
+  .disciple-app-scope .hub-profile-arrow { width: 18px; height: 18px; color: rgba(255,255,255,0.4); flex-shrink: 0; }
   .disciple-app-scope .hub-role-grid { display: flex; gap: 10px; margin-bottom: 20px; }
   .disciple-app-scope .hub-role-card {
     flex: 1;
@@ -3714,6 +3720,7 @@ function showShareModal(code, label) {
 
 // ---------- Solo (self-guided, no leader needed) ----------
 async function renderDiscipleshipHub() {
+  const account = await dSafeGet('account');
   const leaderApp = await safeGet(`leader-application:${myId}`, true);
   const membership = await safeGet(`disciple-membership:${myId}`, true);
   const progress = (await safeGet(`progress:${myId}`, true)) || {};
@@ -3749,12 +3756,11 @@ async function renderDiscipleshipHub() {
        </button>`;
 
   main.innerHTML = `
-    <div class="hub-top-row">
-      <p class="dm-p" style="margin-bottom:0; flex:1;">Everyone here can grow, disciple others, and be discipled — all at once. This is your home base for all of it.</p>
-      <button type="button" class="profile-link-btn" id="profileLinkBtn" aria-label="Profile settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
-      </button>
-    </div>
+    <button type="button" class="hub-top-row" id="profileLinkBtn" aria-label="Profile settings">
+      <div class="hub-profile-photo">${account && account.photoUrl ? `<img src="${account.photoUrl}" alt="${escapeHtml(account.name)}" />` : `<span>${account ? escapeHtml(account.name.charAt(0).toUpperCase()) : '?'}</span>`}</div>
+      <div class="hub-profile-name">${account ? escapeHtml(account.name) : 'Your Profile'}</div>
+      <svg class="hub-profile-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
     <div class="hub-role-grid">
       ${leaderCardHtml}
       ${discipleCardHtml}
