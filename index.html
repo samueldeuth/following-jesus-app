@@ -1059,6 +1059,7 @@
     cursor: pointer;
   }
   .disciple-app-scope .hub-role-card.hub-role-cta { background: #0d7a6e; }
+  .disciple-app-scope .hub-role-card-standalone { display: block; width: 100%; margin-top: 16px; }
   .disciple-app-scope .hub-role-title {
     font-family: var(--font-display);
     font-weight: 800;
@@ -2435,6 +2436,46 @@ function courseCardHtml(courseId, title, subtitle, stepsHtml, walkoutProgress, p
     </div>`;
 }
 
+// "Your Own Journey" — the umbrella for a person's own growth, regardless
+// of who they lead. Wraps the current course (Following Jesus Essentials)
+// and is built so a second course later just becomes another block inside
+// this same expanded body, without needing another restructure. For an
+// approved leader, the "Get a Leader / Being Discipled" action lives at
+// the bottom of this section instead of sitting in the top row, since
+// that's part of their own growth too, not a separate mode.
+function ownJourneySectionHtml(walkoutProgress, progress, stepsHtml, bottomActionHtml) {
+  const stats = overallWalkoutStats(walkoutProgress);
+  const expanded = essentialsExpanded;
+  const hasStarted = stats.done > 0;
+  const isComplete = stats.pct === 100;
+
+  const badgeHtml = isComplete
+    ? `<span class="course-complete-badge">✓ Complete</span>`
+    : `<span class="course-progress-pct">${stats.pct}%</span>`;
+  const subtitle = hasStarted
+    ? `Following Jesus Essentials · ${stats.done} of ${stats.total} action steps complete`
+    : `Would you like to walk through the Following Jesus foundations yourself?`;
+
+  return `
+    <div class="course-card">
+      <button type="button" class="course-card-header" id="courseToggle-essentials">
+        <div class="course-card-header-left">
+          <div class="course-card-title">Your Own Journey</div>
+          <div class="course-card-sub">${subtitle}</div>
+        </div>
+        <div class="course-card-header-right">
+          ${badgeHtml}
+          <svg class="course-chevron ${expanded ? 'open' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </button>
+      <div class="course-card-body ${expanded ? 'open' : ''}">
+        ${overallProgressHtml(walkoutProgress)}
+        ${stepsHtml}
+        ${bottomActionHtml || ''}
+      </div>
+    </div>`;
+}
+
 function wireCourseToggle(courseId, rerenderFn) {
   const btn = document.getElementById(`courseToggle-${courseId}`);
   if (!btn) return;
@@ -3692,32 +3733,21 @@ async function renderDiscipleshipHub() {
     stepsHtml += stepBlockHtml(i, title, status, { clickable: true, prefix: 'Hub', walkoutChecked: walkoutProgress[i], interactive: true });
   });
 
-  const myStats = overallWalkoutStats(walkoutProgress);
-  const ownJourneyHtml = myStats.done === 0
-    ? `<button type="button" class="own-journey-card own-journey-prompt" id="ownJourneyBtn">
-         <div class="own-journey-title">Would you like to walk through the Following Jesus foundations yourself?</div>
-         <div class="own-journey-sub">See your own steps below →</div>
-       </button>`
-    : `<button type="button" class="own-journey-card" id="ownJourneyBtn">
-         <div class="own-journey-top">
-           <div class="own-journey-title">Your Own Journey</div>
-           <div class="own-journey-pct">${myStats.pct}%</div>
-         </div>
-         <div class="walkout-progress-bar"><div class="walkout-progress-fill" style="width:${myStats.pct}%;"></div></div>
-       </button>`;
-
   const discipleCardHtml = membership
-    ? `<button type="button" class="hub-role-card" id="goDiscipleDash">
+    ? `<button type="button" class="hub-role-card${isApprovedLeader ? ' hub-role-card-standalone' : ''}" id="goDiscipleDash">
          <div class="hub-role-title">Being Discipled</div>
          <div class="hub-role-sub">Open your chat and groups →</div>
        </button>`
-    : `<button type="button" class="hub-role-card hub-role-cta" id="goDiscipleDash">
+    : `<button type="button" class="hub-role-card hub-role-cta${isApprovedLeader ? ' hub-role-card-standalone' : ''}" id="goDiscipleDash">
          <div class="hub-role-title">Get a Leader</div>
          <div class="hub-role-sub">Have someone walk alongside you →</div>
        </button>`;
 
   // Not yet an approved leader: show the CTA card alongside "Being
-  // Discipled," same two-card row as before.
+  // Discipled," same two-card row as before. Once approved, "Being
+  // Discipled"/"Get a Leader" moves down into the Your Own Journey
+  // section instead, since it's part of personal growth, not a separate
+  // top-level mode.
   let leaderSectionHtml = '';
   let groups = [];
   let disciples = [];
@@ -3739,7 +3769,6 @@ async function renderDiscipleshipHub() {
     discipledCount = await computeDiscipledCount(myId);
 
     leaderSectionHtml = `
-      <div class="hub-role-grid">${discipleCardHtml}</div>
       <div class="discipled-stat-card">
         <div class="discipled-stat-number">${discipledCount}</div>
         <div class="discipled-stat-label">${discipledCount === 1 ? 'Person' : 'People'} You've Discipled</div>
@@ -3762,15 +3791,13 @@ async function renderDiscipleshipHub() {
       <div class="hub-profile-name">${account ? escapeHtml(account.name) : 'Your Profile'}</div>
       <svg class="hub-profile-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg>
     </button>
-    ${ownJourneyHtml}
+    ${ownJourneySectionHtml(walkoutProgress, progress, stepsHtml, isApprovedLeader ? discipleCardHtml : '')}
     ${leaderSectionHtml}
     <div class="global-count-banner">🎉 ${globalCount.toLocaleString()} ${globalCount === 1 ? 'disciple' : 'disciples'} made through this app</div>
     ${renderResourcesHtml()}
-    ${courseCardHtml('essentials', 'Following Jesus Essentials', '7 essentials for every follower of Jesus', stepsHtml, walkoutProgress, progress)}
   `;
 
   document.getElementById('profileLinkBtn').onclick = () => renderProfileSettings();
-  document.getElementById('ownJourneyBtn').onclick = () => { essentialsExpanded = true; renderDiscipleshipHub(); };
   document.getElementById('goDiscipleDash').onclick = () => { topView = 'disciple'; render(); };
   if (!isApprovedLeader) {
     document.getElementById('goLeaderDash').onclick = () => { topView = 'leader'; render(); };
