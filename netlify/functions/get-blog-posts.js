@@ -34,6 +34,17 @@ function sanitizeHtml(html) {
     .replace(/javascript:/gi, '');
 }
 
+// Rewrites root-relative links/images (e.g. href="/products/...") to absolute
+// URLs pointing back at the source site. Without this, a relative link in
+// content pulled from another domain resolves against OUR domain once
+// rendered in the app, producing a broken URL.
+function makeLinksAbsolute(html, baseUrl) {
+  if (!html) return html;
+  return html
+    .replace(/(href|src)="\/(?!\/)/gi, `$1="${baseUrl}/`)
+    .replace(/(href|src)='\/(?!\/)/gi, `$1='${baseUrl}/`);
+}
+
 function stripTags(html) {
   return (html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -85,7 +96,7 @@ async function fetchSquarespacePosts() {
         excerpt: stripTags(item.excerpt || '').slice(0, 200),
         image: item.assetUrl || (item.mainImage && item.mainImage.assetUrl) || null,
         url: `https://www.samueldeuth.com${item.fullUrl || ''}`,
-        bodyHtml: sanitizeHtml(item.body || item.excerpt || ''),
+        bodyHtml: makeLinksAbsolute(sanitizeHtml(item.body || item.excerpt || ''), 'https://www.samueldeuth.com'),
         date: item.publishOn ? new Date(item.publishOn).toISOString() : null
       });
     }
@@ -149,7 +160,7 @@ async function fetchShopifyPosts() {
       excerpt: stripTags(rawContent).slice(0, 200),
       image: imgMatch ? imgMatch[1] : null,
       url: link,
-      bodyHtml: sanitizeHtml(rawContent),
+      bodyHtml: makeLinksAbsolute(sanitizeHtml(rawContent), 'https://followingjesusbook.com'),
       date: published ? new Date(published).toISOString() : null
     });
   }
