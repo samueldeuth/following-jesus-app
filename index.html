@@ -1035,6 +1035,13 @@
   }
   .disciple-app-scope .compact-action-btn:active { background: #a8752a; }
 
+  .disciple-app-scope .hub-top-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
+  .disciple-app-scope .profile-link-btn {
+    flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+    background: rgba(255,255,255,0.08); border: none; color: var(--white);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .disciple-app-scope .profile-link-btn svg { width: 18px; height: 18px; }
   .disciple-app-scope .hub-role-grid { display: flex; gap: 10px; margin-bottom: 20px; }
   .disciple-app-scope .hub-role-card {
     flex: 1;
@@ -1068,6 +1075,18 @@
   .disciple-app-scope .own-journey-pct { font-family: var(--font-display); font-weight: 900; font-size: 16px; color: var(--black); }
   .disciple-app-scope .own-journey-sub { font-size: 11px; color: rgba(255,255,255,0.85); margin-top: 6px; }
 
+  .disciple-app-scope .discipled-stat-card {
+    display: flex; align-items: baseline; gap: 10px; background: var(--paper);
+    border-radius: 2px; padding: 16px 18px; margin-bottom: 14px;
+  }
+  .disciple-app-scope .discipled-stat-number { font-family: var(--font-display); font-weight: 900; font-size: 28px; color: var(--ember); }
+  .disciple-app-scope .discipled-stat-label { font-family: var(--font-display); font-weight: 700; font-size: 12.5px; color: var(--black); text-transform: uppercase; letter-spacing: 0.02em; }
+
+  .disciple-app-scope .global-count-banner {
+    text-align: center; font-family: var(--font-display); font-size: 11.5px; font-weight: 700;
+    color: rgba(255,255,255,0.6); letter-spacing: 0.02em; margin: 4px 0 20px;
+  }
+
   .disciple-app-scope .code-display { text-align:center; padding: 24px 0 18px; }
   .disciple-app-scope .invite-toggle-btn {
     display: flex; align-items: center; justify-content: space-between; width: 100%;
@@ -1089,6 +1108,13 @@
   }
   .disciple-app-scope .group-header-bar .eyebrow { font-family:var(--font-display); font-size:10px; letter-spacing:0.16em; text-transform:uppercase; color: var(--ember); margin-bottom:6px; }
   .disciple-app-scope .group-header-bar .name { font-family:var(--font-display); font-weight:900; font-size:19px; letter-spacing:0.03em; color: var(--white); text-transform:uppercase; }
+  .disciple-app-scope .leader-info-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; }
+  .disciple-app-scope .leader-avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+  .disciple-app-scope .leader-avatar-fallback {
+    display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.12);
+    font-family: var(--font-display); font-weight: 800; font-size: 11px; color: var(--ember);
+  }
+  .disciple-app-scope .leader-info-name { font-size: 11.5px; color: rgba(255,255,255,0.6); }
   .disciple-app-scope .leave-group-btn {
     display: block; margin: 10px auto 0; background: none; border: none;
     color: rgba(255,255,255,0.4); font-family: var(--font-display); font-size: 10.5px;
@@ -1245,6 +1271,7 @@
     background: var(--paper); border: none;
     border-radius: 2px; padding: 14px; margin-bottom: 20px;
   }
+  .disciple-app-scope .action-block .section-label { color: var(--ink-soft); }
   .disciple-app-scope .action-list { display: flex; flex-direction: column; gap: 8px; }
   .disciple-app-scope .action-row {
     display: flex; align-items: flex-start; gap: 10px;
@@ -1288,6 +1315,19 @@
   @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   .dm-p { font-size: 14px; line-height: 1.6; color: rgba(255,255,255,0.82); margin-bottom: 18px; }
   .dm-note { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: -8px; }
+
+  .profile-photo-row { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+  .profile-photo-preview {
+    width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,0.08);
+    display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;
+    font-family: var(--font-display); font-weight: 800; font-size: 24px; color: var(--ember);
+  }
+  .profile-photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+  .profile-photo-btn { width: auto !important; display: inline-block; cursor: pointer; }
+  .approval-badge {
+    background: rgba(13,122,110,0.15); color: #0d7a6e; font-family: var(--font-display);
+    font-size: 11.5px; font-weight: 700; border-radius: 2px; padding: 10px 14px; margin-bottom: 18px;
+  }
   .disciple-modal-body input[type=text] {
     width: 100%; padding: 14px 16px; border: 1px solid rgba(255,255,255,0.18); border-radius: 2px;
     font-family: var(--font-display); font-size: 14px; background: rgba(255,255,255,0.06); color: var(--white); margin-bottom: 10px;
@@ -1801,7 +1841,110 @@
       const name = document.getElementById('accName').value.trim();
       const email = document.getElementById('accEmail').value.trim();
       if (!name || !email) { alert('Please enter your name and email.'); return; }
-      await dSafeSet('account', { name, email, id: uid() });
+      const account = { name, email, id: uid() };
+      await dSafeSet('account', account);
+      syncSharedProfile(account); // best-effort, don't block on it
+      renderDiscipleStep();
+    };
+  }
+
+  function extFromMime(mime) {
+    if (mime === 'image/png') return 'png';
+    if (mime === 'image/webp') return 'webp';
+    if (mime === 'image/gif') return 'gif';
+    return 'jpg';
+  }
+
+  async function uploadProfilePhoto(file, id) {
+    if (!supabaseConfigured) return null;
+    try {
+      const path = `${id}-${Date.now()}.${extFromMime(file.type)}`;
+      const res = await fetch(`${SUPABASE_URL}/storage/v1/object/avatars/${path}`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': file.type || 'image/jpeg'
+        },
+        body: file
+      });
+      if (!res.ok) return null;
+      return `${SUPABASE_URL}/storage/v1/object/public/avatars/${path}`;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Keeps a shared, centralized record of everyone's profile — separate
+  // from the personal on-device "account" copy, so this data actually
+  // exists somewhere Samuel can see it (a growing list, not scattered
+  // across everyone's individual phones).
+  async function syncSharedProfile(account) {
+    if (!account || !account.id) return;
+    try {
+      await safeSet(`profile:${account.id}`, {
+        name: account.name,
+        email: account.email,
+        photoUrl: account.photoUrl || null,
+        updatedAt: new Date().toISOString()
+      }, true);
+    } catch (e) { /* best effort — the local account copy is still saved regardless */ }
+  }
+
+  async function renderProfileSettings() {
+    const account = await dSafeGet('account');
+    const leaderApp = account ? await safeGet(`leader-application:${account.id}`, true) : null;
+    const approvalHtml = (leaderApp && leaderApp.status === 'approved')
+      ? `<div class="approval-badge">✓ Approved as a leader by ${escapeHtmlMain(leaderApp.pastorName)} at ${escapeHtmlMain(leaderApp.church)}</div>`
+      : '';
+    discipleBody.innerHTML = `
+      <a class="back-link" id="profileBackBtn">← My Discipleship</a>
+      <div class="profile-photo-row">
+        <div class="profile-photo-preview" id="profPhotoPreview">${account && account.photoUrl ? `<img src="${account.photoUrl}" alt="Profile photo" />` : `<span>${account ? escapeHtmlMain(account.name.charAt(0).toUpperCase()) : '?'}</span>`}</div>
+        <label class="secondary-btn profile-photo-btn" id="profPhotoLabel">
+          Change Photo
+          <input type="file" accept="image/*" id="profPhotoInput" style="display:none;" />
+        </label>
+      </div>
+      ${approvalHtml}
+      <p class="dm-p">Update your name or email below.</p>
+      <input type="text" id="profName" placeholder="Your full name" value="${account ? escapeHtmlMain(account.name) : ''}" />
+      <input type="text" id="profEmail" placeholder="Your email" value="${account ? escapeHtmlMain(account.email) : ''}" />
+      <button class="primary-btn" id="profSaveBtn">Save Changes</button>
+      <button class="secondary-btn" id="profLogoutBtn" style="margin-top:24px;">Log Out of This Profile</button>
+      <p class="dm-note">Heads up: this only clears the profile on this device — nothing you've built (groups, disciples, progress) is deleted, it's still tied to your account in the background. But there's currently no way to "log back in" to it afterward, since accounts aren't looked up by name or email — so only log out if you're sure, or if you're setting this device up for someone else.</p>
+    `;
+    document.getElementById('profileBackBtn').onclick = () => { topView = 'hub'; renderDiscipleStep(); };
+    document.getElementById('profPhotoInput').onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const preview = document.getElementById('profPhotoPreview');
+      preview.innerHTML = `<span>...</span>`;
+      const url = await uploadProfilePhoto(file, account.id);
+      if (!url) {
+        await showAppAlert("Couldn't upload that photo — try a different image, or check your connection.");
+        preview.innerHTML = account.photoUrl ? `<img src="${account.photoUrl}" alt="Profile photo" />` : `<span>${escapeHtmlMain(account.name.charAt(0).toUpperCase())}</span>`;
+        return;
+      }
+      account.photoUrl = url;
+      await dSafeSet('account', account);
+      syncSharedProfile(account);
+      preview.innerHTML = `<img src="${url}" alt="Profile photo" />`;
+    };
+    document.getElementById('profSaveBtn').onclick = async () => {
+      const name = document.getElementById('profName').value.trim();
+      const email = document.getElementById('profEmail').value.trim();
+      if (!name || !email) { await showAppAlert('Please enter both your name and email.'); return; }
+      const updated = { ...account, name, email };
+      await dSafeSet('account', updated);
+      syncSharedProfile(updated);
+      await showAppAlert('Saved.');
+      renderDiscipleStep();
+    };
+    document.getElementById('profLogoutBtn').onclick = async () => {
+      if (!(await showAppConfirm("Log out of this profile on this device? This device won't remember your account anymore, but nothing you've built is deleted."))) return;
+      await dSafeSet('account', null);
+      topView = 'hub';
       renderDiscipleStep();
     };
   }
@@ -2234,6 +2377,33 @@ function wireWalkoutToggles(container, prefix) {
 // ---------- Celebration ----------
 // Lightweight, dependency-free confetti burst, self-removing after it
 // finishes. Fires the moment a course hits 100% complete.
+// ---------- Discipled counts ----------
+async function computeDiscipledCount(leaderId) {
+  const disciples = (await safeGet(`leader-disciples:${leaderId}`, true)) || [];
+  let count = 0;
+  for (const d of disciples) {
+    const dProgress = (await safeGet(`progress:${d.id}`, true)) || {};
+    const dWalkout = (await safeGet(`walkout-progress:${d.id}`, true)) || {};
+    const allDone = STEPS.every((_, i) => displayStepStatus(i, dProgress, dWalkout) === 'done');
+    if (allDone) count++;
+  }
+  return count;
+}
+
+// A simple shared counter across everyone using the app. This is a
+// straightforward read-then-write, not a true atomic increment — under
+// the very unlikely case of two people finishing at the exact same
+// instant, one increment could be lost. Fine at real-world usage scale;
+// worth knowing if this ever needs to be exact.
+async function getGlobalDiscipleCount() {
+  const val = await safeGet('global-disciple-count', true);
+  return typeof val === 'number' ? val : 0;
+}
+async function incrementGlobalDiscipleCount() {
+  const current = await getGlobalDiscipleCount();
+  await safeSet('global-disciple-count', current + 1, true);
+}
+
 function triggerConfetti() {
   const canvas = document.createElement('canvas');
   canvas.style.position = 'fixed';
@@ -2589,6 +2759,7 @@ async function renderMentor() {
   let directCode = await safeGet(`leader-direct-code:${myId}`, true);
   const myWalkoutProgress = (await safeGet(`walkout-progress:${myId}`, true)) || {};
   const myStats = overallWalkoutStats(myWalkoutProgress);
+  const discipledCount = await computeDiscipledCount(myId);
   const ownJourneyHtml = myStats.done === 0
     ? `<button type="button" class="own-journey-card own-journey-prompt" id="ownJourneyBtn">
          <div class="own-journey-title">Would you like to walk through the Following Jesus foundations yourself?</div>
@@ -2605,6 +2776,10 @@ async function renderMentor() {
   main.innerHTML = `
     <a class="back-link" id="backToHubBtn">← My Discipleship</a>
     ${ownJourneyHtml}
+    <div class="discipled-stat-card">
+      <div class="discipled-stat-number">${discipledCount}</div>
+      <div class="discipled-stat-label">${discipledCount === 1 ? 'Person' : 'People'} You've Discipled</div>
+    </div>
     <div class="two-col two-col-compact">
       <button class="compact-action-btn" id="inviteFriendBtn">${directCode ? 'Show My Link' : 'Invite an Individual'}</button>
       <button class="compact-action-btn" id="newGroupBtn">Create a Group</button>
@@ -3138,6 +3313,8 @@ async function renderDisciple() {
     // fallback case further down.
     const gLeaderApp = await safeGet(`leader-application:${g.leaderId}`, true);
     const gLeaderName = gLeaderApp ? gLeaderApp.name : 'Your Leader';
+    const gLeaderProfile = await safeGet(`profile:${g.leaderId}`, true);
+    const gLeaderPhoto = gLeaderProfile ? gLeaderProfile.photoUrl : null;
     const gPrivateMessages = (await safeGet(`messages:${g.leaderId}:${myId}`, true)) || [];
     let gMsgHtml = '';
     if (gPrivateMessages.length === 0) { gMsgHtml = '<div class="msg-empty">No messages yet.</div>'; }
@@ -3147,6 +3324,10 @@ async function renderDisciple() {
       <div class="group-header-bar" style="margin:28px 0 0;">
         <div class="eyebrow">Group</div>
         <div class="name">${escapeHtml(g.label)}</div>
+        <div class="leader-info-row">
+          ${gLeaderPhoto ? `<img class="leader-avatar" src="${gLeaderPhoto}" alt="${escapeHtml(gLeaderName)}" />` : `<span class="leader-avatar leader-avatar-fallback">${escapeHtml(gLeaderName.charAt(0).toUpperCase())}</span>`}
+          <span class="leader-info-name">Led by ${escapeHtml(gLeaderName)}</span>
+        </div>
         <button type="button" class="leave-group-btn" data-leave-code="${g.code}">Leave Group</button>
       </div>
       <div class="chat-toggle" data-code="${g.code}">
@@ -3261,7 +3442,7 @@ async function renderDisciple() {
       await safeSet(`progress:${myId}`, progress, true);
       const freshWalkout = (await safeGet(`walkout-progress:${myId}`, true)) || {};
       const allDone = STEPS.every((_, idx) => displayStepStatus(idx, progress, freshWalkout) === 'done');
-      if (allDone) { essentialsExpanded = false; triggerConfetti(); }
+      if (allDone) { essentialsExpanded = false; triggerConfetti(); incrementGlobalDiscipleCount(); }
       render();
     };
   });
@@ -3271,7 +3452,7 @@ async function renderDisciple() {
     await safeSet(`progress:${myId}`, progress, true);
     const freshWalkout = (await safeGet(`walkout-progress:${myId}`, true)) || {};
     const allDone = STEPS.every((_, i) => displayStepStatus(i, progress, freshWalkout) === 'done');
-    if (allDone && essentialsExpanded) { essentialsExpanded = false; triggerConfetti(); render(); }
+    if (allDone && essentialsExpanded) { essentialsExpanded = false; triggerConfetti(); incrementGlobalDiscipleCount(); render(); }
   });
 
   [...document.querySelectorAll('[data-leave-code]')].forEach(btn => {
@@ -3464,6 +3645,9 @@ async function renderDiscipleshipHub() {
   const membership = await safeGet(`disciple-membership:${myId}`, true);
   const progress = (await safeGet(`progress:${myId}`, true)) || {};
   const walkoutProgress = (await safeGet(`walkout-progress:${myId}`, true)) || {};
+  const isApprovedLeader = leaderApp && leaderApp.status === 'approved';
+  const discipledCount = isApprovedLeader ? await computeDiscipledCount(myId) : 0;
+  const globalCount = await getGlobalDiscipleCount();
 
   let stepsHtml = '';
   STEPS.forEach((title, i) => {
@@ -3471,10 +3655,10 @@ async function renderDiscipleshipHub() {
     stepsHtml += stepBlockHtml(i, title, status, { clickable: true, prefix: 'Hub', walkoutChecked: walkoutProgress[i], interactive: true });
   });
 
-  const leaderCardHtml = (leaderApp && leaderApp.status === 'approved')
+  const leaderCardHtml = isApprovedLeader
     ? `<button type="button" class="hub-role-card" id="goLeaderDash">
-         <div class="hub-role-title">Discipling Others</div>
-         <div class="hub-role-sub">Open your leader dashboard →</div>
+         <div class="hub-role-title">Leader Dashboard</div>
+         <div class="hub-role-sub">${discipledCount} ${discipledCount === 1 ? 'person' : 'people'} discipled →</div>
        </button>`
     : `<button type="button" class="hub-role-card hub-role-cta" id="goLeaderDash">
          <div class="hub-role-title">Disciple Someone</div>
@@ -3492,17 +3676,24 @@ async function renderDiscipleshipHub() {
        </button>`;
 
   main.innerHTML = `
-    <p class="dm-p" style="margin-bottom:18px;">Everyone here can grow, disciple others, and be discipled — all at once. This is your home base for all of it.</p>
+    <div class="hub-top-row">
+      <p class="dm-p" style="margin-bottom:0; flex:1;">Everyone here can grow, disciple others, and be discipled — all at once. This is your home base for all of it.</p>
+      <button type="button" class="profile-link-btn" id="profileLinkBtn" aria-label="Profile settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+      </button>
+    </div>
     <div class="hub-role-grid">
       ${leaderCardHtml}
       ${discipleCardHtml}
     </div>
+    <div class="global-count-banner">🎉 ${globalCount.toLocaleString()} ${globalCount === 1 ? 'disciple' : 'disciples'} made through this app</div>
     ${renderResourcesHtml()}
     ${courseCardHtml('essentials', 'Following Jesus Essentials', '7 essentials for every follower of Jesus', stepsHtml, walkoutProgress, progress)}
   `;
 
   document.getElementById('goLeaderDash').onclick = () => { topView = 'leader'; render(); };
   document.getElementById('goDiscipleDash').onclick = () => { topView = 'disciple'; render(); };
+  document.getElementById('profileLinkBtn').onclick = () => renderProfileSettings();
   wireCourseToggle('essentials', renderDiscipleshipHub);
 
   [...main.querySelectorAll('.step-row[data-clickable="true"]')].forEach(el => {
@@ -3517,7 +3708,7 @@ async function renderDiscipleshipHub() {
       await safeSet(`progress:${myId}`, progress, true);
       const freshWalkout = (await safeGet(`walkout-progress:${myId}`, true)) || {};
       const allDone = STEPS.every((_, idx) => displayStepStatus(idx, progress, freshWalkout) === 'done');
-      if (allDone) { essentialsExpanded = false; triggerConfetti(); }
+      if (allDone) { essentialsExpanded = false; triggerConfetti(); incrementGlobalDiscipleCount(); }
       renderDiscipleshipHub();
     };
   });
@@ -3527,7 +3718,7 @@ async function renderDiscipleshipHub() {
     await safeSet(`progress:${myId}`, progress, true);
     const freshWalkout = (await safeGet(`walkout-progress:${myId}`, true)) || {};
     const allDone = STEPS.every((_, i) => displayStepStatus(i, progress, freshWalkout) === 'done');
-    if (allDone && essentialsExpanded) { essentialsExpanded = false; triggerConfetti(); renderDiscipleshipHub(); }
+    if (allDone && essentialsExpanded) { essentialsExpanded = false; triggerConfetti(); incrementGlobalDiscipleCount(); renderDiscipleshipHub(); }
   });
 }
 
