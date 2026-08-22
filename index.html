@@ -1339,6 +1339,20 @@
   }
   .profile-photo-preview img { width: 100%; height: 100%; object-fit: cover; }
   .profile-photo-btn { width: auto !important; display: inline-block; cursor: pointer; }
+
+  .profile-view-row { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+  .profile-photo-preview-lg { width: 76px; height: 76px; font-size: 28px; }
+  .profile-photo-hover { position: relative; cursor: pointer; }
+  .profile-photo-edit-overlay {
+    position: absolute; inset: 0; border-radius: 50%; background: rgba(10,10,10,0.55);
+    display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s ease;
+  }
+  .profile-photo-edit-overlay svg { width: 22px; height: 22px; color: var(--white); }
+  .profile-photo-hover:hover .profile-photo-edit-overlay,
+  .profile-photo-hover:active .profile-photo-edit-overlay { opacity: 1; }
+  .profile-view-name { font-family: var(--font-display); font-weight: 800; font-size: 19px; color: var(--white); }
+  .profile-view-email { font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 3px; }
+
   .approval-badge {
     background: rgba(13,122,110,0.15); color: #0d7a6e; font-family: var(--font-display);
     font-size: 11.5px; font-weight: 700; border-radius: 2px; padding: 10px 14px; margin-bottom: 18px;
@@ -1971,71 +1985,91 @@
     return null;
   }
 
-  async function renderProfileSettings() {
+  async function renderProfileSettings(editMode) {
     const account = await dSafeGet('account');
     const leaderApp = account ? await safeGet(`leader-application:${account.id}`, true) : null;
     const approvalHtml = (leaderApp && leaderApp.status === 'approved')
       ? `<div class="approval-badge">✓ Approved as a leader by ${escapeHtmlMain(leaderApp.pastorName)} at ${escapeHtmlMain(leaderApp.church)}</div>`
       : '';
-    const myWalkoutProgress = account ? ((await safeGet(`walkout-progress:${account.id}`, true)) || {}) : {};
-    const myStats = overallWalkoutStats(myWalkoutProgress);
-    const ownJourneyHtml = myStats.done === 0
-      ? `<button type="button" class="own-journey-card own-journey-prompt" id="ownJourneyBtn">
-           <div class="own-journey-title">Would you like to walk through the Following Jesus foundations yourself?</div>
-           <div class="own-journey-sub">See your own steps →</div>
-         </button>`
-      : `<button type="button" class="own-journey-card" id="ownJourneyBtn">
-           <div class="own-journey-top">
-             <div class="own-journey-title">Your Own Journey</div>
-             <div class="own-journey-pct">${myStats.pct}%</div>
-           </div>
-           <div class="walkout-progress-bar"><div class="walkout-progress-fill" style="width:${myStats.pct}%;"></div></div>
-         </button>`;
+
+    if (editMode) {
+      discipleBody.innerHTML = `
+        <a class="back-link" id="profileBackBtn">← Cancel</a>
+        <div class="profile-photo-row">
+          <div class="profile-photo-preview" id="profPhotoPreview">${account && account.photoUrl ? `<img src="${account.photoUrl}" alt="Profile photo" />` : `<span>${account ? escapeHtmlMain(account.name.charAt(0).toUpperCase()) : '?'}</span>`}</div>
+          <label class="secondary-btn profile-photo-btn" id="profPhotoLabel">
+            Change Photo
+            <input type="file" accept="image/*" id="profPhotoInput" style="display:none;" />
+          </label>
+        </div>
+        <p class="dm-p">Update your name or email below.</p>
+        <input type="text" id="profName" placeholder="Your full name" value="${account ? escapeHtmlMain(account.name) : ''}" />
+        <input type="text" id="profEmail" placeholder="Your email" value="${account ? escapeHtmlMain(account.email) : ''}" />
+        <button class="primary-btn" id="profSaveBtn">Save Changes</button>
+      `;
+      document.getElementById('profileBackBtn').onclick = () => renderProfileSettings(false);
+      document.getElementById('profPhotoInput').onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const preview = document.getElementById('profPhotoPreview');
+        preview.innerHTML = `<span>...</span>`;
+        const url = await uploadProfilePhoto(file, account.id);
+        if (!url) {
+          await showAppAlert("Couldn't upload that photo — try a different image, or check your connection.");
+          preview.innerHTML = account.photoUrl ? `<img src="${account.photoUrl}" alt="Profile photo" />` : `<span>${escapeHtmlMain(account.name.charAt(0).toUpperCase())}</span>`;
+          return;
+        }
+        account.photoUrl = url;
+        await dSafeSet('account', account);
+        syncSharedProfile(account);
+        preview.innerHTML = `<img src="${url}" alt="Profile photo" />`;
+      };
+      document.getElementById('profSaveBtn').onclick = async () => {
+        const name = document.getElementById('profName').value.trim();
+        const email = document.getElementById('profEmail').value.trim();
+        if (!name || !email) { await showAppAlert('Please enter both your name and email.'); return; }
+        const updated = { ...account, name, email };
+        await dSafeSet('account', updated);
+        syncSharedProfile(updated);
+        renderProfileSettings(false);
+      };
+      return;
+    }
+
     discipleBody.innerHTML = `
       <a class="back-link" id="profileBackBtn">← My Discipleship</a>
-      <div class="profile-photo-row">
-        <div class="profile-photo-preview" id="profPhotoPreview">${account && account.photoUrl ? `<img src="${account.photoUrl}" alt="Profile photo" />` : `<span>${account ? escapeHtmlMain(account.name.charAt(0).toUpperCase()) : '?'}</span>`}</div>
-        <label class="secondary-btn profile-photo-btn" id="profPhotoLabel">
-          Change Photo
+      <div class="profile-view-row">
+        <label class="profile-photo-preview profile-photo-preview-lg profile-photo-hover" id="profPhotoPreview">
+          ${account && account.photoUrl ? `<img src="${account.photoUrl}" alt="Profile photo" />` : `<span>${account ? escapeHtmlMain(account.name.charAt(0).toUpperCase()) : '?'}</span>`}
+          <div class="profile-photo-edit-overlay">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </div>
           <input type="file" accept="image/*" id="profPhotoInput" style="display:none;" />
         </label>
+        <div>
+          <div class="profile-view-name">${account ? escapeHtmlMain(account.name) : 'Your Profile'}</div>
+          <div class="profile-view-email">${account ? escapeHtmlMain(account.email) : ''}</div>
+        </div>
       </div>
+      <button class="secondary-btn" id="profEditBtn">Edit Profile</button>
       ${approvalHtml}
-      ${ownJourneyHtml}
-      <p class="dm-p">Update your name or email below.</p>
-      <input type="text" id="profName" placeholder="Your full name" value="${account ? escapeHtmlMain(account.name) : ''}" />
-      <input type="text" id="profEmail" placeholder="Your email" value="${account ? escapeHtmlMain(account.email) : ''}" />
-      <button class="primary-btn" id="profSaveBtn">Save Changes</button>
       <button class="secondary-btn" id="profLogoutBtn" style="margin-top:24px;">Log Out of This Profile</button>
-      <p class="dm-note">Heads up: this only clears the profile on this device — nothing you've built (groups, disciples, progress) is deleted, it's still tied to your account in the background. But there's currently no way to "log back in" to it afterward, since accounts aren't looked up by name or email — so only log out if you're sure, or if you're setting this device up for someone else.</p>
+      <p class="dm-note">Heads up: logging out only clears the profile on this device — nothing you've built (groups, disciples, progress) is deleted, it's still tied to your account in the background. But there's currently no way to "log back in" to it afterward, since accounts aren't looked up by name or email — so only log out if you're sure, or if you're setting this device up for someone else.</p>
     `;
     document.getElementById('profileBackBtn').onclick = () => { topView = 'hub'; renderDiscipleStep(); };
-    document.getElementById('ownJourneyBtn').onclick = () => { topView = 'hub'; renderDiscipleStep(); };
+    document.getElementById('profEditBtn').onclick = () => renderProfileSettings(true);
     document.getElementById('profPhotoInput').onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      const preview = document.getElementById('profPhotoPreview');
-      preview.innerHTML = `<span>...</span>`;
       const url = await uploadProfilePhoto(file, account.id);
       if (!url) {
         await showAppAlert("Couldn't upload that photo — try a different image, or check your connection.");
-        preview.innerHTML = account.photoUrl ? `<img src="${account.photoUrl}" alt="Profile photo" />` : `<span>${escapeHtmlMain(account.name.charAt(0).toUpperCase())}</span>`;
         return;
       }
       account.photoUrl = url;
       await dSafeSet('account', account);
       syncSharedProfile(account);
-      preview.innerHTML = `<img src="${url}" alt="Profile photo" />`;
-    };
-    document.getElementById('profSaveBtn').onclick = async () => {
-      const name = document.getElementById('profName').value.trim();
-      const email = document.getElementById('profEmail').value.trim();
-      if (!name || !email) { await showAppAlert('Please enter both your name and email.'); return; }
-      const updated = { ...account, name, email };
-      await dSafeSet('account', updated);
-      syncSharedProfile(updated);
-      await showAppAlert('Saved.');
-      renderDiscipleStep();
+      renderProfileSettings(false);
     };
     document.getElementById('profLogoutBtn').onclick = async () => {
       if (!(await showAppConfirm("Log out of this profile on this device? This device won't remember your account anymore, but nothing you've built is deleted."))) return;
@@ -2324,6 +2358,11 @@ const RESOURCES = [
 ];
 
 function renderResourcesHtml() {
+  // Hidden for now — all of these resources already live natively in the
+  // app elsewhere, so this felt redundant. The data and markup below are
+  // untouched, so re-enabling this later is just deleting the early return.
+  return '';
+
   const rows = RESOURCES.map(r => `<a class="resource-dropdown-item" href="${r.url}" target="_blank" rel="noopener">${escapeHtml(r.label)} <span>↗</span></a>`).join('');
   return `
     <div class="resource-dropdown">
@@ -2795,7 +2834,9 @@ let topView = 'hub'; // 'hub' | 'leader' | 'disciple'
 
 async function render() {
   main.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
-  if (topView === 'leader') { await renderMentor(); }
+  if (view === 'groupDetail' && activeGroupCode) { await renderGroupDetail(activeGroupCode); }
+  else if (view === 'memberDetail' && activeMemberId) { await renderMemberDetail(activeMemberId); }
+  else if (topView === 'leader') { await renderMentor(); }
   else if (topView === 'disciple') { await renderDisciple(); }
   else { await renderDiscipleshipHub(); }
 }
@@ -2842,100 +2883,17 @@ async function renderMentor() {
     document.getElementById('simulateApproveBtn').onclick = async () => {
       application.status = 'approved';
       await safeSet(`leader-application:${myId}`, application, true);
+      topView = 'hub';
       render();
     };
     return;
   }
 
-  if (view === 'memberDetail' && activeMemberId) { await renderMemberDetail(activeMemberId); return; }
-  if (view === 'groupDetail' && activeGroupCode) { await renderGroupDetail(activeGroupCode); return; }
-
-  const groups = (await safeGet(`leader-groups:${myId}`, true)) || [];
-  const disciples = (await safeGet(`leader-disciples:${myId}`, true)) || [];
-  let directCode = await safeGet(`leader-direct-code:${myId}`, true);
-  const discipledCount = await computeDiscipledCount(myId);
-
-  main.innerHTML = `
-    <a class="back-link" id="backToHubBtn">← My Discipleship</a>
-    <div class="discipled-stat-card">
-      <div class="discipled-stat-number">${discipledCount}</div>
-      <div class="discipled-stat-label">${discipledCount === 1 ? 'Person' : 'People'} You've Discipled</div>
-    </div>
-    <div class="two-col two-col-compact">
-      <button class="compact-action-btn" id="inviteFriendBtn">${directCode ? 'Show My Link' : 'Invite an Individual'}</button>
-      <button class="compact-action-btn" id="newGroupBtn">Create a Group</button>
-    </div>
-
-    <div class="subnav">
-      <button id="tabGroups" class="${leaderTab==='groups'?'active':''}">Groups</button>
-      <button id="tabDisciples" class="${leaderTab==='disciples'?'active':''}">All Disciples (${disciples.length})</button>
-    </div>
-
-    <div id="tabContent" style="margin-top:18px;"></div>
-  `;
-
-  document.getElementById('backToHubBtn').onclick = () => {
-    topView = 'hub'; view = 'home'; activeGroupCode = null; activeMemberId = null; render();
-  };
-
-  await wireLeaderQuickActions();
-  document.getElementById('tabGroups').onclick = () => { leaderTab = 'groups'; render(); };
-  document.getElementById('tabDisciples').onclick = () => { leaderTab = 'disciples'; render(); };
-
-  const tabContent = document.getElementById('tabContent');
-  if (leaderTab === 'groups') {
-    if (groups.length === 0) {
-      tabContent.innerHTML = `<div class="empty-state"><p>No groups yet. Create one above.</p></div>`;
-    } else {
-      let html = '';
-      for (const g of groups) {
-        const members = (await safeGet(`group-members:${g.code}`, true)) || [];
-        html += `
-          <div class="row">
-            <div class="info" data-code="${g.code}">
-              <div class="name">${escapeHtml(g.label)}</div>
-              <div class="sub">Code ${g.code} · ${members.length} ${members.length===1?'person':'people'}</div>
-            </div>
-            <div class="arrow" data-code="${g.code}">→</div>
-          </div>`;
-      }
-      tabContent.innerHTML = html;
-      [...tabContent.querySelectorAll('[data-code]')].forEach(el => {
-        el.onclick = () => { activeGroupCode = el.dataset.code; view = 'groupDetail'; render(); };
-      });
-    }
-  } else {
-    if (disciples.length === 0) {
-      tabContent.innerHTML = `<div class="empty-state"><p>No disciples yet.</p></div>`;
-    } else {
-      let html = '';
-      for (const d of disciples) {
-        const progress = (await safeGet(`progress:${d.id}`, true)) || {};
-        const doneCount = Object.values(progress).filter(s => s === 'done').length;
-        const groupLabels = (d.groups || []).length ? (d.groups || []).join(', ') : 'Direct';
-        html += `
-          <div class="row">
-            <div class="info" data-id="${d.id}">
-              <div class="name">${escapeHtml(d.name)}</div>
-              <div class="sub">${doneCount}/${STEPS.length} steps · ${escapeHtml(groupLabels)}</div>
-            </div>
-            <button class="del-btn" data-delid="${d.id}" title="Remove disciple">✕</button>
-          </div>`;
-      }
-      tabContent.innerHTML = html;
-      [...tabContent.querySelectorAll('[data-id]')].forEach(el => {
-        el.onclick = () => { activeMemberId = el.dataset.id; view = 'memberDetail'; render(); };
-      });
-      [...tabContent.querySelectorAll('[data-delid]')].forEach(el => {
-        el.onclick = async (e) => {
-          e.stopPropagation();
-          if (!(await showAppConfirm('Remove this disciple? This deletes their progress and messages with you.'))) return;
-          await removeDisciple(el.dataset.delid);
-          render();
-        };
-      });
-    }
-  }
+  // Already approved — the dashboard now lives on the Hub itself, so if
+  // this ever gets reached while approved (shouldn't normally happen),
+  // just bounce back there instead of showing a duplicate screen.
+  topView = 'hub';
+  render();
 }
 
 async function wireLeaderQuickActions() {
@@ -3726,7 +3684,6 @@ async function renderDiscipleshipHub() {
   const progress = (await safeGet(`progress:${myId}`, true)) || {};
   const walkoutProgress = (await safeGet(`walkout-progress:${myId}`, true)) || {};
   const isApprovedLeader = leaderApp && leaderApp.status === 'approved';
-  const discipledCount = isApprovedLeader ? await computeDiscipledCount(myId) : 0;
   const globalCount = await getGlobalDiscipleCount();
 
   let stepsHtml = '';
@@ -3735,14 +3692,18 @@ async function renderDiscipleshipHub() {
     stepsHtml += stepBlockHtml(i, title, status, { clickable: true, prefix: 'Hub', walkoutChecked: walkoutProgress[i], interactive: true });
   });
 
-  const leaderCardHtml = isApprovedLeader
-    ? `<button type="button" class="hub-role-card" id="goLeaderDash">
-         <div class="hub-role-title">Leader Dashboard</div>
-         <div class="hub-role-sub">${discipledCount} ${discipledCount === 1 ? 'person' : 'people'} discipled →</div>
+  const myStats = overallWalkoutStats(walkoutProgress);
+  const ownJourneyHtml = myStats.done === 0
+    ? `<button type="button" class="own-journey-card own-journey-prompt" id="ownJourneyBtn">
+         <div class="own-journey-title">Would you like to walk through the Following Jesus foundations yourself?</div>
+         <div class="own-journey-sub">See your own steps below →</div>
        </button>`
-    : `<button type="button" class="hub-role-card hub-role-cta" id="goLeaderDash">
-         <div class="hub-role-title">Disciple Someone</div>
-         <div class="hub-role-sub">${leaderApp ? 'Application pending →' : 'Walk a friend or group through this →'}</div>
+    : `<button type="button" class="own-journey-card" id="ownJourneyBtn">
+         <div class="own-journey-top">
+           <div class="own-journey-title">Your Own Journey</div>
+           <div class="own-journey-pct">${myStats.pct}%</div>
+         </div>
+         <div class="walkout-progress-bar"><div class="walkout-progress-fill" style="width:${myStats.pct}%;"></div></div>
        </button>`;
 
   const discipleCardHtml = membership
@@ -3755,24 +3716,125 @@ async function renderDiscipleshipHub() {
          <div class="hub-role-sub">Have someone walk alongside you →</div>
        </button>`;
 
+  // Not yet an approved leader: show the CTA card alongside "Being
+  // Discipled," same two-card row as before.
+  let leaderSectionHtml = '';
+  let groups = [];
+  let disciples = [];
+  let directCode = null;
+  let discipledCount = 0;
+
+  if (!isApprovedLeader) {
+    const leaderCardHtml = `<button type="button" class="hub-role-card hub-role-cta" id="goLeaderDash">
+         <div class="hub-role-title">Disciple Someone</div>
+         <div class="hub-role-sub">${leaderApp ? 'Application pending →' : 'Walk a friend or group through this →'}</div>
+       </button>`;
+    leaderSectionHtml = `<div class="hub-role-grid">${leaderCardHtml}${discipleCardHtml}</div>`;
+  } else {
+    // Approved: the leader dashboard now lives directly on the Hub instead
+    // of behind a separate screen — this is that merged content.
+    groups = (await safeGet(`leader-groups:${myId}`, true)) || [];
+    disciples = (await safeGet(`leader-disciples:${myId}`, true)) || [];
+    directCode = await safeGet(`leader-direct-code:${myId}`, true);
+    discipledCount = await computeDiscipledCount(myId);
+
+    leaderSectionHtml = `
+      <div class="hub-role-grid">${discipleCardHtml}</div>
+      <div class="discipled-stat-card">
+        <div class="discipled-stat-number">${discipledCount}</div>
+        <div class="discipled-stat-label">${discipledCount === 1 ? 'Person' : 'People'} You've Discipled</div>
+      </div>
+      <div class="two-col two-col-compact">
+        <button class="compact-action-btn" id="inviteFriendBtn">${directCode ? 'Show My Link' : 'Invite an Individual'}</button>
+        <button class="compact-action-btn" id="newGroupBtn">Create a Group</button>
+      </div>
+      <div class="subnav">
+        <button id="tabGroups" class="${leaderTab==='groups'?'active':''}">Groups</button>
+        <button id="tabDisciples" class="${leaderTab==='disciples'?'active':''}">All Disciples (${disciples.length})</button>
+      </div>
+      <div id="tabContent" style="margin-top:18px;"></div>
+    `;
+  }
+
   main.innerHTML = `
     <button type="button" class="hub-top-row" id="profileLinkBtn" aria-label="Profile settings">
       <div class="hub-profile-photo">${account && account.photoUrl ? `<img src="${account.photoUrl}" alt="${escapeHtml(account.name)}" />` : `<span>${account ? escapeHtml(account.name.charAt(0).toUpperCase()) : '?'}</span>`}</div>
       <div class="hub-profile-name">${account ? escapeHtml(account.name) : 'Your Profile'}</div>
       <svg class="hub-profile-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg>
     </button>
-    <div class="hub-role-grid">
-      ${leaderCardHtml}
-      ${discipleCardHtml}
-    </div>
+    ${ownJourneyHtml}
+    ${leaderSectionHtml}
     <div class="global-count-banner">🎉 ${globalCount.toLocaleString()} ${globalCount === 1 ? 'disciple' : 'disciples'} made through this app</div>
     ${renderResourcesHtml()}
     ${courseCardHtml('essentials', 'Following Jesus Essentials', '7 essentials for every follower of Jesus', stepsHtml, walkoutProgress, progress)}
   `;
 
-  document.getElementById('goLeaderDash').onclick = () => { topView = 'leader'; render(); };
-  document.getElementById('goDiscipleDash').onclick = () => { topView = 'disciple'; render(); };
   document.getElementById('profileLinkBtn').onclick = () => renderProfileSettings();
+  document.getElementById('ownJourneyBtn').onclick = () => { essentialsExpanded = true; renderDiscipleshipHub(); };
+  document.getElementById('goDiscipleDash').onclick = () => { topView = 'disciple'; render(); };
+  if (!isApprovedLeader) {
+    document.getElementById('goLeaderDash').onclick = () => { topView = 'leader'; render(); };
+  } else {
+    await wireLeaderQuickActions();
+    document.getElementById('tabGroups').onclick = () => { leaderTab = 'groups'; render(); };
+    document.getElementById('tabDisciples').onclick = () => { leaderTab = 'disciples'; render(); };
+
+    const tabContent = document.getElementById('tabContent');
+    if (leaderTab === 'groups') {
+      if (groups.length === 0) {
+        tabContent.innerHTML = `<div class="empty-state"><p>No groups yet. Create one above.</p></div>`;
+      } else {
+        let html = '';
+        for (const g of groups) {
+          const members = (await safeGet(`group-members:${g.code}`, true)) || [];
+          html += `
+            <div class="row">
+              <div class="info" data-code="${g.code}">
+                <div class="name">${escapeHtml(g.label)}</div>
+                <div class="sub">Code ${g.code} · ${members.length} ${members.length===1?'person':'people'}</div>
+              </div>
+              <div class="arrow" data-code="${g.code}">→</div>
+            </div>`;
+        }
+        tabContent.innerHTML = html;
+        [...tabContent.querySelectorAll('[data-code]')].forEach(el => {
+          el.onclick = () => { activeGroupCode = el.dataset.code; view = 'groupDetail'; render(); };
+        });
+      }
+    } else {
+      if (disciples.length === 0) {
+        tabContent.innerHTML = `<div class="empty-state"><p>No disciples yet.</p></div>`;
+      } else {
+        let html = '';
+        for (const d of disciples) {
+          const dProgress = (await safeGet(`progress:${d.id}`, true)) || {};
+          const doneCount = Object.values(dProgress).filter(s => s === 'done').length;
+          const groupLabels = (d.groups || []).length ? (d.groups || []).join(', ') : 'Direct';
+          html += `
+            <div class="row">
+              <div class="info" data-id="${d.id}">
+                <div class="name">${escapeHtml(d.name)}</div>
+                <div class="sub">${doneCount}/${STEPS.length} steps · ${escapeHtml(groupLabels)}</div>
+              </div>
+              <button class="del-btn" data-delid="${d.id}" title="Remove disciple">✕</button>
+            </div>`;
+        }
+        tabContent.innerHTML = html;
+        [...tabContent.querySelectorAll('[data-id]')].forEach(el => {
+          el.onclick = () => { activeMemberId = el.dataset.id; view = 'memberDetail'; render(); };
+        });
+        [...tabContent.querySelectorAll('[data-delid]')].forEach(el => {
+          el.onclick = async (e) => {
+            e.stopPropagation();
+            if (!(await showAppConfirm('Remove this disciple? This deletes their progress and messages with you.'))) return;
+            await removeDisciple(el.dataset.delid);
+            render();
+          };
+        });
+      }
+    }
+  }
+
   wireCourseToggle('essentials', renderDiscipleshipHub);
 
   [...main.querySelectorAll('.step-row[data-clickable="true"]')].forEach(el => {
