@@ -494,8 +494,8 @@
 
   .today-disciple-counter {
     display: block; width: calc(100% - 40px); margin: 16px 20px 0;
-    background: rgba(200,155,60,0.1); border: 1px solid rgba(200,155,60,0.25);
-    border-radius: 2px; padding: 14px; text-align: center; cursor: pointer;
+    background: none; border: none;
+    padding: 4px 0; text-align: center; cursor: pointer;
   }
   .today-disciple-counter span {
     font-family: var(--font-display); font-size: 12px; font-weight: 700;
@@ -1146,6 +1146,16 @@
   }
   .disciple-app-scope .msg.msg-action { border: 1.5px solid var(--ember); }
   .disciple-app-scope .msg-input-row #assignActionBtn { flex: 0 0 auto; width: auto; padding: 14px 16px; }
+
+  .disciple-app-scope .teacher-section { margin-bottom: 20px; }
+  .disciple-app-scope .teacher-section:last-child { margin-bottom: 0; }
+  .disciple-app-scope .teacher-section-title {
+    font-family: var(--font-display); font-weight: 800; font-size: 13.5px;
+    color: var(--black); margin-bottom: 8px;
+  }
+  .disciple-app-scope .teacher-action-list { padding-left: 20px; margin: 0; }
+  .disciple-app-scope .teacher-action-list li { font-size: 13px; color: var(--ink-soft); line-height: 1.6; margin-bottom: 4px; }
+  .disciple-app-scope .teacher-no-items { font-size: 12.5px; color: var(--ink-soft); font-style: italic; }
   .disciple-app-scope .code-display .label { font-family:var(--font-display); font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-soft); }
   .disciple-app-scope .code-display .code { font-family:var(--font-display); font-weight:900; font-size:38px; letter-spacing:0.1em; color:var(--black); margin-top:8px; }
   .disciple-app-scope .code-display .hint { font-size:11.5px; color:var(--ink-soft); margin-top:8px; }
@@ -2597,6 +2607,32 @@ function wireCourseToggle(courseId, rerenderFn) {
   };
 }
 
+// A read-only reference view of a course's content — for a leader who
+// needs to see what a lesson actually covers while teaching or preparing,
+// separate from anyone's personal completion tracking.
+function teacherCourseViewHtml(course) {
+  let sectionsHtml = '';
+  course.steps.forEach((title, i) => {
+    const items = course.walkItOut[i] || [];
+    const itemsHtml = items.length > 0
+      ? `<ul class="teacher-action-list">${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+      : `<p class="teacher-no-items">No action steps for this section.</p>`;
+    sectionsHtml += `
+      <div class="teacher-section">
+        <div class="teacher-section-title">${i + 1}. ${escapeHtml(title)}</div>
+        ${itemsHtml}
+      </div>`;
+  });
+  return `
+    <button type="button" class="invite-toggle-btn" id="teacherViewToggleBtn">
+      <span>Teacher View — ${escapeHtml(course.title)}</span>
+      <svg class="course-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="card invite-toggle-body" id="teacherViewToggleBody" style="border-radius:0 0 2px 2px; margin-top:0;">
+      ${sectionsHtml}
+    </div>`;
+}
+
 function walkItOutHtml(stepIndex, checkedArr, interactive, walkItOutData = WALK_IT_OUT) {
   const items = walkItOutData[stepIndex];
   if (!items || items.length === 0) return '';
@@ -3217,6 +3253,8 @@ async function renderGroupDetail(code) {
       </div>
     </div>
 
+    ${teacherCourseViewHtml(course)}
+
     <a class="close-group-link" id="closeGroupBtn">Close This Group</a>
   `;
 
@@ -3232,6 +3270,12 @@ async function renderGroupDetail(code) {
   document.getElementById('peopleToggleBtn').onclick = () => {
     const body = document.getElementById('peopleToggleBody');
     const btn = document.getElementById('peopleToggleBtn');
+    const nowOpen = body.classList.toggle('open');
+    btn.classList.toggle('open', nowOpen);
+  };
+  document.getElementById('teacherViewToggleBtn').onclick = () => {
+    const body = document.getElementById('teacherViewToggleBody');
+    const btn = document.getElementById('teacherViewToggleBtn');
     const nowOpen = body.classList.toggle('open');
     btn.classList.toggle('open', nowOpen);
   };
