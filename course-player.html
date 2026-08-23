@@ -288,6 +288,12 @@ async function init(){
     await loadUserProgress();
   }
 
+  if(currentUser && sessionStorage.getItem('fj_pending_start') === '1'){
+    sessionStorage.removeItem('fj_pending_start');
+    goToFirstLesson();
+    return;
+  }
+
   renderHero();
 }
 
@@ -435,15 +441,28 @@ async function handleEmailAuth(mode){
   currentUser = result.data.user;
   await ensureProfileAndEnrollment();
   await loadUserProgress();
-  if(viewingSurvey) renderSurvey(); else if(activeItem) renderPlayer(activeItem); else renderHero();
+
+  if(sessionStorage.getItem('fj_pending_start') === '1'){
+    sessionStorage.removeItem('fj_pending_start');
+    goToFirstLesson();
+  } else if(viewingSurvey){
+    renderSurvey();
+  } else if(activeItem){
+    renderPlayer(activeItem);
+  } else {
+    goToFirstLesson();
+  }
 }
 
 async function handleGoogleAuth(){
+  // Preserve whatever intent was already set (e.g. by the Start Course button)
+  // without forcing "start course" on someone who just clicked plain Sign In.
   await supabaseClient.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: window.location.href }
   });
-  // Page will redirect to Google, then back here — init() picks up the session on reload.
+  // Page redirects to Google, then back here — init() below picks up the
+  // logged-in session and the pending-start flag (if any) after reload.
 }
 
 async function handleSignOut(){
@@ -475,11 +494,20 @@ function renderHero(){
   `;
   bindAuthStatusLinks();
   document.getElementById('start-btn').addEventListener('click', () => {
-    const firstSession = sessions[0];
-    const firstItem = firstSession?.session_items?.[0];
-    openSessionId = firstSession?.id || null;
-    renderPlayer(firstItem || null);
+    if(!currentUser){
+      sessionStorage.setItem('fj_pending_start', '1');
+      renderAuthModal('signup');
+      return;
+    }
+    goToFirstLesson();
   });
+}
+
+function goToFirstLesson(){
+  const firstSession = sessions[0];
+  const firstItem = firstSession?.session_items?.[0];
+  openSessionId = firstSession?.id || null;
+  renderPlayer(firstItem || null);
 }
 
 /* ---------- Player shell ---------- */
