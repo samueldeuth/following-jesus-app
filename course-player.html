@@ -135,6 +135,39 @@
     text-transform:uppercase;letter-spacing:0.03em;cursor:pointer;
   }
 
+  /* ---------- Discussion questions ---------- */
+  .question-block{margin-bottom:22px;}
+  .question-text{font-weight:600;font-size:14.5px;margin-bottom:8px;}
+  .answer-box{
+    width:100%;min-height:80px;border:1.5px solid var(--line);border-radius:8px;
+    padding:12px;font-family:'Inter',sans-serif;font-size:14px;resize:vertical;
+  }
+  .answer-box:focus{outline:none;border-color:var(--ink);}
+  .save-note{font-size:12px;color:var(--ink-soft);margin-top:4px;height:14px;}
+  .admin-reply{
+    background:var(--bg-soft);border-left:3px solid var(--blue);
+    border-radius:0 8px 8px 0;padding:10px 14px;margin-top:10px;font-size:13.5px;
+  }
+  .admin-reply .label{font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-soft);margin-bottom:3px;}
+
+  /* ---------- Survey ---------- */
+  .survey-intro{color:var(--ink-soft);font-size:14px;margin-bottom:24px;}
+  .survey-q{margin-bottom:22px;}
+  .rating-row{display:flex;gap:8px;}
+  .rating-opt{
+    width:42px;height:42px;border-radius:50%;border:1.5px solid var(--line);
+    background:#fff;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;font-weight:600;font-size:14px;
+  }
+  .rating-opt[data-selected="true"]{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .choice-row{display:flex;gap:10px;flex-wrap:wrap;}
+  .choice-opt{
+    padding:10px 16px;border-radius:999px;border:1.5px solid var(--line);
+    background:#fff;cursor:pointer;font-size:13.5px;
+  }
+  .choice-opt[data-selected="true"]{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .skip-link{display:block;text-align:center;color:var(--ink-soft);font-size:13px;margin-top:20px;cursor:pointer;}
+
   .loading{padding:60px 20px;text-align:center;color:var(--ink-soft);font-size:13px;}
   @media(max-width:820px){
     .player-shell{flex-direction:column;}
@@ -173,6 +206,11 @@ let currentUser = null;
 let doneItemIds = new Set();
 let activeItem = null;
 let openSessionId = null;
+let questionsByItem = {};      // item_id -> [{id, question_text}]
+let responsesByQuestion = {};  // question_id -> {response_text, admin_reply}
+let surveyQuestions = [];
+let surveyResponses = {};      // question_id -> response_text
+let viewingSurvey = false;
 
 async function init(){
   const slug = getChurchSlug();
@@ -203,12 +241,41 @@ async function init(){
     .sort((a,b)=>a.sort_order-b.sort_order)
     .map(s => ({...s, session_items: (s.session_items||[]).sort((a,b)=>a.sort_order-b.sort_order)}));
 
+  // Discussion questions for every discussion-type item in the course
+  const discussionItemIds = sessions.flatMap(s=>s.session_items).filter(i=>i.type==='discussion').map(i=>i.id);
+  if(discussionItemIds.length){
+    const { data: questions } = await supabaseClient
+      .from('discussion_questions').select('*').in('item_id', discussionItemIds).order('sort_order');
+    (questions||[]).forEach(q => {
+      if(!questionsByItem[q.item_id]) questionsByItem[q.item_id] = [];
+      questionsByItem[q.item_id].push(q);
+    });
+  }
+
+  const { data: surveyQ } = await supabaseClient
+    .from('course_survey_questions').select('*').eq('course_id', course.id).order('sort_order');
+  surveyQuestions = surveyQ || [];
+
   if(currentUser){
     const { data: progress } = await supabaseClient
       .from('item_progress')
       .select('item_id, completed_at')
       .eq('student_id', currentUser.id);
     (progress||[]).forEach(p => { if(p.completed_at) doneItemIds.add(p.item_id); });
+
+    const allQuestionIds = Object.values(questionsByItem).flat().map(q=>q.id);
+    if(allQuestionIds.length){
+      const { data: responses } = await supabaseClient
+        .from('discussion_responses').select('*').eq('student_id', currentUser.id).in('question_id', allQuestionIds);
+      (responses||[]).forEach(r => { responsesByQuestion[r.question_id] = r; });
+    }
+
+    if(surveyQuestions.length){
+      const { data: sResponses } = await supabaseClient
+        .from('course_survey_responses').select('*').eq('student_id', currentUser.id)
+        .in('question_id', surveyQuestions.map(q=>q.id));
+      (sResponses||[]).forEach(r => { surveyResponses[r.question_id] = r.response_text; });
+    }
   }
 
   renderHero();
@@ -258,6 +325,13 @@ function renderPlayer(item){
           <div class="progress-pct">${pct}% complete</div>
           <button class="cert-btn" id="cert-btn">🏅 Go to Certificate</button>
           <div id="session-list"></div>
+          <div class="session" style="margin-top:6px;">
+            <div class="session-head" id="survey-link" data-complete="false" data-open="false" style="cursor:pointer;">
+              <div class="check">${Object.keys(surveyResponses).length >= surveyQuestions.length && surveyQuestions.length ? '✓' : ''}</div>
+              <div class="title">End of Course Survey</div>
+              <div class="frac" style="text-transform:uppercase;font-size:11px;">Optional</div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="content-pane" id="content-pane"></div>
@@ -266,9 +340,10 @@ function renderPlayer(item){
 
   document.getElementById('back-link').addEventListener('click', renderHero);
   document.getElementById('cert-btn').addEventListener('click', () => alert('Wire this up to your certificates table once a course hits 100%.'));
+  document.getElementById('survey-link').addEventListener('click', renderSurvey);
 
   renderSessionList();
-  renderContent(item);
+  if(item) renderContent(item); else if(!viewingSurvey) renderContent(null);
 }
 
 function renderSessionList(){
@@ -322,6 +397,7 @@ function renderItemRow(item){
 
 /* ---------- Content pane ---------- */
 function renderContent(item){
+  viewingSurvey = false;
   activeItem = item;
   const pane = document.getElementById('content-pane');
   if(!item){ pane.innerHTML = '<div class="loading">Select a lesson to begin.</div>'; return; }
@@ -340,11 +416,28 @@ function renderContent(item){
         <div class="verse-block">
           <div class="verse-label">Memory Verse</div>
           <div class="verse-text">${item.memory_verse}</div>
+          ${item.memory_verse_reference ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:6px;">${item.memory_verse_reference}</div>` : ''}
         </div>` : ''}
     `;
   } else if(item.type === 'download'){
     body = `<div class="text-body"><p>${item.body || 'Download the resource below.'}</p>
       <p><a class="btn-dark" href="${item.download_url || '#'}" target="_blank" style="display:inline-block;text-decoration:none;">Download</a></p></div>`;
+  } else if(item.type === 'discussion'){
+    const questions = questionsByItem[item.id] || [];
+    body = questions.map((q, i) => {
+      const existing = responsesByQuestion[q.id];
+      return `
+        <div class="question-block">
+          <div class="question-text">${i+1}. ${q.question_text}</div>
+          <textarea class="answer-box" data-question-id="${q.id}" placeholder="${currentUser ? 'Type your answer...' : 'Sign in to save your answer'}" ${currentUser ? '' : 'disabled'}>${existing?.response_text || ''}</textarea>
+          <div class="save-note" data-note-for="${q.id}"></div>
+          ${existing?.admin_reply ? `
+            <div class="admin-reply">
+              <div class="label">Reply from your church leader</div>
+              ${existing.admin_reply}
+            </div>` : ''}
+        </div>`;
+    }).join('');
   } else {
     body = `<div class="text-body">${item.body || ''}</div>`;
   }
@@ -363,8 +456,111 @@ function renderContent(item){
     const flat = sessions.flatMap(s=>s.session_items);
     const idx = flat.findIndex(i=>i.id===item.id);
     const next = flat[idx+1];
-    if(next) renderContent(next);
+    if(next) renderContent(next); else renderSurvey();
   });
+
+  if(item.type === 'discussion'){
+    pane.querySelectorAll('.answer-box').forEach(box => {
+      let debounceTimer;
+      box.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        const note = pane.querySelector(`[data-note-for="${box.dataset.questionId}"]`);
+        if(note) note.textContent = 'Saving...';
+        debounceTimer = setTimeout(() => saveDiscussionAnswer(box.dataset.questionId, box.value, note), 700);
+      });
+    });
+  }
+}
+
+async function saveDiscussionAnswer(questionId, text, noteEl){
+  if(!currentUser) return;
+  await supabaseClient.from('discussion_responses').upsert({
+    student_id: currentUser.id,
+    question_id: questionId,
+    response_text: text,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'student_id,question_id' });
+
+  responsesByQuestion[questionId] = { ...(responsesByQuestion[questionId]||{}), response_text: text };
+  if(noteEl){ noteEl.textContent = 'Saved'; setTimeout(()=>{ if(noteEl) noteEl.textContent=''; }, 1500); }
+}
+
+/* ---------- End of course survey ---------- */
+function renderSurvey(){
+  viewingSurvey = true;
+  activeItem = null;
+  const pane = document.getElementById('content-pane');
+
+  const questionsHtml = surveyQuestions.map(q => {
+    const val = surveyResponses[q.id];
+    if(q.question_type === 'rating'){
+      return `
+        <div class="survey-q">
+          <div class="question-text">${q.question_text}</div>
+          <div class="rating-row" data-question-id="${q.id}">
+            ${[1,2,3,4,5].map(n => `<div class="rating-opt" data-value="${n}" data-selected="${String(val)===String(n)}">${n}</div>`).join('')}
+          </div>
+        </div>`;
+    }
+    if(q.question_type === 'choice'){
+      const choices = q.choices || [];
+      return `
+        <div class="survey-q">
+          <div class="question-text">${q.question_text}</div>
+          <div class="choice-row" data-question-id="${q.id}">
+            ${choices.map(c => `<div class="choice-opt" data-value="${c}" data-selected="${val===c}">${c}</div>`).join('')}
+          </div>
+        </div>`;
+    }
+    return `
+      <div class="survey-q">
+        <div class="question-text">${q.question_text}</div>
+        <textarea class="answer-box" data-question-id="${q.id}" placeholder="${currentUser ? 'Type your answer...' : 'Sign in to respond'}" ${currentUser?'':'disabled'}>${val||''}</textarea>
+        <div class="save-note" data-note-for="${q.id}"></div>
+      </div>`;
+  }).join('');
+
+  pane.innerHTML = `
+    <div class="content-title">End of Course Survey</div>
+    <div class="survey-intro">This is completely optional — but it helps your church leaders know how to support you next, and helps us improve the course.</div>
+    ${questionsHtml}
+  `;
+
+  pane.querySelectorAll('.rating-opt').forEach(el => {
+    el.addEventListener('click', () => {
+      const qid = el.parentElement.dataset.questionId;
+      el.parentElement.querySelectorAll('.rating-opt').forEach(o=>o.dataset.selected = (o===el));
+      saveSurveyAnswer(qid, el.dataset.value);
+    });
+  });
+  pane.querySelectorAll('.choice-opt').forEach(el => {
+    el.addEventListener('click', () => {
+      const qid = el.parentElement.dataset.questionId;
+      el.parentElement.querySelectorAll('.choice-opt').forEach(o=>o.dataset.selected = (o===el));
+      saveSurveyAnswer(qid, el.dataset.value);
+    });
+  });
+  pane.querySelectorAll('textarea.answer-box').forEach(box => {
+    let debounceTimer;
+    box.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      const note = pane.querySelector(`[data-note-for="${box.dataset.questionId}"]`);
+      if(note) note.textContent = 'Saving...';
+      debounceTimer = setTimeout(() => saveSurveyAnswer(box.dataset.questionId, box.value, note), 700);
+    });
+  });
+}
+
+async function saveSurveyAnswer(questionId, text, noteEl){
+  if(!currentUser) return;
+  await supabaseClient.from('course_survey_responses').upsert({
+    student_id: currentUser.id,
+    question_id: questionId,
+    response_text: text
+  }, { onConflict: 'student_id,question_id' });
+
+  surveyResponses[questionId] = text;
+  if(noteEl){ noteEl.textContent = 'Saved'; setTimeout(()=>{ if(noteEl) noteEl.textContent=''; }, 1500); }
 }
 
 async function toggleComplete(item){

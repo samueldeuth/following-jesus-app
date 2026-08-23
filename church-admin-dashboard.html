@@ -34,12 +34,26 @@
   }
   tbody td{padding:14px 16px;border-bottom:1px solid var(--line);font-size:14px;}
   tbody tr:last-child td{border-bottom:none;}
+  tbody tr{cursor:pointer;}
+  tbody tr:hover{background:var(--bg-soft);}
   .student-name{font-weight:600;}
   .bar-wrap{display:flex;align-items:center;gap:10px;}
   .bar-track{flex:1;height:7px;background:var(--bg-soft);border-radius:4px;overflow:hidden;min-width:80px;}
   .bar-fill{height:100%;background:var(--ink);}
   .bar-text{font-size:12px;color:var(--ink-soft);white-space:nowrap;}
   .loading{padding:60px 20px;text-align:center;color:var(--ink-soft);font-size:13px;}
+
+  /* ---------- Student detail panel ---------- */
+  .back-link{font-size:13px;color:var(--ink-soft);cursor:pointer;display:inline-block;margin-bottom:14px;}
+  .qa-block{border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;}
+  .qa-session{font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-soft);margin-bottom:6px;}
+  .qa-question{font-weight:600;font-size:14.5px;margin-bottom:6px;}
+  .qa-answer{font-size:14px;color:var(--ink);margin-bottom:10px;white-space:pre-wrap;}
+  .qa-answer.empty{color:var(--ink-soft);font-style:italic;}
+  .qa-reply{background:var(--bg-soft);border-radius:8px;padding:10px 12px;font-size:13.5px;margin-bottom:8px;}
+  .qa-reply .label{font-size:11px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:3px;}
+  .reply-box{width:100%;border:1.5px solid var(--line);border-radius:8px;padding:10px;font-family:'Inter',sans-serif;font-size:13.5px;min-height:60px;}
+  .reply-btn{margin-top:8px;background:var(--ink);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12.5px;font-weight:600;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -56,9 +70,13 @@ const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
 const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+let currentAdminId = null;
+let allRows = [];
+
 async function init(){
   const { data: { user } } = await supabaseClient.auth.getUser();
   if(!user){ document.getElementById('content').textContent = 'Please sign in as a church admin to view this dashboard.'; return; }
+  currentAdminId = user.id;
 
   const { data: profile } = await supabaseClient
     .from('profiles').select('role, church_id, churches(name)').eq('id', user.id).single();
@@ -77,6 +95,7 @@ async function init(){
     .order('full_name', { ascending: true });
 
   if(error || !rows){ document.getElementById('content').textContent = 'Could not load student progress.'; return; }
+  allRows = rows;
   renderDashboard(rows);
 }
 
@@ -90,7 +109,7 @@ function renderDashboard(rows){
   const rowsHtml = rows.map(r => {
     const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
     return `
-      <tr>
+      <tr data-student-id="${r.student_id}" data-course-id="${r.course_id}">
         <td class="student-name">${r.full_name || 'Unnamed student'}</td>
         <td>${r.course_title}</td>
         <td>
@@ -114,6 +133,76 @@ function renderDashboard(rows){
       <tbody>${rowsHtml}</tbody>
     </table>
   `;
+
+  document.querySelectorAll('tbody tr').forEach(tr => {
+    tr.addEventListener('click', () => renderStudentDetail(tr.dataset.studentId, tr.dataset.courseId));
+  });
+}
+
+/* ---------- Student detail: real discussion answers + reply ---------- */
+async function renderStudentDetail(studentId, courseId){
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="loading">Loading student answers...</div>';
+
+  const row = allRows.find(r => r.student_id === studentId);
+
+  const { data: sessions } = await supabaseClient
+    .from('sessions').select('*, session_items(*)').eq('course_id', courseId).order('sort_order');
+
+  const discussionItems = (sessions||[]).flatMap(s => (s.session_items||[]).filter(i=>i.type==='discussion').map(i=>({...i, sessionTitle: s.title})));
+  const itemIds = discussionItems.map(i=>i.id);
+
+  const { data: questions } = itemIds.length
+    ? await supabaseClient.from('discussion_questions').select('*').in('item_id', itemIds).order('sort_order')
+    : { data: [] };
+
+  const questionIds = (questions||[]).map(q=>q.id);
+  const { data: responses } = questionIds.length
+    ? await supabaseClient.from('discussion_responses').select('*').eq('student_id', studentId).in('question_id', questionIds)
+    : { data: [] };
+  const responseByQ = {};
+  (responses||[]).forEach(r => { responseByQ[r.question_id] = r; });
+
+  const blocksHtml = discussionItems.map(item => {
+    const itemQuestions = (questions||[]).filter(q=>q.item_id===item.id);
+    return itemQuestions.map(q => {
+      const r = responseByQ[q.id];
+      return `
+        <div class="qa-block">
+          <div class="qa-session">${item.sessionTitle}</div>
+          <div class="qa-question">${q.question_text}</div>
+          <div class="qa-answer ${r?.response_text ? '' : 'empty'}">${r?.response_text || 'No answer yet'}</div>
+          ${r?.admin_reply ? `<div class="qa-reply"><div class="label">Your reply</div>${r.admin_reply}</div>` : ''}
+          ${r ? `
+            <textarea class="reply-box" data-response-id="${r.id}" placeholder="Write a reply...">${r.admin_reply || ''}</textarea>
+            <button class="reply-btn" data-response-id="${r.id}">Send Reply</button>` : ''}
+        </div>`;
+    }).join('');
+  }).join('');
+
+  content.innerHTML = `
+    <div class="back-link" id="back-to-list">&larr; Back to all students</div>
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin-bottom:4px;">${row?.full_name || 'Student'}</h2>
+    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:24px;">${row?.course_title || ''}</p>
+    ${blocksHtml || '<p style="color:var(--ink-soft);">No discussion questions found for this course.</p>'}
+  `;
+
+  document.getElementById('back-to-list').addEventListener('click', () => renderDashboard(allRows));
+
+  content.querySelectorAll('.reply-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const responseId = btn.dataset.responseId;
+      const textarea = content.querySelector(`textarea[data-response-id="${responseId}"]`);
+      btn.textContent = 'Sending...';
+      await supabaseClient.from('discussion_responses').update({
+        admin_reply: textarea.value,
+        admin_reply_by: currentAdminId,
+        admin_reply_at: new Date().toISOString()
+      }).eq('id', responseId);
+      btn.textContent = 'Sent ✓';
+      setTimeout(() => { btn.textContent = 'Send Reply'; }, 1500);
+    });
+  });
 }
 
 init();
