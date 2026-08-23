@@ -6,6 +6,7 @@
 <title>Following Jesus</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --black: #0a0a0a;
@@ -1926,6 +1927,24 @@
     renderDiscipleStep();
   }
 
+  // If someone just came back from the Google sign-in redirect, finish
+  // that up and reopen the modal to wherever they land — checked cheaply
+  // (a sessionStorage flag) before doing anything async, so this costs
+  // nothing on every normal page load. Deferred with setTimeout so this
+  // runs only after the whole script (including supabaseClient, declared
+  // further down) has finished its initial pass — calling this directly
+  // here would hit supabaseClient before it exists.
+  if (sessionStorage.getItem('fj_google_auth_pending') === '1') {
+    setTimeout(async () => {
+      const completed = await completeGoogleAuthIfPending();
+      if (completed) {
+        discipleModal.classList.add('open');
+        updateSyncStatusBadge();
+        renderDiscipleStep();
+      }
+    }, 0);
+  }
+
   async function renderDiscipleStep() {
     const account = await dSafeGet('account');
     if (!account) { renderAccountStep(); return; }
@@ -1934,6 +1953,11 @@
 
   function renderAccountStep() {
     discipleBody.innerHTML = `
+      <button class="secondary-btn" id="googleAuthBtn" style="display:flex; align-items:center; justify-content:center; gap:10px;">
+        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.84 2.09-1.8 2.73v2.27h2.92c1.7-1.57 2.68-3.88 2.68-6.64z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.27c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.34C2.44 15.98 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.97 10.71c-.18-.54-.28-1.11-.28-1.71s.1-1.17.28-1.71V4.95H.96C.35 6.17 0 7.55 0 9s.35 2.83.96 4.05l3.01-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.59-2.59C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.95l3.01 2.34C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
+        Continue with Google
+      </button>
+      <div class="dm-divider">— or —</div>
       <p class="dm-p">Making disciples through the app starts with a quick account — just your name and email. Everything else in the app stays free to use with no account needed.</p>
       <input type="text" id="accName" placeholder="Your full name" />
       <input type="text" id="accEmail" placeholder="Your email" />
@@ -1945,6 +1969,7 @@
       <button class="secondary-btn" id="loginBtn">Log In</button>
       <p id="loginError" style="color:#e0a458; margin-top:10px; margin-bottom:0; font-size:12px;"></p>
     `;
+    document.getElementById('googleAuthBtn').onclick = handleGoogleAuth;
     document.getElementById('accContinue').onclick = async () => {
       const name = document.getElementById('accName').value.trim();
       const email = document.getElementById('accEmail').value.trim();
@@ -2056,6 +2081,54 @@
     } catch (e) { /* network error or not configured — give up gracefully */ }
 
     return null;
+  }
+
+  // Kicks off the Google OAuth redirect. The person leaves the app
+  // entirely, signs in with Google, and gets sent back here — the actual
+  // account creation/login happens in completeGoogleAuthIfPending() below,
+  // since that's the point where a real session finally exists.
+  async function handleGoogleAuth() {
+    if (!supabaseClient) {
+      await showAppAlert("Google Sign-In isn't available right now — try creating an account with your name and email instead.");
+      return;
+    }
+    sessionStorage.setItem('fj_google_auth_pending', '1');
+    await supabaseClient.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.href }
+    });
+  }
+
+  // Checked once when the app first loads. If someone just came back from
+  // the Google redirect, this finds (or creates) their account the same
+  // way logging in by email already works — by matching on email — so
+  // existing groups, disciples, and progress carry over automatically if
+  // they've used the app before.
+  async function completeGoogleAuthIfPending() {
+    if (!supabaseClient) return false;
+    if (sessionStorage.getItem('fj_google_auth_pending') !== '1') return false;
+
+    const { data } = await supabaseClient.auth.getSession();
+    const session = data && data.session;
+    if (!session || !session.user) return false;
+
+    sessionStorage.removeItem('fj_google_auth_pending');
+    const googleUser = session.user;
+    const email = googleUser.email;
+    if (!email) return false;
+
+    const existing = await findAccountByEmail(email);
+    if (existing) {
+      await dSafeSet('account', existing);
+      return true;
+    }
+
+    const name = (googleUser.user_metadata && googleUser.user_metadata.full_name) || email.split('@')[0];
+    const photoUrl = (googleUser.user_metadata && googleUser.user_metadata.avatar_url) || null;
+    const account = { name, email, id: uid(), photoUrl };
+    await dSafeSet('account', account);
+    syncSharedProfile(account);
+    return true;
   }
 
   async function renderProfileSettings(editMode) {
@@ -2967,6 +3040,15 @@ function genCode() {
 const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
 const supabaseConfigured = SUPABASE_URL.startsWith('https://') && SUPABASE_ANON_KEY.length > 20;
+
+// Used specifically for Google Sign-In (via Supabase Auth) — everything
+// else in this app talks to Supabase through plain fetch() calls against
+// shared_kv, which stays exactly as it was. This client's only job is
+// handling the OAuth redirect flow, which is genuinely painful to
+// replicate by hand.
+const supabaseClient = (typeof window !== 'undefined' && window.supabase)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
 
 async function safeGet(key, shared) {
   if (shared && supabaseConfigured) {
