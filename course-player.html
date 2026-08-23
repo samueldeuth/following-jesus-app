@@ -60,6 +60,56 @@
   .below-hero{max-width:640px;margin:56px auto;padding:0 20px;text-align:center;}
   .below-hero h2{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:26px;line-height:1.3;}
 
+  /* ---------- Letter section ---------- */
+  .letter-section{max-width:680px;margin:0 auto;padding:0 20px 56px;text-align:center;}
+  .letter-section h2{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:clamp(22px,4vw,30px);line-height:1.35;margin-bottom:32px;}
+  .letter-section p{font-size:16px;line-height:1.75;color:var(--ink);text-align:left;margin:0 0 20px;}
+  .letter-sig-name{font-family:'Lora',serif;font-style:italic;font-size:24px;margin-top:28px;}
+  .letter-sig-title{font-size:13px;color:var(--ink-soft);margin-top:4px;}
+
+  /* ---------- Checklist section ---------- */
+  .checklist-section{background:var(--bg-soft);padding:60px 20px;}
+  .checklist-inner{max-width:900px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;}
+  .checklist-inner h2{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:clamp(26px,4vw,36px);line-height:1.25;margin:0;}
+  .checklist-items{display:flex;flex-direction:column;gap:20px;}
+  .checklist-item{display:flex;align-items:flex-start;gap:14px;}
+  .checklist-check{
+    flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--ink);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:12px;margin-top:1px;
+  }
+  .checklist-item span{font-size:16.5px;font-weight:500;}
+  @media(max-width:720px){ .checklist-inner{grid-template-columns:1fr;} }
+
+  /* ---------- Preview video section ---------- */
+  .preview-section{max-width:900px;margin:0 auto;padding:56px 20px;text-align:center;}
+  .preview-section h2{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:clamp(24px,4vw,32px);margin-bottom:26px;}
+  .preview-frame{position:relative;border-radius:var(--radius);overflow:hidden;background:#000;aspect-ratio:16/9;cursor:pointer;}
+  .preview-frame img{width:100%;height:100%;object-fit:cover;display:block;opacity:0.85;}
+  .preview-play{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:76px;height:76px;border-radius:50%;background:rgba(255,255,255,0.92);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .preview-play svg{width:26px;height:26px;margin-left:4px;}
+  .preview-frame iframe{width:100%;height:100%;border:none;display:block;}
+
+  /* ---------- Course overview widget (reusable) ---------- */
+  .overview-section{max-width:760px;margin:0 auto;padding:0 20px 80px;}
+  .overview-section h2{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:clamp(26px,4vw,34px);margin-bottom:26px;}
+  .overview-row{
+    background:var(--bg-soft);border-radius:var(--radius);padding:20px 22px;margin-bottom:10px;
+    display:flex;align-items:center;gap:18px;cursor:pointer;
+  }
+  .overview-num{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:16px;color:var(--ink-soft);flex-shrink:0;width:20px;}
+  .overview-title{font-family:'Space Grotesk',sans-serif;font-weight:500;font-size:19px;flex:1;}
+  .overview-chev{color:var(--ink-soft);transition:transform 0.15s;flex-shrink:0;}
+  .overview-row[data-open="true"] .overview-chev{transform:rotate(180deg);}
+  .overview-items{max-height:0;overflow:hidden;transition:max-height 0.2s ease;}
+  .overview-items.open{max-height:600px;}
+  .overview-item-row{padding:12px 22px 12px 58px;font-size:14.5px;color:var(--ink-soft);border-bottom:1px solid var(--line);}
+  .overview-item-row:last-child{border-bottom:none;}
+  .overview-item-title{color:var(--ink);font-weight:500;}
+
   /* ---------- Player layout ---------- */
   .player-shell{display:flex;min-height:100vh;}
   .sidebar{
@@ -487,6 +537,94 @@ async function handleSignOut(){
 }
 
 /* ---------- Hero / landing ---------- */
+function letterSectionHtml(course){
+  if(!course.letter_body) return '';
+  const paragraphs = course.letter_body.split(/\n\s*\n/).map(p => `<p>${p.trim()}</p>`).join('');
+  return `
+    <div class="letter-section">
+      ${course.letter_title ? `<h2>${course.letter_title}</h2>` : ''}
+      ${paragraphs}
+      ${course.letter_author_name ? `
+        <div class="letter-sig-name">${course.letter_author_name}</div>
+        ${course.letter_author_title ? `<div class="letter-sig-title">${course.letter_author_title}</div>` : ''}
+      ` : ''}
+    </div>`;
+}
+
+function checklistSectionHtml(course){
+  if(!course.checklist_items || !course.checklist_items.length) return '';
+  const itemsHtml = course.checklist_items.map(item => `
+    <div class="checklist-item">
+      <div class="checklist-check">✓</div>
+      <span>${item}</span>
+    </div>`).join('');
+  return `
+    <div class="checklist-section">
+      <div class="checklist-inner">
+        <h2>${course.checklist_title || "You'll Want To Take This Course If..."}</h2>
+        <div class="checklist-items">${itemsHtml}</div>
+      </div>
+    </div>`;
+}
+
+function previewSectionHtml(course){
+  if(!course.hero_video_youtube_id) return '';
+  return `
+    <div class="preview-section">
+      <h2>Watch A Preview!</h2>
+      <div class="preview-frame" id="preview-frame" data-video-id="${course.hero_video_youtube_id}">
+        <img src="https://img.youtube.com/vi/${course.hero_video_youtube_id}/maxresdefault.jpg" alt="Preview video" />
+        <div class="preview-play"><svg viewBox="0 0 24 24" fill="var(--ink)"><path d="M8 5v14l11-7z"/></svg></div>
+      </div>
+    </div>`;
+}
+
+// The reusable course overview widget — takes just a sessions array (each
+// with its session_items already attached), so this works for any course,
+// not just this one. Drop it into any landing page with
+// courseOverviewWidgetHtml(sessions) and wire it with
+// wireCourseOverviewWidget() after it's in the DOM.
+function courseOverviewWidgetHtml(sessionsList){
+  const rowsHtml = sessionsList.map((s, i) => {
+    const itemsHtml = (s.session_items || []).map(item => `
+      <div class="overview-item-row">
+        <span class="overview-item-title">${item.title}</span>${item.duration_minutes ? ` — ${item.type === 'video' ? 'Watch' : item.type === 'download' ? 'Download' : 'Read'} · ${item.duration_minutes} min` : ''}
+      </div>`).join('');
+    return `
+      <div class="overview-row" data-session-index="${i}">
+        <div class="overview-num">${i + 1}</div>
+        <div class="overview-title">${s.title}</div>
+        <svg class="overview-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="overview-items" id="overview-items-${i}">${itemsHtml}</div>`;
+  }).join('');
+  return `
+    <div class="overview-section">
+      <h2>Course Overview</h2>
+      ${rowsHtml}
+    </div>`;
+}
+
+function wireCourseOverviewWidget(){
+  document.querySelectorAll('.overview-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const i = row.dataset.sessionIndex;
+      const isOpen = row.dataset.open === 'true';
+      row.dataset.open = isOpen ? 'false' : 'true';
+      document.getElementById(`overview-items-${i}`).classList.toggle('open', !isOpen);
+    });
+  });
+}
+
+function wirePreviewVideo(){
+  const frame = document.getElementById('preview-frame');
+  if(!frame) return;
+  frame.addEventListener('click', () => {
+    const videoId = frame.dataset.videoId;
+    frame.innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+  }, { once: true });
+}
+
 function renderHero(){
   document.getElementById('app').innerHTML = `
     <div class="hero">
@@ -500,9 +638,10 @@ function renderHero(){
         <button class="btn-blue" id="start-btn">Start Course Today!</button>
       </div>
     </div>
-    <div class="below-hero">
-      <h2>There is no greater life than the one lived in surrender to Jesus.</h2>
-    </div>
+    ${letterSectionHtml(course)}
+    ${checklistSectionHtml(course)}
+    ${previewSectionHtml(course)}
+    ${courseOverviewWidgetHtml(sessions)}
   `;
   bindAuthStatusLinks();
   document.getElementById('start-btn').addEventListener('click', () => {
@@ -513,6 +652,8 @@ function renderHero(){
     }
     goToFirstLesson();
   });
+  wirePreviewVideo();
+  wireCourseOverviewWidget();
 }
 
 function goToFirstLesson(){
