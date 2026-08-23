@@ -437,6 +437,18 @@ async function handleEmailAuth(mode){
     return;
   }
 
+  // Supabase only returns an active session if email confirmation isn't
+  // required (or this is a sign-in after already confirming). If there's
+  // a user but no session, the account was created but they aren't
+  // actually logged in yet — proceeding as if they were would mean every
+  // save silently fails against Row Level Security. Tell them exactly
+  // what to do instead of pretending it worked.
+  if(!result.data.session){
+    showAuthError("Almost there — we've sent a confirmation link to your email. Click it, then come back here and sign in.");
+    submitBtn.textContent = mode === 'signup' ? 'Create Account' : 'Sign In';
+    return;
+  }
+
   closeAuthModal();
   currentUser = result.data.user;
   await ensureProfileAndEnrollment();
