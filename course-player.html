@@ -215,7 +215,7 @@ let viewingSurvey = false;
 async function init(){
   const slug = getChurchSlug();
 
-  const { data: churchRow } = await supabaseClient.from('churches').select('*').eq('slug', slug).single();
+  const { data: churchRow } = await supabaseClient.from('churches').select('*').eq('slug', slug).maybeSingle();
   church = churchRow;
   if(church?.primary_color){
     document.documentElement.style.setProperty('--blue', church.primary_color);
@@ -229,7 +229,7 @@ async function init(){
     .select('*, sessions(*, session_items(*))')
     .eq('is_free', true)
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if(!courseRow){
     document.getElementById('app').innerHTML = '<div class="loading">No course found.</div>';
