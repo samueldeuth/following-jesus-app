@@ -168,6 +168,33 @@
   .choice-opt[data-selected="true"]{background:var(--ink);color:#fff;border-color:var(--ink);}
   .skip-link{display:block;text-align:center;color:var(--ink-soft);font-size:13px;margin-top:20px;cursor:pointer;}
 
+  /* ---------- Auth ---------- */
+  .auth-link{cursor:pointer;}
+  .auth-overlay{
+    position:fixed;inset:0;background:rgba(10,12,16,0.55);
+    display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;
+  }
+  .auth-modal{
+    background:#fff;border-radius:14px;width:100%;max-width:380px;
+    padding:28px;position:relative;
+  }
+  .auth-close{position:absolute;top:16px;right:18px;cursor:pointer;color:var(--ink-soft);font-size:18px;background:none;border:none;}
+  .auth-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:20px;margin:0 0 4px;}
+  .auth-subtitle{font-size:13.5px;color:var(--ink-soft);margin-bottom:20px;}
+  .auth-field{width:100%;border:1.5px solid var(--line);border-radius:8px;padding:11px 12px;font-size:14px;margin-bottom:10px;font-family:'Inter',sans-serif;}
+  .auth-field:focus{outline:none;border-color:var(--ink);}
+  .auth-submit{width:100%;background:var(--ink);color:#fff;border:none;border-radius:8px;padding:12px;font-weight:600;font-size:14px;cursor:pointer;margin-top:4px;}
+  .auth-google{
+    width:100%;background:#fff;border:1.5px solid var(--line);border-radius:8px;padding:11px;
+    font-weight:600;font-size:13.5px;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .auth-divider{display:flex;align-items:center;gap:10px;color:var(--ink-soft);font-size:12px;margin:14px 0;}
+  .auth-divider::before,.auth-divider::after{content:"";flex:1;height:1px;background:var(--line);}
+  .auth-switch{text-align:center;font-size:13px;color:var(--ink-soft);margin-top:16px;}
+  .auth-switch a{color:var(--blue);cursor:pointer;font-weight:600;}
+  .auth-error{background:#FDECEC;color:#B3261E;font-size:13px;padding:9px 12px;border-radius:8px;margin-bottom:12px;}
+  .auth-note{font-size:12px;color:var(--ink-soft);margin-top:10px;text-align:center;}
+
   .loading{padding:60px 20px;text-align:center;color:var(--ink-soft);font-size:13px;}
   @media(max-width:820px){
     .player-shell{flex-direction:column;}
@@ -257,27 +284,174 @@ async function init(){
   surveyQuestions = surveyQ || [];
 
   if(currentUser){
-    const { data: progress } = await supabaseClient
-      .from('item_progress')
-      .select('item_id, completed_at')
-      .eq('student_id', currentUser.id);
-    (progress||[]).forEach(p => { if(p.completed_at) doneItemIds.add(p.item_id); });
-
-    const allQuestionIds = Object.values(questionsByItem).flat().map(q=>q.id);
-    if(allQuestionIds.length){
-      const { data: responses } = await supabaseClient
-        .from('discussion_responses').select('*').eq('student_id', currentUser.id).in('question_id', allQuestionIds);
-      (responses||[]).forEach(r => { responsesByQuestion[r.question_id] = r; });
-    }
-
-    if(surveyQuestions.length){
-      const { data: sResponses } = await supabaseClient
-        .from('course_survey_responses').select('*').eq('student_id', currentUser.id)
-        .in('question_id', surveyQuestions.map(q=>q.id));
-      (sResponses||[]).forEach(r => { surveyResponses[r.question_id] = r.response_text; });
-    }
+    await ensureProfileAndEnrollment();
+    await loadUserProgress();
   }
 
+  renderHero();
+}
+
+/* ---------- Auth-dependent data loading ---------- */
+async function ensureProfileAndEnrollment(){
+  if(!currentUser) return;
+
+  // Create their profile row if this is their first time (won't overwrite an existing one)
+  const { data: existingProfile } = await supabaseClient
+    .from('profiles').select('id').eq('id', currentUser.id).maybeSingle();
+
+  if(!existingProfile){
+    await supabaseClient.from('profiles').insert({
+      id: currentUser.id,
+      church_id: church?.id || null,
+      full_name: currentUser.user_metadata?.full_name || currentUser.email,
+      role: 'student'
+    });
+  }
+
+  // Enroll them in this course if they aren't already
+  if(course){
+    const { data: existingEnrollment } = await supabaseClient
+      .from('enrollments').select('id').eq('student_id', currentUser.id).eq('course_id', course.id).maybeSingle();
+
+    if(!existingEnrollment){
+      await supabaseClient.from('enrollments').insert({
+        student_id: currentUser.id,
+        church_id: church?.id || null,
+        course_id: course.id
+      });
+    }
+  }
+}
+
+async function loadUserProgress(){
+  if(!currentUser) return;
+
+  const { data: progress } = await supabaseClient
+    .from('item_progress')
+    .select('item_id, completed_at')
+    .eq('student_id', currentUser.id);
+  (progress||[]).forEach(p => { if(p.completed_at) doneItemIds.add(p.item_id); });
+
+  const allQuestionIds = Object.values(questionsByItem).flat().map(q=>q.id);
+  if(allQuestionIds.length){
+    const { data: responses } = await supabaseClient
+      .from('discussion_responses').select('*').eq('student_id', currentUser.id).in('question_id', allQuestionIds);
+    (responses||[]).forEach(r => { responsesByQuestion[r.question_id] = r; });
+  }
+
+  if(surveyQuestions.length){
+    const { data: sResponses } = await supabaseClient
+      .from('course_survey_responses').select('*').eq('student_id', currentUser.id)
+      .in('question_id', surveyQuestions.map(q=>q.id));
+    (sResponses||[]).forEach(r => { surveyResponses[r.question_id] = r.response_text; });
+  }
+}
+
+/* ---------- Auth UI ---------- */
+function authStatusHtml(){
+  if(currentUser){
+    return `<a id="signout-link" class="auth-link">Sign Out (${currentUser.email})</a>`;
+  }
+  return `<a id="signin-link" class="auth-link">Sign In</a>`;
+}
+
+function bindAuthStatusLinks(){
+  const signIn = document.getElementById('signin-link');
+  const signOut = document.getElementById('signout-link');
+  if(signIn) signIn.addEventListener('click', () => renderAuthModal('signin'));
+  if(signOut) signOut.addEventListener('click', handleSignOut);
+}
+
+function renderAuthModal(mode){
+  const existing = document.getElementById('auth-overlay');
+  if(existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'auth-overlay';
+  overlay.className = 'auth-overlay';
+  overlay.innerHTML = `
+    <div class="auth-modal">
+      <button class="auth-close" id="auth-close">&times;</button>
+      <div class="auth-title">${mode === 'signup' ? 'Create your account' : 'Sign in'}</div>
+      <div class="auth-subtitle">${mode === 'signup' ? 'Start tracking your progress through the course.' : 'Welcome back — pick up where you left off.'}</div>
+      <div id="auth-error"></div>
+      <button class="auth-google" id="google-btn">Continue with Google</button>
+      <div class="auth-divider">or</div>
+      ${mode === 'signup' ? '<input class="auth-field" id="auth-name" placeholder="Your name" type="text">' : ''}
+      <input class="auth-field" id="auth-email" placeholder="Email" type="email">
+      <input class="auth-field" id="auth-password" placeholder="Password" type="password">
+      <button class="auth-submit" id="auth-submit">${mode === 'signup' ? 'Create Account' : 'Sign In'}</button>
+      <div class="auth-switch">
+        ${mode === 'signup' ? 'Already have an account? <a id="auth-switch-link">Sign in</a>' : "New here? <a id=\"auth-switch-link\">Create an account</a>"}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  document.getElementById('auth-close').addEventListener('click', closeAuthModal);
+  overlay.addEventListener('click', (e) => { if(e.target === overlay) closeAuthModal(); });
+  document.getElementById('auth-switch-link').addEventListener('click', () => renderAuthModal(mode === 'signup' ? 'signin' : 'signup'));
+  document.getElementById('google-btn').addEventListener('click', handleGoogleAuth);
+  document.getElementById('auth-submit').addEventListener('click', () => handleEmailAuth(mode));
+}
+
+function closeAuthModal(){
+  const existing = document.getElementById('auth-overlay');
+  if(existing) existing.remove();
+}
+
+function showAuthError(message){
+  const el = document.getElementById('auth-error');
+  if(el) el.innerHTML = `<div class="auth-error">${message}</div>`;
+}
+
+async function handleEmailAuth(mode){
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const nameField = document.getElementById('auth-name');
+  const submitBtn = document.getElementById('auth-submit');
+
+  if(!email || !password){ showAuthError('Please enter both an email and a password.'); return; }
+
+  submitBtn.textContent = 'Please wait...';
+
+  let result;
+  if(mode === 'signup'){
+    result = await supabaseClient.auth.signUp({
+      email, password,
+      options: { data: { full_name: nameField ? nameField.value.trim() : '' } }
+    });
+  } else {
+    result = await supabaseClient.auth.signInWithPassword({ email, password });
+  }
+
+  if(result.error){
+    showAuthError(result.error.message);
+    submitBtn.textContent = mode === 'signup' ? 'Create Account' : 'Sign In';
+    return;
+  }
+
+  closeAuthModal();
+  currentUser = result.data.user;
+  await ensureProfileAndEnrollment();
+  await loadUserProgress();
+  if(viewingSurvey) renderSurvey(); else if(activeItem) renderPlayer(activeItem); else renderHero();
+}
+
+async function handleGoogleAuth(){
+  await supabaseClient.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.href }
+  });
+  // Page will redirect to Google, then back here — init() picks up the session on reload.
+}
+
+async function handleSignOut(){
+  await supabaseClient.auth.signOut();
+  currentUser = null;
+  doneItemIds = new Set();
+  responsesByQuestion = {};
+  surveyResponses = {};
   renderHero();
 }
 
@@ -287,7 +461,7 @@ function renderHero(){
     <div class="hero">
       <div class="topbar on-hero">
         <div class="logo-badge">${church?.name || 'Following Jesus'}</div>
-        <nav><a href="#">App</a><a href="#">My Dashboard</a></nav>
+        <nav><a href="#">App</a><a href="#">My Dashboard</a>${authStatusHtml()}</nav>
       </div>
       <div>
         <h1>${course.title}</h1>
@@ -299,6 +473,7 @@ function renderHero(){
       <h2>There is no greater life than the one lived in surrender to Jesus.</h2>
     </div>
   `;
+  bindAuthStatusLinks();
   document.getElementById('start-btn').addEventListener('click', () => {
     const firstSession = sessions[0];
     const firstItem = firstSession?.session_items?.[0];
@@ -317,7 +492,7 @@ function renderPlayer(item){
   document.getElementById('app').innerHTML = `
     <div class="player-shell">
       <div class="sidebar">
-        <div class="topbar"><div class="logo-badge">${church?.name || 'Following Jesus'}</div></div>
+        <div class="topbar"><div class="logo-badge">${church?.name || 'Following Jesus'}</div>${authStatusHtml()}</div>
         <div class="sidebar-body">
           <a class="back-link" id="back-link">&larr; Go to Dashboard</a>
           <div class="course-name">${course.title}</div>
@@ -341,6 +516,7 @@ function renderPlayer(item){
   document.getElementById('back-link').addEventListener('click', renderHero);
   document.getElementById('cert-btn').addEventListener('click', () => alert('Wire this up to your certificates table once a course hits 100%.'));
   document.getElementById('survey-link').addEventListener('click', renderSurvey);
+  bindAuthStatusLinks();
 
   renderSessionList();
   if(item) renderContent(item); else if(!viewingSurvey) renderContent(null);
@@ -429,7 +605,7 @@ function renderContent(item){
       return `
         <div class="question-block">
           <div class="question-text">${i+1}. ${q.question_text}</div>
-          <textarea class="answer-box" data-question-id="${q.id}" placeholder="${currentUser ? 'Type your answer...' : 'Sign in to save your answer'}" ${currentUser ? '' : 'disabled'}>${existing?.response_text || ''}</textarea>
+          <textarea class="answer-box" data-question-id="${q.id}" placeholder="${currentUser ? 'Type your answer...' : 'Sign in to save your answer'}" ${currentUser ? '' : 'readonly'}>${existing?.response_text || ''}</textarea>
           <div class="save-note" data-note-for="${q.id}"></div>
           ${existing?.admin_reply ? `
             <div class="admin-reply">
@@ -461,6 +637,10 @@ function renderContent(item){
 
   if(item.type === 'discussion'){
     pane.querySelectorAll('.answer-box').forEach(box => {
+      if(!currentUser){
+        box.addEventListener('click', () => renderAuthModal('signup'));
+        return;
+      }
       let debounceTimer;
       box.addEventListener('input', () => {
         clearTimeout(debounceTimer);
@@ -564,7 +744,7 @@ async function saveSurveyAnswer(questionId, text, noteEl){
 }
 
 async function toggleComplete(item){
-  if(!currentUser){ alert('Sign in to save your progress.'); return; }
+  if(!currentUser){ renderAuthModal('signup'); return; }
   const nowDone = !doneItemIds.has(item.id);
 
   await supabaseClient.from('item_progress').upsert({
