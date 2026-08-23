@@ -67,6 +67,10 @@
   .letter-section p{font-size:16px;line-height:1.75;color:var(--ink);text-align:left;margin:0 0 20px;}
   .letter-sig-name{font-family:'Lora',serif;font-style:italic;font-size:24px;margin-top:28px;}
   .letter-sig-title{font-size:13px;color:var(--ink-soft);margin-top:4px;}
+  .letter-subtitle{font-size:18px;color:var(--ink-soft);text-align:center;margin:-16px 0 32px;}
+  .letter-image{width:100%;border-radius:var(--radius);display:block;margin-bottom:28px;}
+  .letter-website{font-size:14.5px;margin-top:6px;}
+  .letter-website a{color:var(--blue);font-weight:600;}
 
   /* ---------- Checklist section ---------- */
   .checklist-section{background:var(--bg-soft);padding:60px 20px;}
@@ -121,6 +125,8 @@
   .sidebar-body{padding:20px;overflow-y:auto;}
   .back-link{font-size:13px;color:var(--ink-soft);text-decoration:none;display:block;margin-bottom:14px;}
   .course-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;margin:0 0 14px;}
+  .church-name-heading{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;margin:0 0 4px;}
+  .church-name-heading + .course-name{font-size:14px;font-weight:500;color:var(--ink-soft);margin-bottom:14px;}
   .progress-track{height:6px;background:var(--bg-soft);border-radius:3px;overflow:hidden;margin-bottom:8px;}
   .progress-fill{height:100%;background:var(--ink);}
   .progress-pct{font-size:13px;color:var(--ink-soft);margin-bottom:18px;}
@@ -692,17 +698,25 @@ async function renderProfile(){
 }
 
 /* ---------- Hero / landing ---------- */
-function letterSectionHtml(course){
-  if(!course.letter_body) return '';
-  const paragraphs = course.letter_body.split(/\n\s*\n/).map(p => `<p>${p.trim()}</p>`).join('');
+// If the church viewing this course has its own custom letter (a pastor's
+// welcome instead of the author's), that takes priority — otherwise falls
+// back to the course's own default letter. Same field names on both
+// tables, so this is just "which row has content, church or course."
+function letterSectionHtml(course, churchObj){
+  const source = (churchObj && churchObj.letter_body) ? churchObj : course;
+  if(!source.letter_body) return '';
+  const paragraphs = source.letter_body.split(/\n\s*\n/).map(p => `<p>${p.trim()}</p>`).join('');
   return `
     <div class="letter-section">
-      ${course.letter_title ? `<h2>${course.letter_title}</h2>` : ''}
+      ${source.letter_title ? `<h2>${source.letter_title}</h2>` : ''}
+      ${source.letter_subtitle ? `<p class="letter-subtitle">${source.letter_subtitle}</p>` : ''}
+      ${source.letter_image_url ? `<img class="letter-image" src="${source.letter_image_url}" alt="" />` : ''}
       ${paragraphs}
-      ${course.letter_author_name ? `
-        <div class="letter-sig-name">${course.letter_author_name}</div>
-        ${course.letter_author_title ? `<div class="letter-sig-title">${course.letter_author_title}</div>` : ''}
+      ${source.letter_author_name ? `
+        <div class="letter-sig-name">${source.letter_author_name}</div>
+        ${source.letter_author_title ? `<div class="letter-sig-title">${source.letter_author_title}</div>` : ''}
       ` : ''}
+      ${source.website_url ? `<p class="letter-website">Visit: <a href="${source.website_url}" target="_blank" rel="noopener">${source.website_url.replace(/^https?:\/\//, '')}</a></p>` : ''}
     </div>`;
 }
 
@@ -784,7 +798,7 @@ function renderHero(){
   document.getElementById('app').innerHTML = `
     <div class="hero">
       <div class="topbar on-hero">
-        <div class="logo-badge">${church?.name || 'Following Jesus'}</div>
+        <div class="logo-badge">Following Jesus</div>
         <nav><a href="https://qrco.de/fjapp">App</a>${authStatusHtml()}</nav>
       </div>
       <div>
@@ -793,7 +807,7 @@ function renderHero(){
         <button class="btn-blue" id="start-btn">Start Course Today!</button>
       </div>
     </div>
-    ${letterSectionHtml(course)}
+    ${letterSectionHtml(course, church)}
     ${checklistSectionHtml(course)}
     ${previewSectionHtml(course)}
     ${courseOverviewWidgetHtml(sessions)}
@@ -832,9 +846,10 @@ function renderPlayer(item){
         <span>${course.title} — Lessons</span>
       </button>
       <div class="sidebar" id="sidebar">
-        <div class="logo-badge logo-badge-full">${church?.name || 'Following Jesus'}</div>
+        <div class="logo-badge logo-badge-full">Following Jesus</div>
         <div class="sidebar-body">
           <a class="back-link" id="back-link">&larr; Go to Dashboard</a>
+          ${church?.name ? `<div class="church-name-heading">${church.name}</div>` : ''}
           <div class="course-name">${course.title}</div>
           <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
           <div class="progress-pct">${pct}% complete</div>
