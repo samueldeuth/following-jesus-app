@@ -67,6 +67,30 @@
   .panel h3{text-align:left;font-family:'Space Grotesk',sans-serif;font-size:15px;margin:0 0 12px;}
   .group-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;gap:12px;}
   .group-row:last-child{border-bottom:none;}
+
+  .church-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:22px;}
+  .church-tab-btn{
+    background:none;border:none;font-family:'Inter',sans-serif;font-size:13.5px;font-weight:600;
+    color:var(--ink-soft);padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;
+  }
+  .church-tab-btn.active{color:var(--ink);border-bottom-color:var(--ink);}
+  .church-tab-panel{display:none;}
+  .church-tab-panel.active{display:block;}
+
+  .field-label{display:block;text-align:left;font-size:12px;font-weight:600;color:var(--ink-soft);margin:14px 0 5px;}
+  .field-input{width:100%;border:1.5px solid var(--line);border-radius:6px;padding:8px 10px;font-size:13.5px;font-family:'Inter',sans-serif;box-sizing:border-box;}
+  .field-textarea{min-height:90px;resize:vertical;font-family:'Inter',sans-serif;}
+  .field-hint{font-size:11.5px;color:var(--ink-soft);margin:5px 0 0;}
+  .field-section-title{text-align:left;font-family:'Space Grotesk',sans-serif;font-size:13.5px;margin:22px 0 2px;padding-top:16px;border-top:1px solid var(--line);}
+  .color-field-row{display:flex;gap:8px;align-items:stretch;}
+  .color-field-row .field-input{flex:1;}
+  .color-swatch{
+    width:44px;height:auto;border:1.5px solid var(--line);border-radius:6px;padding:2px;
+    cursor:pointer;background:#fff;flex-shrink:0;
+  }
+  .new-group-form{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .new-group-form input{flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:6px;padding:8px 10px;font-size:13px;font-family:'Inter',sans-serif;}
+  .new-group-form button{background:var(--ink);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -75,7 +99,7 @@
   <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
     <div>
       <div class="logo-badge" id="church-name">Loading…</div>
-      <h1>Student progress</h1>
+      <h1>Student Dashboard</h1>
     </div>
     <div id="admin-account-info" style="text-align:right;"></div>
   </div>
@@ -90,6 +114,21 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 
 let currentAdminId = null;
 let allRows = [];
+let myChurch = null;
+
+// Pulls the video ID out of any common YouTube URL shape.
+function extractYoutubeId(input){
+  if(!input) return null;
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/
+  ];
+  for(const p of patterns){
+    const match = input.match(p);
+    if(match) return match[1];
+  }
+  return null;
+}
 let allPendingStudents = [];
 
 function renderAccountInfo(email){
@@ -131,6 +170,9 @@ async function init(){
 
   document.getElementById('church-name').textContent = profile.churches?.name || 'Your church';
 
+  const { data: churchRow } = await supabaseClient.from('churches').select('*').eq('id', profile.church_id).maybeSingle();
+  myChurch = churchRow;
+
   const { data: rows, error } = await supabaseClient
     .from('church_student_progress')
     .select('*')
@@ -142,10 +184,17 @@ async function init(){
 
   const { data: pending } = await supabaseClient.rpc('get_pending_legacy_students', { target_church_id: profile.church_id });
   allPendingStudents = pending || [];
-  renderDashboard(rows, allPendingStudents);
+  await renderDashboard(rows, allPendingStudents);
 }
 
-function renderDashboard(rows, pendingStudents = allPendingStudents){
+async function renderDashboard(rows, pendingStudents = allPendingStudents){
+  const [{ data: currentAdminsData }, { data: myGroupsData }] = await Promise.all([
+    supabaseClient.from('profiles').select('id, full_name').eq('church_id', myChurch.id).eq('role', 'church_admin'),
+    supabaseClient.from('course_groups').select('*').eq('church_id', myChurch.id).order('name')
+  ]);
+  const currentAdmins = currentAdminsData || [];
+  const myGroups = myGroupsData || [];
+
   const totalStudents = rows.length;
   const completedCount = rows.filter(r => r.total_items > 0 && r.items_completed === r.total_items).length;
   const avgPct = totalStudents
@@ -182,23 +231,177 @@ function renderDashboard(rows, pendingStudents = allPendingStudents){
       <div class="summary-card"><div class="num">${avgPct}%</div><div class="label">Average progress</div></div>
     </div>
 
-    <div class="panel">
-      <h3>Not Yet Signed Up (${pendingStudents.length})</h3>
-      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">People who took your church's course on the old platform but haven't created an account here yet. Once they sign up with the same email, they'll move into the list below automatically.</p>
-      ${pendingStudents.length ? `
-        <div style="max-height:220px;overflow-y:auto;">
-          ${pendingStudents.map(p => `<div class="group-row"><span>${(p.first_name||'')} ${(p.last_name||'')}</span><span style="color:var(--ink-soft);font-size:12px;">${p.email}</span></div>`).join('')}
-        </div>
-        <button class="mini-btn" id="copy-pending-emails-btn" style="margin-top:12px;">Copy All Emails</button>
-        <span id="copy-status" style="font-size:12.5px;color:var(--ink-soft);margin-left:8px;"></span>
-      ` : `<p style="color:var(--ink-soft);font-size:13px;margin:0;">Nobody pending right now.</p>`}
+    <div class="church-tabs">
+      <button class="church-tab-btn active" data-tab="students">Students</button>
+      ${pendingStudents.length ? `<button class="church-tab-btn" data-tab="pending">Not Yet Signed Up (${pendingStudents.length})</button>` : ''}
+      <button class="church-tab-btn" data-tab="settings">Settings</button>
+      <button class="church-tab-btn" data-tab="groups">Groups</button>
     </div>
 
-    <table>
-      <thead><tr><th>Student</th><th>Course</th><th>Progress</th><th>Enrolled</th><th>Actions</th></tr></thead>
-      <tbody>${rowsHtml}</tbody>
-    </table>
+    <div class="church-tab-panel active" data-tab-panel="students">
+      <table>
+        <thead><tr><th>Student</th><th>Course</th><th>Progress</th><th>Enrolled</th><th>Actions</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>
+
+    ${pendingStudents.length ? `
+    <div class="church-tab-panel" data-tab-panel="pending">
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">People who took your church's course on the old platform but haven't created an account here yet. Once they sign up with the same email, they'll move into the Students tab automatically.</p>
+      <div style="max-height:320px;overflow-y:auto;">
+        ${pendingStudents.map(p => `<div class="group-row"><span>${(p.first_name||'')} ${(p.last_name||'')}</span><span style="color:var(--ink-soft);font-size:12px;">${p.email}</span></div>`).join('')}
+      </div>
+      <button class="mini-btn" id="copy-pending-emails-btn" style="margin-top:12px;">Copy All Emails</button>
+      <span id="copy-status" style="font-size:12.5px;color:var(--ink-soft);margin-left:8px;"></span>
+    </div>` : ''}
+
+    <div class="church-tab-panel" data-tab-panel="settings">
+      <label class="field-label">Church Name</label>
+      <p class="field-hint" style="margin-bottom:8px;">Read-only — contact Following Jesus support if this needs to change.</p>
+      <input type="text" class="field-input" value="${(myChurch?.name||'').replace(/"/g,'&quot;')}" disabled style="background:var(--bg-soft);" />
+
+      <label class="field-label">Custom URL</label>
+      <p class="field-hint" style="margin-bottom:8px;">This can't be changed here — changing it would break any links or QR codes already shared with your church.</p>
+      <p class="field-hint">Link: <a href="https://followingjesusapp.netlify.app/courses/${myChurch?.slug || ''}" target="_blank" rel="noopener">followingjesusapp.netlify.app/courses/${myChurch?.slug || '...'}</a></p>
+
+      <h4 class="field-section-title">Church Admin</h4>
+      <div id="current-admins-list">
+        ${currentAdmins.length ? currentAdmins.map(a => `
+          <div class="group-row">
+            <span>${a.full_name || 'Unnamed'}</span>
+            ${a.id !== currentAdminId ? `<button class="mini-btn danger" data-remove-admin="${a.id}">Remove Admin</button>` : `<span style="font-size:12px;color:var(--ink-soft);">You</span>`}
+          </div>`).join('') : '<p style="color:var(--ink-soft);font-size:13px;margin:0 0 12px;">No other admins assigned yet.</p>'}
+      </div>
+      <label class="field-label">Promote a Student to Admin</label>
+      <p class="field-hint" style="margin-bottom:8px;">They must already have an account (signed up at least once) before you can promote them.</p>
+      <div class="new-group-form">
+        <input type="text" id="promote-admin-email" placeholder="Their email address" />
+        <button id="promote-admin-btn">Make Admin</button>
+      </div>
+      <span id="promote-status" style="font-size:12.5px;color:var(--ink-soft);"></span>
+
+      <label class="field-label">Accent Color</label>
+      <div class="color-field-row">
+        <input type="color" class="color-swatch" id="edit-church-color-picker" value="${/^#[0-9a-fA-F]{6}$/.test(myChurch?.primary_color||'') ? myChurch.primary_color : '#3E82F7'}" />
+        <input type="text" class="field-input" id="edit-church-color" value="${(myChurch?.primary_color||'').replace(/"/g,'&quot;')}" placeholder="#3E82F7" />
+      </div>
+
+      <h4 class="field-section-title">Welcome Letter (shown on your church's course page)</h4>
+      <label class="field-label">Title</label>
+      <input type="text" class="field-input" id="edit-letter-title" value="${(myChurch?.letter_title||'').replace(/"/g,'&quot;')}" placeholder="e.g. Welcome to Acacia Church" />
+      <label class="field-label">Subtitle</label>
+      <input type="text" class="field-input" id="edit-letter-subtitle" value="${(myChurch?.letter_subtitle||'').replace(/"/g,'&quot;')}" placeholder="A short line under the title" />
+      <label class="field-label">Letter Body</label>
+      <textarea class="field-input field-textarea" id="edit-letter-body" placeholder="Separate paragraphs with a blank line">${myChurch?.letter_body||''}</textarea>
+      <label class="field-label">Welcome Video (YouTube link, optional)</label>
+      <input type="text" class="field-input" id="edit-letter-video" value="${(myChurch?.letter_video_youtube_id||'').replace(/"/g,'&quot;')}" placeholder="https://youtube.com/watch?v=..." />
+      <p class="field-hint" style="margin-bottom:8px;">If set, this shows instead of the welcome photo below.</p>
+      <label class="field-label">Welcome Photo URL</label>
+      <input type="text" class="field-input" id="edit-letter-image" value="${(myChurch?.letter_image_url||'').replace(/"/g,'&quot;')}" placeholder="https://..." />
+      <label class="field-label">Pastor's Name</label>
+      <input type="text" class="field-input" id="edit-letter-author" value="${(myChurch?.letter_author_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. First & Spouse Last" />
+      <label class="field-label">Pastor's Title</label>
+      <input type="text" class="field-input" id="edit-letter-author-title" value="${(myChurch?.letter_author_title||'').replace(/"/g,'&quot;')}" placeholder="e.g. Church Name | Lead Pastor" />
+      <label class="field-label">Church Website</label>
+      <input type="text" class="field-input" id="edit-website" value="${(myChurch?.website_url||'').replace(/"/g,'&quot;')}" placeholder="https://..." />
+
+      <button class="mini-btn" id="save-church-settings-btn" style="margin-top:14px;background:var(--ink);color:#fff;border-color:var(--ink);">Save Church Settings</button>
+      <span id="save-status" style="font-size:12.5px;color:var(--ink-soft);margin-left:10px;"></span>
+    </div>
+
+    <div class="church-tab-panel" data-tab-panel="groups">
+      <div id="groups-list">${myGroups.map(g => `<div class="group-row"><span>${g.name}${g.leader_name ? ` — led by ${g.leader_name}` : ''}</span></div>`).join('') || '<p style="color:var(--ink-soft);font-size:13px;margin:0;">No groups yet.</p>'}</div>
+      <div class="new-group-form">
+        <input type="text" id="new-group-name" placeholder="Group name (e.g. Wednesday Night)" />
+        <input type="text" id="new-group-leader" placeholder="Leader's name" />
+        <button id="create-group-btn">+ Add Group</button>
+      </div>
+    </div>
   `;
+
+  document.querySelectorAll('.church-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.church-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.church-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelector(`.church-tab-panel[data-tab-panel="${btn.dataset.tab}"]`).classList.add('active');
+    });
+  });
+
+  const colorPicker = document.getElementById('edit-church-color-picker');
+  const colorText = document.getElementById('edit-church-color');
+  if(colorPicker && colorText){
+    colorPicker.addEventListener('input', () => { colorText.value = colorPicker.value; });
+    colorText.addEventListener('input', () => {
+      if(/^#[0-9a-fA-F]{6}$/.test(colorText.value)) colorPicker.value = colorText.value;
+    });
+  }
+
+  const saveBtn = document.getElementById('save-church-settings-btn');
+  if(saveBtn) saveBtn.addEventListener('click', async () => {
+    const videoInput = document.getElementById('edit-letter-video').value.trim();
+    const videoId = extractYoutubeId(videoInput);
+    if(videoInput && !videoId){
+      alert("That doesn't look like a valid YouTube link — please check it and try again.");
+      return;
+    }
+    const statusEl = document.getElementById('save-status');
+    const updates = {
+      primary_color: document.getElementById('edit-church-color').value.trim() || null,
+      letter_title: document.getElementById('edit-letter-title').value.trim() || null,
+      letter_subtitle: document.getElementById('edit-letter-subtitle').value.trim() || null,
+      letter_body: document.getElementById('edit-letter-body').value.trim() || null,
+      letter_video_youtube_id: videoId || null,
+      letter_image_url: document.getElementById('edit-letter-image').value.trim() || null,
+      letter_author_name: document.getElementById('edit-letter-author').value.trim() || null,
+      letter_author_title: document.getElementById('edit-letter-author-title').value.trim() || null,
+      website_url: document.getElementById('edit-website').value.trim() || null
+    };
+    statusEl.textContent = 'Saving...';
+    const { data: updated, error } = await supabaseClient.from('churches').update(updates).eq('id', myChurch.id).select().maybeSingle();
+    if(error || !updated){
+      statusEl.textContent = '';
+      alert('Could not save: ' + (error?.message || 'unknown error'));
+      return;
+    }
+    myChurch = updated;
+    statusEl.textContent = 'Saved ✓';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+  });
+
+  const promoteBtn = document.getElementById('promote-admin-btn');
+  if(promoteBtn) promoteBtn.addEventListener('click', async () => {
+    const email = document.getElementById('promote-admin-email').value.trim();
+    const statusEl = document.getElementById('promote-status');
+    if(!email){ statusEl.textContent = 'Enter an email first.'; return; }
+    statusEl.textContent = 'Promoting...';
+    const { data: result, error } = await supabaseClient.rpc('promote_to_church_admin', { target_email: email, target_church_id: myChurch.id });
+    if(error || result !== 'success'){
+      statusEl.textContent = result === 'not_found'
+        ? 'No account found with that email — they need to sign up first.'
+        : 'Something went wrong. Please try again.';
+      return;
+    }
+    statusEl.textContent = 'Promoted ✓';
+    init();
+  });
+
+  document.querySelectorAll('[data-remove-admin]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!confirm('Remove this person as church admin? They\'ll go back to being a regular student.')) return;
+      await supabaseClient.from('profiles').update({ role: 'student' }).eq('id', btn.dataset.removeAdmin);
+      init();
+    });
+  });
+
+  const createGroupBtn = document.getElementById('create-group-btn');
+  if(createGroupBtn) createGroupBtn.addEventListener('click', async () => {
+    const name = document.getElementById('new-group-name').value.trim();
+    const leader = document.getElementById('new-group-leader').value.trim();
+    if(!name) return;
+    await supabaseClient.from('course_groups').insert({ church_id: myChurch.id, name, leader_name: leader || null });
+    init();
+  });
 
   const copyBtn = document.getElementById('copy-pending-emails-btn');
   if(copyBtn) copyBtn.addEventListener('click', async () => {
@@ -221,7 +424,7 @@ function renderDashboard(rows, pendingStudents = allPendingStudents){
       if(!confirm(`Unenroll ${btn.dataset.name} from this course? Their progress and answers will be permanently deleted.`)) return;
       await supabaseClient.from('enrollments').delete().eq('id', btn.dataset.unenroll);
       allRows = allRows.filter(r => r.enrollment_id !== btn.dataset.unenroll);
-      renderDashboard(allRows);
+      await renderDashboard(allRows);
     });
   });
 
@@ -283,7 +486,7 @@ async function renderStudentDetail(studentId, courseId){
     ${blocksHtml || '<p style="color:var(--ink-soft);">No discussion questions found for this course.</p>'}
   `;
 
-  document.getElementById('back-to-list').addEventListener('click', () => renderDashboard(allRows));
+  document.getElementById('back-to-list').addEventListener('click', async () => { await renderDashboard(allRows); });
 
   content.querySelectorAll('.reply-btn').forEach(btn => {
     btn.addEventListener('click', async () => {

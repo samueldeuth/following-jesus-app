@@ -434,6 +434,13 @@ async function init(){
   }
 
   renderHero();
+
+  // If we were sent here specifically to sign in before reaching an admin
+  // page, and we're NOT already signed in, open the sign-in modal
+  // immediately instead of making them find and click "Sign In" again.
+  if(returnTo && !currentUser){
+    renderAuthModal('signin');
+  }
 }
 
 /* ---------- Auth-dependent data loading ---------- */
