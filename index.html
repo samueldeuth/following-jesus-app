@@ -2436,7 +2436,14 @@
         try {
           await navigator.share({ files: [file], title: card.title, text: `${card.message} — ${card.ref}` });
           return;
-        } catch (e) { /* cancelled or unsupported — fall through to download */ }
+        } catch (e) {
+          // AbortError specifically means the person closed or cancelled
+          // the native share sheet on purpose — respect that and stop
+          // here, rather than forcing a download prompt on them right
+          // after they dismissed something. Only genuinely unexpected
+          // errors fall through to the download fallback below.
+          if (e && e.name === 'AbortError') return;
+        }
       }
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
