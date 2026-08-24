@@ -20,6 +20,8 @@
     letter-spacing:0.14em;font-size:12px;padding:10px 14px;text-transform:uppercase;display:inline-block;margin-bottom:14px;
   }
   header h1{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:24px;margin:0;}
+  .account-email{font-size:12.5px;color:var(--ink-soft);margin-bottom:6px;}
+  .signout-link{font-size:12.5px;color:var(--ink);font-weight:600;cursor:pointer;text-decoration:underline;background:none;border:none;padding:0;font-family:'Inter',sans-serif;}
   main{max-width:960px;margin:0 auto;padding:28px 24px 80px;}
 
   .summary-row{display:flex;gap:12px;margin-bottom:26px;flex-wrap:wrap;}
@@ -79,8 +81,13 @@
 <body>
 
 <header>
-  <div class="logo-badge">Following Jesus</div>
-  <h1>Admin Dashboard</h1>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+    <div>
+      <div class="logo-badge">Following Jesus</div>
+      <h1>Admin Dashboard</h1>
+    </div>
+    <div id="admin-account-info" style="text-align:right;"></div>
+  </div>
 </header>
 
 <main><div id="content" class="loading">Loading…</div></main>
@@ -95,11 +102,32 @@ let allRows = [];
 let allChurches = [];
 let activeChurchId = null; // null = "all churches" overview
 
+function renderAccountInfo(email){
+  const el = document.getElementById('admin-account-info');
+  if(email){
+    el.innerHTML = `
+      <div class="account-email">Signed in as ${email}</div>
+      <button class="signout-link" id="admin-signout-btn">Sign Out</button>
+    `;
+    document.getElementById('admin-signout-btn').addEventListener('click', async () => {
+      await supabaseClient.auth.signOut();
+      window.location.reload();
+    });
+  } else {
+    el.innerHTML = `<a href="course-player.html" style="font-size:12.5px;color:var(--ink);font-weight:600;">Sign in →</a>`;
+  }
+}
+
 async function init(){
   const content = document.getElementById('content');
   const { data: { user } } = await supabaseClient.auth.getUser();
-  if(!user){ content.textContent = 'Please sign in as an admin to view this dashboard.'; return; }
+  if(!user){
+    renderAccountInfo(null);
+    content.textContent = 'Please sign in as an admin to view this dashboard.';
+    return;
+  }
   currentAdminId = user.id;
+  renderAccountInfo(user.email);
 
   const { data: profile } = await supabaseClient.from('profiles').select('role').eq('id', user.id).maybeSingle();
   if(!profile || profile.role !== 'super_admin'){
