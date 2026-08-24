@@ -240,6 +240,7 @@ async function renderChurchStudents(churchId){
   const church = allChurches.find(c => c.id === churchId);
   const rows = allRows.filter(r => churchId ? r.church_id === churchId : !r.church_id);
   const groups = churchId ? await fetchGroups(churchId) : [];
+  const pendingStudents = churchId ? await fetchPendingStudents(churchId) : [];
 
   const rowsHtml = rows.map(r => {
     const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
@@ -320,6 +321,18 @@ async function renderChurchStudents(churchId){
         <input type="text" id="new-group-leader" placeholder="Leader's name" />
         <button id="create-group-btn">+ Add Group</button>
       </div>
+    </div>
+
+    <div class="panel">
+      <h3>Not Yet Signed Up (${pendingStudents.length})</h3>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">People who took this church's course on the old platform but haven't created an account here yet. Once they sign up with the same email, they'll move into the student list above automatically.</p>
+      ${pendingStudents.length ? `
+        <div id="pending-list" style="max-height:220px;overflow-y:auto;">
+          ${pendingStudents.map(p => `<div class="group-row"><span>${(p.first_name||'')} ${(p.last_name||'')}</span><span style="color:var(--ink-soft);font-size:12px;">${p.email}</span></div>`).join('')}
+        </div>
+        <button class="mini-btn" id="copy-pending-emails-btn" style="margin-top:12px;">Copy All Emails</button>
+        <span id="copy-status" style="font-size:12.5px;color:var(--ink-soft);margin-left:8px;"></span>
+      ` : `<p style="color:var(--ink-soft);font-size:13px;margin:0;">Nobody pending — either everyone's signed up, or this church has no historical import data.</p>`}
     </div>` : ''}
 
     <table>
@@ -447,10 +460,27 @@ async function renderChurchStudents(churchId){
     await supabaseClient.from('course_groups').insert({ church_id: churchId, name, leader_name: leader || null });
     renderChurchStudents(churchId);
   });
+
+  const copyBtn = document.getElementById('copy-pending-emails-btn');
+  if(copyBtn) copyBtn.addEventListener('click', async () => {
+    const emailList = pendingStudents.map(p => p.email).join(', ');
+    try {
+      await navigator.clipboard.writeText(emailList);
+      document.getElementById('copy-status').textContent = `Copied ${pendingStudents.length} emails ✓`;
+    } catch (e) {
+      document.getElementById('copy-status').textContent = 'Could not copy — check clipboard permissions.';
+    }
+  });
 }
 
 async function fetchGroups(churchId){
   const { data } = await supabaseClient.from('course_groups').select('*').eq('church_id', churchId).order('name');
+  return data || [];
+}
+
+async function fetchPendingStudents(churchId){
+  const { data, error } = await supabaseClient.rpc('get_pending_legacy_students', { target_church_id: churchId });
+  if(error) return [];
   return data || [];
 }
 
