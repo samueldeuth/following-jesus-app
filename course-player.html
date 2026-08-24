@@ -426,6 +426,17 @@ async function init(){
 async function ensureProfileAndEnrollment(){
   if(!currentUser) return;
 
+  // If someone arrived without a church-specific URL, check whether
+  // their email matches a historical Thinkific student — if so, connect
+  // them to the same church automatically rather than leaving them
+  // unassigned. A URL-based church (someone who came through an actual
+  // /courses/theirchurch link) always takes priority over this.
+  let resolvedChurchId = church?.id || null;
+  if(!resolvedChurchId && currentUser.email){
+    const { data: legacyChurchId } = await supabaseClient.rpc('get_legacy_church_id', { lookup_email: currentUser.email });
+    if(legacyChurchId) resolvedChurchId = legacyChurchId;
+  }
+
   // Create their profile row if this is their first time (won't overwrite an existing one)
   const { data: existingProfile } = await supabaseClient
     .from('profiles').select('id').eq('id', currentUser.id).maybeSingle();
@@ -433,7 +444,7 @@ async function ensureProfileAndEnrollment(){
   if(!existingProfile){
     await supabaseClient.from('profiles').insert({
       id: currentUser.id,
-      church_id: church?.id || null,
+      church_id: resolvedChurchId,
       full_name: currentUser.user_metadata?.full_name || currentUser.email,
       role: 'student'
     });
@@ -447,7 +458,7 @@ async function ensureProfileAndEnrollment(){
     if(!existingEnrollment){
       await supabaseClient.from('enrollments').insert({
         student_id: currentUser.id,
-        church_id: church?.id || null,
+        church_id: resolvedChurchId,
         course_id: course.id
       });
     }
