@@ -1016,11 +1016,11 @@
     font-family:var(--font-display); font-size:14px; letter-spacing:0.04em; background:var(--white); color:var(--black); margin-bottom:10px;
   }
   .disciple-modal-body.disciple-app-scope input[type=text]::placeholder { color: rgba(10,10,10,0.35); }
-  .disciple-app-scope button.primary {
+  .disciple-app-scope button.primary, .disciple-app-scope a.primary {
     width:100%; padding:15px; background:var(--black); color:var(--white); border:none; border-radius:2px;
     font-family:var(--font-display); font-weight:700; font-size:12.5px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer;
   }
-  .disciple-app-scope button.primary:active { background: var(--ember); }
+  .disciple-app-scope button.primary:active, .disciple-app-scope a.primary:active { background: var(--ember); }
   .disciple-app-scope button.secondary {
     width:100%; padding:14px; background:transparent; color:var(--black); border:1px solid rgba(10,10,10,0.25); border-radius:2px;
     font-family:var(--font-display); font-weight:700; font-size:12px; letter-spacing:0.06em; text-transform:uppercase; cursor:pointer; margin-top:8px;
@@ -3845,6 +3845,11 @@ async function renderDisciple() {
     ${renderResourcesHtml()}
     ${actionsFeedHtml}
     ${courseCardHtml('essentials', 'Following Jesus Essentials', '7 essentials for every follower of Jesus', stepsHtml, walkoutProgress, progress)}
+    <div class="card" style="margin-top:20px;">
+      <h2>Take Your Next Step</h2>
+      <p>Go deeper with the full Following Jesus online course — video teaching, memory verses, and a certificate when you finish.</p>
+      <a href="https://followingjesusapp.netlify.app/course-player.html" target="_blank" rel="noopener" class="primary" style="display:block;text-decoration:none;text-align:center;box-sizing:border-box;">Start the FJ Course →</a>
+    </div>
   `;
   document.getElementById('backToHubBtn').onclick = () => { topView = 'hub'; render(); };
   wireCourseToggle('essentials', render);
