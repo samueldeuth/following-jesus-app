@@ -2326,18 +2326,75 @@
     return lines;
   }
 
-  function drawGospelCard(canvas, card, format) {
+  // Fetches a real nature photo from the get-nature-photo function, which
+  // proxies Pexels' free API server-side — see that file's comments for
+  // why this needs to be a backend function rather than loading directly
+  // from Pexels in the browser. Same seed (a card's id) always gets a
+  // similar photo, so a given verse doesn't change its background every
+  // time it's reopened.
+  function natureBackgroundUrlForCard(cardId) {
+    return `/.netlify/functions/get-nature-photo?seed=${encodeURIComponent(cardId)}`;
+  }
+
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+  }
+
+  async function drawGospelCard(canvas, card, format, backgroundStyle = 'simple') {
     const width = 1080;
     const height = format === 'story' ? 1920 : 1080;
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
 
-    const grad = ctx.createLinearGradient(0, 0, width, height);
-    grad.addColorStop(0, '#0a0a0a');
-    grad.addColorStop(1, '#241d12');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, width, height);
+    // If a nature photo is requested, try to load and draw it first. Any
+    // failure (function not set up yet, rate limit, network hiccup,
+    // anything) just falls through to the plain gradient below instead —
+    // this can never break the card.
+    let photoLoaded = false;
+    if (backgroundStyle === 'nature') {
+      try {
+        const img = await loadImage(natureBackgroundUrlForCard(card.id));
+        const imgRatio = img.width / img.height;
+        const canvasRatio = width / height;
+        let drawWidth, drawHeight, offsetX, offsetY;
+        if (imgRatio > canvasRatio) {
+          drawHeight = height;
+          drawWidth = height * imgRatio;
+          offsetX = (width - drawWidth) / 2;
+          offsetY = 0;
+        } else {
+          drawWidth = width;
+          drawHeight = width / imgRatio;
+          offsetX = 0;
+          offsetY = (height - drawHeight) / 2;
+        }
+        ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+        photoLoaded = true;
+      } catch (e) { /* fall through to the plain gradient below */ }
+    }
+
+    if (photoLoaded) {
+      // Dark overlay on top of the photo so the text stays readable —
+      // same treatment already used elsewhere in the app for text over
+      // photos (the Today tab hero banners).
+      const overlay = ctx.createLinearGradient(0, 0, 0, height);
+      overlay.addColorStop(0, 'rgba(10,10,10,0.5)');
+      overlay.addColorStop(1, 'rgba(10,10,10,0.72)');
+      ctx.fillStyle = overlay;
+      ctx.fillRect(0, 0, width, height);
+    } else {
+      const grad = ctx.createLinearGradient(0, 0, width, height);
+      grad.addColorStop(0, '#0a0a0a');
+      grad.addColorStop(1, '#241d12');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+    }
 
     const accentY = height * 0.12;
     ctx.fillStyle = '#c89b3c';
@@ -2369,9 +2426,9 @@
     ctx.fillText('FOLLOWING JESUS', width / 2, height - 70);
   }
 
-  async function shareGospelCard(card, format) {
+  async function shareGospelCard(card, format, backgroundStyle) {
     const canvas = document.createElement('canvas');
-    drawGospelCard(canvas, card, format);
+    await drawGospelCard(canvas, card, format, backgroundStyle);
     canvas.toBlob(async (blob) => {
       if (!blob) return;
       const file = new File([blob], `${card.id}-${format}.png`, { type: 'image/png' });
@@ -2416,6 +2473,7 @@
     const card = GOSPEL_CARDS_POOL.find(c => c.id === cardId);
     if (!card) return;
     let currentFormat = 'square';
+    let currentBackground = 'simple';
     const body = document.getElementById('gospelModalBody');
     body.innerHTML = `
       <a class="back-link" id="gospelBackBtn">← All Cards</a>
@@ -2423,23 +2481,35 @@
         <button type="button" class="gospel-format-btn active" data-format="square">Square</button>
         <button type="button" class="gospel-format-btn" data-format="story">Story</button>
       </div>
+      <div class="gospel-format-toggle" style="margin-top:8px;">
+        <button type="button" class="gospel-format-btn active" data-background="simple">Simple</button>
+        <button type="button" class="gospel-format-btn" data-background="nature">Nature Photo</button>
+      </div>
       <canvas id="gospelPreviewCanvas" class="gospel-preview-canvas gospel-preview-square"></canvas>
       <button class="primary-btn" id="gospelShareBtn" style="margin-top:16px;">Share This Image</button>
     `;
     const canvas = document.getElementById('gospelPreviewCanvas');
-    drawGospelCard(canvas, card, currentFormat);
+    drawGospelCard(canvas, card, currentFormat, currentBackground);
     document.getElementById('gospelBackBtn').onclick = () => renderGospelGrid();
-    [...body.querySelectorAll('.gospel-format-btn')].forEach(btn => {
+    body.querySelectorAll('[data-format]').forEach(btn => {
       btn.onclick = () => {
-        body.querySelectorAll('.gospel-format-btn').forEach(b => b.classList.remove('active'));
+        body.querySelectorAll('[data-format]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentFormat = btn.dataset.format;
         canvas.classList.toggle('gospel-preview-square', currentFormat === 'square');
         canvas.classList.toggle('gospel-preview-story', currentFormat === 'story');
-        drawGospelCard(canvas, card, currentFormat);
+        drawGospelCard(canvas, card, currentFormat, currentBackground);
       };
     });
-    document.getElementById('gospelShareBtn').onclick = () => shareGospelCard(card, currentFormat);
+    body.querySelectorAll('[data-background]').forEach(btn => {
+      btn.onclick = () => {
+        body.querySelectorAll('[data-background]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentBackground = btn.dataset.background;
+        drawGospelCard(canvas, card, currentFormat, currentBackground);
+      };
+    });
+    document.getElementById('gospelShareBtn').onclick = () => shareGospelCard(card, currentFormat, currentBackground);
   }
 
 
