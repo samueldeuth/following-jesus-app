@@ -84,9 +84,9 @@
   .mini-btn.gold{border-color:#B08D3E;color:#B08D3E;}
 
   .qa-block{border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;}
-  .qa-session{font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-soft);margin-bottom:6px;}
-  .qa-question{font-weight:600;font-size:14.5px;margin-bottom:6px;}
-  .qa-answer{font-size:14px;color:var(--ink);margin-bottom:10px;white-space:pre-wrap;}
+  .qa-session{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-soft);margin-bottom:6px;}
+  .qa-question{text-align:left;font-weight:600;font-size:14.5px;margin-bottom:6px;}
+  .qa-answer{text-align:left;font-size:14px;color:var(--ink);margin-bottom:10px;white-space:pre-wrap;}
   .qa-answer.empty{color:var(--ink-soft);font-style:italic;}
   .qa-reply{background:var(--bg-soft);border-radius:8px;padding:10px 12px;font-size:13.5px;margin-bottom:8px;}
   .qa-reply .label{font-size:11px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:3px;}
@@ -94,7 +94,7 @@
   .reply-btn{margin-top:8px;background:var(--ink);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12.5px;font-weight:600;cursor:pointer;}
 
   .panel{border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:20px;}
-  .panel h3{font-family:'Space Grotesk',sans-serif;font-size:15px;margin:0 0 12px;}
+  .panel h3{text-align:left;font-family:'Space Grotesk',sans-serif;font-size:15px;margin:0 0 12px;}
   .group-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
   .group-row:last-child{border-bottom:none;}
   .new-group-form{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
@@ -103,11 +103,11 @@
 
   select.group-select{border:1.5px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12.5px;font-family:'Inter',sans-serif;}
 
-  .field-label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin:14px 0 5px;}
+  .field-label{display:block;text-align:left;font-size:12px;font-weight:600;color:var(--ink-soft);margin:14px 0 5px;}
   .field-input{width:100%;border:1.5px solid var(--line);border-radius:6px;padding:8px 10px;font-size:13.5px;font-family:'Inter',sans-serif;}
   .field-textarea{min-height:90px;resize:vertical;font-family:'Inter',sans-serif;}
   .field-hint{font-size:11.5px;color:var(--ink-soft);margin:5px 0 0;}
-  .field-section-title{font-family:'Space Grotesk',sans-serif;font-size:13.5px;margin:22px 0 2px;padding-top:16px;border-top:1px solid var(--line);}
+  .field-section-title{text-align:left;font-family:'Space Grotesk',sans-serif;font-size:13.5px;margin:22px 0 2px;padding-top:16px;border-top:1px solid var(--line);}
   .color-field-row{display:flex;gap:8px;align-items:stretch;}
   .color-field-row .field-input{flex:1;}
   .color-swatch{
@@ -145,6 +145,21 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentAdminId = null;
+
+// Pulls the video ID out of any common YouTube URL shape (watch?v=,
+// youtu.be/, embed/, or a bare 11-character ID typed directly).
+function extractYoutubeId(input){
+  if(!input) return null;
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/
+  ];
+  for(const p of patterns){
+    const match = input.match(p);
+    if(match) return match[1];
+  }
+  return null;
+}
 let allRows = [];
 let allChurches = [];
 let activeChurchId = null; // null = "all churches" overview
@@ -342,7 +357,7 @@ async function renderChurchStudents(churchId){
     ${churchId ? `
     <div class="church-tabs">
       <button class="church-tab-btn active" data-tab="students">Students</button>
-      <button class="church-tab-btn" data-tab="pending">Not Yet Signed Up (${pendingStudents.length})</button>
+      ${pendingStudents.length ? `<button class="church-tab-btn" data-tab="pending">Not Yet Signed Up (${pendingStudents.length})</button>` : ''}
       <button class="church-tab-btn" data-tab="settings">Settings</button>
       <button class="church-tab-btn" data-tab="groups">Groups</button>
     </div>` : ''}
@@ -354,25 +369,24 @@ async function renderChurchStudents(churchId){
       </table>
     </div>
 
-    ${churchId ? `
+    ${churchId && pendingStudents.length ? `
     <div class="church-tab-panel" data-tab-panel="pending">
       <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">People who took this church's course on the old platform but haven't created an account here yet. Once they sign up with the same email, they'll move into the Students tab automatically.</p>
-      ${pendingStudents.length ? `
-        <div id="pending-list" style="max-height:320px;overflow-y:auto;">
-          ${pendingStudents.map(p => `<div class="group-row"><span>${(p.first_name||'')} ${(p.last_name||'')}</span><span style="color:var(--ink-soft);font-size:12px;">${p.email}</span></div>`).join('')}
-        </div>
-        <button class="mini-btn" id="copy-pending-emails-btn" style="margin-top:12px;">Copy All Emails</button>
-        <span id="copy-status" style="font-size:12.5px;color:var(--ink-soft);margin-left:8px;"></span>
-      ` : `<p style="color:var(--ink-soft);font-size:13px;margin:0;">Nobody pending — either everyone's signed up, or this church has no historical import data.</p>`}
-    </div>
+      <div id="pending-list" style="max-height:320px;overflow-y:auto;">
+        ${pendingStudents.map(p => `<div class="group-row"><span>${(p.first_name||'')} ${(p.last_name||'')}</span><span style="color:var(--ink-soft);font-size:12px;">${p.email}</span></div>`).join('')}
+      </div>
+      <button class="mini-btn" id="copy-pending-emails-btn" style="margin-top:12px;">Copy All Emails</button>
+      <span id="copy-status" style="font-size:12.5px;color:var(--ink-soft);margin-left:8px;"></span>
+    </div>` : ''}
 
+    ${churchId ? `
     <div class="church-tab-panel" data-tab-panel="settings">
       <label class="field-label">Church Name</label>
       <input type="text" class="field-input" id="edit-church-name" value="${(church?.name||'').replace(/"/g,'&quot;')}" />
 
-      <label class="field-label">URL Slug</label>
+      <label class="field-label">Custom URL</label>
       <input type="text" class="field-input" id="edit-church-slug" value="${(church?.slug||'').replace(/"/g,'&quot;')}" />
-      <p class="field-hint">Link: followingjesusapp.netlify.app/courses/${church?.slug || '...'}</p>
+      <p class="field-hint">Link: <a href="https://followingjesusapp.netlify.app/courses/${church?.slug || ''}" target="_blank" rel="noopener" id="church-link-preview">followingjesusapp.netlify.app/courses/${church?.slug || '...'}</a></p>
 
       <h4 class="field-section-title">Church Admin</h4>
       <div id="current-admins-list">
@@ -403,6 +417,9 @@ async function renderChurchStudents(churchId){
       <input type="text" class="field-input" id="edit-letter-subtitle" value="${(church?.letter_subtitle||'').replace(/"/g,'&quot;')}" placeholder="A short line under the title" />
       <label class="field-label">Letter Body</label>
       <textarea class="field-input field-textarea" id="edit-letter-body" placeholder="Separate paragraphs with a blank line">${church?.letter_body||''}</textarea>
+      <label class="field-label">Welcome Video (YouTube link, optional)</label>
+      <input type="text" class="field-input" id="edit-letter-video" value="${(church?.letter_video_youtube_id||'').replace(/"/g,'&quot;')}" placeholder="https://youtube.com/watch?v=..." />
+      <p class="field-hint" style="margin-bottom:8px;">If set, this shows instead of the welcome photo below — paste the full YouTube link, any format works.</p>
       <label class="field-label">Welcome Photo URL</label>
       <input type="text" class="field-input" id="edit-letter-image" value="${(church?.letter_image_url||'').replace(/"/g,'&quot;')}" placeholder="https://..." />
       <label class="field-label">Pastor's Name</label>
@@ -456,6 +473,13 @@ async function renderChurchStudents(churchId){
       return;
     }
 
+    const videoInput = document.getElementById('edit-letter-video').value.trim();
+    const videoId = extractYoutubeId(videoInput);
+    if(videoInput && !videoId){
+      alert("That doesn't look like a valid YouTube link — please check it and try again.");
+      return;
+    }
+
     const updates = {
       name: document.getElementById('edit-church-name').value.trim(),
       slug: newSlug,
@@ -463,6 +487,7 @@ async function renderChurchStudents(churchId){
       letter_title: document.getElementById('edit-letter-title').value.trim() || null,
       letter_subtitle: document.getElementById('edit-letter-subtitle').value.trim() || null,
       letter_body: document.getElementById('edit-letter-body').value.trim() || null,
+      letter_video_youtube_id: videoId || null,
       letter_image_url: document.getElementById('edit-letter-image').value.trim() || null,
       letter_author_name: document.getElementById('edit-letter-author').value.trim() || null,
       letter_author_title: document.getElementById('edit-letter-author-title').value.trim() || null,

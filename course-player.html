@@ -755,11 +755,17 @@ function letterSectionHtml(course, churchObj){
   const source = (churchObj && churchObj.letter_body) ? churchObj : course;
   if(!source.letter_body) return '';
   const paragraphs = source.letter_body.split(/\n\s*\n/).map(p => `<p>${p.trim()}</p>`).join('');
+  const mediaHtml = source.letter_video_youtube_id
+    ? `<div class="preview-frame letter-image" id="letter-video-frame" data-video-id="${source.letter_video_youtube_id}">
+         <img src="https://img.youtube.com/vi/${source.letter_video_youtube_id}/maxresdefault.jpg" alt="Welcome video" />
+         <div class="preview-play"><svg viewBox="0 0 24 24" fill="var(--ink)"><path d="M8 5v14l11-7z"/></svg></div>
+       </div>`
+    : (source.letter_image_url ? `<img class="letter-image" src="${source.letter_image_url}" alt="" />` : '');
   return `
     <div class="letter-section">
       ${source.letter_title ? `<h2>${source.letter_title}</h2>` : ''}
       ${source.letter_subtitle ? `<p class="letter-subtitle">${source.letter_subtitle}</p>` : ''}
-      ${source.letter_image_url ? `<img class="letter-image" src="${source.letter_image_url}" alt="" />` : ''}
+      ${mediaHtml}
       ${paragraphs}
       ${source.letter_author_name ? `
         <div class="letter-sig-name">${source.letter_author_name}</div>
@@ -852,6 +858,15 @@ function wirePreviewVideo(){
   }, { once: true });
 }
 
+function wireLetterVideo(){
+  const frame = document.getElementById('letter-video-frame');
+  if(!frame) return;
+  frame.addEventListener('click', () => {
+    const videoId = frame.dataset.videoId;
+    frame.innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+  }, { once: true });
+}
+
 function renderHero(){
   document.getElementById('app').innerHTML = `
     <div class="hero">
@@ -881,6 +896,7 @@ function renderHero(){
     goToFirstLesson();
   });
   wirePreviewVideo();
+  wireLetterVideo();
   wireCourseOverviewWidget();
 }
 
