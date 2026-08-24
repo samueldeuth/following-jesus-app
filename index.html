@@ -2041,6 +2041,14 @@
       if (account.email) {
         await safeSet(`email-login:${account.email.trim().toLowerCase()}`, { id: account.id }, true);
       }
+      // Also keep the new relational profiles table in sync — every
+      // migrated group/messaging/actions function reads a person's name
+      // from profiles.full_name now, not this old shared_kv record.
+      // Without this, someone's name could look right on their own
+      // device but show up stale (or blank) to their leader and peers.
+      if (supabaseClient && account.name) {
+        await supabaseClient.from('profiles').upsert({ id: account.id, full_name: account.name }, { onConflict: 'id' });
+      }
     } catch (e) { /* best effort — the local account copy is still saved regardless */ }
   }
 
@@ -3054,8 +3062,7 @@ function actionAddRowHtml(inputId, btnId) {
     </div>`;
 }
 
-async function renderLeaderActionsBlock(title, storageKey) {
-  const actions = (await safeGet(storageKey, true)) || [];
+async function renderLeaderActionsBlock(title, actions) {
   return `
     <div class="action-block">
       <div class="section-label" style="margin-top:0;">${escapeHtml(title)}</div>
@@ -3274,35 +3281,25 @@ async function wireLeaderQuickActions() {
 }
 
 async function removeDisciple(discipleId) {
-  let disciples = (await safeGet(`leader-disciples:${myId}`, true)) || [];
-  disciples = disciples.filter(d => d.id !== discipleId);
-  await safeSet(`leader-disciples:${myId}`, disciples, true);
-  const groups = (await safeGet(`leader-groups:${myId}`, true)) || [];
-  for (const g of groups) {
-    let members = (await safeGet(`group-members:${g.code}`, true)) || [];
-    if (members.includes(discipleId)) {
-      members = members.filter(id => id !== discipleId);
-      await safeSet(`group-members:${g.code}`, members, true);
-    }
-  }
+  await removeDiscipleEntirely(discipleId);
   // Note: intentionally not deleting progress:${discipleId} — that's the
   // person's own personal record now, not the leader's to remove.
   await safeDelete(`messages:${myId}:${discipleId}`, true);
 }
 
 async function renderGroupDetail(code) {
-  const groups = (await safeGet(`leader-groups:${myId}`, true)) || [];
+  const groups = await getLeaderGroups(myId);
   const group = groups.find(g => g.code === code);
   const groupCourseId = (group && group.courseId && COURSES[group.courseId]) ? group.courseId : 'essentials';
   const course = COURSES[groupCourseId];
-  const memberIds = (await safeGet(`group-members:${code}`, true)) || [];
-  const allDisciples = (await safeGet(`leader-disciples:${myId}`, true)) || [];
+  const memberIds = await getGroupMemberIds(code);
+  const allDisciples = await getLeaderDisciples(myId);
   const members = allDisciples.filter(d => memberIds.includes(d.id));
   const notInGroup = allDisciples.filter(d => !memberIds.includes(d.id));
   const application = await getLeaderApplication(myId);
   const myName = application ? application.name : 'Leader';
 
-  const groupMessages = (await safeGet(`group-messages:${code}`, true)) || [];
+  const groupMessages = await getGroupMessages(code);
   let groupChatHtml = '';
   if (groupMessages.length === 0) {
     groupChatHtml = '<div class="msg-empty">No group messages yet.</div>';
@@ -3435,12 +3432,7 @@ async function renderGroupDetail(code) {
   [...document.querySelectorAll('.course-select-btn')].forEach(btn => {
     btn.onclick = async () => {
       const chosenId = btn.dataset.course;
-      const gs = (await safeGet(`leader-groups:${myId}`, true)) || [];
-      const g = gs.find(x => x.code === code);
-      if (g) {
-        g.courseId = chosenId;
-        await safeSet(`leader-groups:${myId}`, gs, true);
-      }
+      await setGroupCourse(code, chosenId);
       render();
     };
   });
@@ -3458,21 +3450,15 @@ async function renderGroupDetail(code) {
   document.getElementById('sendGroupMsgBtn').onclick = async () => {
     const input = document.getElementById('groupMsgInput');
     if (!input.value.trim()) return;
-    const msgs = (await safeGet(`group-messages:${code}`, true)) || [];
-    msgs.push({ senderId: myId, senderName: myName, body: input.value.trim(), at: Date.now() });
-    await safeSet(`group-messages:${code}`, msgs, true);
+    await sendGroupMessage(code, input.value.trim());
     render();
   };
   document.getElementById('assignActionBtn').onclick = async () => {
     const input = document.getElementById('groupMsgInput');
     const text = input.value.trim();
     if (!text) { await showAppAlert('Type what you want to assign in the message box first, then tap this button.'); return; }
-    const actions = (await safeGet(`group-actions:${code}`, true)) || [];
-    actions.push({ id: uid(), text, createdAt: Date.now() });
-    await safeSet(`group-actions:${code}`, actions, true);
-    const msgs = (await safeGet(`group-messages:${code}`, true)) || [];
-    msgs.push({ senderId: myId, senderName: myName, body: text, isAction: true, at: Date.now() });
-    await safeSet(`group-messages:${code}`, msgs, true);
+    await createGroupAction(code, text);
+    await sendGroupMessage(code, text, true);
     render();
   };
   [...document.querySelectorAll('[data-id]')].forEach(el => {
@@ -3482,22 +3468,7 @@ async function renderGroupDetail(code) {
   if (addBtn) {
     addBtn.onclick = async () => {
       const discipleId = document.getElementById('addExistingSelect').value;
-      const memberIds2 = (await safeGet(`group-members:${code}`, true)) || [];
-      if (!memberIds2.includes(discipleId)) memberIds2.push(discipleId);
-      await safeSet(`group-members:${code}`, memberIds2, true);
-
-      const disciples2 = (await safeGet(`leader-disciples:${myId}`, true)) || [];
-      const d = disciples2.find(x => x.id === discipleId);
-      if (d) {
-        d.groups = d.groups || [];
-        if (!d.groups.includes(group.label)) d.groups.push(group.label);
-        await safeSet(`leader-disciples:${myId}`, disciples2, true);
-      }
-      const discGroups = (await safeGet(`disciple-groups:${discipleId}`, true)) || [];
-      if (!discGroups.find(g => g.code === code)) {
-        discGroups.push({ code, label: group.label, leaderId: myId });
-        await safeSet(`disciple-groups:${discipleId}`, discGroups, true);
-      }
+      await addDiscipleToGroupByCode(code, discipleId);
       render();
     };
   }
@@ -3507,74 +3478,28 @@ async function renderGroupDetail(code) {
       const discipleId = el.dataset.removeid;
       const disc = members.find(m => m.id === discipleId);
       if (!(await showAppConfirm(`Remove ${disc ? disc.name : 'this person'} from "${group ? group.label : 'this group'}"? They'll keep their other progress with you, just not this group.`))) return;
-      await removeFromGroup(code, discipleId);
+      await removeFromGroupByCode(code, discipleId);
       render();
     };
   });
-  document.getElementById('newActionBtn').onclick = async () => {
-    const input = document.getElementById('newActionInput');
-    const text = input.value.trim();
-    if (!text) return;
-    const key = `group-actions:${code}`;
-    const actions = (await safeGet(key, true)) || [];
-    actions.push({ id: `grp-${code}-${Date.now()}`, text, createdAt: Date.now() });
-    await safeSet(key, actions, true);
-    render();
-  };
 }
 
 async function closeGroup(code) {
-  const memberIds = (await safeGet(`group-members:${code}`, true)) || [];
-
-  // Update every member's own records so the closed group disappears from their side too.
-  for (const discipleId of memberIds) {
-    const discGroups = (await safeGet(`disciple-groups:${discipleId}`, true)) || [];
-    await safeSet(`disciple-groups:${discipleId}`, discGroups.filter(g => g.code !== code), true);
-  }
-
-  // Remove the group from the leader's own list and clean up its records.
-  const groups = (await safeGet(`leader-groups:${myId}`, true)) || [];
-  const group = groups.find(g => g.code === code);
-  const remaining = groups.filter(g => g.code !== code);
-  await safeSet(`leader-groups:${myId}`, remaining, true);
-
+  const { data: group } = await supabaseClient.from('discipleship_groups').select('id').eq('invite_code', code).maybeSingle();
   if (group) {
-    const disciples = (await safeGet(`leader-disciples:${myId}`, true)) || [];
-    disciples.forEach(d => {
-      if (d.groups) d.groups = d.groups.filter(label => label !== group.label);
-    });
-    await safeSet(`leader-disciples:${myId}`, disciples, true);
-  }
-
-  await safeDelete(`group:${code}`, true);
-  await safeDelete(`group-members:${code}`, true);
-  await safeDelete(`group-messages:${code}`, true);
-  await safeDelete(`group-actions:${code}`, true);
-}
-
-async function removeFromGroup(code, discipleId) {
-  let members = (await safeGet(`group-members:${code}`, true)) || [];
-  members = members.filter(id => id !== discipleId);
-  await safeSet(`group-members:${code}`, members, true);
-
-  const discGroups = (await safeGet(`disciple-groups:${discipleId}`, true)) || [];
-  const filtered = discGroups.filter(g => g.code !== code);
-  await safeSet(`disciple-groups:${discipleId}`, filtered, true);
-
-  const groups = (await safeGet(`leader-groups:${myId}`, true)) || [];
-  const group = groups.find(g => g.code === code);
-  if (group) {
-    const disciples = (await safeGet(`leader-disciples:${myId}`, true)) || [];
-    const d = disciples.find(x => x.id === discipleId);
-    if (d && d.groups) {
-      d.groups = d.groups.filter(label => label !== group.label);
-      await safeSet(`leader-disciples:${myId}`, disciples, true);
-    }
+    // Explicitly clean up actions and messages tied to this group first,
+    // rather than assuming their foreign keys cascade — safer than
+    // relying on schema details from memory. The membership cascade IS
+    // confirmed (it's declared directly in the Phase 1 schema), so that
+    // part is still handled automatically by deleting the group row.
+    await supabaseClient.from('discipleship_actions').delete().eq('group_id', group.id);
+    await supabaseClient.from('discipleship_messages').delete().eq('group_id', group.id);
+    await supabaseClient.from('discipleship_groups').delete().eq('id', group.id);
   }
 }
 
 async function renderMemberDetail(memberId) {
-  const disciples = (await safeGet(`leader-disciples:${myId}`, true)) || [];
+  const disciples = await getLeaderDisciples(myId);
   const member = disciples.find(d => d.id === memberId);
   const progress = (await safeGet(`progress:${memberId}`, true)) || {};
   const messages = (await safeGet(`messages:${myId}:${memberId}`, true)) || [];
@@ -3593,7 +3518,7 @@ async function renderMemberDetail(memberId) {
     messages.forEach(m => { msgHtml += `<div class="msg ${m.from === 'leader' ? 'me' : 'them'}">${linkify(m.body)}</div>`; });
   }
 
-  const actionsBlockHtml = await renderLeaderActionsBlock('Actions Assigned', `member-actions:${myId}:${memberId}`);
+  const actionsBlockHtml = await renderLeaderActionsBlock('Actions Assigned', await getIndividualActions(myId, memberId));
 
   main.innerHTML = `
     <a class="back-link" id="backBtn">← Back</a>
@@ -3631,10 +3556,7 @@ async function renderMemberDetail(memberId) {
     const input = document.getElementById('newActionInput');
     const text = input.value.trim();
     if (!text) return;
-    const key = `member-actions:${myId}:${memberId}`;
-    const actions = (await safeGet(key, true)) || [];
-    actions.push({ id: `ind-${myId}-${memberId}-${Date.now()}`, text, createdAt: Date.now() });
-    await safeSet(key, actions, true);
+    await createIndividualAction(memberId, text);
     render();
   };
 }
@@ -3694,7 +3616,7 @@ async function renderDisciple() {
 
   let groupPeersHtml = '';
   for (const g of myGroups) {
-    const memberIds = (await safeGet(`group-members:${g.code}`, true)) || [];
+    const memberIds = await getGroupMemberIds(g.code);
     const allDisciples = await getLeaderDisciples(g.leaderId);
     const peers = allDisciples.filter(d => memberIds.includes(d.id) && d.id !== myId);
     let peerRows = '';
@@ -3708,7 +3630,7 @@ async function renderDisciple() {
       }
     }
 
-    const groupMessages = (await safeGet(`group-messages:${g.code}`, true)) || [];
+    const groupMessages = await getGroupMessages(g.code);
     let groupChatHtml = '';
     if (groupMessages.length === 0) {
       groupChatHtml = '<div class="msg-empty">No group messages yet.</div>';
@@ -3764,12 +3686,12 @@ async function renderDisciple() {
       ${peerRows}`;
   }
 
-  const doneActionIds = (await safeGet('action-done:' + myId)) || [];
+  const doneActionIds = await getDoneActionIds(myId);
   let allActions = [];
-  const memberActions = (await safeGet(`member-actions:${leaderId}:${myId}`, true)) || [];
+  const memberActions = await getIndividualActions(leaderId, myId);
   memberActions.forEach(a => allActions.push({ ...a, tag: `From ${leaderName}` }));
   for (const g of myGroups) {
-    const gActions = (await safeGet(`group-actions:${g.code}`, true)) || [];
+    const gActions = await getGroupActions(g.code);
     gActions.forEach(a => allActions.push({ ...a, tag: g.label }));
   }
   allActions.sort((a, b) => b.createdAt - a.createdAt);
@@ -3874,7 +3796,7 @@ async function renderDisciple() {
     btn.onclick = async () => {
       const code = btn.dataset.leaveCode;
       if (!(await showAppConfirm('Leave this group? You can rejoin later with the invite code if you change your mind.'))) return;
-      await leaveGroup(code);
+      await leaveGroupByCode(code);
       render();
     };
   });
@@ -3882,10 +3804,8 @@ async function renderDisciple() {
   [...document.querySelectorAll('.action-check')].forEach(btn => {
     btn.onclick = async () => {
       const id = btn.dataset.actionId;
-      let doneIds = (await safeGet('action-done:' + myId)) || [];
-      if (doneIds.includes(id)) doneIds = doneIds.filter(x => x !== id);
-      else doneIds.push(id);
-      await safeSet('action-done:' + myId, doneIds);
+      const isDone = btn.classList.contains('done');
+      await toggleActionDone(id, isDone);
       render();
     };
   });
@@ -3905,21 +3825,10 @@ async function renderDisciple() {
       const gCode = btn.dataset.code;
       const input = document.querySelector(`.groupChatInput[data-code="${gCode}"]`);
       if (!input.value.trim()) return;
-      const msgs = (await safeGet(`group-messages:${gCode}`, true)) || [];
-      msgs.push({ senderId: myId, senderName: membership.name, body: input.value.trim(), at: Date.now() });
-      await safeSet(`group-messages:${gCode}`, msgs, true);
+      await sendGroupMessage(gCode, input.value.trim());
       render();
     };
   });
-}
-
-async function leaveGroup(code) {
-  let members = (await safeGet(`group-members:${code}`, true)) || [];
-  members = members.filter(id => id !== myId);
-  await safeSet(`group-members:${code}`, members, true);
-  const discGroups = (await safeGet(`disciple-groups:${myId}`, true)) || [];
-  const filtered = discGroups.filter(g => g.code !== code);
-  await safeSet(`disciple-groups:${myId}`, filtered, true);
 }
 
 function showAppAlert(message) {
@@ -4164,12 +4073,7 @@ async function renderDiscipleshipHub() {
   if (!isApprovedLeader) {
     document.getElementById('goLeaderDash').onclick = () => { topView = 'leader'; render(); };
     document.getElementById('inviteAFriendBtn').onclick = async () => {
-      let code = await safeGet(`leader-direct-code:${myId}`, true);
-      if (!code) {
-        code = genCode();
-        await safeSet(`leader-direct-code:${myId}`, code, true);
-        await safeSet(`group:${code}`, { leaderId: myId, label: 'Direct Invite', isDirect: true, createdAt: Date.now() }, true);
-      }
+      const code = await getOrCreateDirectInviteCode();
       showShareModal(code, 'Your Personal Invite');
     };
   } else {
@@ -4184,7 +4088,7 @@ async function renderDiscipleshipHub() {
       } else {
         let html = '';
         for (const g of groups) {
-          const members = (await safeGet(`group-members:${g.code}`, true)) || [];
+          const members = await getGroupMemberIds(g.code);
           html += `
             <div class="row">
               <div class="info" data-code="${g.code}">
@@ -4383,8 +4287,13 @@ async function joinGroupByCode(codeInput) {
 // matches the old [{code, label}] shape.
 async function getLeaderGroups(leaderId) {
   const { data } = await supabaseClient.from('discipleship_groups')
-    .select('invite_code, label').eq('leader_id', leaderId).eq('is_direct', false).order('created_at');
-  return (data || []).map(g => ({ code: g.invite_code, label: g.label }));
+    .select('invite_code, label, course_key').eq('leader_id', leaderId).eq('is_direct', false).order('created_at');
+  return (data || []).map(g => ({ code: g.invite_code, label: g.label, courseId: g.course_key }));
+}
+
+// Updates which course a specific group is currently focused on.
+async function setGroupCourse(code, courseId) {
+  await supabaseClient.from('discipleship_groups').update({ course_key: courseId }).eq('invite_code', code).eq('leader_id', myId);
 }
 
 // Every one of a leader's disciples (direct + every group), each with
@@ -4435,6 +4344,109 @@ async function getDiscipleMembership(discipleId) {
   if (!data) return null;
   const { data: profile } = await supabaseClient.from('profiles').select('full_name').eq('id', discipleId).maybeSingle();
   return { leaderId: data.leader_id, name: profile?.full_name || 'Friend' };
+}
+
+// Removes a disciple entirely — every group AND their direct
+// relationship with this leader, in one operation (matches the old
+// removeDisciple's full-removal behavior).
+async function removeDiscipleEntirely(discipleId) {
+  await supabaseClient.from('discipleship_memberships').delete().eq('leader_id', myId).eq('disciple_id', discipleId);
+}
+
+// Removes one specific disciple from one specific group by its invite
+// code, leaving any other relationship (direct, or other groups) intact.
+async function removeFromGroupByCode(code, discipleId) {
+  const { data: group } = await supabaseClient.from('discipleship_groups').select('id').eq('invite_code', code).maybeSingle();
+  if (!group) return;
+  await supabaseClient.from('discipleship_memberships').delete().eq('group_id', group.id).eq('disciple_id', discipleId);
+}
+
+// A disciple leaving a group themselves.
+async function leaveGroupByCode(code) {
+  await removeFromGroupByCode(code, myId);
+}
+
+// Adds an already-connected disciple into a specific additional group.
+async function addDiscipleToGroupByCode(code, discipleId) {
+  const { data: group } = await supabaseClient.from('discipleship_groups').select('id, leader_id').eq('invite_code', code).maybeSingle();
+  if (!group) return;
+  const { data: existing } = await supabaseClient.from('discipleship_memberships').select('id').eq('group_id', group.id).eq('disciple_id', discipleId).maybeSingle();
+  if (existing) return;
+  await supabaseClient.from('discipleship_memberships').insert({ group_id: group.id, disciple_id: discipleId, leader_id: group.leader_id });
+}
+
+// The exact set of disciple ids in one specific group, by group id —
+// unambiguous, unlike filtering by group label (two groups could share
+// the same label).
+async function getGroupMemberIds(code) {
+  const { data: group } = await supabaseClient.from('discipleship_groups').select('id').eq('invite_code', code).maybeSingle();
+  if (!group) return [];
+  const { data } = await supabaseClient.from('discipleship_memberships').select('disciple_id').eq('group_id', group.id);
+  return (data || []).map(m => m.disciple_id);
+}
+
+// ---------- Group chat & action items (Phase 2d — relational).
+// Same avoid-embedded-joins approach as before, for the same reason —
+// discipleship_actions has assigned_by pointing to profiles, on top of
+// group_id/disciple_id, so an embedded join could be ambiguous.
+
+async function getGroupMessages(code) {
+  const { data: group } = await supabaseClient.from('discipleship_groups').select('id').eq('invite_code', code).maybeSingle();
+  if (!group) return [];
+  const { data: messages } = await supabaseClient.from('discipleship_messages')
+    .select('sender_id, body, sent_at, is_action').eq('group_id', group.id).order('sent_at');
+  if (!messages || !messages.length) return [];
+  const senderIds = [...new Set(messages.map(m => m.sender_id))];
+  const { data: profiles } = await supabaseClient.from('profiles').select('id, full_name').in('id', senderIds);
+  const nameById = {};
+  (profiles || []).forEach(p => { nameById[p.id] = p.full_name || 'Friend'; });
+  return messages.map(m => ({
+    senderId: m.sender_id, senderName: nameById[m.sender_id] || 'Friend',
+    body: m.body, isAction: m.is_action, at: new Date(m.sent_at).getTime()
+  }));
+}
+
+async function sendGroupMessage(code, body, isAction = false) {
+  const { data: group } = await supabaseClient.from('discipleship_groups').select('id').eq('invite_code', code).maybeSingle();
+  if (!group) return;
+  await supabaseClient.from('discipleship_messages').insert({ group_id: group.id, sender_id: myId, body, is_action: isAction });
+}
+
+async function getGroupActions(code) {
+  const { data: group } = await supabaseClient.from('discipleship_groups').select('id').eq('invite_code', code).maybeSingle();
+  if (!group) return [];
+  const { data } = await supabaseClient.from('discipleship_actions')
+    .select('id, body, created_at').eq('group_id', group.id).is('disciple_id', null).order('created_at');
+  return (data || []).map(a => ({ id: a.id, text: a.body, createdAt: new Date(a.created_at).getTime() }));
+}
+
+async function createGroupAction(code, text) {
+  const { data: group } = await supabaseClient.from('discipleship_groups').select('id').eq('invite_code', code).maybeSingle();
+  if (!group) return;
+  await supabaseClient.from('discipleship_actions').insert({ assigned_by: myId, group_id: group.id, body: text });
+}
+
+async function getIndividualActions(leaderId, discipleId) {
+  const { data } = await supabaseClient.from('discipleship_actions')
+    .select('id, body, created_at').eq('assigned_by', leaderId).eq('disciple_id', discipleId).is('group_id', null).order('created_at');
+  return (data || []).map(a => ({ id: a.id, text: a.body, createdAt: new Date(a.created_at).getTime() }));
+}
+
+async function createIndividualAction(discipleId, text) {
+  await supabaseClient.from('discipleship_actions').insert({ assigned_by: myId, disciple_id: discipleId, body: text });
+}
+
+async function getDoneActionIds(studentId) {
+  const { data } = await supabaseClient.from('action_completions').select('action_id').eq('student_id', studentId);
+  return (data || []).map(r => r.action_id);
+}
+
+async function toggleActionDone(actionId, isCurrentlyDone) {
+  if (isCurrentlyDone) {
+    await supabaseClient.from('action_completions').delete().eq('action_id', actionId).eq('student_id', myId);
+  } else {
+    await supabaseClient.from('action_completions').insert({ action_id: actionId, student_id: myId });
+  }
 }
 
 async function ensureRealIdentity() {
