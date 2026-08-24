@@ -299,6 +299,7 @@ async function renderChurchStudents(churchId){
   const church = allChurches.find(c => c.id === churchId);
   const rows = allRows.filter(r => churchId ? r.church_id === churchId : !r.church_id);
   const groups = churchId ? await fetchGroups(churchId) : [];
+  const currentAdmins = churchId ? await fetchChurchAdmins(churchId) : [];
   const pendingStudents = churchId ? await fetchPendingStudents(churchId) : [];
 
   const rowsHtml = rows.map(r => {
@@ -369,6 +370,22 @@ async function renderChurchStudents(churchId){
       <label class="field-label">URL Slug</label>
       <input type="text" class="field-input" id="edit-church-slug" value="${(church?.slug||'').replace(/"/g,'&quot;')}" />
       <p class="field-hint">Link: followingjesusapp.netlify.app/courses/${church?.slug || '...'}</p>
+
+      <h4 class="field-section-title">Church Admin</h4>
+      <div id="current-admins-list">
+        ${currentAdmins.length ? currentAdmins.map(a => `
+          <div class="group-row">
+            <span>${a.full_name || 'Unnamed'}</span>
+            <button class="mini-btn danger" data-remove-admin="${a.id}">Remove Admin</button>
+          </div>`).join('') : '<p style="color:var(--ink-soft);font-size:13px;margin:0 0 12px;">No church admin assigned yet.</p>'}
+      </div>
+      <label class="field-label">Promote a Student to Admin</label>
+      <p class="field-hint" style="margin-bottom:8px;">They must already have an account (signed up at least once) before you can promote them.</p>
+      <div class="new-group-form">
+        <input type="text" id="promote-admin-email" placeholder="Their email address" />
+        <button id="promote-admin-btn">Make Admin</button>
+      </div>
+      <span id="promote-status" style="font-size:12.5px;color:var(--ink-soft);"></span>
 
       <label class="field-label">Accent Color</label>
       <div class="color-field-row">
@@ -545,6 +562,31 @@ async function renderChurchStudents(churchId){
       document.getElementById('copy-status').textContent = 'Could not copy — check clipboard permissions.';
     }
   });
+
+  const promoteBtn = document.getElementById('promote-admin-btn');
+  if(promoteBtn) promoteBtn.addEventListener('click', async () => {
+    const email = document.getElementById('promote-admin-email').value.trim();
+    const statusEl = document.getElementById('promote-status');
+    if(!email){ statusEl.textContent = 'Enter an email first.'; return; }
+    statusEl.textContent = 'Promoting...';
+    const { data: result, error } = await supabaseClient.rpc('promote_to_church_admin', { target_email: email, target_church_id: churchId });
+    if(error || result !== 'success'){
+      statusEl.textContent = result === 'not_found'
+        ? 'No account found with that email — they need to sign up first.'
+        : 'Something went wrong. Please try again.';
+      return;
+    }
+    statusEl.textContent = 'Promoted ✓';
+    renderChurchStudents(churchId);
+  });
+
+  document.querySelectorAll('[data-remove-admin]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!confirm('Remove this person as church admin? They\'ll go back to being a regular student.')) return;
+      await supabaseClient.from('profiles').update({ role: 'student' }).eq('id', btn.dataset.removeAdmin);
+      renderChurchStudents(churchId);
+    });
+  });
 }
 
 async function fetchGroups(churchId){
@@ -555,6 +597,11 @@ async function fetchGroups(churchId){
 async function fetchPendingStudents(churchId){
   const { data, error } = await supabaseClient.rpc('get_pending_legacy_students', { target_church_id: churchId });
   if(error) return [];
+  return data || [];
+}
+
+async function fetchChurchAdmins(churchId){
+  const { data } = await supabaseClient.from('profiles').select('id, full_name').eq('church_id', churchId).eq('role', 'church_admin');
   return data || [];
 }
 

@@ -255,6 +255,10 @@
   .profile-input{width:100%;border:1.5px solid var(--line);border-radius:8px;padding:12px 14px;font-family:'Inter',sans-serif;font-size:15px;margin-bottom:18px;}
   .profile-save-btn{background:var(--ink);color:#fff;border:none;border-radius:999px;padding:11px 26px;font-size:14px;font-weight:600;cursor:pointer;}
   .profile-signout-btn{background:none;border:none;color:var(--ink-soft);font-size:13.5px;cursor:pointer;margin-left:16px;}
+  .profile-admin-link{
+    display:block;margin-top:18px;padding:12px 16px;background:var(--bg-soft);border-radius:8px;
+    font-size:13.5px;font-weight:600;color:var(--ink);text-decoration:none;
+  }
   .profile-courses-title{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:19px;margin:40px 0 14px;}
   .profile-course-row{
     display:flex;align-items:center;justify-content:space-between;gap:14px;
@@ -640,6 +644,14 @@ async function renderProfile(){
   const enrolledIds = new Set((myEnrollments || []).map(e => e.course_id));
   const { data: myProgress } = await supabaseClient.from('item_progress').select('item_id').eq('student_id', currentUser.id);
   const doneItemIdSet = new Set((myProgress || []).map(p => p.item_id));
+  const { data: myProfile } = await supabaseClient.from('profiles').select('role').eq('id', currentUser.id).maybeSingle();
+
+  let adminLinkHtml = '';
+  if(myProfile?.role === 'super_admin'){
+    adminLinkHtml = `<a class="profile-admin-link" href="/admin">⚙️ Admin Dashboard</a>`;
+  } else if(myProfile?.role === 'church_admin'){
+    adminLinkHtml = `<a class="profile-admin-link" href="/dashboard">⚙️ Church Dashboard</a>`;
+  }
 
   const coursesHtml = (allCourses || []).map(c => {
     const allItemIds = (c.sessions || []).flatMap(s => (s.session_items || []).map(i => i.id));
@@ -675,6 +687,7 @@ async function renderProfile(){
       <input type="text" class="profile-input" id="profile-name-input" value="${profileDisplayName()}" />
       <button class="profile-save-btn" id="profile-save-btn">Save Changes</button>
       <button class="profile-signout-btn" id="profile-signout-btn">Sign Out</button>
+      ${adminLinkHtml}
 
       <div class="profile-courses-title">Your Courses</div>
       ${coursesHtml || '<p style="color:var(--ink-soft);font-size:14px;">No courses available yet.</p>'}
