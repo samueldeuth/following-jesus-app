@@ -63,6 +63,10 @@
   }
   .mini-btn.danger{border-color:#C0392B;color:#C0392B;}
   .mini-btn.gold{border-color:#B08D3E;color:#B08D3E;}
+  .panel{border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:20px;}
+  .panel h3{font-family:'Space Grotesk',sans-serif;font-size:15px;margin:0 0 12px;}
+  .group-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;gap:12px;}
+  .group-row:last-child{border-bottom:none;}
 </style>
 </head>
 <body>
@@ -86,6 +90,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 
 let currentAdminId = null;
 let allRows = [];
+let allPendingStudents = [];
 
 function renderAccountInfo(email){
   const el = document.getElementById('admin-account-info');
@@ -131,10 +136,13 @@ async function init(){
 
   if(error || !rows){ document.getElementById('content').textContent = 'Could not load student progress.'; return; }
   allRows = rows;
-  renderDashboard(rows);
+
+  const { data: pending } = await supabaseClient.rpc('get_pending_legacy_students', { target_church_id: profile.church_id });
+  allPendingStudents = pending || [];
+  renderDashboard(rows, allPendingStudents);
 }
 
-function renderDashboard(rows){
+function renderDashboard(rows, pendingStudents = allPendingStudents){
   const totalStudents = rows.length;
   const completedCount = rows.filter(r => r.total_items > 0 && r.items_completed === r.total_items).length;
   const avgPct = totalStudents
@@ -170,11 +178,35 @@ function renderDashboard(rows){
       <div class="summary-card"><div class="num">${completedCount}</div><div class="label">Finished the course</div></div>
       <div class="summary-card"><div class="num">${avgPct}%</div><div class="label">Average progress</div></div>
     </div>
+
+    <div class="panel">
+      <h3>Not Yet Signed Up (${pendingStudents.length})</h3>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">People who took your church's course on the old platform but haven't created an account here yet. Once they sign up with the same email, they'll move into the list below automatically.</p>
+      ${pendingStudents.length ? `
+        <div style="max-height:220px;overflow-y:auto;">
+          ${pendingStudents.map(p => `<div class="group-row"><span>${(p.first_name||'')} ${(p.last_name||'')}</span><span style="color:var(--ink-soft);font-size:12px;">${p.email}</span></div>`).join('')}
+        </div>
+        <button class="mini-btn" id="copy-pending-emails-btn" style="margin-top:12px;">Copy All Emails</button>
+        <span id="copy-status" style="font-size:12.5px;color:var(--ink-soft);margin-left:8px;"></span>
+      ` : `<p style="color:var(--ink-soft);font-size:13px;margin:0;">Nobody pending right now.</p>`}
+    </div>
+
     <table>
       <thead><tr><th>Student</th><th>Course</th><th>Progress</th><th>Enrolled</th><th>Actions</th></tr></thead>
       <tbody>${rowsHtml}</tbody>
     </table>
   `;
+
+  const copyBtn = document.getElementById('copy-pending-emails-btn');
+  if(copyBtn) copyBtn.addEventListener('click', async () => {
+    const emailList = pendingStudents.map(p => p.email).join(', ');
+    try {
+      await navigator.clipboard.writeText(emailList);
+      document.getElementById('copy-status').textContent = `Copied ${pendingStudents.length} emails ✓`;
+    } catch (e) {
+      document.getElementById('copy-status').textContent = 'Could not copy — check clipboard permissions.';
+    }
+  });
 
   document.querySelectorAll('td.clickable-cell').forEach(td => {
     td.addEventListener('click', () => renderStudentDetail(td.dataset.studentId, td.dataset.courseId));
