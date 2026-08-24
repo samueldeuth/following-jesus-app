@@ -908,7 +908,6 @@
     border: none;
     font-family: inherit;
     cursor: pointer;
-    width: 100%;
   }
 
   /* ---------- Embed modal ---------- */
@@ -4452,12 +4451,21 @@ async function renderDiscipleshipApp() {
     setupBlogBanner();
   }
 
+  // Blog post data (image URLs especially) comes from an external feed
+  // this app doesn't control at the source — a malformed value there
+  // shouldn't be able to break any page that displays it, so every place
+  // that uses a post's image checks it through here first.
+  function isValidImageUrl(url) {
+    return typeof url === 'string' && /^https?:\/\/\S+$/.test(url);
+  }
+
   function blogCardHtml(p) {
-    const imgStyle = p.image ? `style="background-image:url('${p.image}');"` : '';
-    const imgClass = p.image ? 'blog-img' : 'blog-img blog-img-fallback';
+    const hasImage = isValidImageUrl(p.image);
+    const imgStyle = hasImage ? `style="background-image:url('${p.image}');"` : '';
+    const imgClass = hasImage ? 'blog-img' : 'blog-img blog-img-fallback';
     return `
       <button type="button" class="card blog-card" onclick="openArticle('${p.id}')">
-        <div class="${imgClass}" ${imgStyle}>${p.image ? '' : '<span class="blog-img-fallback-mark">✝</span>'}</div>
+        <div class="${imgClass}" ${imgStyle}>${hasImage ? '' : '<span class="blog-img-fallback-mark">✝</span>'}</div>
         <div class="blog-body">
           <span class="tag">${escapeHtmlMain(p.tag)}</span>
           <div class="card-title">${escapeHtmlMain(p.title)}</div>
@@ -4488,10 +4496,11 @@ async function renderDiscipleshipApp() {
     const a = BLOG_POSTS.find(p => p.id === id);
     if (!a) return;
     articleModalTag.textContent = a.tag;
-    const heroStyle = a.image
+    const hasImage = isValidImageUrl(a.image);
+    const heroStyle = hasImage
       ? `background-image:url('${a.image}');`
       : `background:linear-gradient(160deg, var(--black), #2a2620); display:flex; align-items:center; justify-content:center;`;
-    const heroMark = a.image ? '' : `<span class="blog-img-fallback-mark article-hero-mark">✝</span>`;
+    const heroMark = hasImage ? '' : `<span class="blog-img-fallback-mark article-hero-mark">✝</span>`;
     articleModalBody.innerHTML = `
       <div class="article-hero-img" style="${heroStyle}">${heroMark}</div>
       <div class="article-content">
@@ -4512,14 +4521,14 @@ async function renderDiscipleshipApp() {
   // ---------- Randomized blog banner (from live feed once loaded) ----------
   function setupBlogBanner() {
     if (BLOG_POSTS.length === 0) return;
-    const withImages = BLOG_POSTS.filter(p => p.image);
+    const withImages = BLOG_POSTS.filter(p => isValidImageUrl(p.image));
     const pool = withImages.length > 0 ? withImages : BLOG_POSTS;
     const randomIndex = Math.floor(Math.random() * pool.length);
     const a = pool[randomIndex];
     const slide = document.getElementById('blogBannerSlide');
     const titleEl = document.getElementById('blogBannerTitle');
     if (!slide || !a) return;
-    if (a.image) {
+    if (isValidImageUrl(a.image)) {
       slide.style.backgroundImage = `linear-gradient(0deg, rgba(0,0,0,0.75), rgba(0,0,0,0.15)), url('${a.image}')`;
     } else {
       slide.style.backgroundImage = `linear-gradient(160deg, var(--black), #2a2620)`;
