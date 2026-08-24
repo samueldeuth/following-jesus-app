@@ -115,6 +115,11 @@
   .overview-item-row:last-child{border-bottom:none;}
   .overview-item-title{color:var(--ink);font-weight:500;}
 
+  .site-footer{text-align:center;padding:40px 20px 56px;border-top:1px solid var(--line);margin-top:20px;}
+  .site-footer p{font-size:12.5px;color:var(--ink-soft);margin:0 0 8px;}
+  .site-footer p:last-child{margin-bottom:0;}
+  .site-footer a{color:var(--ink-soft);font-weight:600;text-decoration:underline;}
+
   /* ---------- Player layout ---------- */
   .player-shell{display:flex;min-height:100vh;}
   .sidebar{
@@ -774,6 +779,15 @@ function courseOverviewWidgetHtml(sessionsList){
     </div>`;
 }
 
+function footerHtml(){
+  const year = new Date().getFullYear();
+  return `
+    <footer class="site-footer">
+      <p>&copy; ${year} Following Jesus. All rights reserved.</p>
+      <p><a href="https://followingjesusbook.com/" target="_blank" rel="noopener">For Church Discipleship Resources</a></p>
+    </footer>`;
+}
+
 function wireCourseOverviewWidget(){
   document.querySelectorAll('.overview-row').forEach(row => {
     row.addEventListener('click', () => {
@@ -811,6 +825,7 @@ function renderHero(){
     ${checklistSectionHtml(course)}
     ${previewSectionHtml(course)}
     ${courseOverviewWidgetHtml(sessions)}
+    ${footerHtml()}
   `;
   bindAuthStatusLinks();
   document.getElementById('start-btn').addEventListener('click', () => {
