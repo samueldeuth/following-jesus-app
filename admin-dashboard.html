@@ -76,6 +76,12 @@
   .new-group-form button{background:var(--ink);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;}
 
   select.group-select{border:1.5px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12.5px;font-family:'Inter',sans-serif;}
+
+  .field-label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin:14px 0 5px;}
+  .field-input{width:100%;border:1.5px solid var(--line);border-radius:6px;padding:8px 10px;font-size:13.5px;font-family:'Inter',sans-serif;}
+  .field-textarea{min-height:90px;resize:vertical;font-family:'Inter',sans-serif;}
+  .field-hint{font-size:11.5px;color:var(--ink-soft);margin:5px 0 0;}
+  .field-section-title{font-family:'Space Grotesk',sans-serif;font-size:13.5px;margin:22px 0 2px;padding-top:16px;border-top:1px solid var(--line);}
 </style>
 </head>
 <body>
@@ -180,7 +186,17 @@ function renderChurchesOverview(){
       <thead><tr><th>Church</th><th>Students</th><th>Avg. Progress</th></tr></thead>
       <tbody>${churchRowsHtml || '<tr><td colspan="3" style="color:var(--ink-soft);">No churches yet.</td></tr>'}</tbody>
     </table>
-    ${noChurchRows.length ? `<button class="mini-btn" id="view-no-church">View ${noChurchRows.length} student${noChurchRows.length===1?'':'s'} with no church assigned →</button>` : ''}
+    ${noChurchRows.length ? `<button class="mini-btn" id="view-no-church" style="margin-bottom:20px;">View ${noChurchRows.length} student${noChurchRows.length===1?'':'s'} with no church assigned →</button>` : ''}
+
+    <div class="panel">
+      <h3>Add a New Church</h3>
+      <div class="new-group-form">
+        <input type="text" id="new-church-name" placeholder="Church name (e.g. Acacia Church)" />
+        <input type="text" id="new-church-slug" placeholder="URL slug (e.g. acaciachurch)" />
+        <button id="create-church-btn">+ Add Church</button>
+      </div>
+      <p style="font-size:12px;color:var(--ink-soft);margin:10px 0 0;">The slug becomes the church's link: /courses/whatever-you-type-here. Lowercase, no spaces — auto-filled from the name, but you can edit it.</p>
+    </div>
   `;
 
   document.querySelectorAll('tbody tr.clickable').forEach(tr => {
@@ -188,6 +204,28 @@ function renderChurchesOverview(){
   });
   const noChurchBtn = document.getElementById('view-no-church');
   if(noChurchBtn) noChurchBtn.addEventListener('click', () => renderChurchStudents(null));
+
+  const nameInput = document.getElementById('new-church-name');
+  const slugInput = document.getElementById('new-church-slug');
+  let slugManuallyEdited = false;
+  slugInput.addEventListener('input', () => { slugManuallyEdited = true; });
+  nameInput.addEventListener('input', () => {
+    if(slugManuallyEdited) return;
+    slugInput.value = nameInput.value.toLowerCase().replace(/[^a-z0-9]/g, '');
+  });
+
+  document.getElementById('create-church-btn').addEventListener('click', async () => {
+    const name = nameInput.value.trim();
+    const slug = slugInput.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if(!name || !slug){ alert('Please enter both a name and a slug.'); return; }
+    if(allChurches.some(c => c.slug === slug)){ alert('That slug is already in use by another church — please choose a different one.'); return; }
+
+    const { data: newChurch, error } = await supabaseClient.from('churches').insert({ name, slug }).select().maybeSingle();
+    if(error || !newChurch){ alert('Could not create the church: ' + (error?.message || 'unknown error')); return; }
+
+    allChurches.push(newChurch);
+    renderChurchStudents(newChurch.id);
+  });
 }
 
 /* ---------- Level 2: students within a church ---------- */
@@ -229,6 +267,39 @@ async function renderChurchStudents(churchId){
 
     ${churchId ? `
     <div class="panel">
+      <h3>Church Settings</h3>
+      <label class="field-label">Church Name</label>
+      <input type="text" class="field-input" id="edit-church-name" value="${(church?.name||'').replace(/"/g,'&quot;')}" />
+
+      <label class="field-label">URL Slug</label>
+      <input type="text" class="field-input" id="edit-church-slug" value="${(church?.slug||'').replace(/"/g,'&quot;')}" />
+      <p class="field-hint">Link: followingjesusapp.netlify.app/courses/${church?.slug || '...'}</p>
+
+      <label class="field-label">Accent Color</label>
+      <input type="text" class="field-input" id="edit-church-color" value="${(church?.primary_color||'').replace(/"/g,'&quot;')}" placeholder="#3E82F7" />
+
+      <h4 class="field-section-title">Welcome Letter (shown on this church's course page instead of the default one)</h4>
+      <label class="field-label">Title</label>
+      <input type="text" class="field-input" id="edit-letter-title" value="${(church?.letter_title||'').replace(/"/g,'&quot;')}" placeholder="e.g. Welcome to Acacia Church" />
+      <label class="field-label">Subtitle</label>
+      <input type="text" class="field-input" id="edit-letter-subtitle" value="${(church?.letter_subtitle||'').replace(/"/g,'&quot;')}" placeholder="A short line under the title" />
+      <label class="field-label">Letter Body</label>
+      <textarea class="field-input field-textarea" id="edit-letter-body" placeholder="Separate paragraphs with a blank line">${church?.letter_body||''}</textarea>
+      <label class="field-label">Welcome Photo URL</label>
+      <input type="text" class="field-input" id="edit-letter-image" value="${(church?.letter_image_url||'').replace(/"/g,'&quot;')}" placeholder="https://..." />
+      <label class="field-label">Pastor's Name</label>
+      <input type="text" class="field-input" id="edit-letter-author" value="${(church?.letter_author_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. First & Spouse Last" />
+      <label class="field-label">Pastor's Title</label>
+      <input type="text" class="field-input" id="edit-letter-author-title" value="${(church?.letter_author_title||'').replace(/"/g,'&quot;')}" placeholder="e.g. Church Name | Lead Pastor" />
+      <label class="field-label">Church Website</label>
+      <input type="text" class="field-input" id="edit-website" value="${(church?.website_url||'').replace(/"/g,'&quot;')}" placeholder="https://..." />
+
+      <button class="mini-btn" id="save-church-settings-btn" style="margin-top:14px;background:var(--ink);color:#fff;border-color:var(--ink);">Save Church Settings</button>
+      <span id="save-status" style="font-size:12.5px;color:var(--ink-soft);margin-left:10px;"></span>
+    </div>` : ''}
+
+    ${churchId ? `
+    <div class="panel">
       <h3>Discipleship Groups</h3>
       <div id="groups-list">${groups.map(g => `<div class="group-row"><span>${g.name}${g.leader_name ? ` — led by ${g.leader_name}` : ''}</span></div>`).join('') || '<p style="color:var(--ink-soft);font-size:13px;margin:0;">No groups yet.</p>'}</div>
       <div class="new-group-form">
@@ -245,6 +316,43 @@ async function renderChurchStudents(churchId){
   `;
 
   document.getElementById('back-to-churches').addEventListener('click', renderChurchesOverview);
+
+  const saveSettingsBtn = document.getElementById('save-church-settings-btn');
+  if(saveSettingsBtn) saveSettingsBtn.addEventListener('click', async () => {
+    const newSlug = document.getElementById('edit-church-slug').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const statusEl = document.getElementById('save-status');
+    if(!newSlug){ alert('The URL slug cannot be empty.'); return; }
+    if(allChurches.some(c => c.id !== churchId && c.slug === newSlug)){
+      alert('That slug is already used by another church — please choose a different one.');
+      return;
+    }
+
+    const updates = {
+      name: document.getElementById('edit-church-name').value.trim(),
+      slug: newSlug,
+      primary_color: document.getElementById('edit-church-color').value.trim() || null,
+      letter_title: document.getElementById('edit-letter-title').value.trim() || null,
+      letter_subtitle: document.getElementById('edit-letter-subtitle').value.trim() || null,
+      letter_body: document.getElementById('edit-letter-body').value.trim() || null,
+      letter_image_url: document.getElementById('edit-letter-image').value.trim() || null,
+      letter_author_name: document.getElementById('edit-letter-author').value.trim() || null,
+      letter_author_title: document.getElementById('edit-letter-author-title').value.trim() || null,
+      website_url: document.getElementById('edit-website').value.trim() || null
+    };
+
+    statusEl.textContent = 'Saving...';
+    const { data: updated, error } = await supabaseClient.from('churches').update(updates).eq('id', churchId).select().maybeSingle();
+    if(error || !updated){
+      statusEl.textContent = '';
+      alert('Could not save: ' + (error?.message || 'unknown error'));
+      return;
+    }
+
+    const idx = allChurches.findIndex(c => c.id === churchId);
+    if(idx !== -1) allChurches[idx] = updated;
+    statusEl.textContent = 'Saved ✓';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+  });
 
   document.querySelectorAll('td.clickable-cell').forEach(td => {
     td.style.cursor = 'pointer';
