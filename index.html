@@ -2852,7 +2852,7 @@ function wireWalkoutToggles(container, prefix) {
 // finishes. Fires the moment a course hits 100% complete.
 // ---------- Discipled counts ----------
 async function computeDiscipledCount(leaderId) {
-  const disciples = (await safeGet(`leader-disciples:${leaderId}`, true)) || [];
+  const disciples = await getLeaderDisciples(leaderId);
   let count = 0;
   for (const d of disciples) {
     const dProgress = (await safeGet(`progress:${d.id}`, true)) || {};
@@ -3247,16 +3247,17 @@ async function renderMentor() {
 }
 
 async function wireLeaderQuickActions() {
-  let directCode = await safeGet(`leader-direct-code:${myId}`, true);
+  let directCode = null;
+  const { data: existingDirect } = await supabaseClient.from('discipleship_groups')
+    .select('invite_code').eq('leader_id', myId).eq('is_direct', true).maybeSingle();
+  directCode = existingDirect ? existingDirect.invite_code : null;
   const inviteFriendBtn = document.getElementById('inviteFriendBtn');
   const newGroupBtn = document.getElementById('newGroupBtn');
   if (inviteFriendBtn) {
     inviteFriendBtn.textContent = directCode ? 'Show My Link' : 'Invite an Individual';
     inviteFriendBtn.onclick = async () => {
       if (!directCode) {
-        directCode = genCode();
-        await safeSet(`leader-direct-code:${myId}`, directCode, true);
-        await safeSet(`group:${directCode}`, { leaderId: myId, label: 'Direct Invite', isDirect: true, createdAt: Date.now() }, true);
+        directCode = await getOrCreateDirectInviteCode();
       }
       showShareModal(directCode, 'Your Personal Invite');
     };
@@ -3265,12 +3266,7 @@ async function wireLeaderQuickActions() {
     newGroupBtn.onclick = async () => {
       const label = await showAppPrompt('Name this group', 'e.g. "Wednesday Youth Group"');
       if (!label || !label.trim()) return;
-      const newCode = genCode();
-      await safeSet(`group:${newCode}`, { leaderId: myId, label: label.trim(), isDirect: false, createdAt: Date.now() }, true);
-      await safeSet(`group-members:${newCode}`, [], true);
-      const gs = (await safeGet(`leader-groups:${myId}`, true)) || [];
-      gs.push({ code: newCode, label: label.trim() });
-      await safeSet(`leader-groups:${myId}`, gs, true);
+      const newCode = await createNewGroup(label.trim());
       render();
       showShareModal(newCode, label.trim());
     };
@@ -3649,53 +3645,11 @@ async function renderMemberDetail(memberId) {
 // "primary" leader used for 1:1 messaging when not in any group) the first
 // time; after that it just adds the new group without disturbing it.
 async function attemptJoinGroup(codeInput) {
-  const group = await safeGet(`group:${codeInput}`, true);
-  if (!group) return { ok: false, error: "Code not found. Check it and try again." };
-
-  const existingGroups = (await safeGet(`disciple-groups:${myId}`, true)) || [];
-  if (existingGroups.some(g => g.code === codeInput)) {
-    return { ok: false, error: "You're already in this group." };
-  }
-
-  const leaderApp = await getLeaderApplication(group.leaderId);
-  if (!(await showAppConfirm(`Join "${group.label}"?\n\nLed by ${leaderApp ? leaderApp.name : 'this leader'}`))) {
-    return { ok: false, cancelled: true };
-  }
-
-  let membership = await safeGet(`disciple-membership:${myId}`, true);
-  let name;
-  if (membership) {
-    name = membership.name;
-  } else {
-    name = (await showAppPrompt("What's your name?", "Your full name")) || "Friend";
-    await safeSet(`disciple-membership:${myId}`, { leaderId: group.leaderId, name }, true);
-  }
-
-  const disciples = (await safeGet(`leader-disciples:${group.leaderId}`, true)) || [];
-  const existingDisciple = disciples.find(d => d.id === myId);
-  if (!existingDisciple) {
-    disciples.push({ id: myId, name, groups: group.isDirect ? [] : [group.label] });
-    await safeSet(`leader-disciples:${group.leaderId}`, disciples, true);
-  } else if (!group.isDirect && !(existingDisciple.groups || []).includes(group.label)) {
-    existingDisciple.groups = [...(existingDisciple.groups || []), group.label];
-    await safeSet(`leader-disciples:${group.leaderId}`, disciples, true);
-  }
-
-  if (!group.isDirect) {
-    const members = (await safeGet(`group-members:${codeInput}`, true)) || [];
-    if (!members.includes(myId)) members.push(myId);
-    await safeSet(`group-members:${codeInput}`, members, true);
-    const discGroups = (await safeGet(`disciple-groups:${myId}`, true)) || [];
-    discGroups.push({ code: codeInput, label: group.label, leaderId: group.leaderId });
-    await safeSet(`disciple-groups:${myId}`, discGroups, true);
-  }
-
-  window.pendingJoinCode = null;
-  return { ok: true };
+  return await joinGroupByCode(codeInput);
 }
 
 async function renderDisciple() {
-  const membership = await safeGet(`disciple-membership:${myId}`, true);
+  const membership = await getDiscipleMembership(myId);
 
   if (!membership) {
     main.innerHTML = `
@@ -3723,7 +3677,7 @@ async function renderDisciple() {
   const leaderId = membership.leaderId;
   const progress = (await safeGet(`progress:${myId}`, true)) || {};
   const messages = (await safeGet(`messages:${leaderId}:${myId}`, true)) || [];
-  const myGroups = (await safeGet(`disciple-groups:${myId}`, true)) || [];
+  const myGroups = await getDiscipleGroups(myId);
   const leaderApp = await getLeaderApplication(leaderId);
   const leaderName = leaderApp ? leaderApp.name : 'Your Leader';
   const walkoutProgress = (await safeGet(`walkout-progress:${myId}`, true)) || {};
@@ -3741,7 +3695,7 @@ async function renderDisciple() {
   let groupPeersHtml = '';
   for (const g of myGroups) {
     const memberIds = (await safeGet(`group-members:${g.code}`, true)) || [];
-    const allDisciples = (await safeGet(`leader-disciples:${g.leaderId}`, true)) || [];
+    const allDisciples = await getLeaderDisciples(g.leaderId);
     const peers = allDisciples.filter(d => memberIds.includes(d.id) && d.id !== myId);
     let peerRows = '';
     if (peers.length === 0) {
@@ -4104,7 +4058,7 @@ function showShareModal(code, label) {
 async function renderDiscipleshipHub() {
   const account = await dSafeGet('account');
   const leaderApp = await getLeaderApplication(myId);
-  const membership = await safeGet(`disciple-membership:${myId}`, true);
+  const membership = await getDiscipleMembership(myId);
   const progress = (await safeGet(`progress:${myId}`, true)) || {};
   const walkoutProgress = (await safeGet(`walkout-progress:${myId}`, true)) || {};
   const wbProgress = (await safeGet(`wb-progress:${myId}`, true)) || {};
@@ -4167,9 +4121,10 @@ async function renderDiscipleshipHub() {
   } else {
     // Approved: the leader dashboard now lives directly on the Hub instead
     // of behind a separate screen — this is that merged content.
-    groups = (await safeGet(`leader-groups:${myId}`, true)) || [];
-    disciples = (await safeGet(`leader-disciples:${myId}`, true)) || [];
-    directCode = await safeGet(`leader-direct-code:${myId}`, true);
+    groups = await getLeaderGroups(myId);
+    disciples = await getLeaderDisciples(myId);
+    const { data: directGroup } = await supabaseClient.from('discipleship_groups').select('invite_code').eq('leader_id', myId).eq('is_direct', true).maybeSingle();
+    directCode = directGroup ? directGroup.invite_code : null;
     discipledCount = await computeDiscipledCount(myId);
 
     leaderSectionHtml = `
@@ -4361,6 +4316,125 @@ async function approveOwnLeaderApplication() {
   await supabaseClient.from('leader_applications')
     .update({ status: 'approved', reviewed_at: new Date().toISOString() })
     .eq('applicant_id', myId);
+}
+
+// ---------- Groups & disciple relationships (Phase 2b — relational).
+// A leader's "direct invite" is stored the same way the old system did
+// it — as a special group with is_direct = true — so a single insert
+// covers both direct and real groups.
+//
+// These functions deliberately avoid Supabase's embedded-join syntax
+// (e.g. .select('*, profiles(full_name)')) — this table has TWO foreign
+// keys into profiles (leader_id and disciple_id), which makes an
+// embedded join ambiguous. Separate, explicit queries are slightly more
+// verbose but avoid that risk entirely.
+
+async function getOrCreateDirectInviteCode() {
+  const { data: existing } = await supabaseClient.from('discipleship_groups')
+    .select('invite_code').eq('leader_id', myId).eq('is_direct', true).maybeSingle();
+  if (existing) return existing.invite_code;
+  const code = genCode();
+  await supabaseClient.from('discipleship_groups')
+    .insert({ leader_id: myId, label: 'Direct Invite', invite_code: code, is_direct: true });
+  return code;
+}
+
+async function createNewGroup(label) {
+  const code = genCode();
+  await supabaseClient.from('discipleship_groups')
+    .insert({ leader_id: myId, label, invite_code: code, is_direct: false });
+  return code;
+}
+
+async function joinGroupByCode(codeInput) {
+  const { data: group } = await supabaseClient.from('discipleship_groups').select('*').eq('invite_code', codeInput).maybeSingle();
+  if (!group) return { ok: false, error: "Code not found. Check it and try again." };
+
+  let existingQuery = supabaseClient.from('discipleship_memberships').select('id').eq('disciple_id', myId).eq('leader_id', group.leader_id);
+  existingQuery = group.is_direct ? existingQuery.is('group_id', null) : existingQuery.eq('group_id', group.id);
+  const { data: existingMembership } = await existingQuery.maybeSingle();
+  if (existingMembership) return { ok: false, error: group.is_direct ? "You're already connected with this leader." : "You're already in this group." };
+
+  const leaderApp = await getLeaderApplication(group.leader_id);
+  if (!(await showAppConfirm(`Join "${group.label}"?\n\nLed by ${leaderApp ? leaderApp.name : 'this leader'}`))) {
+    return { ok: false, cancelled: true };
+  }
+
+  // Make sure a name is on file — reuses the same profiles.full_name
+  // field the course platform already uses, instead of the old system's
+  // separate "discipleship name".
+  const { data: profile } = await supabaseClient.from('profiles').select('full_name').eq('id', myId).maybeSingle();
+  if (!profile || !profile.full_name) {
+    const name = (await showAppPrompt("What's your name?", "Your full name")) || "Friend";
+    await supabaseClient.from('profiles').upsert({ id: myId, full_name: name }, { onConflict: 'id' });
+  }
+
+  await supabaseClient.from('discipleship_memberships').insert({
+    group_id: group.is_direct ? null : group.id,
+    disciple_id: myId,
+    leader_id: group.leader_id
+  });
+
+  window.pendingJoinCode = null;
+  return { ok: true };
+}
+
+// A leader's real groups (not their direct-invite pseudo-group) —
+// matches the old [{code, label}] shape.
+async function getLeaderGroups(leaderId) {
+  const { data } = await supabaseClient.from('discipleship_groups')
+    .select('invite_code, label').eq('leader_id', leaderId).eq('is_direct', false).order('created_at');
+  return (data || []).map(g => ({ code: g.invite_code, label: g.label }));
+}
+
+// Every one of a leader's disciples (direct + every group), each with
+// which group(s) they're in — matches the old [{id, name, groups: []}] shape.
+async function getLeaderDisciples(leaderId) {
+  const { data: memberships } = await supabaseClient.from('discipleship_memberships').select('disciple_id, group_id').eq('leader_id', leaderId);
+  if (!memberships || !memberships.length) return [];
+
+  const discipleIds = [...new Set(memberships.map(m => m.disciple_id))];
+  const { data: profiles } = await supabaseClient.from('profiles').select('id, full_name').in('id', discipleIds);
+  const nameById = {};
+  (profiles || []).forEach(p => { nameById[p.id] = p.full_name || 'Friend'; });
+
+  const groupIds = [...new Set(memberships.map(m => m.group_id).filter(Boolean))];
+  const labelByGroupId = {};
+  if (groupIds.length) {
+    const { data: groups } = await supabaseClient.from('discipleship_groups').select('id, label').in('id', groupIds);
+    (groups || []).forEach(g => { labelByGroupId[g.id] = g.label; });
+  }
+
+  const byDisciple = {};
+  memberships.forEach(m => {
+    if (!byDisciple[m.disciple_id]) byDisciple[m.disciple_id] = { id: m.disciple_id, name: nameById[m.disciple_id] || 'Friend', groups: [] };
+    if (m.group_id && labelByGroupId[m.group_id]) byDisciple[m.disciple_id].groups.push(labelByGroupId[m.group_id]);
+  });
+  return Object.values(byDisciple);
+}
+
+// A disciple's group memberships (direct relationships excluded — those
+// aren't "groups" from the disciple's own point of view) — matches the
+// old [{code, label, leaderId}] shape.
+async function getDiscipleGroups(discipleId) {
+  const { data: memberships } = await supabaseClient.from('discipleship_memberships')
+    .select('group_id, leader_id').eq('disciple_id', discipleId).not('group_id', 'is', null);
+  if (!memberships || !memberships.length) return [];
+  const groupIds = memberships.map(m => m.group_id);
+  const { data: groups } = await supabaseClient.from('discipleship_groups').select('id, invite_code, label').in('id', groupIds);
+  const groupById = {};
+  (groups || []).forEach(g => { groupById[g.id] = g; });
+  return memberships
+    .map(m => ({ code: groupById[m.group_id]?.invite_code, label: groupById[m.group_id]?.label, leaderId: m.leader_id }))
+    .filter(g => g.code);
+}
+
+// A disciple's primary relationship — matches the old {leaderId, name} shape.
+async function getDiscipleMembership(discipleId) {
+  const { data } = await supabaseClient.from('discipleship_memberships').select('leader_id').eq('disciple_id', discipleId).limit(1).maybeSingle();
+  if (!data) return null;
+  const { data: profile } = await supabaseClient.from('profiles').select('full_name').eq('id', discipleId).maybeSingle();
+  return { leaderId: data.leader_id, name: profile?.full_name || 'Friend' };
 }
 
 async function ensureRealIdentity() {
