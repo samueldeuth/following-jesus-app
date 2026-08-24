@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certificate of Completion — Following Jesus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&family=Lora:ital@1&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --ink:#17191D; --ink-soft:#6B7280; --gold:#B08D3E;
+    --bg:#FFFFFF; --bg-soft:#F4F4F2; --line:#E4E3DD; --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg-soft);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:900px;margin:0 auto;padding:32px 20px 60px;}
+  .loading{padding:80px 20px;text-align:center;color:var(--ink-soft);font-size:14px;}
+
+  .cert{
+    background:#fff; border:1px solid var(--line); border-radius:var(--radius);
+    overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.06);
+  }
+  .cert-banner{background:var(--ink); color:#fff; text-align:center; padding:34px 20px 30px;}
+  .cert-banner .logo{font-family:'Space Grotesk',sans-serif; font-weight:700; letter-spacing:0.18em; font-size:13px; text-transform:uppercase; opacity:0.85;}
+  .cert-banner h1{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:clamp(22px,4vw,30px); margin:14px 0 0;}
+
+  .cert-body{padding:50px 40px; text-align:center;}
+  .cert-eyebrow{font-size:12px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:18px;}
+  .cert-name{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:clamp(28px,5vw,42px); margin:0 0 10px;}
+  .cert-course{font-size:17px; color:var(--ink-soft); margin-bottom:26px;}
+  .cert-church{font-size:14px; color:var(--gold); font-weight:600; margin-bottom:26px;}
+  .cert-verse{font-family:'Lora',serif; font-style:italic; font-size:19px; line-height:1.6; max-width:520px; margin:0 auto 8px;}
+  .cert-verse-ref{font-size:13px; color:var(--ink-soft); margin-bottom:36px;}
+  .cert-date{font-size:13px; color:var(--ink-soft); margin-bottom:6px;}
+  .cert-code{font-size:11px; color:var(--ink-soft); letter-spacing:0.05em;}
+
+  .actions{display:flex; gap:10px; justify-content:center; margin-top:28px;}
+  .btn{border:none; border-radius:8px; padding:12px 22px; font-size:14px; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif;}
+  .btn-primary{background:var(--ink); color:#fff;}
+  .btn-secondary{background:#fff; border:1.5px solid var(--line); color:var(--ink);}
+
+  @media print{
+    body{background:#fff;}
+    .wrap{padding:0; max-width:none;}
+    .actions{display:none;}
+    .cert{border:none; box-shadow:none; border-radius:0;}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div id="content" class="loading">Loading certificate…</div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function getCertCode(){
+  const params = new URLSearchParams(window.location.search);
+  return params.get('code');
+}
+
+async function init(){
+  const code = getCertCode();
+  const content = document.getElementById('content');
+  if(!code){
+    content.innerHTML = '<p style="text-align:center;color:var(--ink-soft);">No certificate code was given in the link.</p>';
+    return;
+  }
+
+  const { data: cert, error } = await supabaseClient
+    .from('certificates')
+    .select('*, profiles(full_name), courses(title), churches(name)')
+    .eq('certificate_code', code)
+    .maybeSingle();
+
+  if(error || !cert){
+    content.innerHTML = '<p style="text-align:center;color:var(--ink-soft);">We couldn\'t find a certificate with that code.</p>';
+    return;
+  }
+
+  const studentName = (cert.profiles && cert.profiles.full_name) || 'Student';
+  const courseTitle = (cert.courses && cert.courses.title) || 'Following Jesus';
+  const churchName = cert.churches && cert.churches.name;
+  const issuedDate = new Date(cert.issued_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  content.innerHTML = `
+    <div class="cert">
+      <div class="cert-banner">
+        <div class="logo">Following Jesus</div>
+        <h1>Certificate of Completion</h1>
+      </div>
+      <div class="cert-body">
+        <div class="cert-eyebrow">This certifies that</div>
+        <div class="cert-name">${studentName}</div>
+        <div class="cert-course">has completed the course "${courseTitle}"</div>
+        ${churchName ? `<div class="cert-church">${churchName}</div>` : ''}
+        <div class="cert-verse">"Go therefore and make disciples of all nations, baptizing them in the name of the Father and of the Son and of the Holy Spirit."</div>
+        <div class="cert-verse-ref">Matthew 28:19</div>
+        <div class="cert-date">Issued ${issuedDate}</div>
+        <div class="cert-code">Certificate ID: ${cert.certificate_code}</div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" onclick="window.print()">Print Certificate</button>
+      <button class="btn btn-secondary" onclick="history.back()">Back</button>
+    </div>
+  `;
+}
+
+init();
+</script>
+</body>
+</html>

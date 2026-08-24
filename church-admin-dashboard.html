@@ -54,6 +54,13 @@
   .qa-reply .label{font-size:11px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:3px;}
   .reply-box{width:100%;border:1.5px solid var(--line);border-radius:8px;padding:10px;font-family:'Inter',sans-serif;font-size:13.5px;min-height:60px;}
   .reply-btn{margin-top:8px;background:var(--ink);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12.5px;font-weight:600;cursor:pointer;}
+  .row-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .mini-btn{
+    border:1.5px solid var(--line);background:#fff;border-radius:6px;padding:6px 11px;
+    font-size:12px;font-weight:600;cursor:pointer;color:var(--ink);white-space:nowrap;
+  }
+  .mini-btn.danger{border-color:#C0392B;color:#C0392B;}
+  .mini-btn.gold{border-color:#B08D3E;color:#B08D3E;}
 </style>
 </head>
 <body>
@@ -79,7 +86,7 @@ async function init(){
   currentAdminId = user.id;
 
   const { data: profile } = await supabaseClient
-    .from('profiles').select('role, church_id, churches(name)').eq('id', user.id).single();
+    .from('profiles').select('role, church_id, churches(name)').eq('id', user.id).maybeSingle();
 
   if(!profile || profile.role !== 'church_admin'){
     document.getElementById('content').textContent = 'This dashboard is only available to church admins.';
@@ -108,17 +115,24 @@ function renderDashboard(rows){
 
   const rowsHtml = rows.map(r => {
     const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
+    const isComplete = r.total_items > 0 && r.items_completed === r.total_items;
     return `
-      <tr data-student-id="${r.student_id}" data-course-id="${r.course_id}">
-        <td class="student-name">${r.full_name || 'Unnamed student'}</td>
-        <td>${r.course_title}</td>
-        <td>
+      <tr>
+        <td class="student-name clickable-cell" data-student-id="${r.student_id}" data-course-id="${r.course_id}">${r.full_name || 'Unnamed student'}</td>
+        <td class="clickable-cell" data-student-id="${r.student_id}" data-course-id="${r.course_id}">${r.course_title}</td>
+        <td class="clickable-cell" data-student-id="${r.student_id}" data-course-id="${r.course_id}">
           <div class="bar-wrap">
             <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
             <span class="bar-text">${r.items_completed}/${r.total_items}</span>
           </div>
         </td>
         <td>${new Date(r.enrolled_at).toLocaleDateString()}</td>
+        <td>
+          <div class="row-actions">
+            ${isComplete ? `<button class="mini-btn gold" data-view-cert="${r.student_id}" data-cert-course="${r.course_id}">🏅 Certificate</button>` : ''}
+            <button class="mini-btn danger" data-unenroll="${r.enrollment_id}" data-name="${(r.full_name||'this student').replace(/"/g,'')}">Unenroll</button>
+          </div>
+        </td>
       </tr>`;
   }).join('');
 
@@ -129,13 +143,32 @@ function renderDashboard(rows){
       <div class="summary-card"><div class="num">${avgPct}%</div><div class="label">Average progress</div></div>
     </div>
     <table>
-      <thead><tr><th>Student</th><th>Course</th><th>Progress</th><th>Enrolled</th></tr></thead>
+      <thead><tr><th>Student</th><th>Course</th><th>Progress</th><th>Enrolled</th><th>Actions</th></tr></thead>
       <tbody>${rowsHtml}</tbody>
     </table>
   `;
 
-  document.querySelectorAll('tbody tr').forEach(tr => {
-    tr.addEventListener('click', () => renderStudentDetail(tr.dataset.studentId, tr.dataset.courseId));
+  document.querySelectorAll('td.clickable-cell').forEach(td => {
+    td.addEventListener('click', () => renderStudentDetail(td.dataset.studentId, td.dataset.courseId));
+  });
+
+  document.querySelectorAll('[data-unenroll]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if(!confirm(`Unenroll ${btn.dataset.name} from this course? Their progress and answers will be permanently deleted.`)) return;
+      await supabaseClient.from('enrollments').delete().eq('id', btn.dataset.unenroll);
+      allRows = allRows.filter(r => r.enrollment_id !== btn.dataset.unenroll);
+      renderDashboard(allRows);
+    });
+  });
+
+  document.querySelectorAll('[data-view-cert]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const { data: cert } = await supabaseClient.from('certificates').select('certificate_code').eq('student_id', btn.dataset.viewCert).eq('course_id', btn.dataset.certCourse).maybeSingle();
+      if(cert) window.open(`certificate.html?code=${cert.certificate_code}`, '_blank');
+      else alert('No certificate found yet for this student.');
+    });
   });
 }
 

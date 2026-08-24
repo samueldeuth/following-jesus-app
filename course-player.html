@@ -338,7 +338,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 function getChurchSlug(){
-  const pathMatch = window.location.pathname.match(/\/c\/([^\/]+)/);
+  const pathMatch = window.location.pathname.match(/\/courses\/([^\/]+)/);
   if(pathMatch) return pathMatch[1];
   const params = new URLSearchParams(window.location.search);
   return params.get('church') || 'default';
@@ -689,9 +689,12 @@ async function renderProfile(){
   // Certificate buttons are their own click target — stop the click from
   // also bubbling to the row's own "go to this course" handler below.
   document.querySelectorAll('.profile-cert-link').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      alert('Wire this up to your certificates table — this is where a finished course links to its actual certificate page once that exists.');
+      const courseId = btn.dataset.certCourse;
+      const { data: cert } = await supabaseClient.from('certificates').select('certificate_code').eq('student_id', currentUser.id).eq('course_id', courseId).maybeSingle();
+      if(cert) window.location.href = `certificate.html?code=${cert.certificate_code}`;
+      else alert("Your certificate is still being issued — try again in a moment.");
     });
   });
 
@@ -886,7 +889,11 @@ function renderPlayer(item){
 
   document.getElementById('back-link').addEventListener('click', renderHero);
   const certBtn = document.getElementById('cert-btn');
-  if(certBtn) certBtn.addEventListener('click', () => alert('Wire this up to your certificates table once a course hits 100%.'));
+  if(certBtn) certBtn.addEventListener('click', async () => {
+    const { data: cert } = await supabaseClient.from('certificates').select('certificate_code').eq('student_id', currentUser.id).eq('course_id', course.id).maybeSingle();
+    if(cert) window.location.href = `certificate.html?code=${cert.certificate_code}`;
+    else alert("Your certificate is still being issued — try again in a moment, or finish any remaining items first.");
+  });
   document.getElementById('survey-link').addEventListener('click', () => { renderSurvey(); closeMobileDrawer(); });
   bindAuthStatusLinks();
 
@@ -1142,7 +1149,32 @@ async function toggleComplete(item){
   }, { onConflict: 'student_id,item_id' });
 
   if(nowDone) doneItemIds.add(item.id); else doneItemIds.delete(item.id);
+
+  const totalItems = sessions.reduce((n,s)=>n+s.session_items.length,0);
+  const completedCount = sessions.reduce((n,s)=>n+s.session_items.filter(i=>doneItemIds.has(i.id)).length,0);
+  if(nowDone && totalItems > 0 && completedCount === totalItems){
+    await issueCertificateIfNeeded();
+  }
+
   renderPlayer(item);
+}
+
+// Creates a certificate row the moment someone finishes their last item —
+// only if one doesn't already exist for this student+course, so
+// re-checking/unchecking items later never creates duplicates.
+async function issueCertificateIfNeeded(){
+  const { data: existing } = await supabaseClient
+    .from('certificates').select('id').eq('student_id', currentUser.id).eq('course_id', course.id).maybeSingle();
+  if(existing) return;
+
+  const code = Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 6);
+  const { data: profile } = await supabaseClient.from('profiles').select('church_id').eq('id', currentUser.id).maybeSingle();
+  await supabaseClient.from('certificates').insert({
+    certificate_code: code,
+    student_id: currentUser.id,
+    church_id: profile ? profile.church_id : null,
+    course_id: course.id
+  });
 }
 
 init();

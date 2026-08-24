@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard — Following Jesus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --ink:#17191D; --ink-soft:#6B7280; --blue:#3E82F7; --red:#C0392B;
+    --bg:#FFFFFF; --bg-soft:#F4F4F2; --line:#E4E3DD; --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  header{padding:24px 24px 18px;border-bottom:1px solid var(--line);}
+  .logo-badge{
+    background:var(--ink);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:700;
+    letter-spacing:0.14em;font-size:12px;padding:10px 14px;text-transform:uppercase;display:inline-block;margin-bottom:14px;
+  }
+  header h1{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:24px;margin:0;}
+  main{max-width:960px;margin:0 auto;padding:28px 24px 80px;}
+
+  .summary-row{display:flex;gap:12px;margin-bottom:26px;flex-wrap:wrap;}
+  .summary-card{background:var(--bg-soft);border-radius:var(--radius);padding:16px 18px;min-width:150px;flex:1;}
+  .summary-card .num{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;}
+  .summary-card .label{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+
+  table{width:100%;border-collapse:collapse;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:24px;}
+  thead th{
+    text-align:left;font-size:11.5px;letter-spacing:0.05em;text-transform:uppercase;color:var(--ink-soft);
+    padding:12px 16px;border-bottom:1px solid var(--line);background:var(--bg-soft);
+  }
+  tbody td{padding:14px 16px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr.clickable{cursor:pointer;}
+  tbody tr.clickable:hover{background:var(--bg-soft);}
+  .student-name{font-weight:600;}
+  .student-email{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .bar-wrap{display:flex;align-items:center;gap:10px;}
+  .bar-track{flex:1;height:7px;background:var(--bg-soft);border-radius:4px;overflow:hidden;min-width:70px;}
+  .bar-fill{height:100%;background:var(--ink);}
+  .bar-text{font-size:12px;color:var(--ink-soft);white-space:nowrap;}
+  .loading{padding:60px 20px;text-align:center;color:var(--ink-soft);font-size:13px;}
+  .group-tag{font-size:11.5px;background:var(--bg-soft);border-radius:5px;padding:3px 8px;display:inline-block;}
+  .no-group{font-size:12px;color:var(--ink-soft);font-style:italic;}
+
+  .back-link{font-size:13px;color:var(--ink-soft);cursor:pointer;display:inline-block;margin-bottom:14px;}
+  .row-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .mini-btn{
+    border:1.5px solid var(--line);background:#fff;border-radius:6px;padding:6px 11px;
+    font-size:12px;font-weight:600;cursor:pointer;color:var(--ink);white-space:nowrap;
+  }
+  .mini-btn.danger{border-color:var(--red);color:var(--red);}
+  .mini-btn.gold{border-color:#B08D3E;color:#B08D3E;}
+
+  .qa-block{border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;}
+  .qa-session{font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-soft);margin-bottom:6px;}
+  .qa-question{font-weight:600;font-size:14.5px;margin-bottom:6px;}
+  .qa-answer{font-size:14px;color:var(--ink);margin-bottom:10px;white-space:pre-wrap;}
+  .qa-answer.empty{color:var(--ink-soft);font-style:italic;}
+  .qa-reply{background:var(--bg-soft);border-radius:8px;padding:10px 12px;font-size:13.5px;margin-bottom:8px;}
+  .qa-reply .label{font-size:11px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:3px;}
+  .reply-box{width:100%;border:1.5px solid var(--line);border-radius:8px;padding:10px;font-family:'Inter',sans-serif;font-size:13.5px;min-height:60px;}
+  .reply-btn{margin-top:8px;background:var(--ink);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12.5px;font-weight:600;cursor:pointer;}
+
+  .panel{border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:20px;}
+  .panel h3{font-family:'Space Grotesk',sans-serif;font-size:15px;margin:0 0 12px;}
+  .group-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
+  .group-row:last-child{border-bottom:none;}
+  .new-group-form{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .new-group-form input{flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:6px;padding:8px 10px;font-size:13px;font-family:'Inter',sans-serif;}
+  .new-group-form button{background:var(--ink);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;}
+
+  select.group-select{border:1.5px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12.5px;font-family:'Inter',sans-serif;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-badge">Following Jesus</div>
+  <h1>Admin Dashboard</h1>
+</header>
+
+<main><div id="content" class="loading">Loading…</div></main>
+
+<script>
+const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentAdminId = null;
+let allRows = [];
+let allChurches = [];
+let activeChurchId = null; // null = "all churches" overview
+
+async function init(){
+  const content = document.getElementById('content');
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if(!user){ content.textContent = 'Please sign in as an admin to view this dashboard.'; return; }
+  currentAdminId = user.id;
+
+  const { data: profile } = await supabaseClient.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  if(!profile || profile.role !== 'super_admin'){
+    content.textContent = 'This dashboard is only available to Following Jesus admins.';
+    return;
+  }
+
+  const [{ data: rows, error: rowsErr }, { data: churches }] = await Promise.all([
+    supabaseClient.from('all_student_progress').select('*').order('full_name', { ascending: true }),
+    supabaseClient.from('churches').select('*').order('name', { ascending: true })
+  ]);
+
+  if(rowsErr || !rows){ content.textContent = 'Could not load student data.'; return; }
+  allRows = rows;
+  allChurches = churches || [];
+  renderChurchesOverview();
+}
+
+/* ---------- Level 1: all churches ---------- */
+function renderChurchesOverview(){
+  activeChurchId = null;
+  const totalChurches = allChurches.length;
+  const totalStudents = allRows.length;
+  const totalCompleted = allRows.filter(r => r.total_items > 0 && r.items_completed === r.total_items).length;
+
+  const churchRowsHtml = allChurches.map(ch => {
+    const churchRows = allRows.filter(r => r.church_id === ch.id);
+    const pct = churchRows.length
+      ? Math.round(churchRows.reduce((sum,r) => sum + (r.total_items ? r.items_completed/r.total_items : 0), 0) / churchRows.length * 100)
+      : 0;
+    return `
+      <tr class="clickable" data-church-id="${ch.id}">
+        <td class="student-name">${ch.name}</td>
+        <td>${churchRows.length}</td>
+        <td>
+          <div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${pct}%</span></div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  const noChurchRows = allRows.filter(r => !r.church_id);
+
+  document.getElementById('content').innerHTML = `
+    <div class="summary-row">
+      <div class="summary-card"><div class="num">${totalChurches}</div><div class="label">Churches</div></div>
+      <div class="summary-card"><div class="num">${totalStudents}</div><div class="label">Total students</div></div>
+      <div class="summary-card"><div class="num">${totalCompleted}</div><div class="label">Finished a course</div></div>
+    </div>
+    <table>
+      <thead><tr><th>Church</th><th>Students</th><th>Avg. Progress</th></tr></thead>
+      <tbody>${churchRowsHtml || '<tr><td colspan="3" style="color:var(--ink-soft);">No churches yet.</td></tr>'}</tbody>
+    </table>
+    ${noChurchRows.length ? `<button class="mini-btn" id="view-no-church">View ${noChurchRows.length} student${noChurchRows.length===1?'':'s'} with no church assigned →</button>` : ''}
+  `;
+
+  document.querySelectorAll('tbody tr.clickable').forEach(tr => {
+    tr.addEventListener('click', () => renderChurchStudents(tr.dataset.churchId));
+  });
+  const noChurchBtn = document.getElementById('view-no-church');
+  if(noChurchBtn) noChurchBtn.addEventListener('click', () => renderChurchStudents(null));
+}
+
+/* ---------- Level 2: students within a church ---------- */
+async function renderChurchStudents(churchId){
+  activeChurchId = churchId;
+  const church = allChurches.find(c => c.id === churchId);
+  const rows = allRows.filter(r => churchId ? r.church_id === churchId : !r.church_id);
+  const groups = churchId ? await fetchGroups(churchId) : [];
+
+  const rowsHtml = rows.map(r => {
+    const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
+    const isComplete = r.total_items > 0 && r.items_completed === r.total_items;
+    const groupOptions = groups.map(g => `<option value="${g.id}" ${r.group_id===g.id?'selected':''}>${g.name}</option>`).join('');
+    return `
+      <tr data-student-id="${r.student_id}" data-course-id="${r.course_id}" data-enrollment-id="${r.enrollment_id}">
+        <td class="clickable-cell" data-open="true">
+          <div class="student-name">${r.full_name || 'Unnamed student'}</div>
+          <div class="student-email">${r.student_email || ''}</div>
+        </td>
+        <td class="clickable-cell" data-open="true">
+          <div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${r.items_completed}/${r.total_items}</span></div>
+        </td>
+        <td>
+          ${groups.length ? `<select class="group-select" data-enrollment-id="${r.enrollment_id}"><option value="">No group</option>${groupOptions}</select>` : `<span class="no-group">${r.group_name || '—'}</span>`}
+        </td>
+        <td>
+          <div class="row-actions">
+            ${isComplete ? `<button class="mini-btn gold" data-view-cert="${r.student_id}" data-cert-course="${r.course_id}">🏅 Certificate</button>` : ''}
+            <button class="mini-btn danger" data-unenroll="${r.enrollment_id}" data-name="${(r.full_name||'this student').replace(/"/g,'')}">Unenroll</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  document.getElementById('content').innerHTML = `
+    <div class="back-link" id="back-to-churches">&larr; All Churches</div>
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">${church ? church.name : 'No Church Assigned'}</h2>
+    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:22px;">${rows.length} student${rows.length===1?'':'s'}</p>
+
+    ${churchId ? `
+    <div class="panel">
+      <h3>Discipleship Groups</h3>
+      <div id="groups-list">${groups.map(g => `<div class="group-row"><span>${g.name}${g.leader_name ? ` — led by ${g.leader_name}` : ''}</span></div>`).join('') || '<p style="color:var(--ink-soft);font-size:13px;margin:0;">No groups yet.</p>'}</div>
+      <div class="new-group-form">
+        <input type="text" id="new-group-name" placeholder="Group name (e.g. Wednesday Night)" />
+        <input type="text" id="new-group-leader" placeholder="Leader's name" />
+        <button id="create-group-btn">+ Add Group</button>
+      </div>
+    </div>` : ''}
+
+    <table>
+      <thead><tr><th>Student</th><th>Progress</th><th>Group</th><th>Actions</th></tr></thead>
+      <tbody>${rowsHtml || '<tr><td colspan="4" style="color:var(--ink-soft);">No students here yet.</td></tr>'}</tbody>
+    </table>
+  `;
+
+  document.getElementById('back-to-churches').addEventListener('click', renderChurchesOverview);
+
+  document.querySelectorAll('td.clickable-cell').forEach(td => {
+    td.style.cursor = 'pointer';
+    td.addEventListener('click', () => {
+      const tr = td.closest('tr');
+      renderStudentDetail(tr.dataset.studentId, tr.dataset.courseId);
+    });
+  });
+
+  document.querySelectorAll('[data-unenroll]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if(!confirm(`Unenroll ${btn.dataset.name} from this course? Their progress and answers will be permanently deleted.`)) return;
+      await supabaseClient.from('enrollments').delete().eq('id', btn.dataset.unenroll);
+      allRows = allRows.filter(r => r.enrollment_id !== btn.dataset.unenroll);
+      renderChurchStudents(churchId);
+    });
+  });
+
+  document.querySelectorAll('[data-view-cert]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const { data: cert } = await supabaseClient.from('certificates').select('certificate_code').eq('student_id', btn.dataset.viewCert).eq('course_id', btn.dataset.certCourse).maybeSingle();
+      if(cert) window.open(`certificate.html?code=${cert.certificate_code}`, '_blank');
+      else alert('No certificate found yet for this student.');
+    });
+  });
+
+  document.querySelectorAll('.group-select').forEach(sel => {
+    sel.addEventListener('click', (e) => e.stopPropagation());
+    sel.addEventListener('change', async () => {
+      await supabaseClient.from('enrollments').update({ group_id: sel.value || null }).eq('id', sel.dataset.enrollmentId);
+      const row = allRows.find(r => r.enrollment_id === sel.dataset.enrollmentId);
+      if(row){
+        row.group_id = sel.value || null;
+        const g = groups.find(g => g.id === sel.value);
+        row.group_name = g ? g.name : null;
+      }
+    });
+  });
+
+  const createBtn = document.getElementById('create-group-btn');
+  if(createBtn) createBtn.addEventListener('click', async () => {
+    const name = document.getElementById('new-group-name').value.trim();
+    const leader = document.getElementById('new-group-leader').value.trim();
+    if(!name) return;
+    await supabaseClient.from('course_groups').insert({ church_id: churchId, name, leader_name: leader || null });
+    renderChurchStudents(churchId);
+  });
+}
+
+async function fetchGroups(churchId){
+  const { data } = await supabaseClient.from('course_groups').select('*').eq('church_id', churchId).order('name');
+  return data || [];
+}
+
+/* ---------- Level 3: student detail — Q&A + reply ---------- */
+async function renderStudentDetail(studentId, courseId){
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="loading">Loading student answers...</div>';
+
+  const row = allRows.find(r => r.student_id === studentId && r.course_id === courseId);
+
+  const { data: sessions } = await supabaseClient
+    .from('sessions').select('*, session_items(*)').eq('course_id', courseId).order('sort_order');
+
+  const discussionItems = (sessions||[]).flatMap(s => (s.session_items||[]).filter(i=>i.type==='discussion').map(i=>({...i, sessionTitle: s.title})));
+  const itemIds = discussionItems.map(i=>i.id);
+
+  const { data: questions } = itemIds.length
+    ? await supabaseClient.from('discussion_questions').select('*').in('item_id', itemIds).order('sort_order')
+    : { data: [] };
+
+  const questionIds = (questions||[]).map(q=>q.id);
+  const { data: responses } = questionIds.length
+    ? await supabaseClient.from('discussion_responses').select('*').eq('student_id', studentId).in('question_id', questionIds)
+    : { data: [] };
+  const responseByQ = {};
+  (responses||[]).forEach(r => { responseByQ[r.question_id] = r; });
+
+  const blocksHtml = discussionItems.map(item => {
+    const itemQuestions = (questions||[]).filter(q=>q.item_id===item.id);
+    return itemQuestions.map(q => {
+      const r = responseByQ[q.id];
+      return `
+        <div class="qa-block">
+          <div class="qa-session">${item.sessionTitle}</div>
+          <div class="qa-question">${q.question_text}</div>
+          <div class="qa-answer ${r?.response_text ? '' : 'empty'}">${r?.response_text || 'No answer yet'}</div>
+          ${r?.admin_reply ? `<div class="qa-reply"><div class="label">Reply</div>${r.admin_reply}</div>` : ''}
+          ${r ? `
+            <textarea class="reply-box" data-response-id="${r.id}" placeholder="Write a reply...">${r.admin_reply || ''}</textarea>
+            <button class="reply-btn" data-response-id="${r.id}">Send Reply</button>` : ''}
+        </div>`;
+    }).join('');
+  }).join('');
+
+  content.innerHTML = `
+    <div class="back-link" id="back-to-list">&larr; Back to ${row?.church_name || 'students'}</div>
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin-bottom:4px;">${row?.full_name || 'Student'}</h2>
+    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:24px;">${row?.course_title || ''} · ${row?.student_email || ''}</p>
+    ${blocksHtml || '<p style="color:var(--ink-soft);">No discussion questions found for this course.</p>'}
+  `;
+
+  document.getElementById('back-to-list').addEventListener('click', () => renderChurchStudents(activeChurchId));
+
+  content.querySelectorAll('.reply-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const responseId = btn.dataset.responseId;
+      const textarea = content.querySelector(`textarea[data-response-id="${responseId}"]`);
+      btn.textContent = 'Sending...';
+      await supabaseClient.from('discussion_responses').update({
+        admin_reply: textarea.value,
+        admin_reply_by: currentAdminId,
+        admin_reply_at: new Date().toISOString()
+      }).eq('id', responseId);
+      btn.textContent = 'Sent ✓';
+      setTimeout(() => { btn.textContent = 'Send Reply'; }, 1500);
+    });
+  });
+}
+
+init();
+</script>
+</body>
+</html>
