@@ -382,6 +382,16 @@ async function init(){
   const { data: { user } } = await supabaseClient.auth.getUser();
   currentUser = user;
 
+  // If we were sent here specifically to sign in before reaching an admin
+  // page (via ?return_to=/admin or /dashboard), and signing in just
+  // succeeded, go straight there instead of showing the course landing
+  // page first.
+  const returnTo = new URLSearchParams(window.location.search).get('return_to');
+  if(returnTo && currentUser){
+    window.location.href = returnTo;
+    return;
+  }
+
   const courseIdParam = getCourseIdParam();
   let courseQuery = supabaseClient.from('courses').select('*, sessions(*, session_items(*))');
   courseQuery = courseIdParam ? courseQuery.eq('id', courseIdParam) : courseQuery.eq('is_free', true).limit(1);
@@ -623,7 +633,14 @@ async function handleGoogleAuth(){
   // without forcing "start course" on someone who just clicked plain Sign In.
   await supabaseClient.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.href }
+    options: {
+      redirectTo: window.location.href,
+      // Forces Google's account picker to show every time, instead of
+      // silently auto-selecting whichever Google account was used most
+      // recently in this browser — important here since one browser is
+      // often used to test multiple different accounts/roles.
+      queryParams: { prompt: 'select_account' }
+    }
   });
   // Page redirects to Google, then back here — init() below picks up the
   // logged-in session and the pending-start flag (if any) after reload.
@@ -650,7 +667,7 @@ async function renderProfile(){
   if(myProfile?.role === 'super_admin'){
     adminLinkHtml = `<a class="profile-admin-link" href="/admin">⚙️ Admin Dashboard</a>`;
   } else if(myProfile?.role === 'church_admin'){
-    adminLinkHtml = `<a class="profile-admin-link" href="/dashboard">⚙️ Church Dashboard</a>`;
+    adminLinkHtml = `<a class="profile-admin-link" href="/dashboard">⚙️ Church Admin Dashboard</a>`;
   }
 
   const coursesHtml = (allCourses || []).map(c => {

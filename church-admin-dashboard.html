@@ -104,7 +104,7 @@ function renderAccountInfo(email){
       window.location.reload();
     });
   } else {
-    el.innerHTML = `<a href="course-player.html" style="font-size:12.5px;color:var(--ink);font-weight:600;">Sign in →</a>`;
+    el.innerHTML = `<a href="course-player.html?return_to=${encodeURIComponent(window.location.pathname)}" style="font-size:12.5px;color:var(--ink);font-weight:600;">Sign in →</a>`;
   }
 }
 
@@ -112,7 +112,10 @@ async function init(){
   const { data: { user } } = await supabaseClient.auth.getUser();
   if(!user){
     renderAccountInfo(null);
-    document.getElementById('content').textContent = 'Please sign in as a church admin to view this dashboard.';
+    document.getElementById('content').innerHTML = `
+      <p style="color:var(--ink-soft);margin-bottom:14px;">Please sign in as a church admin to view this dashboard.</p>
+      <a href="course-player.html?return_to=/dashboard" style="display:inline-block;background:var(--ink);color:#fff;text-decoration:none;padding:11px 22px;border-radius:8px;font-weight:600;font-size:14px;">Sign In</a>
+    `;
     return;
   }
   currentAdminId = user.id;
