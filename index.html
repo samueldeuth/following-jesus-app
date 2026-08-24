@@ -4323,14 +4323,40 @@ async function renderDiscipleshipHub() {
   );
 }
 
+// Gives every visitor a real, persistent Supabase identity from their
+// very first visit — silently, with zero friction. This is what makes
+// "no login required to start" and "a real, unified account" both true
+// at once: signInAnonymously() creates a genuine auth.users row with no
+// email, password, or any other info required, and later, when someone
+// wants to become a leader or get discipled, this SAME identity gets
+// upgraded (Google sign-in, or email/password) without losing anything
+// — same user id, same data, the whole way through.
+async function ensureRealIdentity() {
+  if (!supabaseClient) {
+    // Supabase not available for some reason — fall back to the old
+    // local-only identity so the app still works.
+    const account = await dSafeGet('account');
+    if (!account.id) { account.id = uid(); await dSafeSet('account', account); }
+    return account.id;
+  }
+
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (session?.user) return session.user.id;
+
+  const { data, error } = await supabaseClient.auth.signInAnonymously();
+  if (error || !data?.user) {
+    // Anonymous sign-in failed (rare — e.g. rate limited) — fall back to
+    // local-only identity rather than blocking the app entirely.
+    const account = await dSafeGet('account');
+    if (!account.id) { account.id = uid(); await dSafeSet('account', account); }
+    return account.id;
+  }
+  return data.user.id;
+}
+
 // ---------- Entry point: called from renderDiscipleStep() once intent is known ----------
 async function renderDiscipleshipApp() {
-  const account = await dSafeGet('account');
-  if (!account.id) {
-    account.id = uid();
-    await dSafeSet('account', account);
-  }
-  myId = account.id;
+  myId = await ensureRealIdentity();
   if (window.pendingJoinCode) { topView = 'disciple'; }
   await render();
 }
