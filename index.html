@@ -2132,7 +2132,7 @@
 
   async function renderProfileSettings(editMode) {
     const account = await dSafeGet('account');
-    const leaderApp = account ? await safeGet(`leader-application:${account.id}`, true) : null;
+    const leaderApp = account ? await getLeaderApplication(account.id) : null;
     const approvalHtml = (leaderApp && leaderApp.status === 'approved')
       ? `<div class="approval-badge">✓ Approved as a leader by ${escapeHtmlMain(leaderApp.pastorName)} at ${escapeHtmlMain(leaderApp.church)}</div>`
       : '';
@@ -3194,7 +3194,7 @@ async function render() {
 
 // ============ LEADER ============
 async function renderMentor() {
-  const application = await safeGet(`leader-application:${myId}`, true);
+  const application = await getLeaderApplication(myId);
 
   if (!application) {
     main.innerHTML = `
@@ -3216,7 +3216,7 @@ async function renderMentor() {
       const pastorName = document.getElementById('appPastorName').value.trim();
       const pastorEmail = document.getElementById('appPastorEmail').value.trim();
       if (!name || !church || !pastorName || !pastorEmail) { await showAppAlert('Please fill in every field.'); return; }
-      await safeSet(`leader-application:${myId}`, { name, church, pastorName, pastorEmail, status: 'pending', submittedAt: Date.now() }, true);
+      await submitLeaderApplication({ name, church, pastorName, pastorEmail });
       render();
     };
     return;
@@ -3232,8 +3232,7 @@ async function renderMentor() {
       </div>`;
     document.getElementById('backToHubBtn').onclick = () => { topView = 'hub'; render(); };
     document.getElementById('simulateApproveBtn').onclick = async () => {
-      application.status = 'approved';
-      await safeSet(`leader-application:${myId}`, application, true);
+      await approveOwnLeaderApplication();
       topView = 'hub';
       render();
     };
@@ -3304,7 +3303,7 @@ async function renderGroupDetail(code) {
   const allDisciples = (await safeGet(`leader-disciples:${myId}`, true)) || [];
   const members = allDisciples.filter(d => memberIds.includes(d.id));
   const notInGroup = allDisciples.filter(d => !memberIds.includes(d.id));
-  const application = await safeGet(`leader-application:${myId}`, true);
+  const application = await getLeaderApplication(myId);
   const myName = application ? application.name : 'Leader';
 
   const groupMessages = (await safeGet(`group-messages:${code}`, true)) || [];
@@ -3658,7 +3657,7 @@ async function attemptJoinGroup(codeInput) {
     return { ok: false, error: "You're already in this group." };
   }
 
-  const leaderApp = await safeGet(`leader-application:${group.leaderId}`, true);
+  const leaderApp = await getLeaderApplication(group.leaderId);
   if (!(await showAppConfirm(`Join "${group.label}"?\n\nLed by ${leaderApp ? leaderApp.name : 'this leader'}`))) {
     return { ok: false, cancelled: true };
   }
@@ -3725,7 +3724,7 @@ async function renderDisciple() {
   const progress = (await safeGet(`progress:${myId}`, true)) || {};
   const messages = (await safeGet(`messages:${leaderId}:${myId}`, true)) || [];
   const myGroups = (await safeGet(`disciple-groups:${myId}`, true)) || [];
-  const leaderApp = await safeGet(`leader-application:${leaderId}`, true);
+  const leaderApp = await getLeaderApplication(leaderId);
   const leaderName = leaderApp ? leaderApp.name : 'Your Leader';
   const walkoutProgress = (await safeGet(`walkout-progress:${myId}`, true)) || {};
 
@@ -3768,7 +3767,7 @@ async function renderDisciple() {
     // Each group can have its own leader, so this can't reuse the outer
     // singular leaderName/messages — those are just for the "no groups yet"
     // fallback case further down.
-    const gLeaderApp = await safeGet(`leader-application:${g.leaderId}`, true);
+    const gLeaderApp = await getLeaderApplication(g.leaderId);
     const gLeaderName = gLeaderApp ? gLeaderApp.name : 'Your Leader';
     const gLeaderProfile = await safeGet(`profile:${g.leaderId}`, true);
     const gLeaderPhoto = gLeaderProfile ? gLeaderProfile.photoUrl : null;
@@ -4104,7 +4103,7 @@ function showShareModal(code, label) {
 // ---------- Solo (self-guided, no leader needed) ----------
 async function renderDiscipleshipHub() {
   const account = await dSafeGet('account');
-  const leaderApp = await safeGet(`leader-application:${myId}`, true);
+  const leaderApp = await getLeaderApplication(myId);
   const membership = await safeGet(`disciple-membership:${myId}`, true);
   const progress = (await safeGet(`progress:${myId}`, true)) || {};
   const walkoutProgress = (await safeGet(`walkout-progress:${myId}`, true)) || {};
@@ -4331,27 +4330,73 @@ async function renderDiscipleshipHub() {
 // wants to become a leader or get discipled, this SAME identity gets
 // upgraded (Google sign-in, or email/password) without losing anything
 // — same user id, same data, the whole way through.
+// ---------- Leader applications (Phase 2 — now on the real relational
+// table instead of shared_kv). These three functions are the ONLY
+// places that touch leader_applications directly — everywhere else in
+// the app keeps reading the same {name, church, pastorName, pastorEmail,
+// status} shape it always has, so this migration doesn't ripple out
+// into every rendering function that displays this data.
+async function getLeaderApplication(userId) {
+  if (!supabaseClient || !userId) return null;
+  const { data } = await supabaseClient.from('leader_applications').select('*').eq('applicant_id', userId).maybeSingle();
+  if (!data) return null;
+  return {
+    name: data.name, church: data.church, pastorName: data.pastor_name,
+    pastorEmail: data.pastor_email, status: data.status, submittedAt: data.applied_at
+  };
+}
+
+async function submitLeaderApplication(fields) {
+  await supabaseClient.from('leader_applications').upsert({
+    applicant_id: myId,
+    name: fields.name,
+    church: fields.church,
+    pastor_name: fields.pastorName,
+    pastor_email: fields.pastorEmail,
+    status: 'pending'
+  }, { onConflict: 'applicant_id' });
+}
+
+async function approveOwnLeaderApplication() {
+  await supabaseClient.from('leader_applications')
+    .update({ status: 'approved', reviewed_at: new Date().toISOString() })
+    .eq('applicant_id', myId);
+}
+
 async function ensureRealIdentity() {
+  const account = await dSafeGet('account');
+
   if (!supabaseClient) {
     // Supabase not available for some reason — fall back to the old
     // local-only identity so the app still works.
-    const account = await dSafeGet('account');
     if (!account.id) { account.id = uid(); await dSafeSet('account', account); }
     return account.id;
   }
 
   const { data: { session } } = await supabaseClient.auth.getSession();
-  if (session?.user) return session.user.id;
+  let resolvedId = session?.user?.id;
 
-  const { data, error } = await supabaseClient.auth.signInAnonymously();
-  if (error || !data?.user) {
-    // Anonymous sign-in failed (rare — e.g. rate limited) — fall back to
-    // local-only identity rather than blocking the app entirely.
-    const account = await dSafeGet('account');
-    if (!account.id) { account.id = uid(); await dSafeSet('account', account); }
-    return account.id;
+  if (!resolvedId) {
+    const { data, error } = await supabaseClient.auth.signInAnonymously();
+    if (error || !data?.user) {
+      // Anonymous sign-in failed (rare — e.g. rate limited) — fall back
+      // to local-only identity rather than blocking the app entirely.
+      if (!account.id) { account.id = uid(); await dSafeSet('account', account); }
+      return account.id;
+    }
+    resolvedId = data.user.id;
   }
-  return data.user.id;
+
+  // A lot of existing code (profile photo uploads, profile saves, the
+  // leader-application lookup, etc.) still reads the local account
+  // object's own .id field directly — keep it in sync with the real
+  // identity so all of that keeps working consistently with myId,
+  // rather than silently drifting apart.
+  if (account.id !== resolvedId) {
+    account.id = resolvedId;
+    await dSafeSet('account', account);
+  }
+  return resolvedId;
 }
 
 // ---------- Entry point: called from renderDiscipleStep() once intent is known ----------
