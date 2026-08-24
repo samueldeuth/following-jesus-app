@@ -82,6 +82,12 @@
   .field-textarea{min-height:90px;resize:vertical;font-family:'Inter',sans-serif;}
   .field-hint{font-size:11.5px;color:var(--ink-soft);margin:5px 0 0;}
   .field-section-title{font-family:'Space Grotesk',sans-serif;font-size:13.5px;margin:22px 0 2px;padding-top:16px;border-top:1px solid var(--line);}
+  .color-field-row{display:flex;gap:8px;align-items:stretch;}
+  .color-field-row .field-input{flex:1;}
+  .color-swatch{
+    width:44px;height:auto;border:1.5px solid var(--line);border-radius:6px;padding:2px;
+    cursor:pointer;background:#fff;flex-shrink:0;
+  }
 </style>
 </head>
 <body>
@@ -239,6 +245,10 @@ async function renderChurchStudents(churchId){
     const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
     const isComplete = r.total_items > 0 && r.items_completed === r.total_items;
     const groupOptions = groups.map(g => `<option value="${g.id}" ${r.group_id===g.id?'selected':''}>${g.name}</option>`).join('');
+    const churchOptions = allChurches.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    const assignmentCell = churchId
+      ? (groups.length ? `<select class="group-select" data-enrollment-id="${r.enrollment_id}"><option value="">No group</option>${groupOptions}</select>` : `<span class="no-group">${r.group_name || '—'}</span>`)
+      : `<select class="church-assign-select" data-enrollment-id="${r.enrollment_id}" data-student-id="${r.student_id}"><option value="">Assign a church…</option>${churchOptions}</select>`;
     return `
       <tr data-student-id="${r.student_id}" data-course-id="${r.course_id}" data-enrollment-id="${r.enrollment_id}">
         <td class="clickable-cell" data-open="true">
@@ -249,7 +259,7 @@ async function renderChurchStudents(churchId){
           <div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${r.items_completed}/${r.total_items}</span></div>
         </td>
         <td>
-          ${groups.length ? `<select class="group-select" data-enrollment-id="${r.enrollment_id}"><option value="">No group</option>${groupOptions}</select>` : `<span class="no-group">${r.group_name || '—'}</span>`}
+          ${assignmentCell}
         </td>
         <td>
           <div class="row-actions">
@@ -276,7 +286,10 @@ async function renderChurchStudents(churchId){
       <p class="field-hint">Link: followingjesusapp.netlify.app/courses/${church?.slug || '...'}</p>
 
       <label class="field-label">Accent Color</label>
-      <input type="text" class="field-input" id="edit-church-color" value="${(church?.primary_color||'').replace(/"/g,'&quot;')}" placeholder="#3E82F7" />
+      <div class="color-field-row">
+        <input type="color" class="color-swatch" id="edit-church-color-picker" value="${/^#[0-9a-fA-F]{6}$/.test(church?.primary_color||'') ? church.primary_color : '#3E82F7'}" />
+        <input type="text" class="field-input" id="edit-church-color" value="${(church?.primary_color||'').replace(/"/g,'&quot;')}" placeholder="#3E82F7" />
+      </div>
 
       <h4 class="field-section-title">Welcome Letter (shown on this church's course page instead of the default one)</h4>
       <label class="field-label">Title</label>
@@ -316,6 +329,15 @@ async function renderChurchStudents(churchId){
   `;
 
   document.getElementById('back-to-churches').addEventListener('click', renderChurchesOverview);
+
+  const colorPicker = document.getElementById('edit-church-color-picker');
+  const colorText = document.getElementById('edit-church-color');
+  if(colorPicker && colorText){
+    colorPicker.addEventListener('input', () => { colorText.value = colorPicker.value; });
+    colorText.addEventListener('input', () => {
+      if(/^#[0-9a-fA-F]{6}$/.test(colorText.value)) colorPicker.value = colorText.value;
+    });
+  }
 
   const saveSettingsBtn = document.getElementById('save-church-settings-btn');
   if(saveSettingsBtn) saveSettingsBtn.addEventListener('click', async () => {
@@ -391,6 +413,29 @@ async function renderChurchStudents(churchId){
         const g = groups.find(g => g.id === sel.value);
         row.group_name = g ? g.name : null;
       }
+    });
+  });
+
+  document.querySelectorAll('.church-assign-select').forEach(sel => {
+    sel.addEventListener('click', (e) => e.stopPropagation());
+    sel.addEventListener('change', async () => {
+      if(!sel.value) return;
+      const newChurchId = sel.value;
+      // Update both the enrollment (what the dashboards actually filter
+      // by) and the student's own profile (what the course page itself
+      // uses to show that church's branding when they're logged in), so
+      // the assignment is consistent everywhere.
+      await Promise.all([
+        supabaseClient.from('enrollments').update({ church_id: newChurchId }).eq('id', sel.dataset.enrollmentId),
+        supabaseClient.from('profiles').update({ church_id: newChurchId }).eq('id', sel.dataset.studentId)
+      ]);
+      const row = allRows.find(r => r.enrollment_id === sel.dataset.enrollmentId);
+      if(row){
+        row.church_id = newChurchId;
+        const ch = allChurches.find(c => c.id === newChurchId);
+        row.church_name = ch ? ch.name : null;
+      }
+      renderChurchStudents(null);
     });
   });
 
