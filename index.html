@@ -493,16 +493,6 @@
     line-height: 1.3;
   }
 
-  .today-disciple-counter {
-    display: block; width: calc(100% - 40px); margin: 16px 20px 0;
-    background: none; border: none;
-    padding: 4px 0; text-align: center; cursor: pointer;
-  }
-  .today-disciple-counter span {
-    font-family: var(--font-display); font-size: 12px; font-weight: 700;
-    color: var(--ember); letter-spacing: 0.01em;
-  }
-
   /* Split card (books) */
   .split { display: flex; gap: 12px; }
   .split a { flex: 1; text-decoration: none; background: var(--white); border-radius: 2px; padding: 20px 16px; }
@@ -1586,9 +1576,7 @@
         </a>
       </div>
 
-      <button type="button" class="today-disciple-counter" id="todayDiscipleCounterBtn">
-        <span id="todayDiscipleCounterText">🎉 Loading disciple count…</span>
-      </button>
+      <div class="global-count-banner" id="todayDiscipleCounterText">📣 Loading disciple count…</div>
 
       <footer>
         <div class="fword">Following Jesus</div>
@@ -1838,6 +1826,19 @@
 </div>
 
 <script>
+  // These need to be declared here, at the very top of the script, rather
+  // than further down near the rest of the Supabase setup code — some
+  // code earlier in the file (like the Today tab's disciple counter)
+  // runs immediately as the script loads and depends on
+  // supabaseConfigured being available right away. Since these are all
+  // `const`, referencing them before their own declaration line runs
+  // throws a real error ("temporal dead zone"), not just returns
+  // undefined — this bit Following Jesus once already, worth keeping
+  // these here so it can't happen again.
+  const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
+  const supabaseConfigured = SUPABASE_URL.startsWith('https://') && SUPABASE_ANON_KEY.length > 20;
+
   // ---------- Disciple account & onboarding ----------
   async function dSafeGet(key) {
     try { if (window.storage) { const r = await window.storage.get(key, false); return r ? JSON.parse(r.value) : null; } }
@@ -1879,19 +1880,17 @@
     updateSyncStatusBadge();
     renderDiscipleStep();
   });
-  document.getElementById('todayDiscipleCounterBtn').addEventListener('click', () => {
-    topView = 'leader';
-    discipleModal.classList.add('open');
-    updateSyncStatusBadge();
-    renderDiscipleStep();
-  });
   (async () => {
     try {
       const count = await getGlobalDiscipleCount();
-      document.getElementById('todayDiscipleCounterText').textContent =
-        `🎉 ${count.toLocaleString()} ${count === 1 ? 'disciple' : 'disciples'} made through this app`;
+      const el = document.getElementById('todayDiscipleCounterText');
+      if (el) {
+        el.textContent = `📣 ${count.toLocaleString()} ${count === 1 ? 'disciple' : 'disciples'} made through this app`;
+      }
     } catch (e) {
-      document.getElementById('todayDiscipleCounterText').textContent = '🎉 Disciples made through this app';
+      console.error('Failed to load global disciple count:', e);
+      const el = document.getElementById('todayDiscipleCounterText');
+      if (el) el.textContent = '📣 Disciples made through this app';
     }
   })();
   document.getElementById('discipleModalClose').addEventListener('click', () => {
@@ -3122,14 +3121,14 @@ function genCode() {
 //      (provided alongside this file)
 //   4. Go to Settings -> API and copy the "Project URL" and the
 //      "anon public" key
-//   5. Paste them into the two constants below, replacing the placeholders
+//   5. Paste them into the two constants near the very top of this
+//      <script> tag, replacing the placeholders there
 //
 // Until these are filled in, the app automatically falls back to the same
 // local-only storage it's been using — nothing breaks, it just won't sync
 // across devices yet.
-const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
-const supabaseConfigured = SUPABASE_URL.startsWith('https://') && SUPABASE_ANON_KEY.length > 20;
+// (SUPABASE_URL, SUPABASE_ANON_KEY, and supabaseConfigured are declared
+// at the top of this script, not here — see the comment up there for why.)
 
 // Used specifically for Google Sign-In (via Supabase Auth) — everything
 // else in this app talks to Supabase through plain fetch() calls against
@@ -4071,7 +4070,7 @@ async function renderDiscipleshipHub() {
     </button>
     ${ownJourneySectionHtml(nestedCoursesHtml, isApprovedLeader ? discipleCardHtml : '')}
     ${leaderSectionHtml}
-    <div class="global-count-banner">🎉 ${globalCount.toLocaleString()} ${globalCount === 1 ? 'disciple' : 'disciples'} made through this app</div>
+    <div class="global-count-banner">📣 ${globalCount.toLocaleString()} ${globalCount === 1 ? 'disciple' : 'disciples'} made through this app</div>
     ${renderResourcesHtml()}
   `;
 
