@@ -480,8 +480,13 @@ async function renderChurchStudents(churchId){
       <label class="field-label">Welcome Video (YouTube link, optional)</label>
       <input type="text" class="field-input" id="edit-letter-video" value="${(church?.letter_video_youtube_id||'').replace(/"/g,'&quot;')}" placeholder="https://youtube.com/watch?v=..." />
       <p class="field-hint" style="margin-bottom:8px;">If set, this shows instead of the welcome photo below — paste the full YouTube link, any format works.</p>
-      <label class="field-label">Welcome Photo URL</label>
-      <input type="text" class="field-input" id="edit-letter-image" value="${(church?.letter_image_url||'').replace(/"/g,'&quot;')}" placeholder="https://..." />
+      <label class="field-label">Welcome Photo</label>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+        <input type="file" accept="image/*" id="edit-letter-image-file" style="font-size:12.5px;flex:1;" />
+        <span id="upload-photo-status" style="font-size:12px;color:var(--ink-soft);"></span>
+      </div>
+      <input type="text" class="field-input" id="edit-letter-image" value="${(church?.letter_image_url||'').replace(/"/g,'&quot;')}" placeholder="https://... (or upload a file above)" />
+      <p class="field-hint" style="margin-bottom:8px;">Upload a photo, or paste a link to one already hosted somewhere.</p>
       <label class="field-label">Pastor's Name</label>
       <input type="text" class="field-input" id="edit-letter-author" value="${(church?.letter_author_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. First & Spouse Last" />
       <label class="field-label">Pastor's Title</label>
@@ -540,6 +545,26 @@ async function renderChurchStudents(churchId){
       if(/^#[0-9a-fA-F]{6}$/.test(colorText.value)) colorPicker.value = colorText.value;
     });
   }
+
+  const photoFileInput = document.getElementById('edit-letter-image-file');
+  if(photoFileInput) photoFileInput.addEventListener('change', async () => {
+    const file = photoFileInput.files[0];
+    if(!file) return;
+    const statusEl = document.getElementById('upload-photo-status');
+    statusEl.textContent = 'Uploading...';
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `${churchId}/${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabaseClient.storage.from('church-photos').upload(path, file);
+    if(uploadError){
+      statusEl.textContent = '';
+      alert('Could not upload the photo: ' + uploadError.message);
+      return;
+    }
+    const { data: urlData } = supabaseClient.storage.from('church-photos').getPublicUrl(path);
+    document.getElementById('edit-letter-image').value = urlData.publicUrl;
+    statusEl.textContent = 'Uploaded ✓';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+  });
 
   const saveSettingsBtn = document.getElementById('save-church-settings-btn');
   if(saveSettingsBtn) saveSettingsBtn.addEventListener('click', async () => {
