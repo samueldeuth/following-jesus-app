@@ -22,3 +22,9 @@
 # so the free-tier database never goes to sleep from inactivity.
 [functions."keep-alive-ping"]
   schedule = "0 12 */3 * *"
+
+# Runs every Monday at 14:00 UTC (~9am Eastern / 6am Pacific) — same
+# timezone convention as send-daily-notifications above. Adjust the
+# cron string if 9am should mean a different timezone.
+[functions."send-weekly-course-reminders"]
+  schedule = "0 14 * * 1"
