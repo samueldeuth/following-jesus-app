@@ -51,6 +51,12 @@
     font-family:'Inter',sans-serif;margin-bottom:8px;box-sizing:border-box;
   }
   #sidebar-church-list{overflow-y:auto;flex:1;}
+  .sidebar-add-church{border-top:1px solid var(--line);padding-top:14px;margin-top:10px;flex-shrink:0;}
+  .sidebar-add-church-btn{
+    width:100%;margin-top:8px;background:var(--ink);color:#fff;border:none;border-radius:7px;
+    padding:9px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;
+  }
+  .sidebar-add-church-hint{font-size:10.5px;color:var(--ink-soft);margin:8px 0 0;line-height:1.4;}
   .sidebar-church-item{
     display:flex;justify-content:space-between;align-items:center;gap:6px;
     padding:8px 10px;border-radius:7px;cursor:pointer;font-size:13px;margin-bottom:2px;
@@ -163,6 +169,13 @@
     <div class="sidebar-section-title">Churches (<span id="sidebar-church-count">0</span>)</div>
     <input type="text" class="sidebar-search" id="sidebar-church-search" placeholder="Search churches…" />
     <div id="sidebar-church-list"></div>
+    <div class="sidebar-add-church">
+      <div class="sidebar-section-title" style="margin-top:0;">Add a New Church</div>
+      <input type="text" class="sidebar-search" id="new-church-name" placeholder="Church name (e.g. Acacia Church)" />
+      <input type="text" class="sidebar-search" id="new-church-slug" placeholder="URL slug (e.g. acaciachurch)" style="margin-top:6px;" />
+      <button id="create-church-btn" class="sidebar-add-church-btn">+ Add Church</button>
+      <p class="sidebar-add-church-hint">Becomes: /courses/{slug} — auto-filled from the name, editable.</p>
+    </div>
   </div>
   <div class="sidebar-overlay" id="sidebar-overlay"></div>
   <main><div id="content" class="loading">Loading…</div></main>
@@ -251,7 +264,39 @@ async function init(){
   renderSidebar();
   document.getElementById('sidebar-overview-link').addEventListener('click', renderChurchesOverview);
   document.getElementById('sidebar-church-search').addEventListener('input', renderSidebar);
+  wireAddChurchForm();
   renderChurchesOverview();
+}
+
+// Set up once here, rather than inside renderSidebar/renderChurchesOverview
+// — those get re-run often (every search keystroke, every navigation),
+// and re-wiring this each time would either duplicate event listeners or
+// wipe out whatever someone's already mid-typing in these two fields.
+function wireAddChurchForm(){
+  const nameInput = document.getElementById('new-church-name');
+  const slugInput = document.getElementById('new-church-slug');
+  let slugManuallyEdited = false;
+  slugInput.addEventListener('input', () => { slugManuallyEdited = true; });
+  nameInput.addEventListener('input', () => {
+    if(slugManuallyEdited) return;
+    slugInput.value = nameInput.value.toLowerCase().replace(/[^a-z0-9]/g, '');
+  });
+
+  document.getElementById('create-church-btn').addEventListener('click', async () => {
+    const name = nameInput.value.trim();
+    const slug = slugInput.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if(!name || !slug){ alert('Please enter both a name and a slug.'); return; }
+    if(allChurches.some(c => c.slug === slug)){ alert('That slug is already in use by another church — please choose a different one.'); return; }
+
+    const { data: newChurch, error } = await supabaseClient.from('churches').insert({ name, slug }).select().maybeSingle();
+    if(error || !newChurch){ alert('Could not create the church: ' + (error?.message || 'unknown error')); return; }
+
+    allChurches.push(newChurch);
+    nameInput.value = '';
+    slugInput.value = '';
+    slugManuallyEdited = false;
+    renderChurchStudents(newChurch.id);
+  });
 }
 
 function renderSidebar(){
@@ -309,16 +354,6 @@ function renderChurchesOverview(){
       <tbody>${churchRowsHtml || '<tr><td colspan="3" style="color:var(--ink-soft);">No churches yet.</td></tr>'}</tbody>
     </table>
     ${noChurchRows.length ? `<button class="mini-btn" id="view-no-church" style="margin-bottom:20px;">View ${noChurchRows.length} student${noChurchRows.length===1?'':'s'} with no church assigned →</button>` : ''}
-
-    <div class="panel">
-      <h3>Add a New Church</h3>
-      <div class="new-group-form">
-        <input type="text" id="new-church-name" placeholder="Church name (e.g. Acacia Church)" />
-        <input type="text" id="new-church-slug" placeholder="URL slug (e.g. acaciachurch)" />
-        <button id="create-church-btn">+ Add Church</button>
-      </div>
-      <p style="font-size:12px;color:var(--ink-soft);margin:10px 0 0;">The slug becomes the church's link: /courses/whatever-you-type-here. Lowercase, no spaces — auto-filled from the name, but you can edit it.</p>
-    </div>
   `;
 
   document.querySelectorAll('tbody tr.clickable').forEach(tr => {
@@ -326,28 +361,6 @@ function renderChurchesOverview(){
   });
   const noChurchBtn = document.getElementById('view-no-church');
   if(noChurchBtn) noChurchBtn.addEventListener('click', () => renderChurchStudents(null));
-
-  const nameInput = document.getElementById('new-church-name');
-  const slugInput = document.getElementById('new-church-slug');
-  let slugManuallyEdited = false;
-  slugInput.addEventListener('input', () => { slugManuallyEdited = true; });
-  nameInput.addEventListener('input', () => {
-    if(slugManuallyEdited) return;
-    slugInput.value = nameInput.value.toLowerCase().replace(/[^a-z0-9]/g, '');
-  });
-
-  document.getElementById('create-church-btn').addEventListener('click', async () => {
-    const name = nameInput.value.trim();
-    const slug = slugInput.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-    if(!name || !slug){ alert('Please enter both a name and a slug.'); return; }
-    if(allChurches.some(c => c.slug === slug)){ alert('That slug is already in use by another church — please choose a different one.'); return; }
-
-    const { data: newChurch, error } = await supabaseClient.from('churches').insert({ name, slug }).select().maybeSingle();
-    if(error || !newChurch){ alert('Could not create the church: ' + (error?.message || 'unknown error')); return; }
-
-    allChurches.push(newChurch);
-    renderChurchStudents(newChurch.id);
-  });
 }
 
 /* ---------- Level 2: students within a church ---------- */
