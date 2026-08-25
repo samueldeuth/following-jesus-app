@@ -1,138 +1,143 @@
-// Sends a weekly reminder email to students who are enrolled in a course,
-// haven't finished it (no certificate), and haven't turned reminders off.
-// Runs every Monday 9am UTC via Netlify Scheduled Functions.
+// netlify/functions/send-weekly-course-reminders.js
 //
-// NOTE ON TIMEZONE: Netlify Scheduled Functions run on UTC cron. "0 9 * * 1"
-// below is 9am UTC, not 9am Pacific/wherever your churches are. If you want
-// 9am in a specific US timezone, tell me which one and I'll adjust the cron
-// expression (e.g. 9am Pacific during standard time is 17:00 UTC).
+// Runs every Monday and emails anyone enrolled in a course who hasn't
+// finished it yet, reminding them to continue. Scheduled via
+// netlify.toml (see the [functions."send-weekly-course-reminders"]
+// block).
+//
+// REQUIRES two environment variables in the Netlify dashboard
+// (Site settings -> Environment variables):
+//   RESEND_API_KEY            — already set up for the leader-approval emails
+//   REMINDER_FUNCTION_SECRET  — the exact value embedded in
+//                               weekly-course-reminders-schema.sql, copied here too
+//
+// SUPABASE_URL and the anon key are hardcoded below rather than pulled
+// from environment variables — same as every .html file in this
+// project already does. The anon key isn't a secret (it's already
+// sitting in plain view in every page's source code, protected by Row
+// Level Security instead of by being hidden), so there's no reason to
+// treat it differently here.
+//
+// No Supabase service-role key anywhere — this calls a security-definer
+// Postgres function (get_students_needing_reminders) using the regular,
+// public anon key, protected by REMINDER_FUNCTION_SECRET instead. Same
+// pattern as every other cross-boundary query in this project.
 
-const { createClient } = require("@supabase/supabase-js");
-const {
-  getEnrollmentsNeedingReminder,
-  buildReminderPayloads,
-} = require("./lib/reminder-logic");
+const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
+const FROM_EMAIL = 'Following Jesus <reminders@mail.followingjesus.com>';
+const APP_URL = 'https://followingjesus.com';
 
-const SITE_URL = "https://followingjesus.com";
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 
-async function sendReminderEmail(payload) {
-  const unsubscribeUrl = `${SITE_URL}/course-reminder-unsubscribe?token=${payload.unsubscribe_token}`;
-  const continueUrl = `${SITE_URL}/course-player.html`;
+async function sendReminderEmail({ resendApiKey, toEmail, studentName, courseTitle, unsubscribeToken }) {
+  const continueUrl = `${APP_URL}/course`;
+  const unsubscribeUrl = `${APP_URL}/course-reminder-unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
+  const html = `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+      <p>Hi ${escapeHtml(studentName)},</p>
+      <p>Just a gentle nudge — you're partway through <strong>${escapeHtml(courseTitle)}</strong> and haven't finished yet. Whenever you're ready to pick back up:</p>
+      <p style="margin: 28px 0;">
+        <a href="${continueUrl}" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Continue the Course →</a>
+      </p>
+      <p style="color:#999;font-size:12px;margin-top:36px;border-top:1px solid #eee;padding-top:16px;">
+        Getting this every week and would rather not? <a href="${unsubscribeUrl}" style="color:#999;">Unsubscribe from reminders</a>
+      </p>
+    </div>
+  `;
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
     headers: {
-      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-      "Content-Type": "application/json",
+      Authorization: `Bearer ${resendApiKey}`,
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      from: "Following Jesus <reminders@mail.followingjesus.com>",
-      to: payload.to,
-      subject: `Keep going in ${payload.course_title}`,
-      html: `
-        <p>Hi ${payload.student_name},</p>
-        <p>Just a friendly nudge — you're partway through <strong>${payload.course_title}</strong> and we'd love to see you finish it.</p>
-        <p><a href="${continueUrl}">Continue the course</a></p>
-        <p style="margin-top:32px;font-size:12px;color:#888;">
-          Don't want these reminders?
-          <a href="${unsubscribeUrl}">Unsubscribe from this course's reminders</a>.
-        </p>
-      `,
-    }),
+      from: FROM_EMAIL,
+      to: toEmail,
+      subject: `Keep going — ${courseTitle}`,
+      html
+    })
   });
 
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Resend error ${res.status}: ${body}`);
+    const errText = await res.text();
+    throw new Error(`Resend API error (${res.status}): ${errText}`);
   }
 }
 
-async function handler() {
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
+exports.handler = async function () {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const reminderSecret = process.env.REMINDER_FUNCTION_SECRET;
 
-  // 1. All enrollments with reminders still turned on.
-  const { data: enrollments, error: enrollErr } = await supabase
-    .from("enrollments")
-    .select("id, student_id, course_id, unsubscribe_token, reminder_email_enabled")
-    .eq("reminder_email_enabled", true);
-  if (enrollErr) throw enrollErr;
-  if (!enrollments || enrollments.length === 0) {
-    return { statusCode: 200, body: "No enrollments with reminders enabled." };
+  const missing = ['RESEND_API_KEY', 'REMINDER_FUNCTION_SECRET'].filter(name => !process.env[name]);
+  if (missing.length) {
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ skipped: true, reason: `Missing environment variables: ${missing.join(', ')}` })
+    };
   }
 
-  // 2. Certificates, queried separately (no embedded join) so we can match
-  //    student+course pairs client-side rather than relying on Supabase to
-  //    disambiguate a join Postgrest might not resolve the way we expect.
-  const { data: certificates, error: certErr } = await supabase
-    .from("certificates")
-    .select("student_id, course_id");
-  if (certErr) throw certErr;
+  // Fetch who needs a reminder — the security-definer function does all
+  // the real eligibility logic (enrolled, not finished, opted in, not
+  // reminded in the last 6 days), so this is just a straight call.
+  const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_students_needing_reminders`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ caller_secret: reminderSecret })
+  });
 
-  const needsReminder = getEnrollmentsNeedingReminder(
-    enrollments,
-    certificates || []
-  );
-  if (needsReminder.length === 0) {
-    return { statusCode: 200, body: "Everyone is finished or opted out." };
+  if (!rpcRes.ok) {
+    const errText = await rpcRes.text();
+    return { statusCode: 502, body: `Could not look up who needs a reminder: ${errText}` };
   }
 
-  // 3. Profiles + courses, also queried separately, then joined in JS.
-  const studentIds = [...new Set(needsReminder.map((e) => e.student_id))];
-  const courseIds = [...new Set(needsReminder.map((e) => e.course_id))];
+  const students = await rpcRes.json();
+  const successfulIds = [];
+  const failures = [];
 
-  const { data: profiles, error: profileErr } = await supabase
-    .from("profiles")
-    .select("id, email, full_name")
-    .in("id", studentIds);
-  if (profileErr) throw profileErr;
-
-  const { data: courses, error: courseErr } = await supabase
-    .from("courses")
-    .select("id, title")
-    .in("id", courseIds);
-  if (courseErr) throw courseErr;
-
-  const profilesById = new Map((profiles || []).map((p) => [p.id, p]));
-  const coursesById = new Map((courses || []).map((c) => [c.id, c]));
-
-  const { payloads, skipped } = buildReminderPayloads(
-    needsReminder,
-    profilesById,
-    coursesById
-  );
-
-  // 4. Send, then update last_reminder_sent_at ONLY for successful sends,
-  //    so a failure is retried automatically next Monday instead of being
-  //    silently marked as sent.
-  const results = { sent: 0, failed: 0, skipped: skipped.length };
-
-  for (const payload of payloads) {
+  for (const student of students) {
     try {
-      await sendReminderEmail(payload);
-      const { error: updateErr } = await supabase
-        .from("enrollments")
-        .update({ last_reminder_sent_at: new Date().toISOString() })
-        .eq("id", payload.enrollment_id);
-      if (updateErr) throw updateErr;
-      results.sent += 1;
-    } catch (err) {
-      console.error(
-        `Failed to send/record reminder for enrollment ${payload.enrollment_id}:`,
-        err
-      );
-      results.failed += 1;
+      await sendReminderEmail({
+        resendApiKey,
+        toEmail: student.student_email,
+        studentName: student.student_name,
+        courseTitle: student.course_title,
+        unsubscribeToken: student.unsubscribe_token
+      });
+      successfulIds.push(student.enrollment_id);
+    } catch (e) {
+      // Deliberately not added to successfulIds — last_reminder_sent_at
+      // stays untouched for this one, so it's picked up again next
+      // week rather than silently skipped forever.
+      failures.push({ enrollment_id: student.enrollment_id, error: e.message });
     }
   }
 
-  if (skipped.length > 0) {
-    console.warn("Skipped enrollments (missing profile/course):", skipped);
+  // Only mark the ones that actually succeeded — matches the same
+  // "don't mark it done unless it's really done" principle used for
+  // the daily-notifications skip-if-not-configured check above.
+  if (successfulIds.length) {
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/mark_reminders_sent`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ caller_secret: reminderSecret, enrollment_ids: successfulIds })
+    });
   }
 
-  return { statusCode: 200, body: JSON.stringify(results) };
-}
-
-module.exports.handler = handler;
-module.exports.config = { schedule: "0 9 * * 1" };
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ totalEligible: students.length, sent: successfulIds.length, failed: failures.length, failures })
+  };
+};
