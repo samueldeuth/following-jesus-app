@@ -675,6 +675,8 @@ async function renderProfile(){
     adminLinkHtml = `<a class="profile-admin-link" href="/admin">⚙️ Admin Dashboard</a>`;
   } else if(myProfile?.role === 'church_admin'){
     adminLinkHtml = `<a class="profile-admin-link" href="/dashboard">⚙️ Church Admin Dashboard</a>`;
+  } else if(myProfile?.role === 'group_leader'){
+    adminLinkHtml = `<a class="profile-admin-link" href="/leader">⚙️ Group Leader Dashboard</a>`;
   }
 
   const coursesHtml = (allCourses || []).map(c => {

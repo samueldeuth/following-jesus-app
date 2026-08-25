@@ -195,6 +195,13 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
   const currentAdmins = currentAdminsData || [];
   const myGroups = myGroupsData || [];
 
+  const leaderIds = myGroups.map(g => g.leader_id).filter(Boolean);
+  let leaderNameById = {};
+  if(leaderIds.length){
+    const { data: leaderProfiles } = await supabaseClient.from('profiles').select('id, full_name').in('id', leaderIds);
+    (leaderProfiles || []).forEach(p => { leaderNameById[p.id] = p.full_name || 'Unnamed'; });
+  }
+
   const totalStudents = rows.length;
   const completedCount = rows.filter(r => r.total_items > 0 && r.items_completed === r.total_items).length;
   const avgPct = totalStudents
@@ -310,7 +317,25 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
     </div>
 
     <div class="church-tab-panel" data-tab-panel="groups">
-      <div id="groups-list">${myGroups.map(g => `<div class="group-row"><span>${g.name}${g.leader_name ? ` — led by ${g.leader_name}` : ''}</span></div>`).join('') || '<p style="color:var(--ink-soft);font-size:13px;margin:0;">No groups yet.</p>'}</div>
+      <div id="groups-list">${myGroups.map(g => `
+        <div class="group-row" style="flex-direction:column;align-items:stretch;gap:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span>${g.name}${g.leader_name ? ` (label: ${g.leader_name})` : ''}</span>
+          </div>
+          ${g.leader_id ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;">
+              <span>Real leader account: <strong>${leaderNameById[g.leader_id] || 'Unnamed'}</strong></span>
+              <button class="mini-btn danger" data-remove-group-leader="${g.id}">Remove</button>
+            </div>
+          ` : `
+            <div style="display:flex;gap:6px;">
+              <input type="text" class="field-input" data-assign-leader-input="${g.id}" placeholder="Their email address" style="font-size:12.5px;padding:6px 10px;" />
+              <button class="mini-btn" data-assign-group-leader="${g.id}">Assign as Leader</button>
+            </div>
+          `}
+        </div>
+      `).join('') || '<p style="color:var(--ink-soft);font-size:13px;margin:0;">No groups yet.</p>'}</div>
+      <p class="field-hint" style="margin:10px 0 0;">A Group Leader can see everything about their group's students (progress, discussion answers) and reply to them, but can't unenroll anyone. They need to have signed up already before you can assign them.</p>
       <div class="new-group-form">
         <input type="text" id="new-group-name" placeholder="Group name (e.g. Wednesday Night)" />
         <input type="text" id="new-group-leader" placeholder="Leader's name" />
@@ -401,6 +426,29 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
     if(!name) return;
     await supabaseClient.from('course_groups').insert({ church_id: myChurch.id, name, leader_name: leader || null });
     init();
+  });
+
+  document.querySelectorAll('[data-assign-group-leader]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const groupId = btn.dataset.assignGroupLeader;
+      const input = document.querySelector(`[data-assign-leader-input="${groupId}"]`);
+      const email = input.value.trim();
+      if(!email){ alert('Enter an email first.'); return; }
+      const { data: result, error } = await supabaseClient.rpc('assign_group_leader', { target_email: email, target_group_id: groupId });
+      if(error || result !== 'success'){
+        alert(result === 'not_found' ? 'No account found with that email — they need to sign up first.' : 'Something went wrong. Please try again.');
+        return;
+      }
+      init();
+    });
+  });
+
+  document.querySelectorAll('[data-remove-group-leader]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!confirm('Remove this person as leader of this group?')) return;
+      await supabaseClient.rpc('remove_group_leader', { target_group_id: btn.dataset.removeGroupLeader });
+      init();
+    });
   });
 
   const copyBtn = document.getElementById('copy-pending-emails-btn');

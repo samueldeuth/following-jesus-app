@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Group Leader Dashboard — Following Jesus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --ink:#17191D; --ink-soft:#6B7280; --blue:#3E82F7;
+    --bg:#FFFFFF; --bg-soft:#F4F4F2; --line:#E4E3DD; --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  header{padding:24px 24px 18px;border-bottom:1px solid var(--line);}
+  .logo-badge{
+    background:var(--ink);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:700;
+    letter-spacing:0.14em;font-size:12px;padding:10px 14px;text-transform:uppercase;display:inline-block;margin-bottom:14px;
+  }
+  header h1{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:24px;margin:0;}
+  .account-email{font-size:12.5px;color:var(--ink-soft);margin-bottom:6px;}
+  .signout-link{font-size:12.5px;color:var(--ink);font-weight:600;cursor:pointer;text-decoration:underline;background:none;border:none;padding:0;font-family:'Inter',sans-serif;}
+  main{max-width:860px;margin:0 auto;padding:28px 24px 80px;}
+
+  .summary-row{display:flex;gap:12px;margin-bottom:26px;flex-wrap:wrap;}
+  .summary-card{background:var(--bg-soft);border-radius:var(--radius);padding:16px 18px;min-width:150px;flex:1;}
+  .summary-card .num{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;}
+  .summary-card .label{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+
+  table{width:100%;border-collapse:collapse;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:24px;}
+  thead th{
+    text-align:left;font-size:11.5px;letter-spacing:0.05em;text-transform:uppercase;color:var(--ink-soft);
+    padding:12px 16px;border-bottom:1px solid var(--line);background:var(--bg-soft);
+  }
+  tbody td{padding:14px 16px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr.clickable{cursor:pointer;}
+  tbody tr.clickable:hover{background:var(--bg-soft);}
+  .student-name{font-weight:600;}
+  .bar-wrap{display:flex;align-items:center;gap:10px;}
+  .bar-track{flex:1;height:7px;background:var(--bg-soft);border-radius:4px;overflow:hidden;min-width:80px;}
+  .bar-fill{height:100%;background:var(--ink);}
+  .bar-text{font-size:12px;color:var(--ink-soft);white-space:nowrap;}
+  .loading{padding:60px 20px;text-align:center;color:var(--ink-soft);font-size:13px;}
+
+  .back-link{font-size:13px;color:var(--ink-soft);cursor:pointer;display:inline-block;margin-bottom:14px;}
+  .row-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .mini-btn{
+    border:1.5px solid var(--line);background:#fff;border-radius:6px;padding:6px 11px;
+    font-size:12px;font-weight:600;cursor:pointer;color:var(--ink);white-space:nowrap;
+  }
+  .mini-btn.gold{border-color:#B08D3E;color:#B08D3E;}
+
+  .qa-block{border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;}
+  .qa-session{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-soft);margin-bottom:6px;}
+  .qa-question{text-align:left;font-weight:600;font-size:14.5px;margin-bottom:6px;}
+  .qa-answer{text-align:left;font-size:14px;color:var(--ink);margin-bottom:10px;white-space:pre-wrap;}
+  .qa-answer.empty{color:var(--ink-soft);font-style:italic;}
+  .qa-reply{background:var(--bg-soft);border-radius:8px;padding:10px 12px;font-size:13.5px;margin-bottom:8px;}
+  .qa-reply .label{font-size:11px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:3px;}
+  .reply-box{width:100%;border:1.5px solid var(--line);border-radius:8px;padding:10px;font-family:'Inter',sans-serif;font-size:13.5px;min-height:60px;}
+  .reply-btn{margin-top:8px;background:var(--ink);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12.5px;font-weight:600;cursor:pointer;}
+
+  .group-card{
+    border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:12px;
+    cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;
+  }
+  .group-card:hover{background:var(--bg-soft);}
+  .group-card .name{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;}
+  .group-card .count{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+    <div>
+      <div class="logo-badge">Following Jesus</div>
+      <h1>Group Leader Dashboard</h1>
+    </div>
+    <div id="admin-account-info" style="text-align:right;"></div>
+  </div>
+</header>
+
+<main><div id="content" class="loading">Loading your groups…</div></main>
+
+<script>
+const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentLeaderId = null;
+let myGroups = [];
+let activeGroupId = null;
+
+function renderAccountInfo(email){
+  const el = document.getElementById('admin-account-info');
+  if(email){
+    el.innerHTML = `
+      <div class="account-email">Signed in as ${email}</div>
+      <button class="signout-link" id="admin-signout-btn">Sign Out</button>
+    `;
+    document.getElementById('admin-signout-btn').addEventListener('click', async () => {
+      await supabaseClient.auth.signOut();
+      window.location.reload();
+    });
+  } else {
+    el.innerHTML = `<a href="course-player.html?return_to=${encodeURIComponent(window.location.pathname)}" style="font-size:12.5px;color:var(--ink);font-weight:600;">Sign in →</a>`;
+  }
+}
+
+async function init(){
+  const content = document.getElementById('content');
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if(!user){
+    renderAccountInfo(null);
+    content.innerHTML = `
+      <p style="color:var(--ink-soft);margin-bottom:14px;">Please sign in as a group leader to view this dashboard.</p>
+      <a href="course-player.html?return_to=/leader" style="display:inline-block;background:var(--ink);color:#fff;text-decoration:none;padding:11px 22px;border-radius:8px;font-weight:600;font-size:14px;">Sign In</a>
+    `;
+    return;
+  }
+  currentLeaderId = user.id;
+  renderAccountInfo(user.email);
+
+  const { data: profile } = await supabaseClient.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  if(!profile || profile.role !== 'group_leader'){
+    content.textContent = 'This dashboard is only available to group leaders.';
+    return;
+  }
+
+  const { data: groups } = await supabaseClient.from('course_groups').select('*').eq('leader_id', user.id).order('name');
+  myGroups = groups || [];
+
+  if(myGroups.length === 1){
+    await renderGroupStudents(myGroups[0].id);
+  } else {
+    renderGroupsOverview();
+  }
+}
+
+function renderGroupsOverview(){
+  activeGroupId = null;
+  document.getElementById('content').innerHTML = `
+    <p style="color:var(--ink-soft);font-size:13.5px;margin:0 0 20px;">You lead ${myGroups.length} group${myGroups.length===1?'':'s'}. Select one to see its students.</p>
+    ${myGroups.map(g => `
+      <div class="group-card" data-group-id="${g.id}">
+        <div><div class="name">${g.name}</div></div>
+        <span style="color:var(--ink-soft);">→</span>
+      </div>
+    `).join('') || '<p style="color:var(--ink-soft);">You\'re not currently assigned to lead any groups.</p>'}
+  `;
+  document.querySelectorAll('.group-card').forEach(card => {
+    card.addEventListener('click', () => renderGroupStudents(card.dataset.groupId));
+  });
+}
+
+async function renderGroupStudents(groupId){
+  activeGroupId = groupId;
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="loading">Loading students…</div>';
+
+  const group = myGroups.find(g => g.id === groupId);
+
+  const { data: enrollments } = await supabaseClient
+    .from('enrollments').select('id, student_id, course_id, enrolled_at').eq('group_id', groupId);
+
+  if(!enrollments || !enrollments.length){
+    content.innerHTML = `
+      ${myGroups.length > 1 ? `<div class="back-link" id="back-to-groups">&larr; My Groups</div>` : ''}
+      <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">${group ? group.name : 'Group'}</h2>
+      <p style="color:var(--ink-soft);">No students enrolled in this group yet.</p>
+    `;
+    const back = document.getElementById('back-to-groups');
+    if(back) back.addEventListener('click', renderGroupsOverview);
+    return;
+  }
+
+  const studentIds = enrollments.map(e => e.student_id);
+  const courseIds = [...new Set(enrollments.map(e => e.course_id))];
+
+  const [{ data: profiles }, { data: courses }] = await Promise.all([
+    supabaseClient.from('profiles').select('id, full_name').in('id', studentIds),
+    supabaseClient.from('courses').select('id, title').in('id', courseIds)
+  ]);
+  const nameById = {}; (profiles || []).forEach(p => { nameById[p.id] = p.full_name || 'Unnamed student'; });
+  const titleById = {}; (courses || []).forEach(c => { titleById[c.id] = c.title; });
+
+  const rows = await Promise.all(enrollments.map(async e => {
+    const { data: sessions } = await supabaseClient.from('sessions').select('id').eq('course_id', e.course_id);
+    const sessionIds = (sessions || []).map(s => s.id);
+    let totalItems = 0, itemsCompleted = 0;
+    if(sessionIds.length){
+      const { data: items } = await supabaseClient.from('session_items').select('id').in('session_id', sessionIds);
+      const itemIds = (items || []).map(i => i.id);
+      totalItems = itemIds.length;
+      if(itemIds.length){
+        const { data: progress } = await supabaseClient.from('item_progress').select('item_id').eq('student_id', e.student_id).in('item_id', itemIds).not('completed_at', 'is', null);
+        itemsCompleted = (progress || []).length;
+      }
+    }
+    return { ...e, full_name: nameById[e.student_id], course_title: titleById[e.course_id], total_items: totalItems, items_completed: itemsCompleted };
+  }));
+
+  const rowsHtml = rows.map(r => {
+    const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
+    const isComplete = r.total_items > 0 && r.items_completed === r.total_items;
+    return `
+      <tr class="clickable" data-student-id="${r.student_id}" data-course-id="${r.course_id}">
+        <td class="student-name">${r.full_name}</td>
+        <td>${r.course_title}</td>
+        <td>
+          <div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${r.items_completed}/${r.total_items}</span></div>
+        </td>
+        <td>${new Date(r.enrolled_at).toLocaleDateString()}</td>
+        <td>${isComplete ? `<button class="mini-btn gold" data-view-cert="${r.student_id}" data-cert-course="${r.course_id}">🏅 Certificate</button>` : ''}</td>
+      </tr>`;
+  }).join('');
+
+  const totalStudents = rows.length;
+  const completedCount = rows.filter(r => r.total_items > 0 && r.items_completed === r.total_items).length;
+  const avgPct = totalStudents ? Math.round(rows.reduce((sum, r) => sum + (r.total_items ? r.items_completed / r.total_items : 0), 0) / totalStudents * 100) : 0;
+
+  content.innerHTML = `
+    ${myGroups.length > 1 ? `<div class="back-link" id="back-to-groups">&larr; My Groups</div>` : ''}
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">${group ? group.name : 'Group'}</h2>
+    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:22px;">${totalStudents} student${totalStudents===1?'':'s'}</p>
+
+    <div class="summary-row">
+      <div class="summary-card"><div class="num">${totalStudents}</div><div class="label">Students</div></div>
+      <div class="summary-card"><div class="num">${completedCount}</div><div class="label">Finished the course</div></div>
+      <div class="summary-card"><div class="num">${avgPct}%</div><div class="label">Average progress</div></div>
+    </div>
+
+    <table>
+      <thead><tr><th>Student</th><th>Course</th><th>Progress</th><th>Enrolled</th><th></th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  `;
+
+  const back = document.getElementById('back-to-groups');
+  if(back) back.addEventListener('click', renderGroupsOverview);
+
+  document.querySelectorAll('tr.clickable').forEach(tr => {
+    tr.addEventListener('click', () => renderStudentDetail(tr.dataset.studentId, tr.dataset.courseId));
+  });
+
+  document.querySelectorAll('[data-view-cert]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const { data: cert } = await supabaseClient.from('certificates').select('certificate_code').eq('student_id', btn.dataset.viewCert).eq('course_id', btn.dataset.certCourse).maybeSingle();
+      if(cert) window.open(`certificate.html?code=${cert.certificate_code}`, '_blank');
+      else alert('No certificate found yet for this student.');
+    });
+  });
+}
+
+/* ---------- Student detail: real discussion answers + reply (full visibility, no unenroll) ---------- */
+async function renderStudentDetail(studentId, courseId){
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="loading">Loading student answers...</div>';
+
+  const { data: profile } = await supabaseClient.from('profiles').select('full_name').eq('id', studentId).maybeSingle();
+  const { data: course } = await supabaseClient.from('courses').select('title').eq('id', courseId).maybeSingle();
+
+  const { data: sessions } = await supabaseClient
+    .from('sessions').select('*, session_items(*)').eq('course_id', courseId).order('sort_order');
+
+  const discussionItems = (sessions||[]).flatMap(s => (s.session_items||[]).filter(i=>i.type==='discussion').map(i=>({...i, sessionTitle: s.title})));
+  const itemIds = discussionItems.map(i=>i.id);
+
+  const { data: questions } = itemIds.length
+    ? await supabaseClient.from('discussion_questions').select('*').in('item_id', itemIds).order('sort_order')
+    : { data: [] };
+
+  const questionIds = (questions||[]).map(q=>q.id);
+  const { data: responses } = questionIds.length
+    ? await supabaseClient.from('discussion_responses').select('*').eq('student_id', studentId).in('question_id', questionIds)
+    : { data: [] };
+  const responseByQ = {};
+  (responses||[]).forEach(r => { responseByQ[r.question_id] = r; });
+
+  const blocksHtml = discussionItems.map(item => {
+    const itemQuestions = (questions||[]).filter(q=>q.item_id===item.id);
+    return itemQuestions.map(q => {
+      const r = responseByQ[q.id];
+      return `
+        <div class="qa-block">
+          <div class="qa-session">${item.sessionTitle}</div>
+          <div class="qa-question">${q.question_text}</div>
+          <div class="qa-answer ${r?.response_text ? '' : 'empty'}">${r?.response_text || 'No answer yet'}</div>
+          ${r?.admin_reply ? `<div class="qa-reply"><div class="label">Your reply</div>${r.admin_reply}</div>` : ''}
+          ${r ? `
+            <textarea class="reply-box" data-response-id="${r.id}" placeholder="Write a reply...">${r.admin_reply || ''}</textarea>
+            <button class="reply-btn" data-response-id="${r.id}">Send Reply</button>` : ''}
+        </div>`;
+    }).join('');
+  }).join('');
+
+  content.innerHTML = `
+    <div class="back-link" id="back-to-list">&larr; Back to students</div>
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin-bottom:4px;">${profile?.full_name || 'Student'}</h2>
+    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:24px;">${course?.title || ''}</p>
+    ${blocksHtml || '<p style="color:var(--ink-soft);">No discussion questions found for this course.</p>'}
+  `;
+
+  document.getElementById('back-to-list').addEventListener('click', async () => { await renderGroupStudents(activeGroupId); });
+
+  content.querySelectorAll('.reply-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const responseId = btn.dataset.responseId;
+      const textarea = content.querySelector(`textarea[data-response-id="${responseId}"]`);
+      btn.textContent = 'Sending...';
+      await supabaseClient.from('discussion_responses').update({
+        admin_reply: textarea.value,
+        admin_reply_by: currentLeaderId,
+        admin_reply_at: new Date().toISOString()
+      }).eq('id', responseId);
+      btn.textContent = 'Sent ✓';
+      setTimeout(() => { btn.textContent = 'Send Reply'; }, 1500);
+    });
+  });
+}
+
+init();
+</script>
+</body>
+</html>
