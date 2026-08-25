@@ -3288,7 +3288,10 @@ async function removeDisciple(discipleId) {
   await removeDiscipleEntirely(discipleId);
   // Note: intentionally not deleting progress:${discipleId} — that's the
   // person's own personal record now, not the leader's to remove.
-  await safeDelete(`messages:${myId}:${discipleId}`, true);
+  await Promise.all([
+    supabaseClient.from('discipleship_messages').delete().is('group_id', null).eq('sender_id', myId).eq('recipient_id', discipleId),
+    supabaseClient.from('discipleship_messages').delete().is('group_id', null).eq('sender_id', discipleId).eq('recipient_id', myId)
+  ]);
 }
 
 async function renderGroupDetail(code) {
@@ -3506,7 +3509,7 @@ async function renderMemberDetail(memberId) {
   const disciples = await getLeaderDisciples(myId);
   const member = disciples.find(d => d.id === memberId);
   const { progress, walkoutProgress } = await getCourseProgressData(memberId, 'essentials');
-  const messages = (await safeGet(`messages:${myId}:${memberId}`, true)) || [];
+  const messages = await getDirectMessages(myId, memberId);
 
   let stepsHtml = '';
   STEPS.forEach((title, i) => {
@@ -3553,9 +3556,7 @@ async function renderMemberDetail(memberId) {
   document.getElementById('sendMsgBtn').onclick = async () => {
     const input = document.getElementById('msgInput');
     if (!input.value.trim()) return;
-    const msgs = (await safeGet(`messages:${myId}:${memberId}`, true)) || [];
-    msgs.push({ from: 'leader', body: input.value.trim(), at: Date.now() });
-    await safeSet(`messages:${myId}:${memberId}`, msgs, true);
+    await sendDirectMessage(myId, memberId, true, input.value.trim());
     render();
   };
   document.getElementById('newActionBtn').onclick = async () => {
@@ -3604,7 +3605,7 @@ async function renderDisciple() {
 
   const leaderId = membership.leaderId;
   const { progress, walkoutProgress } = await getCourseProgressData(myId, 'essentials');
-  const messages = (await safeGet(`messages:${leaderId}:${myId}`, true)) || [];
+  const messages = await getDirectMessages(leaderId, myId);
   const myGroups = await getDiscipleGroups(myId);
   const leaderApp = await getLeaderApplication(leaderId);
   const leaderName = leaderApp ? leaderApp.name : 'Your Leader';
@@ -3652,7 +3653,7 @@ async function renderDisciple() {
     const gLeaderName = gLeaderApp ? gLeaderApp.name : 'Your Leader';
     const gLeaderProfile = await safeGet(`profile:${g.leaderId}`, true);
     const gLeaderPhoto = gLeaderProfile ? gLeaderProfile.photoUrl : null;
-    const gPrivateMessages = (await safeGet(`messages:${g.leaderId}:${myId}`, true)) || [];
+    const gPrivateMessages = await getDirectMessages(g.leaderId, myId);
     let gMsgHtml = '';
     if (gPrivateMessages.length === 0) { gMsgHtml = '<div class="msg-empty">No messages yet.</div>'; }
     else { gPrivateMessages.forEach(m => { gMsgHtml += `<div class="msg ${m.from === 'disciple' ? 'me' : 'them'}">${linkify(m.body)}</div>`; }); }
@@ -3760,9 +3761,7 @@ async function renderDisciple() {
       const body = input.value.trim();
       if (!body) return;
       const targetLeaderId = btn.dataset.leaderId || leaderId;
-      const msgs = (await safeGet(`messages:${targetLeaderId}:${myId}`, true)) || [];
-      msgs.push({ from: 'disciple', body, at: Date.now() });
-      await safeSet(`messages:${targetLeaderId}:${myId}`, msgs, true);
+      await sendDirectMessage(targetLeaderId, myId, false, body);
       render();
     };
   });
@@ -3815,9 +3814,7 @@ async function renderDisciple() {
   if (sendMsgBtn) sendMsgBtn.onclick = async () => {
     const input = document.getElementById('msgInput');
     if (!input.value.trim()) return;
-    const msgs = (await safeGet(`messages:${leaderId}:${myId}`, true)) || [];
-    msgs.push({ from: 'disciple', body: input.value.trim(), at: Date.now() });
-    await safeSet(`messages:${leaderId}:${myId}`, msgs, true);
+    await sendDirectMessage(leaderId, myId, false, input.value.trim());
     render();
   };
 
@@ -4575,6 +4572,35 @@ async function updateProgressRow(studentId, courseKey, stepIndex, updates) {
     walkout_checked: updates.walkout_checked !== undefined ? updates.walkout_checked : (existing ? existing.walkout_checked : [])
   };
   await supabaseClient.from('app_course_progress').upsert(merged, { onConflict: 'student_id,course_key,step_index' });
+}
+
+// ---------- Direct 1-on-1 messages (Phase 3b — relational).
+// Same table as group chat (discipleship_messages), just with group_id
+// left null and a real recipient_id instead. Fetches as two simple
+// queries (messages sent by the leader, messages sent by the disciple)
+// merged and sorted client-side, rather than one query with a complex
+// .or() filter string — same preference for simple, predictable queries
+// used throughout this whole migration.
+
+async function getDirectMessages(leaderId, discipleId) {
+  if (!supabaseClient) return [];
+  const [{ data: fromLeader }, { data: fromDisciple }] = await Promise.all([
+    supabaseClient.from('discipleship_messages').select('sender_id, body, sent_at').is('group_id', null).eq('sender_id', leaderId).eq('recipient_id', discipleId),
+    supabaseClient.from('discipleship_messages').select('sender_id, body, sent_at').is('group_id', null).eq('sender_id', discipleId).eq('recipient_id', leaderId)
+  ]);
+  const all = [...(fromLeader || []), ...(fromDisciple || [])];
+  all.sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
+  return all.map(m => ({
+    from: m.sender_id === leaderId ? 'leader' : 'disciple',
+    body: m.body,
+    at: new Date(m.sent_at).getTime()
+  }));
+}
+
+async function sendDirectMessage(leaderId, discipleId, senderIsLeader, body) {
+  const senderId = senderIsLeader ? leaderId : discipleId;
+  const recipientId = senderIsLeader ? discipleId : leaderId;
+  await supabaseClient.from('discipleship_messages').insert({ group_id: null, sender_id: senderId, recipient_id: recipientId, body });
 }
 
 async function ensureRealIdentity() {
