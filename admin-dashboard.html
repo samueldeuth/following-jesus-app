@@ -329,7 +329,7 @@ function renderSidebar(){
   document.getElementById('sidebar-church-count').textContent = allChurches.length;
 
   const noChurchCount = allRows.filter(r => !r.church_id).length;
-  const noChurchItemHtml = `<div class="sidebar-church-item ${viewingNoChurch ? 'active' : ''}" id="sidebar-no-church-item" style="border-bottom:1px solid var(--line);margin-bottom:6px;padding-bottom:10px;"><span>Following Jesus <span style="color:var(--ink-soft);font-weight:400;">(no church)</span></span><span class="count">${noChurchCount}</span></div>`;
+  const noChurchItemHtml = `<div class="sidebar-church-item ${viewingNoChurch ? 'active' : ''}" id="sidebar-no-church-item" style="border-bottom:1px solid var(--line);margin-bottom:6px;padding-bottom:10px;"><span>Following Jesus <span style="color:var(--ink-soft);font-weight:400;">(Primary)</span></span><span class="count">${noChurchCount}</span></div>`;
 
   const filtered = query ? allChurches.filter(c => c.name.toLowerCase().includes(query)) : allChurches;
   listEl.innerHTML = noChurchItemHtml + (filtered.map(ch => {
