@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Following Jesus — Course</title>
+<title>Following Jesus Course — A Guided Discipleship Course for Churches</title>
+<meta name="description" content="A free, video-based course walking through the 7 essentials of following Jesus — built for churches to use with their people, with progress tracking and a certificate on completion.">
+<meta property="og:title" content="Following Jesus Course">
+<meta property="og:description" content="A free, video-based course walking through the 7 essentials of following Jesus — built for churches to use with their people.">
+<meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=Lora:ital@1&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -340,6 +344,27 @@ function getChurchSlug(){
   const params = new URLSearchParams(window.location.search);
   return params.get('church') || 'default';
 }
+
+// SEO: a church-specific page (/courses/{slug}) shouldn't compete with
+// the generic /course page in search results — dozens of near-identical
+// church pages could otherwise read as thin/duplicate content and drag
+// down the whole site's quality signal. noindex (not a robots.txt block)
+// is the right tool here: it still lets the page be crawled, shared, and
+// linked directly — a church can still send their own link to their own
+// people — it just asks Google not to list it in search results. This
+// has to be injected in JS, not hardcoded in <head>, since this same
+// file serves both the generic page (which SHOULD be indexed) and every
+// church-specific one (which shouldn't), depending purely on the URL.
+// Runs immediately, before any data fetching, so it's in the DOM as
+// early as possible.
+(function applySeoIndexing(){
+  if(getChurchSlug() !== 'default'){
+    const meta = document.createElement('meta');
+    meta.name = 'robots';
+    meta.content = 'noindex, follow';
+    document.head.appendChild(meta);
+  }
+})();
 
 // Lets a specific course be linked to directly (used by the "Your
 // Courses" list on the profile page) — falls back to the original
