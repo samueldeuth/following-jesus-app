@@ -1955,44 +1955,9 @@
         <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.84 2.09-1.8 2.73v2.27h2.92c1.7-1.57 2.68-3.88 2.68-6.64z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.27c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.34C2.44 15.98 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.97 10.71c-.18-.54-.28-1.11-.28-1.71s.1-1.17.28-1.71V4.95H.96C.35 6.17 0 7.55 0 9s.35 2.83.96 4.05l3.01-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.59-2.59C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.95l3.01 2.34C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
         Continue with Google
       </button>
-      <div class="dm-divider">— or —</div>
-      <p class="dm-p">Making disciples through the app starts with a quick account — just your name and email. Everything else in the app stays free to use with no account needed.</p>
-      <input type="text" id="accName" placeholder="Your full name" />
-      <input type="text" id="accEmail" placeholder="Your email" />
-      <button class="primary-btn" id="accContinue">Create Account</button>
-
-      <div class="dm-divider">— or —</div>
-      <p class="dm-p">Already had a profile on this or another device?</p>
-      <input type="text" id="loginEmail" placeholder="Your email" />
-      <button class="secondary-btn" id="loginBtn">Log In</button>
-      <p id="loginError" style="color:#e0a458; margin-top:10px; margin-bottom:0; font-size:12px;"></p>
+      <p class="dm-p" style="margin-top:14px;">Making disciples through the app starts with a quick, secure sign-in — no separate password to create, and it works with any email address you already use (Yahoo, Outlook, iCloud, anything), not just Gmail. Everything else in the app stays free to use with no account needed.</p>
     `;
     document.getElementById('googleAuthBtn').onclick = handleGoogleAuth;
-    document.getElementById('accContinue').onclick = async () => {
-      const name = document.getElementById('accName').value.trim();
-      const email = document.getElementById('accEmail').value.trim();
-      if (!name || !email) { alert('Please enter your name and email.'); return; }
-      const account = { name, email, id: uid() };
-      await dSafeSet('account', account);
-      syncSharedProfile(account); // best-effort, don't block on it
-      renderDiscipleStep();
-    };
-    document.getElementById('loginBtn').onclick = async () => {
-      const email = document.getElementById('loginEmail').value.trim();
-      const errEl = document.getElementById('loginError');
-      errEl.textContent = '';
-      if (!email) { errEl.textContent = 'Please enter your email.'; return; }
-      const btn = document.getElementById('loginBtn');
-      btn.textContent = 'Looking...';
-      const found = await findAccountByEmail(email);
-      btn.textContent = 'Log In';
-      if (!found) {
-        errEl.textContent = "Couldn't find a profile with that email — double check it, or create a new account above.";
-        return;
-      }
-      await dSafeSet('account', found);
-      renderDiscipleStep();
-    };
   }
 
   function extFromMime(mime) {
@@ -2031,61 +1996,36 @@
   async function syncSharedProfile(account) {
     if (!account || !account.id) return;
     try {
-      await safeSet(`profile:${account.id}`, {
-        name: account.name,
-        email: account.email,
-        photoUrl: account.photoUrl || null,
-        updatedAt: new Date().toISOString()
-      }, true);
-      if (account.email) {
-        await safeSet(`email-login:${account.email.trim().toLowerCase()}`, { id: account.id }, true);
-      }
-      // Also keep the new relational profiles table in sync — every
-      // migrated group/messaging/actions function reads a person's name
-      // from profiles.full_name now, not this old shared_kv record.
-      // Without this, someone's name could look right on their own
-      // device but show up stale (or blank) to their leader and peers.
+      // Keeps the new relational profiles table in sync — every migrated
+      // group/messaging/actions function reads a person's name and
+      // photo from here now, not the old shared_kv record. Without
+      // this, someone's name or photo could look right on their own
+      // device but show up stale (or blank) to their leader and peers —
+      // the exact bug already caught and fixed once for full_name; this
+      // closes the same gap for photo_url too.
       if (supabaseClient && account.name) {
-        await supabaseClient.from('profiles').upsert({ id: account.id, full_name: account.name }, { onConflict: 'id' });
+        await supabaseClient.from('profiles').upsert({
+          id: account.id, full_name: account.name, photo_url: account.photoUrl || null
+        }, { onConflict: 'id' });
       }
     } catch (e) { /* best effort — the local account copy is still saved regardless */ }
   }
 
-  // Looks up an account by email so someone can log back in after logging
-  // out (or on a new device). Tries the fast direct pointer first; if
-  // that's missing — which is expected for any account created before this
-  // feature existed — falls back to searching existing profile records
-  // directly, then backfills the pointer so the lookup is fast next time.
-  // This is a simple email-based lookup, not real password authentication
-  // — consistent with how the rest of this app doesn't have real per-person
-  // login yet, worth revisiting if that ever changes.
+  // Looks up an existing profile by email — used only after a real Google
+  // sign-in completes (see completeGoogleAuthIfPending below), to avoid
+  // creating a duplicate account for someone who already has one under
+  // this same email. The email is verified by Google at that point, so
+  // this is safe — it's no longer used as a standalone "log in with just
+  // your email" path, since that had no real password check at all.
   async function findAccountByEmail(email) {
-    const normalized = email.trim().toLowerCase();
-    if (!supabaseConfigured) return null;
-
+    if (!supabaseClient) return null;
     try {
-      const pointer = await safeGet(`email-login:${normalized}`, true);
-      if (pointer && pointer.id) {
-        const profile = await safeGet(`profile:${pointer.id}`, true);
-        if (profile) return { id: pointer.id, name: profile.name, email: profile.email, photoUrl: profile.photoUrl };
-      }
-    } catch (e) { /* fall through to the search below */ }
-
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/shared_kv?key=like.profile:*&select=key,value`, {
-        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
-      });
-      if (res.ok) {
-        const rows = await res.json();
-        const match = rows.find(r => r.value && r.value.email && r.value.email.trim().toLowerCase() === normalized);
-        if (match) {
-          const id = match.key.replace('profile:', '');
-          await safeSet(`email-login:${normalized}`, { id }, true); // backfill for next time
-          return { id, name: match.value.name, email: match.value.email, photoUrl: match.value.photoUrl };
-        }
+      const { data } = await supabaseClient.rpc('get_profile_by_email', { lookup_email: email.trim().toLowerCase() });
+      if (data && data.length > 0) {
+        const row = data[0];
+        return { id: row.id, name: row.full_name, email, photoUrl: row.photo_url };
       }
     } catch (e) { /* network error or not configured — give up gracefully */ }
-
     return null;
   }
 
@@ -3651,8 +3591,8 @@ async function renderDisciple() {
     // fallback case further down.
     const gLeaderApp = await getLeaderApplication(g.leaderId);
     const gLeaderName = gLeaderApp ? gLeaderApp.name : 'Your Leader';
-    const gLeaderProfile = await safeGet(`profile:${g.leaderId}`, true);
-    const gLeaderPhoto = gLeaderProfile ? gLeaderProfile.photoUrl : null;
+    const { data: gLeaderProfile } = supabaseClient ? await supabaseClient.from('profiles').select('photo_url').eq('id', g.leaderId).maybeSingle() : { data: null };
+    const gLeaderPhoto = gLeaderProfile ? gLeaderProfile.photo_url : null;
     const gPrivateMessages = await getDirectMessages(g.leaderId, myId);
     let gMsgHtml = '';
     if (gPrivateMessages.length === 0) { gMsgHtml = '<div class="msg-empty">No messages yet.</div>'; }
