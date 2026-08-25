@@ -65,11 +65,11 @@
   .letter-section{max-width:680px;margin:0 auto;padding:0 20px 56px;text-align:center;}
   .letter-section h2{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:clamp(22px,4vw,30px);line-height:1.35;margin-bottom:32px;}
   .letter-section p{font-size:16px;line-height:1.75;color:var(--ink);text-align:left;margin:0 0 20px;}
-  .letter-sig-name{font-family:'Lora',serif;font-style:italic;font-size:24px;margin-top:28px;}
-  .letter-sig-title{font-size:13px;color:var(--ink-soft);margin-top:4px;}
+  .letter-sig-name{font-family:'Lora',serif;font-style:italic;font-size:24px;margin-top:28px;text-align:left;}
+  .letter-sig-title{font-size:13px;color:var(--ink-soft);margin-top:4px;text-align:left;}
   .letter-subtitle{font-size:18px;color:var(--ink-soft);text-align:center;margin:-16px 0 32px;}
   .letter-image{width:100%;border-radius:var(--radius);display:block;margin-bottom:28px;}
-  .letter-website{font-size:14.5px;margin-top:6px;}
+  .letter-website{font-size:14.5px;margin-top:6px;text-align:left;}
   .letter-website a{color:var(--blue);font-weight:600;}
 
   /* ---------- Checklist section ---------- */
@@ -696,11 +696,20 @@ async function renderProfile(){
 // checked letter_body, so setting anything else without also writing a
 // body paragraph silently fell all the way back to the generic course's
 // letter instead — a real bug, not intentional.
+// Falls back to this whenever whichever source got picked (church or
+// course) doesn't have its own body text written — so a church that's
+// customized a title or photo but hasn't written their own welcome
+// paragraph still shows something warm and complete, not a gap.
+const DEFAULT_LETTER_BODY = `We couldn't be more excited to welcome you to the family of God and to our church family! This Following Jesus course will help you walk through the 7 essentials of Following Jesus! Our prayer is that you would know Jesus in a personal and powerful way and that you would experience the fresh, real, and powerful life of a follower of Jesus!
+
+God bless you as you begin your new journey of following Jesus!`;
+
 function letterSectionHtml(course, churchObj){
   const hasAnyLetterContent = (obj) => !!(obj && (obj.letter_title || obj.letter_body || obj.letter_image_url || obj.letter_video_youtube_id));
   const source = hasAnyLetterContent(churchObj) ? churchObj : course;
   if(!hasAnyLetterContent(source)) return '';
-  const paragraphs = source.letter_body ? source.letter_body.split(/\n\s*\n/).map(p => `<p>${p.trim()}</p>`).join('') : '';
+  const bodyText = source.letter_body || DEFAULT_LETTER_BODY;
+  const paragraphs = bodyText.split(/\n\s*\n/).map(p => `<p>${p.trim()}</p>`).join('');
   const mediaHtml = source.letter_video_youtube_id
     ? `<div class="preview-frame letter-image" id="letter-video-frame" data-video-id="${source.letter_video_youtube_id}">
          <img src="https://img.youtube.com/vi/${source.letter_video_youtube_id}/maxresdefault.jpg" alt="Welcome video" />
@@ -717,7 +726,7 @@ function letterSectionHtml(course, churchObj){
         <div class="letter-sig-name">${source.letter_author_name}</div>
         ${source.letter_author_title ? `<div class="letter-sig-title">${source.letter_author_title}</div>` : ''}
       ` : ''}
-      ${source.website_url ? `<p class="letter-website">Visit: <a href="${source.website_url}" target="_blank" rel="noopener">${source.website_url.replace(/^https?:\/\//, '')}</a></p>` : ''}
+      ${source.website_url ? `<p class="letter-website"><a href="${source.website_url}" target="_blank" rel="noopener">${source.website_url.replace(/^https?:\/\//, '')}</a></p>` : ''}
     </div>`;
 }
 
