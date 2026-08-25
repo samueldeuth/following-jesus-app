@@ -282,17 +282,10 @@
   .auth-close{position:absolute;top:16px;right:18px;cursor:pointer;color:var(--ink-soft);font-size:18px;background:none;border:none;}
   .auth-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:20px;margin:0 0 4px;}
   .auth-subtitle{font-size:13.5px;color:var(--ink-soft);margin-bottom:20px;}
-  .auth-field{width:100%;border:1.5px solid var(--line);border-radius:8px;padding:11px 12px;font-size:14px;margin-bottom:10px;font-family:'Inter',sans-serif;}
-  .auth-field:focus{outline:none;border-color:var(--ink);}
-  .auth-submit{width:100%;background:var(--ink);color:#fff;border:none;border-radius:8px;padding:12px;font-weight:600;font-size:14px;cursor:pointer;margin-top:4px;}
   .auth-google{
     width:100%;background:#fff;border:1.5px solid var(--line);border-radius:8px;padding:11px;
     font-weight:600;font-size:13.5px;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;
   }
-  .auth-divider{display:flex;align-items:center;gap:10px;color:var(--ink-soft);font-size:12px;margin:14px 0;}
-  .auth-divider::before,.auth-divider::after{content:"";flex:1;height:1px;background:var(--line);}
-  .auth-switch{text-align:center;font-size:13px;color:var(--ink-soft);margin-top:16px;}
-  .auth-switch a{color:var(--blue);cursor:pointer;font-weight:600;}
   .auth-error{background:#FDECEC;color:#B3261E;font-size:13px;padding:9px 12px;border-radius:8px;margin-bottom:12px;}
   .auth-note{font-size:12px;color:var(--ink-soft);margin-top:10px;text-align:center;}
 
@@ -551,23 +544,14 @@ function renderAuthModal(mode){
       <div class="auth-subtitle">${mode === 'signup' ? 'Start tracking your progress through the course.' : 'Welcome back — pick up where you left off.'}</div>
       <div id="auth-error"></div>
       <button class="auth-google" id="google-btn">Continue with Google</button>
-      <div class="auth-divider">or</div>
-      ${mode === 'signup' ? '<input class="auth-field" id="auth-name" placeholder="Your name" type="text">' : ''}
-      <input class="auth-field" id="auth-email" placeholder="Email" type="email">
-      <input class="auth-field" id="auth-password" placeholder="Password" type="password">
-      <button class="auth-submit" id="auth-submit">${mode === 'signup' ? 'Create Account' : 'Sign In'}</button>
-      <div class="auth-switch">
-        ${mode === 'signup' ? 'Already have an account? <a id="auth-switch-link">Sign in</a>' : "New here? <a id=\"auth-switch-link\">Create an account</a>"}
-      </div>
+      <p style="text-align:center;font-size:12px;color:var(--ink-soft);margin-top:14px;">Works with any email address you already use — Yahoo, Outlook, iCloud, anything — not just Gmail.</p>
     </div>
   `;
   document.body.appendChild(overlay);
 
   document.getElementById('auth-close').addEventListener('click', closeAuthModal);
   overlay.addEventListener('click', (e) => { if(e.target === overlay) closeAuthModal(); });
-  document.getElementById('auth-switch-link').addEventListener('click', () => renderAuthModal(mode === 'signup' ? 'signin' : 'signup'));
   document.getElementById('google-btn').addEventListener('click', handleGoogleAuth);
-  document.getElementById('auth-submit').addEventListener('click', () => handleEmailAuth(mode));
 }
 
 function closeAuthModal(){
@@ -578,61 +562,6 @@ function closeAuthModal(){
 function showAuthError(message){
   const el = document.getElementById('auth-error');
   if(el) el.innerHTML = `<div class="auth-error">${message}</div>`;
-}
-
-async function handleEmailAuth(mode){
-  const email = document.getElementById('auth-email').value.trim();
-  const password = document.getElementById('auth-password').value;
-  const nameField = document.getElementById('auth-name');
-  const submitBtn = document.getElementById('auth-submit');
-
-  if(!email || !password){ showAuthError('Please enter both an email and a password.'); return; }
-
-  submitBtn.textContent = 'Please wait...';
-
-  let result;
-  if(mode === 'signup'){
-    result = await supabaseClient.auth.signUp({
-      email, password,
-      options: { data: { full_name: nameField ? nameField.value.trim() : '' } }
-    });
-  } else {
-    result = await supabaseClient.auth.signInWithPassword({ email, password });
-  }
-
-  if(result.error){
-    showAuthError(result.error.message);
-    submitBtn.textContent = mode === 'signup' ? 'Create Account' : 'Sign In';
-    return;
-  }
-
-  // Supabase only returns an active session if email confirmation isn't
-  // required (or this is a sign-in after already confirming). If there's
-  // a user but no session, the account was created but they aren't
-  // actually logged in yet — proceeding as if they were would mean every
-  // save silently fails against Row Level Security. Tell them exactly
-  // what to do instead of pretending it worked.
-  if(!result.data.session){
-    showAuthError("Almost there — we've sent a confirmation link to your email. Click it, then come back here and sign in.");
-    submitBtn.textContent = mode === 'signup' ? 'Create Account' : 'Sign In';
-    return;
-  }
-
-  closeAuthModal();
-  currentUser = result.data.user;
-  await ensureProfileAndEnrollment();
-  await loadUserProgress();
-
-  if(sessionStorage.getItem('fj_pending_start') === '1'){
-    sessionStorage.removeItem('fj_pending_start');
-    goToFirstLesson();
-  } else if(viewingSurvey){
-    renderSurvey();
-  } else if(activeItem){
-    renderPlayer(activeItem);
-  } else {
-    goToFirstLesson();
-  }
 }
 
 async function handleGoogleAuth(){
