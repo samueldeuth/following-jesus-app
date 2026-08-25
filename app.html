@@ -2644,7 +2644,12 @@ let journeyExpanded = false;
 let courseExpandState = { essentials: false, waterBaptism: false };
 
 function courseCardHtml(courseId, title, subtitle, stepsHtml, walkoutProgress, progress, stepsData = STEPS, walkItOutData = WALK_IT_OUT) {
-  const doneCount = stepsData.filter((_, i) => displayStepStatus(i, progress, walkoutProgress, walkItOutData) === 'done').length;
+  // Essentials: progress[i] is already final and real (course-derived) —
+  // displayStepStatus would incorrectly re-derive it from Walk It Out
+  // completion instead. Water Baptism keeps its original behavior.
+  const doneCount = courseId === 'essentials'
+    ? stepsData.filter((_, i) => (progress[i] || 'not_started') === 'done').length
+    : stepsData.filter((_, i) => displayStepStatus(i, progress, walkoutProgress, walkItOutData) === 'done').length;
   const totalCount = stepsData.length;
   const isComplete = doneCount === totalCount;
   const pct = Math.round((doneCount / totalCount) * 100);
@@ -2770,7 +2775,11 @@ function stepBlockHtml(i, title, status, opts, walkItOutData = WALK_IT_OUT) {
   const hasWalkout = !!(walkItOutData[i] && walkItOutData[i].length > 0);
   const icon = status === 'done' ? '✓' : (status === 'in_progress' ? '•' : '');
   let suffixText;
-  if (!opts.clickable) {
+  if (opts.linkUrl) {
+    // Essentials steps: status is real, synced course progress — the
+    // row is a link into that exact session, never a manual toggle.
+    suffixText = status === 'done' ? 'completed on the course' : (status === 'in_progress' ? 'continue on the course →' : 'start on the course →');
+  } else if (!opts.clickable) {
     suffixText = null;
   } else if (hasWalkout) {
     suffixText = 'completes once all action steps are checked';
@@ -2778,19 +2787,22 @@ function stepBlockHtml(i, title, status, opts, walkItOutData = WALK_IT_OUT) {
     suffixText = 'tap to mark done';
   }
   const statusText = suffixText ? `${status.replace('_',' ')} · ${suffixText}` : status.replace('_',' ');
-  const clickableNow = opts.clickable && !hasWalkout;
-  const rowAttr = `data-step="${i}" data-clickable="${clickableNow ? 'true' : 'false'}"`;
+  const clickableNow = opts.clickable && !hasWalkout && !opts.linkUrl;
+  const rowTag = opts.linkUrl ? 'a' : 'div';
+  const rowAttr = opts.linkUrl
+    ? `href="${opts.linkUrl}" data-step="${i}"`
+    : `data-step="${i}" data-clickable="${clickableNow ? 'true' : 'false'}"`;
   const walkout = walkItOutHtml(i, opts.walkoutChecked, opts.interactive, walkItOutData);
   const toggleBtn = walkout ? `<button type="button" class="walk-it-out-toggle" data-walkout="${i}">Action steps ▾</button>` : '';
   return `
     <div class="step-block">
-      <div class="step-row ${clickableNow ? '' : 'step-row-static'}" ${rowAttr}>
+      <${rowTag} class="step-row ${(clickableNow || opts.linkUrl) ? '' : 'step-row-static'}" ${rowAttr}>
         <div class="step-check ${status === 'done' ? 'done' : (status === 'in_progress' ? 'progress' : '')}">${icon}</div>
         <div>
           <div class="step-title">${title}</div>
           <div class="step-status">${statusText}</div>
         </div>
-      </div>
+      </${rowTag}>
       ${toggleBtn}
       ${walkout ? `<div class="walk-it-out-panel" id="walkout${opts.prefix || ''}${i}">${walkout}</div>` : ''}
     </div>`;
@@ -2817,8 +2829,11 @@ async function computeDiscipledCount(leaderId) {
   const disciples = await getLeaderDisciples(leaderId);
   let count = 0;
   for (const d of disciples) {
-    const { progress: dProgress, walkoutProgress: dWalkout } = await getCourseProgressData(d.id, 'essentials');
-    const allDone = STEPS.every((_, i) => displayStepStatus(i, dProgress, dWalkout) === 'done');
+    const { progress: dProgress } = await getCourseProgressData(d.id, 'essentials');
+    // dProgress is already final for essentials (real course-derived) —
+    // displayStepStatus would incorrectly re-derive it from Walk It Out
+    // completion instead, which is now a separate, unrelated signal.
+    const allDone = STEPS.every((_, i) => (dProgress[i] || 'not_started') === 'done');
     if (allDone) count++;
   }
   return count;
@@ -2836,6 +2851,22 @@ async function getGlobalDiscipleCount() {
 async function incrementGlobalDiscipleCount() {
   const current = await getGlobalDiscipleCount();
   await safeSet('global-disciple-count', current + 1, true);
+}
+
+// Essentials completion is now discovered on render (real course
+// progress, checked whenever this screen loads) rather than caught
+// inside a single click handler — so without this flag, the celebration
+// would risk firing again on every subsequent visit once all 8 steps
+// are done. Checks and sets profiles.essentials_celebrated_at, so it's
+// guaranteed to fire at most once per person, ever.
+async function checkAndCelebrateEssentialsCompletion(studentId, progress) {
+  const allDone = STEPS.every((_, i) => (progress[i] || 'not_started') === 'done');
+  if (!allDone || !supabaseClient) return;
+  const { data: profileRow } = await supabaseClient.from('profiles').select('essentials_celebrated_at').eq('id', studentId).maybeSingle();
+  if (profileRow && profileRow.essentials_celebrated_at) return; // already celebrated, never again
+  await supabaseClient.from('profiles').update({ essentials_celebrated_at: new Date().toISOString() }).eq('id', studentId);
+  triggerConfetti();
+  incrementGlobalDiscipleCount();
 }
 
 function triggerConfetti() {
@@ -2977,10 +3008,16 @@ function wireWalkoutItemToggles(container, discipleId, onStepStatusChange, walkI
         if (overallSub) overallSub.textContent = `${overallStats.done} of ${overallStats.total} action steps complete`;
       }
 
-      // The step itself is done only once every one of its action steps is checked.
-      const newStepStatus = computeStepStatusFromWalkout(stepIdx, arr, walkItOutData);
-      updateStepRowUI(container, stepIdx, newStepStatus);
-      if (onStepStatusChange) await onStepStatusChange(stepIdx, newStepStatus);
+      // The step itself is done only once every one of its action steps
+      // is checked — but ONLY for courses where Walk It Out still drives
+      // step status. Essentials steps are now real, synced course
+      // progress instead, so Walk It Out stays a purely separate
+      // reflection layer there and never touches the step's own icon.
+      if (courseKey !== 'essentials') {
+        const newStepStatus = computeStepStatusFromWalkout(stepIdx, arr, walkItOutData);
+        updateStepRowUI(container, stepIdx, newStepStatus);
+        if (onStepStatusChange) await onStepStatusChange(stepIdx, newStepStatus);
+      }
 
       busy = false;
     };
@@ -3281,9 +3318,12 @@ async function renderGroupDetail(code) {
     membersHtml = `<div class="empty-state"><p>No one in this group yet. Share the code above, or add an existing disciple.</p></div>`;
   } else {
     for (const m of members) {
-      const mProgress = (await safeGet(course.progressKey(m.id), true)) || {};
-      const mWalkout = (await safeGet(course.walkoutKey(m.id), true)) || {};
-      const doneCount = course.steps.filter((_, i) => displayStepStatus(i, mProgress, mWalkout, course.walkItOut) === 'done').length;
+      const { progress: mProgress, walkoutProgress: mWalkout } = await getCourseProgressData(m.id, groupCourseId);
+      // Essentials: mProgress is already final and real (course-derived).
+      // Water Baptism keeps deriving from Walk It Out as before.
+      const doneCount = groupCourseId === 'essentials'
+        ? course.steps.filter((_, i) => (mProgress[i] || 'not_started') === 'done').length
+        : course.steps.filter((_, i) => displayStepStatus(i, mProgress, mWalkout, course.walkItOut) === 'done').length;
       const pct = Math.round((doneCount / course.steps.length) * 100);
       totalPct += pct;
       if (pct === 100) completedCount++;
@@ -3466,7 +3506,10 @@ async function renderMemberDetail(memberId) {
 
   let stepsHtml = '';
   STEPS.forEach((title, i) => {
-    const status = displayStepStatus(i, progress, walkoutProgress);
+    // Essentials status is already final and real (getCourseProgressData
+    // derives it from actual course progress) — displayStepStatus would
+    // incorrectly re-derive it from Walk It Out completion instead.
+    const status = progress[i] || 'not_started';
     stepsHtml += stepBlockHtml(i, title, status, { prefix: 'Leader', walkoutChecked: walkoutProgress[i], interactive: false });
   });
 
@@ -3557,7 +3600,8 @@ async function renderDisciple() {
   }
 
   const leaderId = membership.leaderId;
-  const { progress, walkoutProgress } = await getCourseProgressData(myId, 'essentials');
+  const { progress, walkoutProgress, essentialsSessionData } = await getCourseProgressData(myId, 'essentials');
+  checkAndCelebrateEssentialsCompletion(myId, progress);
   const messages = await getDirectMessages(leaderId, myId);
   const myGroups = await getDiscipleGroups(myId);
   const leaderApp = await getLeaderApplication(leaderId);
@@ -3565,8 +3609,10 @@ async function renderDisciple() {
 
   let stepsHtml = '';
   STEPS.forEach((title, i) => {
-    const status = displayStepStatus(i, progress, walkoutProgress);
-    stepsHtml += stepBlockHtml(i, title, status, { clickable: true, suffix: 'tap to update', prefix: 'Friend', walkoutChecked: walkoutProgress[i], interactive: true });
+    const status = progress[i] || 'not_started';
+    const sessionRow = essentialsSessionData ? essentialsSessionData[i] : null;
+    const linkUrl = sessionRow && sessionRow.first_item_id ? `https://followingjesus.com/course?item=${sessionRow.first_item_id}` : null;
+    stepsHtml += stepBlockHtml(i, title, status, { prefix: 'Friend', walkoutChecked: walkoutProgress[i], interactive: true, linkUrl });
   });
 
   let msgHtml = '';
@@ -3720,30 +3766,11 @@ async function renderDisciple() {
   });
 
 
-  [...document.querySelectorAll('.step-row[data-clickable="true"]')].forEach(el => {
-    let busy = false;
-    el.onclick = async () => {
-      if (busy) return;
-      busy = true;
-      const i = el.dataset.step;
-      const cur = progress[i] || 'not_started';
-      const next = cur === 'done' ? 'not_started' : 'done';
-      progress[i] = next;
-      await updateProgressRow(myId, 'essentials', i, { status: next });
-      const { walkoutProgress: freshWalkout } = await getCourseProgressData(myId, 'essentials');
-      const allDone = STEPS.every((_, idx) => displayStepStatus(idx, progress, freshWalkout) === 'done');
-      if (allDone) { courseExpandState.essentials = false; triggerConfetti(); incrementGlobalDiscipleCount(); }
-      render();
-    };
-  });
   wireWalkoutToggles(main, 'Friend');
-  wireWalkoutItemToggles(main, myId, async (stepIdx, newStatus) => {
-    progress[stepIdx] = newStatus;
-    await updateProgressRow(myId, 'essentials', stepIdx, { status: newStatus });
-    const { walkoutProgress: freshWalkout } = await getCourseProgressData(myId, 'essentials');
-    const allDone = STEPS.every((_, i) => displayStepStatus(i, progress, freshWalkout) === 'done');
-    if (allDone && courseExpandState.essentials) { courseExpandState.essentials = false; triggerConfetti(); incrementGlobalDiscipleCount(); render(); }
-  }, WALK_IT_OUT, 'essentials');
+  // Essentials steps are now real course links, not manual toggles, so
+  // there's no onStepStatusChange callback needed here anymore — Walk It
+  // Out stays a purely separate reflection layer for this course.
+  wireWalkoutItemToggles(main, myId, null, WALK_IT_OUT, 'essentials');
 
   [...document.querySelectorAll('[data-leave-code]')].forEach(btn => {
     btn.onclick = async () => {
@@ -3919,15 +3946,18 @@ async function renderDiscipleshipHub() {
   const account = await dSafeGet('account');
   const leaderApp = await getLeaderApplication(myId);
   const membership = await getDiscipleMembership(myId);
-  const { progress, walkoutProgress } = await getCourseProgressData(myId, 'essentials');
+  const { progress, walkoutProgress, essentialsSessionData } = await getCourseProgressData(myId, 'essentials');
+  checkAndCelebrateEssentialsCompletion(myId, progress);
   const { progress: wbProgress, walkoutProgress: wbWalkoutProgress } = await getCourseProgressData(myId, 'waterBaptism');
   const isApprovedLeader = leaderApp && leaderApp.status === 'approved';
   const globalCount = await getGlobalDiscipleCount();
 
   let stepsHtml = '';
   STEPS.forEach((title, i) => {
-    const status = displayStepStatus(i, progress, walkoutProgress);
-    stepsHtml += stepBlockHtml(i, title, status, { clickable: true, prefix: 'HubEssentials', walkoutChecked: walkoutProgress[i], interactive: true });
+    const status = progress[i] || 'not_started';
+    const sessionRow = essentialsSessionData ? essentialsSessionData[i] : null;
+    const linkUrl = sessionRow && sessionRow.first_item_id ? `https://followingjesus.com/course?item=${sessionRow.first_item_id}` : null;
+    stepsHtml += stepBlockHtml(i, title, status, { prefix: 'HubEssentials', walkoutChecked: walkoutProgress[i], interactive: true, linkUrl });
   });
 
   let wbStepsHtml = '';
@@ -4094,30 +4124,11 @@ async function renderDiscipleshipHub() {
   const essentialsBody = document.getElementById('courseCardBody-essentials');
   const wbBody = document.getElementById('courseCardBody-waterBaptism');
 
-  [...essentialsBody.querySelectorAll('.step-row[data-clickable="true"]')].forEach(el => {
-    let busy = false;
-    el.onclick = async () => {
-      if (busy) return;
-      busy = true;
-      const i = el.dataset.step;
-      const cur = progress[i] || 'not_started';
-      const next = cur === 'done' ? 'not_started' : 'done';
-      progress[i] = next;
-      await updateProgressRow(myId, 'essentials', i, { status: next });
-      const { walkoutProgress: freshWalkout } = await getCourseProgressData(myId, 'essentials');
-      const allDone = STEPS.every((_, idx) => displayStepStatus(idx, progress, freshWalkout) === 'done');
-      if (allDone) { courseExpandState.essentials = false; triggerConfetti(); incrementGlobalDiscipleCount(); }
-      renderDiscipleshipHub();
-    };
-  });
   wireWalkoutToggles(essentialsBody, 'HubEssentials');
-  wireWalkoutItemToggles(essentialsBody, myId, async (stepIdx, newStatus) => {
-    progress[stepIdx] = newStatus;
-    await updateProgressRow(myId, 'essentials', stepIdx, { status: newStatus });
-    const { walkoutProgress: freshWalkout } = await getCourseProgressData(myId, 'essentials');
-    const allDone = STEPS.every((_, i) => displayStepStatus(i, progress, freshWalkout) === 'done');
-    if (allDone && courseExpandState.essentials) { courseExpandState.essentials = false; triggerConfetti(); incrementGlobalDiscipleCount(); renderDiscipleshipHub(); }
-  }, WALK_IT_OUT, 'essentials');
+  // Essentials steps are now real course links, not manual toggles, so
+  // no onStepStatusChange callback is needed — Walk It Out stays a
+  // purely separate reflection layer for this course.
+  wireWalkoutItemToggles(essentialsBody, myId, null, WALK_IT_OUT, 'essentials');
 
   wireWalkoutToggles(wbBody, 'HubWaterBaptism');
   wireWalkoutItemToggles(
@@ -4512,17 +4523,49 @@ async function fjCourseCardHtml() {
 // already expects, keeping this migration surgical rather than needing
 // to touch every rendering function too.
 
+// Real progress on the actual Following Jesus course, for the 8
+// sessions that match the app's 8 Essentials steps. Falls back to all
+// not-started (rather than throwing) if the RPC fails or the student
+// hasn't touched the course at all — a quiet, safe default rather than
+// a broken screen.
+async function getEssentialsCourseProgress(studentId) {
+  if (!supabaseClient || !studentId) return {};
+  const { data, error } = await supabaseClient.rpc('get_essentials_course_progress', { p_student_id: studentId });
+  if (error || !data) return {};
+  const byStep = {};
+  data.forEach(row => { byStep[row.step_index] = row; });
+  return byStep;
+}
+
 async function getCourseProgressData(studentId, courseKey) {
   if (!supabaseClient) return { progress: {}, walkoutProgress: {} };
+
+  // Walk It Out reflection checkboxes stay app-only and manual for both
+  // courses — only how a STEP's own done/not status is derived differs.
   const { data } = await supabaseClient.from('app_course_progress')
     .select('step_index, status, walkout_checked').eq('student_id', studentId).eq('course_key', courseKey);
-  const progress = {};
   const walkoutProgress = {};
+  const manualProgress = {};
   (data || []).forEach(row => {
-    progress[row.step_index] = row.status;
+    manualProgress[row.step_index] = row.status;
     if (row.walkout_checked && row.walkout_checked.length) walkoutProgress[row.step_index] = row.walkout_checked;
   });
-  return { progress, walkoutProgress };
+
+  if (courseKey !== 'essentials') {
+    return { progress: manualProgress, walkoutProgress };
+  }
+
+  // Essentials: a step's status is now real, derived course progress —
+  // not the manual toggle above, and not Walk It Out completion either.
+  // Walk It Out stays a purely separate reflection layer for this course.
+  const essentialsProgress = await getEssentialsCourseProgress(studentId);
+  const progress = {};
+  STEPS.forEach((_, i) => {
+    const row = essentialsProgress[i];
+    if (!row) { progress[i] = 'not_started'; return; }
+    progress[i] = row.is_done ? 'done' : (row.has_any_progress ? 'in_progress' : 'not_started');
+  });
+  return { progress, walkoutProgress, essentialsSessionData: essentialsProgress };
 }
 
 // Reads the existing row (if any) first, then writes back the full row
