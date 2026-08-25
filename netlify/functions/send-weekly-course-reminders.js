@@ -26,7 +26,7 @@ async function sendReminderEmail(payload) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "Following Jesus <reminders@followingjesus.com>",
+      from: "Following Jesus <reminders@mail.followingjesus.com>",
       to: payload.to,
       subject: `Keep going in ${payload.course_title}`,
       html: `
