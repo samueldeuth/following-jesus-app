@@ -1484,7 +1484,41 @@
   }
 
   nav.tabbar button.active { color: var(--ember); }
-</style>
+/* ---------- Leader/Disciple dashboard: white background ----------
+   Scoped to #discipleModal specifically (an ID, not the shared
+   .disciple-modal/.disciple-app-scope classes) so this never touches
+   #gospelModal, which shares those same classes and keeps its black
+   background exactly as before. Using var(--paper) rather than pure
+   white — several cards in here (.row, .step-row, .walk-it-out-panel,
+   .action-row) are already pure white on purpose, to pop against a
+   dark backdrop; keeping that contrast intact matters more than an
+   exact color match, and the difference from pure white is barely
+   perceptible. Every rule below exists because that specific element
+   sits directly on the modal's own background, not on one of the
+   existing light cards — anything already on a var(--paper)/var(--white)
+   card needed no change at all. */
+#discipleModal { background: var(--paper); }
+
+#discipleModal .hub-top-row { background: rgba(10,10,10,0.045); }
+#discipleModal .hub-profile-photo { background: rgba(10,10,10,0.08); }
+#discipleModal .hub-profile-name { color: var(--black); }
+#discipleModal .hub-profile-arrow { color: rgba(10,10,10,0.35); }
+
+#discipleModal .subnav button { background: rgba(10,10,10,0.045); border-color: rgba(10,10,10,0.1); color: rgba(10,10,10,0.55); }
+#discipleModal .subnav button.active { background: var(--black); color: var(--white); border-color: var(--black); }
+
+#discipleModal .leader-info-name { color: rgba(10,10,10,0.6); }
+#discipleModal .section-label { color: rgba(10,10,10,0.4); }
+#discipleModal .back-link { color: rgba(10,10,10,0.5); }
+#discipleModal .chat-block { border-bottom-color: rgba(10,10,10,0.1); }
+#discipleModal .empty-state { color: rgba(10,10,10,0.45); }
+
+/* Pre-existing issue, unrelated to the background change itself: this
+   text was always white regardless of prompt state, but the non-prompt
+   card is var(--paper) (light) — already hard to read today, not just
+   after this change. Fixing it here since it's directly in scope. */
+#discipleModal .own-journey-sub { color: rgba(10,10,10,0.55); }
+#discipleModal .own-journey-card.own-journey-prompt .own-journey-sub { color: rgba(255,255,255,0.85); }
 </head>
 <body>
 
