@@ -379,6 +379,25 @@ function getCourseIdParam(){
   return params.get('course') || null;
 }
 
+function getItemIdParam(){
+  const params = new URLSearchParams(window.location.search);
+  return params.get('item') || null;
+}
+
+// Keeps the URL's ?item= in sync with whatever's actually on screen, so
+// a refresh keeps your place and the back button steps through lessons
+// one at a time instead of skipping past the whole course. Callers that
+// are just restoring state FROM the URL (popstate, initial page load)
+// pass skipHistoryPush=true so they don't create a redundant or
+// conflicting history entry.
+function updateItemUrlParam(item, skipHistoryPush){
+  if(skipHistoryPush) return;
+  const params = new URLSearchParams(window.location.search);
+  if(item) params.set('item', item.id); else params.delete('item');
+  const query = params.toString();
+  history.pushState({ itemId: item ? item.id : null }, '', `${window.location.pathname}${query ? '?' + query : ''}`);
+}
+
 let church = null;
 let course = null;
 let sessions = [];       // each with .items[]
@@ -455,7 +474,17 @@ async function init(){
     return;
   }
 
-  renderHero();
+  // A bookmarked or refreshed URL with ?item= should land you back on
+  // that exact lesson, not the course landing page.
+  const itemIdParam = getItemIdParam();
+  const restoredItem = itemIdParam ? sessions.flatMap(s => s.session_items).find(i => i.id === itemIdParam) : null;
+  if(restoredItem){
+    const owningSession = sessions.find(s => s.session_items.some(i => i.id === restoredItem.id));
+    openSessionId = owningSession?.id || null;
+    renderPlayer(restoredItem, true);
+  } else {
+    renderHero(true);
+  }
 
   // If we were sent here specifically to sign in before reaching an admin
   // page, and we're NOT already signed in, open the sign-in modal
@@ -852,7 +881,10 @@ function wireLetterVideo(){
   }, { once: true });
 }
 
-function renderHero(){
+function renderHero(skipHistoryPush){
+  activeItem = null;
+  viewingSurvey = false;
+  updateItemUrlParam(null, skipHistoryPush);
   document.getElementById('app').innerHTML = `
     <div class="hero">
       <div class="topbar on-hero">
@@ -893,7 +925,7 @@ function goToFirstLesson(){
 }
 
 /* ---------- Player shell ---------- */
-function renderPlayer(item){
+function renderPlayer(item, skipHistoryPush){
   activeItem = item;
   const totalItems = sessions.reduce((n,s)=>n+s.session_items.length,0);
   const completedCount = sessions.reduce((n,s)=>n+s.session_items.filter(i=>doneItemIds.has(i.id)).length,0);
@@ -943,7 +975,7 @@ function renderPlayer(item){
   document.getElementById('sidebar-overlay').addEventListener('click', closeMobileDrawer);
 
   renderSessionList();
-  if(item) renderContent(item); else if(!viewingSurvey) renderContent(null);
+  if(item) renderContent(item, skipHistoryPush); else if(!viewingSurvey) renderContent(null, skipHistoryPush);
 }
 
 function openMobileDrawer(){
@@ -1019,9 +1051,10 @@ function getAdjacentItem(item, direction){
 }
 
 /* ---------- Content pane ---------- */
-function renderContent(item){
+function renderContent(item, skipHistoryPush){
   viewingSurvey = false;
   activeItem = item;
+  updateItemUrlParam(item, skipHistoryPush);
   const pane = document.getElementById('content-pane');
   if(!item){ pane.innerHTML = '<div class="loading">Select a lesson to begin.</div>'; return; }
 
@@ -1240,6 +1273,23 @@ async function issueCertificateIfNeeded(){
     course_id: course.id
   });
 }
+
+// Handles the actual browser back/forward buttons — reads whatever the
+// URL now says and updates the view to match, without pushing another
+// history entry (that would fight with the browser's own navigation and
+// break the forward button).
+window.addEventListener('popstate', () => {
+  if(!sessions.length) return; // course data not loaded yet, nothing to restore
+  const itemIdParam = getItemIdParam();
+  const restoredItem = itemIdParam ? sessions.flatMap(s => s.session_items).find(i => i.id === itemIdParam) : null;
+  if(restoredItem){
+    const owningSession = sessions.find(s => s.session_items.some(i => i.id === restoredItem.id));
+    openSessionId = owningSession?.id || null;
+    renderPlayer(restoredItem, true);
+  } else {
+    renderHero(true);
+  }
+});
 
 init();
 </script>

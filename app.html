@@ -5466,14 +5466,47 @@ async function renderDiscipleshipApp() {
     if (planBtn) planBtn.click();
   };
 
-  function goToTab(screenId) {
+  // URL routing for the 5 main tabs — Today is the default (no hash),
+  // everything else gets a real, bookmarkable hash. This is what makes
+  // a refresh keep your place and the back button step through tabs one
+  // at a time instead of skipping past the app entirely to wherever you
+  // were before opening it.
+  const TAB_HASH_MAP = {
+    'screen-today': '', 'screen-bible': 'bible', 'screen-plans': 'plans',
+    'screen-blog': 'blog', 'screen-jesus': 'jesus'
+  };
+  const HASH_TO_SCREEN = Object.fromEntries(Object.entries(TAB_HASH_MAP).map(([k,v]) => [v, k]));
+
+  // Pure DOM update, no history side effects — shared by user-initiated
+  // clicks and by restoring state from the URL, so those two paths never
+  // fight each other over history entries.
+  function applyTab(screenId) {
     buttons.forEach(b => b.classList.remove('active'));
     screens.forEach(s => s.classList.remove('active'));
     const targetBtn = document.querySelector(`.tab-btn[data-screen="${screenId}"]`);
     if (targetBtn) targetBtn.classList.add('active');
-    document.getElementById(screenId).classList.add('active');
+    const targetScreen = document.getElementById(screenId);
+    if (targetScreen) targetScreen.classList.add('active');
     panel.scrollTop = 0;
   }
+
+  function goToTab(screenId) {
+    applyTab(screenId);
+    const hash = TAB_HASH_MAP[screenId] || '';
+    history.pushState({ screenId }, '', hash ? `#${hash}` : window.location.pathname);
+  }
+
+  // Deliberately does NOT call goToTab (which would push another history
+  // entry and break forward navigation) — this only reads the current
+  // URL and updates the DOM to match.
+  function restoreTabFromUrl() {
+    const hash = window.location.hash.replace('#', '');
+    applyTab(HASH_TO_SCREEN[hash] || 'screen-today');
+  }
+
+  window.addEventListener('popstate', restoreTabFromUrl);
+  restoreTabFromUrl(); // Picks up a bookmarked/refreshed hash on initial load
+
   buttons.forEach(btn => {
     btn.addEventListener('click', () => goToTab(btn.dataset.screen));
   });
