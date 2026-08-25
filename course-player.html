@@ -362,64 +362,6 @@ let responsesByQuestion = {};  // question_id -> {response_text, admin_reply}
 let surveyQuestions = [];
 let surveyResponses = {};      // question_id -> response_text
 let viewingSurvey = false;
-let isNavigatingFromPopstate = false;  // true while restoring a view from back/forward, so we don't re-push the same state we're restoring
-
-/* ---------- URL state (deep-linkable views) ----------
-   Keeps ?item=<session_item id> or ?view=survey|profile in the URL so
-   refresh and the browser back/forward buttons land on the actual page
-   you were viewing, not always back at the course landing page. Session
-   groupings aren't tracked separately in the URL — the item id is enough
-   to know which session it belongs to. */
-function setViewInUrl(params, opts){
-  opts = opts || {};
-  if(isNavigatingFromPopstate) return;  // already restoring this exact state, don't re-push it
-
-  const url = new URL(window.location.href);
-  url.searchParams.delete('item');
-  url.searchParams.delete('view');
-  if(params.item) url.searchParams.set('item', params.item);
-  if(params.view) url.searchParams.set('view', params.view);
-
-  const newUrlStr = url.pathname + url.search + url.hash;
-  const curUrlStr = window.location.pathname + window.location.search + window.location.hash;
-  if(newUrlStr === curUrlStr) return;
-
-  if(opts.replace) history.replaceState(params, '', newUrlStr);
-  else history.pushState(params, '', newUrlStr);
-}
-
-// Reads ?item= or ?view= from the current URL and renders that view.
-// Returns true if it found and rendered something, false if the URL
-// didn't point anywhere valid (caller should fall back to the landing page).
-function restoreViewFromUrl(){
-  const params = new URLSearchParams(window.location.search);
-  const itemId = params.get('item');
-  const view = params.get('view');
-
-  if(itemId){
-    const item = sessions.flatMap(s => s.session_items).find(i => i.id === itemId);
-    if(item){
-      openSessionId = sessions.find(s => s.session_items.some(i => i.id === itemId))?.id || null;
-      renderPlayer(item);
-      return true;
-    }
-    // Stale or invalid item id (wrong course, deleted item) — fall through to landing.
-  }
-
-  if(view === 'survey'){
-    openSessionId = null;
-    renderPlayer(null);
-    renderSurvey();
-    return true;
-  }
-
-  if(view === 'profile' && currentUser){
-    renderProfile();
-    return true;
-  }
-
-  return false;
-}
 
 async function init(){
   const slug = getChurchSlug();
@@ -484,13 +426,7 @@ async function init(){
     return;
   }
 
-  // Deep link / refresh: if the URL points at a specific lesson, the
-  // survey, or the profile page, land there instead of the course
-  // landing page. Falls back to the hero if the URL doesn't point
-  // anywhere valid.
-  if(!restoreViewFromUrl()){
-    renderHero();
-  }
+  renderHero();
 
   // If we were sent here specifically to sign in before reaching an admin
   // page, and we're NOT already signed in, open the sign-in modal
@@ -499,16 +435,6 @@ async function init(){
     renderAuthModal('signin');
   }
 }
-
-// Browser back/forward: re-render whatever view the URL now points to,
-// without pushing a new history entry for it.
-window.addEventListener('popstate', () => {
-  isNavigatingFromPopstate = true;
-  if(!restoreViewFromUrl()){
-    renderHero();
-  }
-  isNavigatingFromPopstate = false;
-});
 
 /* ---------- Auth-dependent data loading ---------- */
 async function ensureProfileAndEnrollment(){
@@ -666,7 +592,6 @@ async function handleSignOut(){
 }
 
 async function renderProfile(){
-  setViewInUrl({ view: 'profile' });
   const { data: allCourses } = await supabaseClient.from('courses').select('id, title, subtitle, sessions(session_items(id))').order('created_at');
   const { data: myEnrollments } = await supabaseClient.from('enrollments').select('course_id').eq('student_id', currentUser.id);
   const enrolledIds = new Set((myEnrollments || []).map(e => e.course_id));
@@ -725,9 +650,7 @@ async function renderProfile(){
   `;
 
   document.getElementById('profile-back').addEventListener('click', () => {
-    if(activeItem){ renderPlayer(activeItem); }
-    else if(viewingSurvey){ renderPlayer(null); renderSurvey(); }
-    else { renderHero(); }
+    if(activeItem || viewingSurvey){ renderPlayer(activeItem); } else { renderHero(); }
   });
   document.getElementById('profile-save-btn').addEventListener('click', async () => {
     const newName = document.getElementById('profile-name-input').value.trim();
@@ -766,10 +689,18 @@ async function renderProfile(){
 // welcome instead of the author's), that takes priority — otherwise falls
 // back to the course's own default letter. Same field names on both
 // tables, so this is just "which row has content, church or course."
+//
+// Checks every letter field here, not just letter_body — a church that's
+// set a custom title, photo, or video but left the body paragraph blank
+// still counts as having their own letter. The earlier version only
+// checked letter_body, so setting anything else without also writing a
+// body paragraph silently fell all the way back to the generic course's
+// letter instead — a real bug, not intentional.
 function letterSectionHtml(course, churchObj){
-  const source = (churchObj && churchObj.letter_body) ? churchObj : course;
-  if(!source.letter_body) return '';
-  const paragraphs = source.letter_body.split(/\n\s*\n/).map(p => `<p>${p.trim()}</p>`).join('');
+  const hasAnyLetterContent = (obj) => !!(obj && (obj.letter_title || obj.letter_body || obj.letter_image_url || obj.letter_video_youtube_id));
+  const source = hasAnyLetterContent(churchObj) ? churchObj : course;
+  if(!hasAnyLetterContent(source)) return '';
+  const paragraphs = source.letter_body ? source.letter_body.split(/\n\s*\n/).map(p => `<p>${p.trim()}</p>`).join('') : '';
   const mediaHtml = source.letter_video_youtube_id
     ? `<div class="preview-frame letter-image" id="letter-video-frame" data-video-id="${source.letter_video_youtube_id}">
          <img src="https://img.youtube.com/vi/${source.letter_video_youtube_id}/maxresdefault.jpg" alt="Welcome video" />
@@ -883,7 +814,6 @@ function wireLetterVideo(){
 }
 
 function renderHero(){
-  setViewInUrl({});
   document.getElementById('app').innerHTML = `
     <div class="hero">
       <div class="topbar on-hero">
@@ -1056,8 +986,6 @@ function renderContent(item){
   const pane = document.getElementById('content-pane');
   if(!item){ pane.innerHTML = '<div class="loading">Select a lesson to begin.</div>'; return; }
 
-  setViewInUrl({ item: item.id });
-
   const isDone = doneItemIds.has(item.id);
   let body = '';
 
@@ -1151,7 +1079,6 @@ async function saveDiscussionAnswer(questionId, text, noteEl){
 function renderSurvey(){
   viewingSurvey = true;
   activeItem = null;
-  setViewInUrl({ view: 'survey' });
   const pane = document.getElementById('content-pane');
 
   const questionsHtml = surveyQuestions.map(q => {
