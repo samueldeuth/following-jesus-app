@@ -4041,12 +4041,12 @@ async function renderDiscipleshipHub() {
     disciples = await getLeaderDisciples(myId);
     const { data: directGroup } = await supabaseClient.from('discipleship_groups').select('invite_code').eq('leader_id', myId).eq('is_direct', true).maybeSingle();
     directCode = directGroup ? directGroup.invite_code : null;
-    discipledCount = await getGlobalDiscipleCount();
+    discipledCount = await computeDiscipledCount(myId);
 
     leaderSectionHtml = `
       <div class="discipled-stat-card">
         <div class="discipled-stat-number">${discipledCount}</div>
-        <div class="discipled-stat-label">${discipledCount === 1 ? 'Disciple' : 'Disciples'} Made Through This App</div>
+        <div class="discipled-stat-label">${discipledCount === 1 ? 'Person' : 'People'} You've Discipled</div>
       </div>
       <div class="two-col two-col-compact">
         <button class="compact-action-btn" id="inviteFriendBtn">${directCode ? 'Show My Link' : 'Invite an Individual'}</button>
