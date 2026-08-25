@@ -2869,8 +2869,7 @@ async function computeDiscipledCount(leaderId) {
   const disciples = await getLeaderDisciples(leaderId);
   let count = 0;
   for (const d of disciples) {
-    const dProgress = (await safeGet(`progress:${d.id}`, true)) || {};
-    const dWalkout = (await safeGet(`walkout-progress:${d.id}`, true)) || {};
+    const { progress: dProgress, walkoutProgress: dWalkout } = await getCourseProgressData(d.id, 'essentials');
     const allDone = STEPS.every((_, i) => displayStepStatus(i, dProgress, dWalkout) === 'done');
     if (allDone) count++;
   }
@@ -2985,7 +2984,7 @@ function updateStepRowUI(container, stepIdx, status) {
 }
 
 
-function wireWalkoutItemToggles(container, discipleId, onStepStatusChange, walkItOutData = WALK_IT_OUT, walkoutKeyFn = (id) => `walkout-progress:${id}`) {
+function wireWalkoutItemToggles(container, discipleId, onStepStatusChange, walkItOutData = WALK_IT_OUT, courseKey = 'essentials') {
   [...container.querySelectorAll('.walkout-item.interactive')].forEach(el => {
     let busy = false;
     el.onclick = async (e) => {
@@ -2994,13 +2993,12 @@ function wireWalkoutItemToggles(container, discipleId, onStepStatusChange, walkI
       busy = true;
       const stepIdx = el.dataset.walkoutStep;
       const idx = parseInt(el.dataset.walkoutIdx, 10);
-      const key = walkoutKeyFn(discipleId);
-      const progress = (await safeGet(key, true)) || {};
+      const { walkoutProgress: progressWalkout } = await getCourseProgressData(discipleId, courseKey);
       const total = walkItOutData[stepIdx].length;
-      const arr = (progress[stepIdx] && progress[stepIdx].length === total) ? progress[stepIdx] : walkItOutData[stepIdx].map(() => false);
+      const arr = (progressWalkout[stepIdx] && progressWalkout[stepIdx].length === total) ? progressWalkout[stepIdx] : walkItOutData[stepIdx].map(() => false);
       arr[idx] = !arr[idx];
-      progress[stepIdx] = arr;
-      await safeSet(key, progress, true);
+      progressWalkout[stepIdx] = arr;
+      await updateProgressRow(discipleId, courseKey, stepIdx, { walkout_checked: arr });
 
       // Update the DOM in place rather than a full re-render, so the
       // open panel doesn't collapse right after someone checks an item.
@@ -3020,7 +3018,7 @@ function wireWalkoutItemToggles(container, discipleId, onStepStatusChange, walkI
       // (the container passed in should be scoped to just this course's
       // own card when multiple courses render on the same page, so this
       // never touches a different course's progress card).
-      const overallStats = overallWalkoutStats(progress, walkItOutData);
+      const overallStats = overallWalkoutStats(progressWalkout, walkItOutData);
       const overallCard = container.querySelector('.overall-progress-card');
       if (overallCard) {
         const overallFill = overallCard.querySelector('.walkout-progress-fill');
@@ -3507,9 +3505,8 @@ async function closeGroup(code) {
 async function renderMemberDetail(memberId) {
   const disciples = await getLeaderDisciples(myId);
   const member = disciples.find(d => d.id === memberId);
-  const progress = (await safeGet(`progress:${memberId}`, true)) || {};
+  const { progress, walkoutProgress } = await getCourseProgressData(memberId, 'essentials');
   const messages = (await safeGet(`messages:${myId}:${memberId}`, true)) || [];
-  const walkoutProgress = (await safeGet(`walkout-progress:${memberId}`, true)) || {};
 
   let stepsHtml = '';
   STEPS.forEach((title, i) => {
@@ -3606,12 +3603,11 @@ async function renderDisciple() {
   }
 
   const leaderId = membership.leaderId;
-  const progress = (await safeGet(`progress:${myId}`, true)) || {};
+  const { progress, walkoutProgress } = await getCourseProgressData(myId, 'essentials');
   const messages = (await safeGet(`messages:${leaderId}:${myId}`, true)) || [];
   const myGroups = await getDiscipleGroups(myId);
   const leaderApp = await getLeaderApplication(leaderId);
   const leaderName = leaderApp ? leaderApp.name : 'Your Leader';
-  const walkoutProgress = (await safeGet(`walkout-progress:${myId}`, true)) || {};
 
   let stepsHtml = '';
   STEPS.forEach((title, i) => {
@@ -3633,7 +3629,7 @@ async function renderDisciple() {
       peerRows = `<div class="msg-empty">No one else has joined yet.</div>`;
     } else {
       for (const p of peers) {
-        const pProgress = (await safeGet(`progress:${p.id}`, true)) || {};
+        const { progress: pProgress } = await getCourseProgressData(p.id, 'essentials');
         const doneCount = Object.values(pProgress).filter(s => s === 'done').length;
         peerRows += `<div class="row"><div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="sub">${doneCount} of ${STEPS.length} steps complete</div></div></div>`;
       }
@@ -3781,8 +3777,8 @@ async function renderDisciple() {
       const cur = progress[i] || 'not_started';
       const next = cur === 'done' ? 'not_started' : 'done';
       progress[i] = next;
-      await safeSet(`progress:${myId}`, progress, true);
-      const freshWalkout = (await safeGet(`walkout-progress:${myId}`, true)) || {};
+      await updateProgressRow(myId, 'essentials', i, { status: next });
+      const { walkoutProgress: freshWalkout } = await getCourseProgressData(myId, 'essentials');
       const allDone = STEPS.every((_, idx) => displayStepStatus(idx, progress, freshWalkout) === 'done');
       if (allDone) { courseExpandState.essentials = false; triggerConfetti(); incrementGlobalDiscipleCount(); }
       render();
@@ -3791,11 +3787,11 @@ async function renderDisciple() {
   wireWalkoutToggles(main, 'Friend');
   wireWalkoutItemToggles(main, myId, async (stepIdx, newStatus) => {
     progress[stepIdx] = newStatus;
-    await safeSet(`progress:${myId}`, progress, true);
-    const freshWalkout = (await safeGet(`walkout-progress:${myId}`, true)) || {};
+    await updateProgressRow(myId, 'essentials', stepIdx, { status: newStatus });
+    const { walkoutProgress: freshWalkout } = await getCourseProgressData(myId, 'essentials');
     const allDone = STEPS.every((_, i) => displayStepStatus(i, progress, freshWalkout) === 'done');
     if (allDone && courseExpandState.essentials) { courseExpandState.essentials = false; triggerConfetti(); incrementGlobalDiscipleCount(); render(); }
-  });
+  }, WALK_IT_OUT, 'essentials');
 
   [...document.querySelectorAll('[data-leave-code]')].forEach(btn => {
     btn.onclick = async () => {
@@ -3973,10 +3969,8 @@ async function renderDiscipleshipHub() {
   const account = await dSafeGet('account');
   const leaderApp = await getLeaderApplication(myId);
   const membership = await getDiscipleMembership(myId);
-  const progress = (await safeGet(`progress:${myId}`, true)) || {};
-  const walkoutProgress = (await safeGet(`walkout-progress:${myId}`, true)) || {};
-  const wbProgress = (await safeGet(`wb-progress:${myId}`, true)) || {};
-  const wbWalkoutProgress = (await safeGet(`wb-walkout-progress:${myId}`, true)) || {};
+  const { progress, walkoutProgress } = await getCourseProgressData(myId, 'essentials');
+  const { progress: wbProgress, walkoutProgress: wbWalkoutProgress } = await getCourseProgressData(myId, 'waterBaptism');
   const isApprovedLeader = leaderApp && leaderApp.status === 'approved';
   const globalCount = await getGlobalDiscipleCount();
 
@@ -4115,7 +4109,7 @@ async function renderDiscipleshipHub() {
       } else {
         let html = '';
         for (const d of disciples) {
-          const dProgress = (await safeGet(`progress:${d.id}`, true)) || {};
+          const { progress: dProgress } = await getCourseProgressData(d.id, 'essentials');
           const doneCount = Object.values(dProgress).filter(s => s === 'done').length;
           const groupLabels = (d.groups || []).length ? (d.groups || []).join(', ') : 'Direct';
           html += `
@@ -4159,8 +4153,8 @@ async function renderDiscipleshipHub() {
       const cur = progress[i] || 'not_started';
       const next = cur === 'done' ? 'not_started' : 'done';
       progress[i] = next;
-      await safeSet(`progress:${myId}`, progress, true);
-      const freshWalkout = (await safeGet(`walkout-progress:${myId}`, true)) || {};
+      await updateProgressRow(myId, 'essentials', i, { status: next });
+      const { walkoutProgress: freshWalkout } = await getCourseProgressData(myId, 'essentials');
       const allDone = STEPS.every((_, idx) => displayStepStatus(idx, progress, freshWalkout) === 'done');
       if (allDone) { courseExpandState.essentials = false; triggerConfetti(); incrementGlobalDiscipleCount(); }
       renderDiscipleshipHub();
@@ -4169,21 +4163,21 @@ async function renderDiscipleshipHub() {
   wireWalkoutToggles(essentialsBody, 'HubEssentials');
   wireWalkoutItemToggles(essentialsBody, myId, async (stepIdx, newStatus) => {
     progress[stepIdx] = newStatus;
-    await safeSet(`progress:${myId}`, progress, true);
-    const freshWalkout = (await safeGet(`walkout-progress:${myId}`, true)) || {};
+    await updateProgressRow(myId, 'essentials', stepIdx, { status: newStatus });
+    const { walkoutProgress: freshWalkout } = await getCourseProgressData(myId, 'essentials');
     const allDone = STEPS.every((_, i) => displayStepStatus(i, progress, freshWalkout) === 'done');
     if (allDone && courseExpandState.essentials) { courseExpandState.essentials = false; triggerConfetti(); incrementGlobalDiscipleCount(); renderDiscipleshipHub(); }
-  });
+  }, WALK_IT_OUT, 'essentials');
 
   wireWalkoutToggles(wbBody, 'HubWaterBaptism');
   wireWalkoutItemToggles(
     wbBody, myId,
     async (stepIdx, newStatus) => {
       wbProgress[stepIdx] = newStatus;
-      await safeSet(`wb-progress:${myId}`, wbProgress, true);
+      await updateProgressRow(myId, 'waterBaptism', stepIdx, { status: newStatus });
     },
     WB_WALK_IT_OUT,
-    (id) => `wb-walkout-progress:${id}`
+    'waterBaptism'
   );
 }
 
@@ -4545,6 +4539,42 @@ async function fjCourseCardHtml() {
       <p>Go deeper with the full Following Jesus online course — video teaching, memory verses, and a certificate when you finish.</p>
       <a href="https://followingjesusapp.netlify.app/course-player.html" target="_blank" rel="noopener" class="primary" style="display:block;text-decoration:none;text-align:center;box-sizing:border-box;">Start the FJ Course →</a>
     </div>`;
+}
+
+// ---------- Course progress (Phase 3a — relational).
+// One row per student+course+step, holding both the step's own status
+// and its walk-it-out checklist together — cleaner than the old
+// system's two separate objects, though these functions still return
+// the same {progress, walkoutProgress} shape everywhere else in the app
+// already expects, keeping this migration surgical rather than needing
+// to touch every rendering function too.
+
+async function getCourseProgressData(studentId, courseKey) {
+  if (!supabaseClient) return { progress: {}, walkoutProgress: {} };
+  const { data } = await supabaseClient.from('app_course_progress')
+    .select('step_index, status, walkout_checked').eq('student_id', studentId).eq('course_key', courseKey);
+  const progress = {};
+  const walkoutProgress = {};
+  (data || []).forEach(row => {
+    progress[row.step_index] = row.status;
+    if (row.walkout_checked && row.walkout_checked.length) walkoutProgress[row.step_index] = row.walkout_checked;
+  });
+  return { progress, walkoutProgress };
+}
+
+// Reads the existing row (if any) first, then writes back the full row
+// with just the requested field(s) changed — avoids any ambiguity about
+// whether upsert would silently wipe out the other field when only one
+// is being updated.
+async function updateProgressRow(studentId, courseKey, stepIndex, updates) {
+  const { data: existing } = await supabaseClient.from('app_course_progress')
+    .select('status, walkout_checked').eq('student_id', studentId).eq('course_key', courseKey).eq('step_index', stepIndex).maybeSingle();
+  const merged = {
+    student_id: studentId, course_key: courseKey, step_index: Number(stepIndex),
+    status: updates.status !== undefined ? updates.status : (existing ? existing.status : 'not_started'),
+    walkout_checked: updates.walkout_checked !== undefined ? updates.walkout_checked : (existing ? existing.walkout_checked : [])
+  };
+  await supabaseClient.from('app_course_progress').upsert(merged, { onConflict: 'student_id,course_key,step_index' });
 }
 
 async function ensureRealIdentity() {
