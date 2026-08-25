@@ -3,4 +3,5 @@
 /dashboard  /church-admin-dashboard.html  200
 /admin  /admin-dashboard.html  200
 /leader  /group-leader-dashboard.html  200
+/leader-approval  /leader-approval.html  200
 /app  /app.html  200

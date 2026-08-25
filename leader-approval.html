@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leader Approval — Following Jesus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --black: #0a0a0a;
+    --white: #ffffff;
+    --paper: #f6f4ef;
+    --ink-soft: #57534d;
+    --ember: #c89b3c;
+    --font-display: 'Archivo', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--black); color:var(--white);
+    font-family:var(--font-body); -webkit-font-smoothing:antialiased;
+    min-height:100vh; display:flex; flex-direction:column;
+  }
+  .wrap{
+    max-width:440px; margin:0 auto; padding:60px 24px 40px;
+    flex:1; display:flex; flex-direction:column; justify-content:center;
+    text-align:center;
+  }
+  .logo-badge{
+    background:var(--white); color:var(--black); font-family:var(--font-display); font-weight:700;
+    letter-spacing:0.14em; font-size:13px; padding:10px 16px; text-transform:uppercase;
+    display:inline-block; margin-bottom:32px;
+  }
+  h1{
+    font-family:var(--font-display); font-weight:800; font-size:24px;
+    line-height:1.3; margin:0 0 14px;
+  }
+  .detail{
+    font-size:15px; color:rgba(255,255,255,0.75); line-height:1.6; margin:0 0 32px;
+  }
+  .detail strong{ color:var(--white); }
+  .actions{display:flex; flex-direction:column; gap:12px;}
+  .btn{
+    border:none; border-radius:6px; padding:14px 20px; font-family:var(--font-display);
+    font-weight:700; font-size:15px; cursor:pointer; width:100%;
+  }
+  .btn-approve{background:var(--white); color:var(--black);}
+  .btn-deny{background:rgba(255,255,255,0.06); color:var(--white); border:1px solid rgba(255,255,255,0.15);}
+  .btn:disabled{opacity:0.5; cursor:default;}
+  .status-icon{font-size:40px; margin-bottom:16px;}
+  .loading{color:rgba(255,255,255,0.5); font-size:14px;}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="content">
+  <div class="logo-badge">Following Jesus</div>
+  <p class="loading">Loading…</p>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function getToken(){
+  const params = new URLSearchParams(window.location.search);
+  return params.get('token');
+}
+
+function renderContent(html){
+  document.getElementById('content').innerHTML = `<div class="logo-badge">Following Jesus</div>${html}`;
+}
+
+async function init(){
+  const token = getToken();
+  if(!token){
+    renderContent(`<h1>Link Not Found</h1><p class="detail">This link is missing some information. Please use the link from your email directly.</p>`);
+    return;
+  }
+
+  const { data, error } = await supabaseClient.rpc('get_leader_application_by_token', { lookup_token: token });
+  const application = data && data[0];
+
+  if(error || !application){
+    renderContent(`<h1>Link Not Found</h1><p class="detail">This approval link doesn't match any application. It may have been entered incorrectly — please use the link from your email directly.</p>`);
+    return;
+  }
+
+  if(application.status === 'approved'){
+    renderContent(`<div class="status-icon">✓</div><h1>Already Approved</h1><p class="detail"><strong>${escapeHtml(application.name)}</strong> from ${escapeHtml(application.church)} was already approved as a leader.</p>`);
+    return;
+  }
+
+  if(application.status === 'denied'){
+    renderContent(`<h1>Already Responded</h1><p class="detail">A decision was already recorded for <strong>${escapeHtml(application.name)}</strong>'s application.</p>`);
+    return;
+  }
+
+  renderContent(`
+    <h1>Leader Request</h1>
+    <p class="detail"><strong>${escapeHtml(application.name)}</strong> has asked to become a discipleship leader in the Following Jesus app, listing you as their pastor at <strong>${escapeHtml(application.church)}</strong>.</p>
+    <div class="actions">
+      <button class="btn btn-approve" id="approve-btn">Approve</button>
+      <button class="btn btn-deny" id="deny-btn">Deny</button>
+    </div>
+  `);
+
+  document.getElementById('approve-btn').addEventListener('click', () => respond('approved'));
+  document.getElementById('deny-btn').addEventListener('click', () => respond('denied'));
+
+  async function respond(decision){
+    const approveBtn = document.getElementById('approve-btn');
+    const denyBtn = document.getElementById('deny-btn');
+    approveBtn.disabled = true;
+    denyBtn.disabled = true;
+    (decision === 'approved' ? approveBtn : denyBtn).textContent = 'Please wait…';
+
+    const { data: result, error: respondError } = await supabaseClient.rpc('respond_to_leader_application', { lookup_token: token, decision });
+
+    if(respondError || result !== 'success'){
+      renderContent(`<h1>Something Went Wrong</h1><p class="detail">Please try again, or reach out directly if this keeps happening.</p>`);
+      return;
+    }
+
+    if(decision === 'approved'){
+      renderContent(`<div class="status-icon">✓</div><h1>Approved</h1><p class="detail"><strong>${escapeHtml(application.name)}</strong> has been approved as a leader. Thank you!</p>`);
+    } else {
+      renderContent(`<h1>Request Denied</h1><p class="detail">This application has been marked as denied.</p>`);
+    }
+  }
+}
+
+init();
+</script>
+</body>
+</html>

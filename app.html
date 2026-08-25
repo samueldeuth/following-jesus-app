@@ -3178,14 +3178,19 @@ async function renderMentor() {
       <a class="back-link" id="backToHubBtn">← My Discipleship</a>
       <div class="card">
         <h2>Application Pending</h2>
-        <p>Your application is in as a leader under <strong>${escapeHtml(application.pastorName)}</strong> (${escapeHtml(application.pastorEmail)}) at ${escapeHtml(application.church)}. Real pastor-approval emails aren't connected yet — until they are, you can confirm it yourself below to keep testing.</p>
-        <button class="primary" id="simulateApproveBtn">Confirm My Own Application (Temporary) →</button>
+        <p>We've emailed <strong>${escapeHtml(application.pastorName)}</strong> (${escapeHtml(application.pastorEmail)}) at ${escapeHtml(application.church)} to confirm you as a leader. Once they approve it, you'll be all set to start leading.</p>
+        <button class="secondary" id="resendApprovalBtn">Didn't reach them? Resend the email →</button>
+        <p id="resendStatus" style="font-size:12.5px;color:rgba(255,255,255,0.5);margin-top:10px;"></p>
       </div>`;
     document.getElementById('backToHubBtn').onclick = () => { topView = 'hub'; render(); };
-    document.getElementById('simulateApproveBtn').onclick = async () => {
-      await approveOwnLeaderApplication();
-      topView = 'hub';
-      render();
+    document.getElementById('resendApprovalBtn').onclick = async () => {
+      const statusEl = document.getElementById('resendStatus');
+      statusEl.textContent = 'Sending…';
+      await submitLeaderApplication({
+        name: application.name, church: application.church,
+        pastorName: application.pastorName, pastorEmail: application.pastorEmail
+      });
+      statusEl.textContent = 'Sent ✓';
     };
     return;
   }
@@ -4143,20 +4148,33 @@ async function getLeaderApplication(userId) {
 }
 
 async function submitLeaderApplication(fields) {
-  await supabaseClient.from('leader_applications').upsert({
+  const { data } = await supabaseClient.from('leader_applications').upsert({
     applicant_id: myId,
     name: fields.name,
     church: fields.church,
     pastor_name: fields.pastorName,
     pastor_email: fields.pastorEmail,
     status: 'pending'
-  }, { onConflict: 'applicant_id' });
-}
+  }, { onConflict: 'applicant_id' }).select('approval_token').maybeSingle();
 
-async function approveOwnLeaderApplication() {
-  await supabaseClient.from('leader_applications')
-    .update({ status: 'approved', reviewed_at: new Date().toISOString() })
-    .eq('applicant_id', myId);
+  // Best-effort — if the email fails to send for some reason (Resend
+  // down, bad address, etc.), the application itself is still safely
+  // saved as pending. Someone can always re-submit to trigger a resend.
+  if (data && data.approval_token) {
+    try {
+      await fetch('/.netlify/functions/send-leader-approval-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          applicantName: fields.name,
+          church: fields.church,
+          pastorName: fields.pastorName,
+          pastorEmail: fields.pastorEmail,
+          approvalToken: data.approval_token
+        })
+      });
+    } catch (e) { /* best-effort — application is still saved either way */ }
+  }
 }
 
 // ---------- Groups & disciple relationships (Phase 2b — relational).
