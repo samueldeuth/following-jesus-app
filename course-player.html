@@ -185,7 +185,7 @@
   .verse-text{font-family:'Lora',serif;font-style:italic;font-size:19px;line-height:1.5;}
   .text-body{font-size:15px;line-height:1.8;}
   .text-body ul{padding-left:20px;}
-  .action-row{display:flex;gap:12px;margin-top:28px;}
+  .action-row{display:flex;gap:12px;margin-top:28px;flex-wrap:wrap;}
   .btn-outline{
     border:1.5px solid var(--ink);background:#fff;color:var(--ink);
     padding:12px 22px;border-radius:8px;font-weight:600;font-size:13.5px;
@@ -961,6 +961,16 @@ function renderItemRow(item){
     </div>`;
 }
 
+// Shared by the Previous/Continue buttons and the auto-advance after
+// Mark Complete, so the "flatten sessions, find this item's index"
+// logic exists in exactly one place.
+function getAdjacentItem(item, direction){
+  const flat = sessions.flatMap(s=>s.session_items);
+  const idx = flat.findIndex(i=>i.id===item.id);
+  if(idx === -1) return null;
+  return direction === 'next' ? (flat[idx+1] || null) : (flat[idx-1] || null);
+}
+
 /* ---------- Content pane ---------- */
 function renderContent(item){
   viewingSurvey = false;
@@ -1008,20 +1018,22 @@ function renderContent(item){
     body = `<div class="text-body">${item.body || ''}</div>`;
   }
 
+  const prevItem = getAdjacentItem(item, 'prev');
+
   pane.innerHTML = `
     <div class="content-title">${item.title}</div>
     ${body}
     <div class="action-row">
+      ${prevItem ? `<button class="btn-outline" id="prev-btn">&larr; Previous</button>` : ''}
       <button class="btn-outline" id="toggle-complete">${isDone ? 'Mark Incomplete' : 'Mark Complete'}</button>
       <button class="btn-dark" id="continue-btn">Continue &rarr;</button>
     </div>
   `;
 
+  if(prevItem) document.getElementById('prev-btn').addEventListener('click', () => renderContent(prevItem));
   document.getElementById('toggle-complete').addEventListener('click', () => toggleComplete(item));
   document.getElementById('continue-btn').addEventListener('click', () => {
-    const flat = sessions.flatMap(s=>s.session_items);
-    const idx = flat.findIndex(i=>i.id===item.id);
-    const next = flat[idx+1];
+    const next = getAdjacentItem(item, 'next');
     if(next) renderContent(next); else renderSurvey();
   });
 
@@ -1149,6 +1161,16 @@ async function toggleComplete(item){
   const completedCount = sessions.reduce((n,s)=>n+s.session_items.filter(i=>doneItemIds.has(i.id)).length,0);
   if(nowDone && totalItems > 0 && completedCount === totalItems){
     await issueCertificateIfNeeded();
+  }
+
+  // Marking something complete moves forward automatically — un-checking
+  // stays put, since that's someone correcting a mistake, not progressing.
+  if(nowDone){
+    const next = getAdjacentItem(item, 'next');
+    if(next){ renderPlayer(next); return; }
+    renderPlayer(null);
+    renderSurvey();
+    return;
   }
 
   renderPlayer(item);
