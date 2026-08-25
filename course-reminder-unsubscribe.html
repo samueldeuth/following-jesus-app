@@ -1,78 +1,82 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Unsubscribe — Following Jesus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    background: #f7f5f2;
-    color: #1a1a1a;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    margin: 0;
-    padding: 24px;
+  :root{
+    --black: #0a0a0a;
+    --white: #ffffff;
+    --ink-soft: #57534d;
+    --font-display: 'Archivo', sans-serif;
+    --font-body: 'Inter', sans-serif;
   }
-  .card {
-    background: #fff;
-    border-radius: 12px;
-    padding: 40px 32px;
-    max-width: 420px;
-    width: 100%;
-    text-align: center;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--black); color:var(--white);
+    font-family:var(--font-body); -webkit-font-smoothing:antialiased;
+    min-height:100vh; display:flex; flex-direction:column;
   }
-  h1 { font-size: 1.25rem; margin-bottom: 12px; }
-  p { color: #555; line-height: 1.5; }
-  .status { font-weight: 600; margin-top: 16px; }
-  .ok { color: #2a7a4a; }
-  .err { color: #b3261e; }
+  .wrap{
+    max-width:420px; margin:0 auto; padding:60px 24px 40px;
+    flex:1; display:flex; flex-direction:column; justify-content:center;
+    text-align:center;
+  }
+  .logo-badge{
+    background:var(--white); color:var(--black); font-family:var(--font-display); font-weight:700;
+    letter-spacing:0.14em; font-size:13px; padding:10px 16px; text-transform:uppercase;
+    display:inline-block; margin-bottom:32px;
+  }
+  h1{
+    font-family:var(--font-display); font-weight:800; font-size:22px;
+    line-height:1.3; margin:0 0 14px;
+  }
+  .detail{ font-size:15px; color:rgba(255,255,255,0.75); line-height:1.6; }
+  .loading{color:rgba(255,255,255,0.5); font-size:14px;}
 </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Course reminder emails</h1>
-    <p id="message">Working on it…</p>
-  </div>
+
+<div class="wrap" id="content">
+  <div class="logo-badge">Following Jesus</div>
+  <p class="loading">Loading…</p>
+</div>
 
 <script>
-  const SUPABASE_URL = "https://onflrmiifjjjboeimnva.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A"; // same public anon key used in course-player.html
+const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+function renderContent(html){
+  document.getElementById('content').innerHTML = `<div class="logo-badge">Following Jesus</div>${html}`;
+}
 
-  async function run() {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
-    const messageEl = document.getElementById("message");
+function getToken(){
+  return new URLSearchParams(window.location.search).get('token');
+}
 
-    if (!token) {
-      messageEl.textContent = "This link is missing its token, so we couldn't process it.";
-      messageEl.className = "status err";
-      return;
-    }
-
-    const { data, error } = await supabaseClient.rpc(
-      "unsubscribe_from_course_reminders",
-      { p_token: token }
-    );
-
-    if (error || data !== true) {
-      messageEl.textContent =
-        "We couldn't find a matching subscription. It may already be turned off.";
-      messageEl.className = "status err";
-      return;
-    }
-
-    messageEl.textContent = "You're unsubscribed from reminders for this course.";
-    messageEl.className = "status ok";
+async function init(){
+  const token = getToken();
+  if(!token){
+    renderContent(`<h1>Link Not Found</h1><p class="detail">This link is missing some information. Please use the link from your email directly.</p>`);
+    return;
   }
 
-  run();
+  const { data, error } = await supabaseClient.rpc('unsubscribe_from_course_reminders', { lookup_token: token });
+
+  if(error || data === 'not_found'){
+    renderContent(`<h1>Link Not Found</h1><p class="detail">This unsubscribe link doesn't match anything on our end. It may have been entered incorrectly — please use the link from your email directly.</p>`);
+    return;
+  }
+
+  renderContent(`<h1>You're Unsubscribed</h1><p class="detail">You won't get any more weekly course reminder emails. You can always keep going with the course itself anytime — this only turns off the reminders.</p>`);
+}
+
+init();
 </script>
 </body>
 </html>
