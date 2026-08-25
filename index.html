@@ -2102,7 +2102,14 @@
     sessionStorage.setItem('fj_google_auth_pending', '1');
     await supabaseClient.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.href }
+      options: {
+        redirectTo: window.location.href,
+        // Forces Google's account picker to show every time, instead of
+        // silently auto-selecting whichever Google account was used most
+        // recently in this browser — same fix already applied on the
+        // course platform side.
+        queryParams: { prompt: 'select_account' }
+      }
     });
   }
 
@@ -3519,12 +3526,15 @@ async function renderMemberDetail(memberId) {
   }
 
   const actionsBlockHtml = await renderLeaderActionsBlock('Actions Assigned', await getIndividualActions(myId, memberId));
+  const completionMap = await getCourseCompletionMap([memberId]);
+  const hasCompletedCourse = !!completionMap[memberId];
 
   main.innerHTML = `
     <a class="back-link" id="backBtn">← Back</a>
     <div class="card">
       <h2>${member ? escapeHtml(member.name) : 'Friend'}</h2>
       <p>Following their progress through the 7 essentials</p>
+      ${hasCompletedCourse ? `<div class="hub-leader-badge" style="margin-top:10px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg> Completed the FJ Course</div>` : ''}
     </div>
     <div class="chat-block">
       <div class="chat-panel-light">
@@ -3720,11 +3730,7 @@ async function renderDisciple() {
     ${renderResourcesHtml()}
     ${actionsFeedHtml}
     ${courseCardHtml('essentials', 'Following Jesus Essentials', '7 essentials for every follower of Jesus', stepsHtml, walkoutProgress, progress)}
-    <div class="card" style="margin-top:20px;">
-      <h2>Take Your Next Step</h2>
-      <p>Go deeper with the full Following Jesus online course — video teaching, memory verses, and a certificate when you finish.</p>
-      <a href="https://followingjesusapp.netlify.app/course-player.html" target="_blank" rel="noopener" class="primary" style="display:block;text-decoration:none;text-align:center;box-sizing:border-box;">Start the FJ Course →</a>
-    </div>
+    ${await fjCourseCardHtml()}
   `;
   document.getElementById('backToHubBtn').onclick = () => { topView = 'hub'; render(); };
   wireCourseToggle('essentials', render);
@@ -3989,7 +3995,8 @@ async function renderDiscipleshipHub() {
 
   const nestedCoursesHtml =
     courseCardHtml('essentials', COURSES.essentials.title, COURSES.essentials.subtitle, stepsHtml, walkoutProgress, progress) +
-    courseCardHtml('waterBaptism', COURSES.waterBaptism.title, COURSES.waterBaptism.subtitle, wbStepsHtml, wbWalkoutProgress, wbProgress, WB_STEPS, WB_WALK_IT_OUT);
+    courseCardHtml('waterBaptism', COURSES.waterBaptism.title, COURSES.waterBaptism.subtitle, wbStepsHtml, wbWalkoutProgress, wbProgress, WB_STEPS, WB_WALK_IT_OUT) +
+    await fjCourseCardHtml();
 
   const discipleCardHtml = membership
     ? `<button type="button" class="hub-role-card${isApprovedLeader ? ' hub-role-card-standalone' : ''}" id="goDiscipleDash">
@@ -4447,6 +4454,98 @@ async function toggleActionDone(actionId, isCurrentlyDone) {
   } else {
     await supabaseClient.from('action_completions').insert({ action_id: actionId, student_id: myId });
   }
+}
+
+// ---------- Course platform cross-linking ----------
+// The app and the course site share the same Supabase project, so these
+// query the course platform's own tables directly — real, live data,
+// not a guess or a copy. This only works for someone whose app account
+// and course account are the same identity (same Google sign-in, or
+// email-matched via the legacy-directory system built during the course
+// platform work) — for anyone using a still-anonymous app session with
+// no matching course account, these simply return nothing, gracefully.
+
+// Every course this person has finished on the course platform.
+async function getMyCourseCompletions() {
+  if (!supabaseClient) return [];
+  const { data: certs } = await supabaseClient.from('certificates').select('course_id, issued_at').eq('student_id', myId);
+  if (!certs || !certs.length) return [];
+  const courseIds = [...new Set(certs.map(c => c.course_id))];
+  const { data: courses } = await supabaseClient.from('courses').select('id, title').in('id', courseIds);
+  const titleById = {};
+  (courses || []).forEach(c => { titleById[c.id] = c.title; });
+  return certs.map(c => ({ courseId: c.course_id, title: titleById[c.course_id] || 'Following Jesus', issuedAt: c.issued_at }));
+}
+
+// This person's progress through whichever course they're enrolled in
+// on the course platform (null if they're not enrolled in one at all).
+async function getMyCourseProgress() {
+  if (!supabaseClient) return null;
+  const { data: enrollment } = await supabaseClient.from('enrollments').select('course_id').eq('student_id', myId).limit(1).maybeSingle();
+  if (!enrollment) return null;
+
+  const { data: sessions } = await supabaseClient.from('sessions').select('id').eq('course_id', enrollment.course_id);
+  const sessionIds = (sessions || []).map(s => s.id);
+  if (!sessionIds.length) return null;
+
+  const { data: items } = await supabaseClient.from('session_items').select('id').in('session_id', sessionIds);
+  const itemIds = (items || []).map(i => i.id);
+  const totalItems = itemIds.length;
+  if (!totalItems) return null;
+
+  const { data: progress } = await supabaseClient.from('item_progress').select('item_id').eq('student_id', myId).in('item_id', itemIds).not('completed_at', 'is', null);
+  const completedCount = (progress || []).length;
+
+  const { data: course } = await supabaseClient.from('courses').select('title').eq('id', enrollment.course_id).maybeSingle();
+
+  return {
+    title: course?.title || 'Following Jesus',
+    completedCount, totalItems,
+    pct: Math.round((completedCount / totalItems) * 100)
+  };
+}
+
+// For a leader's view of their disciples — which of a given list of
+// disciple ids have completed a course, batched into one query rather
+// than one per disciple.
+async function getCourseCompletionMap(discipleIds) {
+  if (!supabaseClient || !discipleIds || !discipleIds.length) return {};
+  const { data } = await supabaseClient.from('certificates').select('student_id').in('student_id', discipleIds);
+  const map = {};
+  (data || []).forEach(c => { map[c.student_id] = true; });
+  return map;
+}
+
+// One card, three possible states — not enrolled, in progress, or
+// completed — reused everywhere the app links out to the course site,
+// so it stays consistent and only needs updating in one place.
+async function fjCourseCardHtml() {
+  const completions = await getMyCourseCompletions();
+  if (completions.length > 0) {
+    return `
+      <div class="card" style="margin-top:20px;">
+        <h2>🎓 Course Completed!</h2>
+        <p>You've finished "${escapeHtml(completions[0].title)}" on the Following Jesus course site.</p>
+        <a href="https://followingjesusapp.netlify.app/course-player.html" target="_blank" rel="noopener" class="primary" style="display:block;text-decoration:none;text-align:center;box-sizing:border-box;">View Your Course →</a>
+      </div>`;
+  }
+
+  const progress = await getMyCourseProgress();
+  if (progress) {
+    return `
+      <div class="card" style="margin-top:20px;">
+        <h2>Continue "${escapeHtml(progress.title)}"</h2>
+        <p>You're ${progress.pct}% through the course (${progress.completedCount} of ${progress.totalItems} items).</p>
+        <a href="https://followingjesusapp.netlify.app/course-player.html" target="_blank" rel="noopener" class="primary" style="display:block;text-decoration:none;text-align:center;box-sizing:border-box;">Continue the FJ Course →</a>
+      </div>`;
+  }
+
+  return `
+    <div class="card" style="margin-top:20px;">
+      <h2>Take Your Next Step</h2>
+      <p>Go deeper with the full Following Jesus online course — video teaching, memory verses, and a certificate when you finish.</p>
+      <a href="https://followingjesusapp.netlify.app/course-player.html" target="_blank" rel="noopener" class="primary" style="display:block;text-decoration:none;text-align:center;box-sizing:border-box;">Start the FJ Course →</a>
+    </div>`;
 }
 
 async function ensureRealIdentity() {
