@@ -322,6 +322,56 @@ function wireAddChurchForm(){
   });
 }
 
+// Builds and downloads a CSV of student rows. includeChurchColumn is
+// true for the all-churches export (since it spans multiple churches)
+// and false for a single church's export (redundant there — every row
+// is the same church).
+//
+// Escaping matters here — a name or church with a comma, quote, or line
+// break in it would silently corrupt every column after it in a naive
+// implementation. Per the CSV standard: any field containing a comma,
+// quote, or newline gets wrapped in quotes, and any quote inside it
+// gets doubled.
+function csvEscape(value){
+  const str = (value === null || value === undefined) ? '' : String(value);
+  if(/[",\n]/.test(str)){
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function exportStudentsCSV(rows, filename, includeChurchColumn){
+  const headers = ['Name', 'Email', ...(includeChurchColumn ? ['Church'] : []), 'Course', 'Enrolled', 'Progress', 'Completed'];
+  const lines = [headers.map(csvEscape).join(',')];
+
+  rows.forEach(r => {
+    const completed = r.total_items > 0 && r.items_completed === r.total_items;
+    const progress = r.total_items > 0 ? `${r.items_completed}/${r.total_items}` : '0/0';
+    const enrolledDate = r.enrolled_at ? new Date(r.enrolled_at).toLocaleDateString() : '';
+    const fields = [
+      r.full_name || 'Unnamed student',
+      r.student_email || '',
+      ...(includeChurchColumn ? [r.church_name || 'No church'] : []),
+      r.course_title || '',
+      enrolledDate,
+      progress,
+      completed ? 'Yes' : 'No'
+    ];
+    lines.push(fields.map(csvEscape).join(','));
+  });
+
+  const csvContent = lines.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 function renderSidebar(){
   const searchInput = document.getElementById('sidebar-church-search');
   const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
@@ -377,11 +427,17 @@ function renderChurchesOverview(){
       <div class="summary-card"><div class="num">${totalStudents}</div><div class="label">Total students</div></div>
       <div class="summary-card"><div class="num">${totalCompleted}</div><div class="label">Finished a course</div></div>
     </div>
+    <button class="mini-btn" id="export-all-btn" style="margin-bottom:16px;">Export All Students (CSV)</button>
     <table>
       <thead><tr><th>Church</th><th>Students</th><th>Avg. Progress</th></tr></thead>
       <tbody>${churchRowsHtml || '<tr><td colspan="3" style="color:var(--ink-soft);">No churches yet.</td></tr>'}</tbody>
     </table>
   `;
+
+  const exportAllBtn = document.getElementById('export-all-btn');
+  if(exportAllBtn) exportAllBtn.addEventListener('click', () => {
+    exportStudentsCSV(allRows, `all-students-${new Date().toISOString().slice(0,10)}.csv`, true);
+  });
 
   document.querySelectorAll('tbody tr.clickable').forEach(tr => {
     tr.addEventListener('click', () => renderChurchStudents(tr.dataset.churchId));
@@ -438,7 +494,8 @@ async function renderChurchStudents(churchId){
   document.getElementById('content').innerHTML = `
     <div class="back-link" id="back-to-churches">&larr; All Churches</div>
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">${church ? church.name : 'No Church Assigned'}</h2>
-    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:22px;">${rows.length} student${rows.length===1?'':'s'}</p>
+    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:14px;">${rows.length} student${rows.length===1?'':'s'}</p>
+    <button class="mini-btn" id="export-church-btn" style="margin-bottom:16px;">Export Students (CSV)</button>
 
     ${churchId ? `
     <div class="church-tabs">
@@ -562,6 +619,12 @@ async function renderChurchStudents(churchId){
   });
 
   document.getElementById('back-to-churches').addEventListener('click', renderChurchesOverview);
+
+  const exportChurchBtn = document.getElementById('export-church-btn');
+  if(exportChurchBtn) exportChurchBtn.addEventListener('click', () => {
+    const nameSlug = (church ? church.name : 'no-church').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    exportStudentsCSV(rows, `${nameSlug}-students-${new Date().toISOString().slice(0,10)}.csv`, false);
+  });
 
   const colorPicker = document.getElementById('edit-church-color-picker');
   const colorText = document.getElementById('edit-church-color');

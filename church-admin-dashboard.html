@@ -151,6 +151,48 @@ function renderAccountInfo(email){
   }
 }
 
+// Same escaping approach as the super admin's export — any name or
+// value with a comma, quote, or line break gets properly quoted so it
+// can't corrupt the columns after it.
+function csvEscape(value){
+  const str = (value === null || value === undefined) ? '' : String(value);
+  if(/[",\n]/.test(str)){
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function exportStudentsCSV(rows, filename){
+  const headers = ['Name', 'Email', 'Course', 'Enrolled', 'Progress', 'Completed'];
+  const lines = [headers.map(csvEscape).join(',')];
+
+  rows.forEach(r => {
+    const completed = r.total_items > 0 && r.items_completed === r.total_items;
+    const progress = r.total_items > 0 ? `${r.items_completed}/${r.total_items}` : '0/0';
+    const enrolledDate = r.enrolled_at ? new Date(r.enrolled_at).toLocaleDateString() : '';
+    const fields = [
+      r.full_name || 'Unnamed student',
+      r.student_email || '',
+      r.course_title || '',
+      enrolledDate,
+      progress,
+      completed ? 'Yes' : 'No'
+    ];
+    lines.push(fields.map(csvEscape).join(','));
+  });
+
+  const csvContent = lines.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 async function init(){
   const { data: { user } } = await supabaseClient.auth.getUser();
   if(!user){
@@ -263,6 +305,7 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
     </div>
 
     <div class="church-tab-panel active" data-tab-panel="students">
+      <button class="mini-btn" id="export-students-btn" style="margin-bottom:14px;">Export Students (CSV)</button>
       <table>
         <thead><tr><th>Student</th><th>Course</th><th>Progress</th><th>Enrolled</th><th>Actions</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
@@ -459,6 +502,12 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
       await supabaseClient.from('profiles').update({ role: 'student' }).eq('id', btn.dataset.removeAdmin);
       init();
     });
+  });
+
+  const exportStudentsBtn = document.getElementById('export-students-btn');
+  if(exportStudentsBtn) exportStudentsBtn.addEventListener('click', () => {
+    const nameSlug = (myChurch?.name || 'church').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    exportStudentsCSV(rows, `${nameSlug}-students-${new Date().toISOString().slice(0,10)}.csv`);
   });
 
   const createGroupBtn = document.getElementById('create-group-btn');
