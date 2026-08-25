@@ -95,6 +95,48 @@
   .new-group-form{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
   .new-group-form input{flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:6px;padding:8px 10px;font-size:13px;font-family:'Inter',sans-serif;}
   .new-group-form button{background:var(--ink);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;}
+/* ---------- Student progress report ---------- */
+#report-overlay{
+  position:fixed;inset:0;z-index:200;background:#EFEEE8;overflow-y:auto;
+}
+.report-toolbar{
+  position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;
+  padding:14px 24px;background:#fff;border-bottom:1px solid var(--line);
+}
+.report-page{
+  max-width:720px;margin:32px auto 80px;background:#FAF9F6;border-radius:16px;
+  padding:56px 48px;box-shadow:0 1px 3px rgba(0,0,0,0.08);
+}
+.report-header{text-align:center;margin-bottom:22px;}
+.report-church-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:28px;color:var(--ink);}
+.report-subtitle{font-size:13.5px;color:var(--ink-soft);margin-top:4px;}
+.report-date{font-size:12px;color:var(--ink-soft);margin-top:10px;}
+.report-verse{font-family:'Lora',serif;font-style:italic;font-size:17px;text-align:center;color:var(--ink);max-width:440px;margin:0 auto;line-height:1.6;}
+.report-verse-ref{text-align:center;font-size:12px;color:var(--ink-soft);margin:6px 0 36px;}
+.report-metrics{display:flex;gap:12px;margin-bottom:36px;}
+.report-metric{flex:1;text-align:center;background:#fff;border-radius:10px;padding:16px 10px;border:1px solid var(--line);}
+.report-metric-num{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:26px;color:var(--report-accent,var(--blue));}
+.report-metric-label{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+.report-chart-block{display:flex;align-items:center;gap:32px;justify-content:center;margin-bottom:40px;flex-wrap:wrap;}
+.report-legend{display:flex;flex-direction:column;gap:8px;}
+.report-legend-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);}
+.report-legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.report-legend-count{color:var(--ink-soft);font-size:12px;margin-left:2px;}
+.report-section-title{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;margin-bottom:14px;}
+.report-student-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);}
+.report-student-name{flex:0 0 150px;font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.report-student-bar-track{flex:1;height:8px;background:#EAE8E1;border-radius:4px;overflow:hidden;}
+.report-student-bar-fill{height:100%;border-radius:4px;}
+.report-student-pct{flex:0 0 36px;text-align:right;font-size:12px;color:var(--ink-soft);}
+.report-footer{text-align:center;font-family:'Space Grotesk',sans-serif;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-soft);margin-top:44px;}
+
+@media print{
+  body > header, body > main{display:none !important;}
+  .report-toolbar{display:none !important;}
+  #report-overlay{position:static;overflow:visible;background:#fff;}
+  .report-page{box-shadow:none;margin:0 auto;}
+  * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+}
 </style>
 </head>
 <body>
@@ -191,6 +233,138 @@ function exportStudentsCSV(rows, filename){
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+// ---------- Student progress report (beautiful, printable-to-PDF) ----------
+// Same logic as the super admin's version, scoped to myChurch directly
+// since a church admin only ever has one church to report on.
+
+function computeReportStats(rows){
+  const totalStudents = rows.length;
+  const completedCount = rows.filter(r => r.total_items > 0 && r.items_completed === r.total_items).length;
+  const avgPct = totalStudents
+    ? Math.round(rows.reduce((sum, r) => sum + (r.total_items ? r.items_completed / r.total_items : 0), 0) / totalStudents * 100)
+    : 0;
+
+  const buckets = { completed: 0, wellUnderway: 0, justStarted: 0, notStarted: 0 };
+  rows.forEach(r => {
+    if(r.total_items > 0 && r.items_completed === r.total_items) buckets.completed++;
+    else if(r.total_items > 0 && r.items_completed / r.total_items >= 0.5) buckets.wellUnderway++;
+    else if(r.items_completed > 0) buckets.justStarted++;
+    else buckets.notStarted++;
+  });
+
+  return { totalStudents, completedCount, avgPct, buckets };
+}
+
+function buildDonutSegments(segments, radius = 70){
+  const circumference = 2 * Math.PI * radius;
+  const total = segments.reduce((sum, s) => sum + s.count, 0);
+  if(total === 0) return [];
+
+  let cumulativeOffset = 0;
+  return segments
+    .filter(s => s.count > 0)
+    .map(s => {
+      const fraction = s.count / total;
+      const arcLength = fraction * circumference;
+      const dashArray = `${arcLength} ${circumference - arcLength}`;
+      const dashOffset = -cumulativeOffset;
+      cumulativeOffset += arcLength;
+      return { ...s, dashArray, dashOffset, pct: Math.round(fraction * 100) };
+    });
+}
+
+function renderStudentReport(rows){
+  const stats = computeReportStats(rows);
+  const accent = (myChurch && /^#[0-9a-fA-F]{6}$/.test(myChurch.primary_color)) ? myChurch.primary_color : '#3E82F7';
+  const churchName = myChurch ? myChurch.name : 'Following Jesus';
+  const radius = 70;
+  const segments = buildDonutSegments([
+    { label: 'Completed', count: stats.buckets.completed, color: '#B08D3E' },
+    { label: 'Well underway', count: stats.buckets.wellUnderway, color: accent },
+    { label: 'Just started', count: stats.buckets.justStarted, color: '#C4C2B8' },
+    { label: 'Not yet started', count: stats.buckets.notStarted, color: '#E4E3DD' }
+  ], radius);
+
+  const ringSvg = segments.length ? `
+    <svg viewBox="0 0 180 180" width="180" height="180">
+      <g transform="rotate(-90 90 90)">
+        <circle cx="90" cy="90" r="${radius}" fill="none" stroke="#F4F4F2" stroke-width="22" />
+        ${segments.map(s => `<circle cx="90" cy="90" r="${radius}" fill="none" stroke="${s.color}" stroke-width="22" stroke-dasharray="${s.dashArray}" stroke-dashoffset="${s.dashOffset}" />`).join('')}
+      </g>
+      <text x="90" y="84" text-anchor="middle" font-family="Space Grotesk" font-weight="700" font-size="34" fill="var(--ink)">${stats.avgPct}%</text>
+      <text x="90" y="106" text-anchor="middle" font-family="Inter" font-size="12" fill="var(--ink-soft)">avg. progress</text>
+    </svg>` : `<p style="color:var(--ink-soft);font-size:13px;">No enrollment data yet.</p>`;
+
+  const legendHtml = segments.map(s => `
+    <div class="report-legend-item">
+      <span class="report-legend-dot" style="background:${s.color};"></span>
+      <span>${s.label}</span>
+      <span class="report-legend-count">${s.count}</span>
+    </div>`).join('');
+
+  const sortedRows = [...rows].sort((a,b) => (b.items_completed/Math.max(b.total_items,1)) - (a.items_completed/Math.max(a.total_items,1)));
+  const studentRowsHtml = sortedRows.map(r => {
+    const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
+    return `
+      <div class="report-student-row">
+        <span class="report-student-name">${escapeHtmlReport(r.full_name || 'Unnamed student')}</span>
+        <div class="report-student-bar-track"><div class="report-student-bar-fill" style="width:${pct}%;background:${accent};"></div></div>
+        <span class="report-student-pct">${pct}%</span>
+      </div>`;
+  }).join('') || '<p style="color:var(--ink-soft);font-size:13px;">No students enrolled yet.</p>';
+
+  const overlay = document.createElement('div');
+  overlay.id = 'report-overlay';
+  overlay.innerHTML = `
+    <div class="report-toolbar">
+      <button class="mini-btn" id="report-close-btn">&larr; Close</button>
+      <div style="display:flex;gap:8px;">
+        <button class="mini-btn" id="report-csv-btn">Download CSV</button>
+        <button class="mini-btn gold" id="report-pdf-btn">Download PDF</button>
+      </div>
+    </div>
+    <div class="report-page" style="--report-accent:${accent};">
+      <div class="report-header">
+        <div class="report-church-name">${escapeHtmlReport(churchName)}</div>
+        <div class="report-subtitle">Following Jesus Course &middot; Progress Report</div>
+        <div class="report-date">Generated ${new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+      </div>
+      <div class="report-verse">"He who began a good work in you will carry it on to completion."</div>
+      <div class="report-verse-ref">Philippians 1:6</div>
+
+      <div class="report-metrics">
+        <div class="report-metric"><div class="report-metric-num">${stats.totalStudents}</div><div class="report-metric-label">Students</div></div>
+        <div class="report-metric"><div class="report-metric-num">${stats.completedCount}</div><div class="report-metric-label">Finished the course</div></div>
+        <div class="report-metric"><div class="report-metric-num">${stats.avgPct}%</div><div class="report-metric-label">Average progress</div></div>
+      </div>
+
+      <div class="report-chart-block">
+        <div class="report-ring">${ringSvg}</div>
+        <div class="report-legend">${legendHtml}</div>
+      </div>
+
+      <div class="report-students-block">
+        <div class="report-section-title">Student Progress</div>
+        ${studentRowsHtml}
+      </div>
+
+      <div class="report-footer">Following Jesus</div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  document.getElementById('report-close-btn').addEventListener('click', () => overlay.remove());
+  document.getElementById('report-pdf-btn').addEventListener('click', () => window.print());
+  document.getElementById('report-csv-btn').addEventListener('click', () => {
+    const nameSlug = churchName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    exportStudentsCSV(rows, `${nameSlug}-students-${new Date().toISOString().slice(0,10)}.csv`);
+  });
+}
+
+function escapeHtmlReport(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 async function init(){
@@ -305,7 +479,10 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
     </div>
 
     <div class="church-tab-panel active" data-tab-panel="students">
-      <button class="mini-btn" id="export-students-btn" style="margin-bottom:14px;">Export Students (CSV)</button>
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <button class="mini-btn" id="export-students-btn">Export Students (CSV)</button>
+        <button class="mini-btn gold" id="view-report-btn">View Progress Report</button>
+      </div>
       <table>
         <thead><tr><th>Student</th><th>Course</th><th>Progress</th><th>Enrolled</th><th>Actions</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
@@ -509,6 +686,10 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
     const nameSlug = (myChurch?.name || 'church').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     exportStudentsCSV(rows, `${nameSlug}-students-${new Date().toISOString().slice(0,10)}.csv`);
   });
+
+  const viewReportBtn = document.getElementById('view-report-btn');
+  if(viewReportBtn) viewReportBtn.addEventListener('click', () => renderStudentReport(rows));
+
 
   const createGroupBtn = document.getElementById('create-group-btn');
   if(createGroupBtn) createGroupBtn.addEventListener('click', async () => {
