@@ -1904,6 +1904,7 @@
       render();
     } else {
       discipleModal.classList.remove('open');
+      updateAppUrl();
     }
   });
 
@@ -3035,6 +3036,91 @@ let view = 'home'; // home | groupDetail | memberDetail
 let activeGroupCode = null;
 let activeMemberId = null;
 
+let isRestoringAppView = false;  // true while a deep-link/back-forward restore is in progress, so we don't re-push the state we're restoring
+
+// Keeps the URL in sync with the active tab and, if the disciple modal is
+// open, where inside it (hub home / leader / disciple / a specific group /
+// a specific member) — so refresh and the browser back/forward buttons
+// land back on the same screen instead of always the Today tab. This
+// matters inside the Median-wrapped app too, not just the website: the OS
+// can kill a backgrounded WebView under memory pressure, and Median's
+// pull-to-refresh reloads the page — both wipe in-memory state the same
+// way a browser refresh would.
+function updateAppUrl(opts) {
+  opts = opts || {};
+  if (isRestoringAppView) return;
+
+  const url = new URL(window.location.href);
+  const activeScreenEl = document.querySelector('.screen.active');
+  const screenId = activeScreenEl ? activeScreenEl.id : 'screen-today';
+  if (screenId && screenId !== 'screen-today') url.searchParams.set('screen', screenId);
+  else url.searchParams.delete('screen');
+
+  url.searchParams.delete('hub');
+  url.searchParams.delete('group');
+  url.searchParams.delete('member');
+
+  if (discipleModal.classList.contains('open')) {
+    if (view === 'groupDetail' && activeGroupCode) {
+      url.searchParams.set('hub', 'group');
+      url.searchParams.set('group', activeGroupCode);
+    } else if (view === 'memberDetail' && activeMemberId) {
+      url.searchParams.set('hub', 'member');
+      url.searchParams.set('member', activeMemberId);
+    } else if (topView === 'leader') {
+      url.searchParams.set('hub', 'leader');
+    } else if (topView === 'disciple') {
+      url.searchParams.set('hub', 'disciple');
+    } else {
+      url.searchParams.set('hub', 'home');
+    }
+  }
+
+  const newUrlStr = url.pathname + url.search + url.hash;
+  const curUrlStr = window.location.pathname + window.location.search + window.location.hash;
+  if (newUrlStr === curUrlStr) return;
+  if (opts.replace) history.replaceState(null, '', newUrlStr);
+  else history.pushState(null, '', newUrlStr);
+}
+
+// Sets the leader/disciple hub globals from ?hub=&group=&member= if present.
+// Returns true if the URL asked for the modal to be open at all.
+function applyHubParamsFromUrl(params) {
+  const hub = params.get('hub');
+  if (hub === 'leader') { topView = 'leader'; view = 'home'; return true; }
+  if (hub === 'disciple') { topView = 'disciple'; view = 'home'; return true; }
+  if (hub === 'group' && params.get('group')) { topView = 'leader'; view = 'groupDetail'; activeGroupCode = params.get('group'); return true; }
+  if (hub === 'member' && params.get('member')) { topView = 'leader'; view = 'memberDetail'; activeMemberId = params.get('member'); return true; }
+  if (hub === 'home') { topView = 'hub'; view = 'home'; return true; }
+  return false;
+}
+
+// Reads ?screen= and ?hub=/&group=/&member= from the URL and renders that
+// view. Used both on initial load and on browser back/forward. `fromPopstate`
+// distinguishes the two: on a genuine back/forward navigation with no hub
+// param, we close the modal if it's open; on initial load we leave that
+// alone, since the join-code and post-Google-auth flows open the modal
+// themselves and don't set a hub param.
+async function restoreAppViewFromUrl(fromPopstate) {
+  isRestoringAppView = true;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const screenParam = params.get('screen');
+    goToTab(screenParam && document.getElementById(screenParam) ? screenParam : 'screen-today');
+
+    const hasHub = applyHubParamsFromUrl(params);
+    if (hasHub) {
+      discipleModal.classList.add('open');
+      updateSyncStatusBadge();
+      await renderDiscipleStep();
+    } else if (fromPopstate && discipleModal.classList.contains('open')) {
+      discipleModal.classList.remove('open');
+    }
+  } finally {
+    isRestoringAppView = false;
+  }
+}
+
 const main = discipleBody;
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
@@ -3135,6 +3221,7 @@ async function safeDelete(key, shared) {
 let topView = 'hub'; // 'hub' | 'leader' | 'disciple'
 
 async function render() {
+  updateAppUrl();
   main.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
   if (view === 'groupDetail' && activeGroupCode) { await renderGroupDetail(activeGroupCode); }
   else if (view === 'memberDetail' && activeMemberId) { await renderMemberDetail(activeMemberId); }
@@ -5465,10 +5552,22 @@ async function renderDiscipleshipApp() {
     if (targetBtn) targetBtn.classList.add('active');
     document.getElementById(screenId).classList.add('active');
     panel.scrollTop = 0;
+    updateAppUrl();
   }
   buttons.forEach(btn => {
     btn.addEventListener('click', () => goToTab(btn.dataset.screen));
   });
+
+  // Refresh / deep link: land on whichever tab (and, if applicable, leader/
+  // disciple hub screen) the URL points to. Skipped when the join-code or
+  // post-Google-auth flows are about to open the modal themselves, so they
+  // don't get raced or overridden.
+  if (!window.pendingJoinCode && sessionStorage.getItem('fj_google_auth_pending') !== '1') {
+    restoreAppViewFromUrl(false);
+  }
+
+  // Browser back/forward: re-render whatever the URL now points to.
+  window.addEventListener('popstate', () => { restoreAppViewFromUrl(true); });
 </script>
 
 </body>
