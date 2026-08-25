@@ -459,7 +459,7 @@ async function renderChurchStudents(churchId){
 
       <label class="field-label">Custom URL</label>
       <input type="text" class="field-input" id="edit-church-slug" value="${(church?.slug||'').replace(/"/g,'&quot;')}" />
-      <p class="field-hint">Link: <a href="https://followingjesusapp.netlify.app/courses/${church?.slug || ''}" target="_blank" rel="noopener" id="church-link-preview">followingjesusapp.netlify.app/courses/${church?.slug || '...'}</a></p>
+      <p class="field-hint">Link: <a href="https://followingjesus.com/courses/${church?.slug || ''}" target="_blank" rel="noopener" id="church-link-preview">followingjesus.com/courses/${church?.slug || '...'}</a></p>
 
       <h4 class="field-section-title">Church Admin</h4>
       <div id="current-admins-list">
