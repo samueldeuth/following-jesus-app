@@ -3371,7 +3371,11 @@ async function renderMentor() {
       const pastorName = document.getElementById('appPastorName').value.trim();
       const pastorEmail = document.getElementById('appPastorEmail').value.trim();
       if (!name || !church || !pastorName || !pastorEmail) { await showAppAlert('Please fill in every field.'); return; }
-      await submitLeaderApplication({ name, church, pastorName, pastorEmail });
+      const result = await submitLeaderApplication({ name, church, pastorName, pastorEmail });
+      if (!result.ok) {
+        await showAppAlert(`That didn't save.\n\nDetails: ${result.error || 'unknown error'}`);
+        return;
+      }
       render();
     };
     return;
@@ -3390,10 +3394,15 @@ async function renderMentor() {
     document.getElementById('resendApprovalBtn').onclick = async () => {
       const statusEl = document.getElementById('resendStatus');
       statusEl.textContent = 'Sending…';
-      await submitLeaderApplication({
+      const result = await submitLeaderApplication({
         name: application.name, church: application.church,
         pastorName: application.pastorName, pastorEmail: application.pastorEmail
       });
+      if (!result.ok) {
+        statusEl.textContent = '';
+        await showAppAlert(`That didn't send.\n\nDetails: ${result.error || 'unknown error'}`);
+        return;
+      }
       statusEl.textContent = 'Sent ✓';
     };
     return;
@@ -4366,7 +4375,7 @@ async function getLeaderApplication(userId) {
 }
 
 async function submitLeaderApplication(fields) {
-  const { data } = await supabaseClient.from('leader_applications').upsert({
+  const { data, error } = await supabaseClient.from('leader_applications').upsert({
     applicant_id: myId,
     name: fields.name,
     church: fields.church,
@@ -4374,6 +4383,11 @@ async function submitLeaderApplication(fields) {
     pastor_email: fields.pastorEmail,
     status: 'pending'
   }, { onConflict: 'applicant_id' }).select('approval_token').maybeSingle();
+
+  if (error) {
+    console.error('submitLeaderApplication failed:', error);
+    return { ok: false, error: error.message };
+  }
 
   // Best-effort — if the email fails to send for some reason (Resend
   // down, bad address, etc.), the application itself is still safely
@@ -4393,6 +4407,7 @@ async function submitLeaderApplication(fields) {
       });
     } catch (e) { /* best-effort — application is still saved either way */ }
   }
+  return { ok: true };
 }
 
 // ---------- Groups & disciple relationships (Phase 2b — relational).
