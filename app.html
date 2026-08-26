@@ -2109,7 +2109,19 @@
     await supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.href,
+        // Deliberately NOT window.location.href — this page has its own
+        // hash-based router (#disciple, #gospel, #article/..., #player),
+        // and a pre-existing hash on the redirect URL going into
+        // signInWithOAuth is a documented way for the whole sign-in to
+        // silently fail: Supabase (like most OAuth libraries) also uses
+        // the URL hash/fragment for its own callback data, and the two
+        // collide — the person gets sent back with no session ever
+        // established, not even an error. This is exactly why signing
+        // in worked reliably on the course platform (no hash-based
+        // routing there) but not here. The query string is kept, since
+        // that's where ?join=CODE lives and needs to survive the round
+        // trip; only the hash is stripped.
+        redirectTo: window.location.origin + window.location.pathname + window.location.search,
         // Forces Google's account picker to show every time, instead of
         // silently auto-selecting whichever Google account was used most
         // recently in this browser — same fix already applied on the
