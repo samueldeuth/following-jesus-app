@@ -4875,16 +4875,23 @@ async function ensureRealIdentity() {
   if (account.id !== resolvedId) {
     account.id = resolvedId;
     await dSafeSet('account', account);
-    // Self-healing safety net: anything that ever creates a local
-    // account with an id that doesn't match the real session (the bug
-    // just fixed in syncAccountFromActiveSession being one example, but
-    // this guards against any future version of the same mistake) would
-    // otherwise leave profiles with no row under the id everything else
-    // in the app actually uses — which is exactly what caused
-    // leader_applications' foreign key to reject a real submission.
-    // Re-syncing here means that gap gets closed automatically the next
-    // time this runs, without needing a manual database fix.
-    if (account.name) syncSharedProfile(account);
+  }
+
+  // Self-healing safety net, checked every time rather than only when
+  // the id above needed correcting — someone whose local id was already
+  // "corrected" once before (by this same logic, prior to a fix
+  // upstream that created the mismatch in the first place) would no
+  // longer show a mismatch here, even though profiles itself still has
+  // no row under the right id at all, since the earlier correction only
+  // ever touched the local copy. This is exactly what showed everyone's
+  // name in chat as "Friend" — the message's sender_id was always
+  // correct, but no matching profiles row with their real name existed
+  // for that id, so every name lookup fell back to the placeholder.
+  if (account.name) {
+    const { data: existingProfile } = await supabaseClient.from('profiles').select('id').eq('id', resolvedId).maybeSingle();
+    if (!existingProfile) {
+      syncSharedProfile({ ...account, id: resolvedId });
+    }
   }
   return resolvedId;
 }
