@@ -908,28 +908,45 @@
     cursor: pointer;
   }
 
-  /* ---------- Embed modal ---------- */
+  /* ---------- Embed modal ----------
+     These render as full pages, not pop-up sheets: no slide transform,
+     just an instant display toggle so it feels like tab-style page
+     navigation rather than a sheet appearing on top of the app. */
   .embed-modal {
     position: fixed;
     inset: 0;
     background: var(--black);
     z-index: 999;
-    display: flex;
+    display: none;
     flex-direction: column;
-    transform: translateY(100%);
-    transition: transform 0.28s ease;
     max-width: 480px;
     margin: 0 auto;
   }
-  .embed-modal.open { transform: translateY(0); }
+  .embed-modal.open { display: flex; }
 
   .embed-header {
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
     padding: 16px 16px 14px;
     border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .embed-header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .modal-home-btn {
+    flex-shrink: 0;
+    background: rgba(255,255,255,0.08);
+    border: none;
+    color: var(--white);
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 9px 13px;
+    border-radius: 20px;
+    cursor: pointer;
   }
   .embed-title {
     font-family: var(--font-display);
@@ -937,8 +954,12 @@
     font-size: 13px;
     letter-spacing: 0.04em;
     color: var(--white);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0; /* lets it actually shrink/truncate as a flex item, rather than forcing the row wider */
   }
-  .embed-actions { display: flex; align-items: center; gap: 14px; }
+  .embed-actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
 
   .sync-status-badge {
     display: none;
@@ -989,14 +1010,12 @@
     inset: 0;
     background: var(--black);
     z-index: 999;
-    display: flex;
+    display: none;
     flex-direction: column;
-    transform: translateY(100%);
-    transition: transform 0.28s ease;
     max-width: 480px;
     margin: 0 auto;
   }
-  .disciple-modal.open { transform: translateY(0); }
+  .disciple-modal.open { display: flex; }
   .disciple-modal-body { flex: 1; overflow-y: auto; padding: 26px 22px; scrollbar-width: none; }
   .disciple-modal-body::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
@@ -1427,14 +1446,12 @@
     inset: 0;
     background: var(--black);
     z-index: 999;
-    display: flex;
+    display: none;
     flex-direction: column;
-    transform: translateY(100%);
-    transition: transform 0.28s ease;
     max-width: 480px;
     margin: 0 auto;
   }
-  .article-modal.open { transform: translateY(0); }
+  .article-modal.open { display: flex; }
   .article-modal-body { flex: 1; overflow-y: auto; scrollbar-width: none; }
   .article-modal-body::-webkit-scrollbar { display: none; width: 0; height: 0; }
   .article-hero-img { width: 100%; height: 200px; background-size: cover; background-position: center; }
@@ -1528,6 +1545,11 @@
    (embed viewer, Gospel, articles) that should stay exactly as they
    were — this only touches this one modal's header. */
 #discipleModal .embed-header { background: var(--black); }
+
+/* Same shared-class issue as everything else here — .global-count-banner
+   is also used on the Today tab (still black background, white text is
+   still correct there). Scoped so only this modal's instance changes. */
+#discipleModal .global-count-banner { color: rgba(10,10,10,0.55); }
 </style>
 </head>
 <body>
@@ -1835,10 +1857,12 @@
 
   <div class="embed-modal" id="embedModal">
     <div class="embed-header">
-      <div class="embed-title" id="embedTitle">Loading…</div>
+      <div class="embed-header-left">
+        <button class="modal-home-btn" id="embedClose">← Home</button>
+        <div class="embed-title" id="embedTitle">Loading…</div>
+      </div>
       <div class="embed-actions">
         <a id="embedFallback" class="embed-fallback" href="#" target="_blank" rel="noopener">Open in Browser ↗</a>
-        <button class="embed-close" id="embedClose" aria-label="Close">✕</button>
       </div>
     </div>
     <iframe id="embedFrame" class="embed-frame" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>
@@ -1846,9 +1870,9 @@
 
   <div class="disciple-modal" id="discipleModal">
     <div class="embed-header">
-      <div class="embed-title">Make Disciples</div>
-      <div class="embed-actions">
-        <button class="embed-close" id="discipleModalClose" aria-label="Close">✕</button>
+      <div class="embed-header-left">
+        <button class="modal-home-btn" id="discipleModalClose">← Home</button>
+        <div class="embed-title">Make Disciples</div>
       </div>
     </div>
     <div id="syncStatusBadge" class="sync-status-badge"></div>
@@ -1857,9 +1881,9 @@
 
   <div class="disciple-modal" id="gospelModal">
     <div class="embed-header">
-      <div class="embed-title">Share the Gospel</div>
-      <div class="embed-actions">
-        <button class="embed-close" id="gospelModalClose" aria-label="Close">✕</button>
+      <div class="embed-header-left">
+        <button class="modal-home-btn" id="gospelModalClose">← Home</button>
+        <div class="embed-title">Share the Gospel</div>
       </div>
     </div>
     <div class="disciple-modal-body disciple-app-scope" id="gospelModalBody"></div>
@@ -1867,9 +1891,9 @@
 
   <div class="article-modal" id="articleModal">
     <div class="embed-header">
-      <div class="embed-title" id="articleModalTag">Blog</div>
-      <div class="embed-actions">
-        <button class="embed-close" id="articleModalClose" aria-label="Close">✕</button>
+      <div class="embed-header-left">
+        <button class="modal-home-btn" id="articleModalClose">← Home</button>
+        <div class="embed-title" id="articleModalTag">Blog</div>
       </div>
     </div>
     <div class="article-modal-body" id="articleModalBody"></div>
@@ -1945,26 +1969,33 @@
       if (el) el.textContent = '📣 Disciples made through this app';
     }
   })();
+  // The header's "← Home" button always exits all the way back to the
+  // main app now, rather than stepping back one nested level at a time —
+  // every nested view inside this modal (group detail, member detail,
+  // leader application) already has its own dedicated "← back" link
+  // built into its own content for that step-by-step navigation, so this
+  // top-level button doesn't need to duplicate it. goHome() is defined
+  // further down, alongside TAB_HASH_MAP — both are plain function/const
+  // declarations in the second <script> tag on this page, which (unlike
+  // the disciple-flow state above) are NOT visible from this earlier
+  // script block by variable reference. But goHome is a function
+  // declaration, so it's still globally callable from here; the closure
+  // it forms captures TAB_HASH_MAP from its own defining scope, not the
+  // caller's — this is what actually fixed a real bug here: the previous
+  // version of this handler referenced TAB_HASH_MAP directly, which threw
+  // silently (never seen, since it's inside a click handler) every time
+  // someone closed this modal from the top level.
   document.getElementById('discipleModalClose').addEventListener('click', () => {
-    // Acts like a "back" button when nested inside the discipleship flow —
-    // only fully closes the modal once we're back at the top-level hub.
-    if (view === 'groupDetail' || view === 'memberDetail') {
-      view = 'home'; activeGroupCode = null; activeMemberId = null;
-      render();
-    } else if (topView === 'leader' || topView === 'disciple') {
-      topView = 'hub';
-      render();
-    } else {
-      discipleModal.classList.remove('open');
-    }
+    goHome();
   });
 
   document.getElementById('shareGospelBannerBtn').addEventListener('click', () => {
     document.getElementById('gospelModal').classList.add('open');
     renderGospelGrid();
+    pushUrlHash('gospel');
   });
   document.getElementById('gospelModalClose').addEventListener('click', () => {
-    document.getElementById('gospelModal').classList.remove('open');
+    goHome();
   });
 
   // If someone opened the app via a shared invite link (?join=CODE), take
@@ -1974,6 +2005,14 @@
   if (window.pendingJoinCode) {
     discipleModal.classList.add('open');
     updateSyncStatusBadge();
+    // Set the hash immediately, synchronously — restoreTabFromUrl runs
+    // later, at the end of the second script tag, and without this it
+    // would see an empty hash (this ?join= is a query param, not a
+    // hash) and immediately close the modal this just opened, before
+    // renderDiscipleStep's own async chain below has even resolved.
+    // replaceState rather than pushState since this is just clarifying
+    // the page's initial state, not a new navigation step.
+    history.replaceState({}, '', '#disciple');
     renderDiscipleStep();
   }
 
@@ -2002,6 +2041,10 @@
   }
 
   function renderAccountStep() {
+    if (!skipNextDiscipleHistoryPush && window.location.hash.replace('#', '') !== 'disciple') {
+      history.pushState({ discipleHash: 'disciple' }, '', '#disciple');
+    }
+    skipNextDiscipleHistoryPush = false;
     discipleBody.innerHTML = `
       <button class="secondary-btn" id="googleAuthBtn" style="display:flex; align-items:center; justify-content:center; gap:10px;">
         <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.84 2.09-1.8 2.73v2.27h2.92c1.7-1.57 2.68-3.88 2.68-6.64z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.27c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.34C2.44 15.98 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.97 10.71c-.18-.54-.28-1.11-.28-1.71s.1-1.17.28-1.71V4.95H.96C.35 6.17 0 7.55 0 9s.35 2.83.96 4.05l3.01-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.59-2.59C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.95l3.01 2.34C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
@@ -3223,7 +3266,65 @@ async function safeDelete(key, shared) {
 
 let topView = 'hub'; // 'hub' | 'leader' | 'disciple'
 
+// Set to true right before restoring state FROM the URL (initial load,
+// or the back/forward buttons) so render()'s own URL-sync below doesn't
+// fight that restoration by pushing a second, redundant history entry —
+// same pattern already used for the 5 main tabs, applied to this
+// modal's deeper, nested navigation instead.
+let skipNextDiscipleHistoryPush = false;
+
+// Encodes the modal's current nested state into a single hash string —
+// which top-level screen, and which group or disciple if any.
+function discipleStateToHash() {
+  if (view === 'groupDetail' && activeGroupCode) return `disciple/group/${activeGroupCode}`;
+  if (view === 'memberDetail' && activeMemberId) return `disciple/member/${activeMemberId}`;
+  if (topView === 'leader') return 'disciple/leader';
+  if (topView === 'disciple') return 'disciple/being-discipled';
+  return 'disciple';
+}
+
+// Called from render() itself — the single, central dispatch point
+// every navigation inside this modal eventually passes through — so
+// every click handler across the whole modal is covered by this one
+// hook, without needing to touch each one individually.
+function updateDiscipleUrlHash() {
+  if (skipNextDiscipleHistoryPush) { skipNextDiscipleHistoryPush = false; return; }
+  const hash = discipleStateToHash();
+  if (window.location.hash.replace('#', '') === hash) return; // already there, avoid a redundant entry
+  history.pushState({ discipleHash: hash }, '', `#${hash}`);
+}
+
+// Reverses discipleStateToHash — reads a disciple/... hash back into
+// the view/topView/activeGroupCode/activeMemberId state, then renders.
+// Returns false (changing nothing) for any hash that isn't one of this
+// modal's own, so the caller falls through to the main tab restoration
+// instead.
+async function restoreDiscipleStateFromHash(hash) {
+  const parts = hash.split('/');
+  if (parts[0] !== 'disciple') return false;
+
+  discipleModal.classList.add('open');
+  updateSyncStatusBadge();
+
+  if (parts[1] === 'group' && parts[2]) {
+    topView = 'hub'; view = 'groupDetail'; activeGroupCode = parts[2]; activeMemberId = null;
+  } else if (parts[1] === 'member' && parts[2]) {
+    topView = 'hub'; view = 'memberDetail'; activeMemberId = parts[2]; activeGroupCode = null;
+  } else if (parts[1] === 'leader') {
+    topView = 'leader'; view = 'home'; activeGroupCode = null; activeMemberId = null;
+  } else if (parts[1] === 'being-discipled') {
+    topView = 'disciple'; view = 'home'; activeGroupCode = null; activeMemberId = null;
+  } else {
+    topView = 'hub'; view = 'home'; activeGroupCode = null; activeMemberId = null;
+  }
+
+  skipNextDiscipleHistoryPush = true;
+  await renderDiscipleStep();
+  return true;
+}
+
 async function render() {
+  updateDiscipleUrlHash();
   main.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
   if (view === 'groupDetail' && activeGroupCode) { await renderGroupDetail(activeGroupCode); }
   else if (view === 'memberDetail' && activeMemberId) { await renderMemberDetail(activeMemberId); }
@@ -4938,7 +5039,11 @@ async function renderDiscipleshipApp() {
     renderBlogList();
   }
 
-  function openArticle(id) {
+  // skipHistoryPush is true only when restoreTabFromUrl calls this to
+  // reopen an article after a refresh — it already owns the current
+  // history entry (from the page load itself), so this shouldn't push
+  // a second, redundant one on top of it.
+  function openArticle(id, skipHistoryPush) {
     const a = BLOG_POSTS.find(p => p.id === id);
     if (!a) return;
     articleModalTag.textContent = a.tag;
@@ -4959,9 +5064,10 @@ async function renderDiscipleshipApp() {
     `;
     articleModal.classList.add('open');
     articleModalBody.scrollTop = 0;
+    if (!skipHistoryPush) pushUrlHash(`article/${id}`);
   }
   document.getElementById('articleModalClose').addEventListener('click', () => {
-    articleModal.classList.remove('open');
+    goHome();
   });
 
   // ---------- Randomized blog banner (from live feed once loaded) ----------
@@ -4983,7 +5089,11 @@ async function renderDiscipleshipApp() {
     slide.onclick = () => openArticle(a.id);
   }
 
-  loadBlogPosts();
+  // Captured globally so restoreTabFromUrl (in the second script tag,
+  // running immediately after this one) can await this before trying to
+  // reopen a specific article on refresh — otherwise BLOG_POSTS could
+  // still be empty at that point, since this fetch hasn't resolved yet.
+  window.blogPostsReady = loadBlogPosts();
 
 
 </script>
@@ -5075,17 +5185,20 @@ async function renderDiscipleshipApp() {
   const embedTitle = document.getElementById('embedTitle');
   const embedFallback = document.getElementById('embedFallback');
 
-  window.openEmbed = function(url, title, fallbackUrl) {
+  // skipHistoryPush is true only when restoreTabFromUrl calls this to
+  // reopen the player after a refresh — see the same note on openArticle.
+  window.openEmbed = function(url, title, fallbackUrl, skipHistoryPush) {
     embedTitle.textContent = title;
     embedFallback.href = fallbackUrl;
     embedFrame.src = url;
     embedModal.classList.add('open');
     bannerPaused = true;
+    if (!skipHistoryPush) pushUrlHash('player');
   };
 
   document.getElementById('embedClose').addEventListener('click', () => {
-    embedModal.classList.remove('open');
     embedFrame.src = '';
+    goHome();
     setTimeout(() => bannerPaused = false, 500);
   });
 
@@ -5553,11 +5666,12 @@ async function renderDiscipleshipApp() {
     if (planBtn) planBtn.click();
   };
 
-  // URL routing for the 5 main tabs — Today is the default (no hash),
-  // everything else gets a real, bookmarkable hash. This is what makes
-  // a refresh keep your place and the back button step through tabs one
-  // at a time instead of skipping past the app entirely to wherever you
-  // were before opening it.
+  // URL routing — every one of the 5 main tabs, plus the disciple/
+  // gospel/article/player views, gets a real, bookmarkable hash. This is
+  // what makes a refresh keep your place (rather than dropping back to
+  // Today) regardless of which of these you're on, and the back button
+  // step through them one at a time instead of skipping past the app
+  // entirely to wherever you were before opening it.
   const TAB_HASH_MAP = {
     'screen-today': '', 'screen-bible': 'bible', 'screen-plans': 'plans',
     'screen-blog': 'blog', 'screen-jesus': 'jesus'
@@ -5577,7 +5691,39 @@ async function renderDiscipleshipApp() {
     panel.scrollTop = 0;
   }
 
+  // All 4 of the page-style views (disciple, gospel, article, player)
+  // are siblings that each cover the full screen when open — always
+  // closing every one of them first avoids two ever ending up stacked
+  // or a stale one bleeding through when switching between them.
+  function closeAllModals() {
+    document.getElementById('embedModal').classList.remove('open');
+    document.getElementById('discipleModal').classList.remove('open');
+    document.getElementById('gospelModal').classList.remove('open');
+    document.getElementById('articleModal').classList.remove('open');
+  }
+
+  // Shared by every page-style view's "← Home" button — closes all of
+  // them and restores the URL to whichever of the 5 main tabs is still
+  // active underneath (it was never actually changed while one of these
+  // was open on top of it, so this is just re-syncing the hash to match).
+  function goHome() {
+    closeAllModals();
+    const activeScreen = document.querySelector('.screen.active');
+    const activeScreenId = activeScreen ? activeScreen.id : 'screen-today';
+    const tabHash = TAB_HASH_MAP[activeScreenId] || '';
+    history.pushState({ screenId: activeScreenId }, '', tabHash ? `#${tabHash}` : window.location.pathname);
+  }
+
+  // Small shared helper for the gospel/article/player views, which don't
+  // need disciple.js's deeper per-state tracking — just "this one hash
+  // is now current," skipping a redundant push if it already is.
+  function pushUrlHash(hash) {
+    if (window.location.hash.replace('#', '') === hash) return;
+    history.pushState({}, '', `#${hash}`);
+  }
+
   function goToTab(screenId) {
+    closeAllModals();
     applyTab(screenId);
     const hash = TAB_HASH_MAP[screenId] || '';
     history.pushState({ screenId }, '', hash ? `#${hash}` : window.location.pathname);
@@ -5585,9 +5731,46 @@ async function renderDiscipleshipApp() {
 
   // Deliberately does NOT call goToTab (which would push another history
   // entry and break forward navigation) — this only reads the current
-  // URL and updates the DOM to match.
-  function restoreTabFromUrl() {
+  // URL and updates the DOM to match. Closes every page-style view first,
+  // then reopens whichever one (if any) the hash actually calls for —
+  // avoids a stale one bleeding through from a previous state. A
+  // disciple/... hash takes over entirely (opens that modal, restores
+  // its own nested state); gospel/article/player are simpler, single-
+  // state cases; anything else falls through to the normal tab restore.
+  async function restoreTabFromUrl() {
     const hash = window.location.hash.replace('#', '');
+    closeAllModals();
+
+    if (hash.startsWith('disciple')) {
+      const handled = await restoreDiscipleStateFromHash(hash);
+      if (handled) return;
+    }
+    if (hash === 'gospel') {
+      document.getElementById('gospelModal').classList.add('open');
+      renderGospelGrid();
+      return;
+    }
+    if (hash.startsWith('article/')) {
+      const articleId = hash.slice('article/'.length);
+      // Wait for the live blog feed to finish loading first — otherwise
+      // BLOG_POSTS could still be empty this early and the article
+      // wouldn't be found yet, even though it will be moments later.
+      if (window.blogPostsReady) await window.blogPostsReady;
+      openArticle(articleId, true);
+      return;
+    }
+    if (hash === 'player') {
+      // Only the one Worship Playlist embed exists today, so this is
+      // safe to hardcode — if a second embed is ever added elsewhere,
+      // this would need the same per-item hash disciple/article use.
+      openEmbed(
+        'https://open.spotify.com/embed/playlist/4CJLU84OYEK5CCr02l45mF?utm_source=generator&theme=0',
+        'Worship Playlist',
+        'https://open.spotify.com/playlist/4CJLU84OYEK5CCr02l45mF',
+        true
+      );
+      return;
+    }
     applyTab(HASH_TO_SCREEN[hash] || 'screen-today');
   }
 
