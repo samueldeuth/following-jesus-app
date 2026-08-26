@@ -3487,7 +3487,7 @@ async function renderGroupDetail(code) {
 
     ${teacherCourseViewHtml(course)}
 
-    <a class="close-group-link" id="closeGroupBtn">Close This Group</a>
+    <a class="close-group-link" id="closeGroupBtn">Delete This Group</a>
   `;
 
   document.getElementById('backBtn').onclick = () => { view = 'home'; activeGroupCode = null; render(); };
@@ -3521,8 +3521,8 @@ async function renderGroupDetail(code) {
   document.getElementById('closeGroupBtn').onclick = async () => {
     const memberCount = members.length;
     const warnText = memberCount > 0
-      ? `Close "${group ? group.label : 'this group'}"? It has ${memberCount} ${memberCount === 1 ? 'person' : 'people'} in it — they'll keep their individual progress and messages with you, but this group and its group chat will be gone.`
-      : `Close "${group ? group.label : 'this group'}"? This can't be undone.`;
+      ? `Delete "${group ? group.label : 'this group'}"? It has ${memberCount} ${memberCount === 1 ? 'person' : 'people'} in it — they'll keep their individual progress and messages with you, but this group and its group chat will be gone.`
+      : `Delete "${group ? group.label : 'this group'}"? This can't be undone.`;
     if (!(await showAppConfirm(warnText))) return;
     await closeGroup(code);
     view = 'home';
