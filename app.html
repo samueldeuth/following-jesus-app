@@ -1468,6 +1468,8 @@
   }
 
   nav.tabbar button.active { color: var(--ember); }
+
+  #modalPortal { flex: 0 0 0; height: 0; overflow: visible; }
 /* ---------- Leader/Disciple dashboard: white background ----------
    Scoped to #discipleModal specifically (an ID, not the shared
    .disciple-modal/.disciple-app-scope classes) so this never touches
@@ -1850,6 +1852,16 @@
       <span class="label">Jesus</span>
     </button>
   </nav>
+
+  <!-- Dedicated home for alert/confirm/prompt overlays — deliberately a
+       direct sibling of nav.tabbar (not nested inside any of the
+       scrollable modal bodies) so these full-viewport overlays actually
+       cover the whole screen including the tab bar, rather than being
+       constrained to the shorter height of whichever scrollable
+       container they'd otherwise be appended into. Carries
+       disciple-app-scope directly since that's what every .modal-overlay
+       / .modal-sheet rule is scoped under. -->
+  <div id="modalPortal" class="disciple-app-scope"></div>
 
 </div>
 
@@ -4037,7 +4049,7 @@ function showAppAlert(message) {
         <p style="font-size:14px; line-height:1.5; margin:0 0 18px;">${escapeHtml(message)}</p>
         <div class="modal-actions"><button class="primary" id="appAlertOk">OK</button></div>
       </div>`;
-    discipleBody.appendChild(overlay);
+    document.getElementById('modalPortal').appendChild(overlay);
     document.getElementById('appAlertOk').onclick = () => { overlay.remove(); resolve(); };
   });
 }
@@ -4054,7 +4066,7 @@ function showAppConfirm(message) {
           <button class="secondary" id="appConfirmNo">Cancel</button>
         </div>
       </div>`;
-    discipleBody.appendChild(overlay);
+    document.getElementById('modalPortal').appendChild(overlay);
     document.getElementById('appConfirmYes').onclick = () => { overlay.remove(); resolve(true); };
     document.getElementById('appConfirmNo').onclick = () => { overlay.remove(); resolve(false); };
     overlay.onclick = (e) => { if (e.target === overlay) { overlay.remove(); resolve(false); } };
@@ -4074,7 +4086,7 @@ function showAppPrompt(message, placeholder) {
           <button class="secondary" id="appPromptCancel">Cancel</button>
         </div>
       </div>`;
-    discipleBody.appendChild(overlay);
+    document.getElementById('modalPortal').appendChild(overlay);
     const input = document.getElementById('appPromptInput');
     input.focus();
     document.getElementById('appPromptOk').onclick = () => { const v = input.value.trim(); overlay.remove(); resolve(v || null); };
@@ -4128,7 +4140,7 @@ function showShareModal(code, label) {
       <div class="copied-flash" id="copiedFlash"></div>
     </div>
   `;
-  discipleBody.appendChild(overlay);
+  document.getElementById('modalPortal').appendChild(overlay);
 
   const flash = (msg) => {
     const el = document.getElementById('copiedFlash');
