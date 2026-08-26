@@ -1274,16 +1274,25 @@
     background: rgba(255,255,255,0.1); border-radius: 10px; padding: 3px 7px; color: var(--white);
   }
   .disciple-app-scope .reaction-pill.mine { background: rgba(200,155,60,0.28); border: 1px solid var(--ember); }
-  .disciple-app-scope .reaction-add-row { display: none; align-items: center; margin: 4px 0 2px 2px; }
+  .disciple-app-scope .reaction-add-row {
+    display: none; align-items: center; flex-wrap: wrap; gap: 2px;
+    margin: 5px 0 2px 2px; background: rgba(255,255,255,0.06);
+    border-radius: 16px; padding: 4px 5px; width: fit-content; max-width: 100%;
+  }
   .disciple-app-scope .reaction-add-row.open { display: flex; }
+  .disciple-app-scope .quick-reaction-btn {
+    background: none; border: none; font-size: 17px; line-height: 1; cursor: pointer;
+    padding: 4px 5px; border-radius: 50%;
+  }
+  .disciple-app-scope .quick-reaction-btn.mine { background: rgba(200,155,60,0.3); }
   .disciple-app-scope .add-reaction-btn {
-    background: rgba(255,255,255,0.08); border: none; cursor: pointer;
-    width: 26px; height: 26px; border-radius: 50%; padding: 0;
+    background: rgba(255,255,255,0.1); border: none; cursor: pointer;
+    width: 26px; height: 26px; border-radius: 50%; padding: 0; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.6);
   }
-  .disciple-app-scope .add-reaction-btn svg { width: 17px; height: 17px; }
+  .disciple-app-scope .add-reaction-btn svg { width: 16px; height: 16px; }
   .disciple-app-scope .reaction-emoji-input {
-    margin-left: 6px; margin-bottom: 0; width: 150px; padding: 5px 12px;
+    margin: 3px 0 0; margin-bottom: 0; width: 100%; padding: 5px 12px;
     border-radius: 14px; font-size: 12px; background: rgba(255,255,255,0.08);
     border: 1px solid rgba(255,255,255,0.2); color: var(--white);
   }
@@ -1292,7 +1301,9 @@
      directly above, since reactions live inside these same
      light-background chat panels and need the same treatment. */
   .disciple-app-scope .chat-pane .reaction-pill, .disciple-app-scope .chat-panel-light .reaction-pill { background: rgba(10,10,10,0.07); color: rgba(10,10,10,0.75); }
-  .disciple-app-scope .chat-pane .add-reaction-btn, .disciple-app-scope .chat-panel-light .add-reaction-btn { background: rgba(10,10,10,0.06); color: rgba(10,10,10,0.55); }
+  .disciple-app-scope .chat-pane .reaction-add-row, .disciple-app-scope .chat-panel-light .reaction-add-row { background: rgba(10,10,10,0.05); }
+  .disciple-app-scope .chat-pane .quick-reaction-btn.mine, .disciple-app-scope .chat-panel-light .quick-reaction-btn.mine { background: rgba(200,155,60,0.3); }
+  .disciple-app-scope .chat-pane .add-reaction-btn, .disciple-app-scope .chat-panel-light .add-reaction-btn { background: rgba(10,10,10,0.08); color: rgba(10,10,10,0.55); }
   .disciple-app-scope .chat-pane .reaction-emoji-input, .disciple-app-scope .chat-panel-light .reaction-emoji-input { background: var(--white); border-color: rgba(10,10,10,0.18); color: var(--black); }
   .disciple-app-scope .chat-pane .reaction-emoji-input::placeholder, .disciple-app-scope .chat-panel-light .reaction-emoji-input::placeholder { color: rgba(10,10,10,0.35); }
   .disciple-app-scope .msg-empty { font-size:12px; color: rgba(255,255,255,0.35); text-align:center; padding: 16px 0; }
@@ -3531,6 +3542,13 @@ function scrollChatThreadsToBottom() {
 }
 
 // ---------- Message reactions ----------
+// The quick-tap row — same spirit as iMessage's own tapback set (heart,
+// thumbs up/down, laugh, "!!", "?", "100"), using standard emoji
+// characters rather than Apple's own proprietary tapback graphics.
+// Tapping any of these reacts immediately in one tap; anything beyond
+// this set is available via the "more" (smiley) button next to them.
+const QUICK_REACTION_EMOJIS = ['❤️', '👍', '👎', '😂', '‼️', '❓', '💯'];
+
 // Detects an emoji character anywhere in a string — used to notice the
 // moment someone picks something from their device's own emoji keyboard,
 // rather than making them type it into a separate "confirm" step.
@@ -3555,11 +3573,10 @@ async function toggleMessageReaction(messageId, emoji) {
 // message's full HTML: its sender label (if given), body, any existing
 // reaction pills (themselves tappable — tapping one toggles your own
 // matching reaction, the common "me too" gesture from apps like Slack),
-// and a hidden "add reaction" row that wireMessageReactions() below
-// makes interactive. Rather than a custom picker limited to a handful of
-// emoji, tapping the add-reaction button reveals a text input tied to
-// the device's own native emoji keyboard — richer, and something
-// everyone already knows how to use. extraTagHtml is for the odd
+// and a hidden reaction row that wireMessageReactions() below makes
+// interactive — quick one-tap options for the common cases, plus a
+// smiley "more" button that opens a text input tied to the device's own
+// native emoji keyboard for anything else. extraTagHtml is for the odd
 // one-off, like the "📋 Action" tag on assigned actions in group chat.
 function renderMessageHtml(m, isMe, senderLabel, extraTagHtml, extraClass) {
   const counts = {};
@@ -3575,13 +3592,13 @@ function renderMessageHtml(m, isMe, senderLabel, extraTagHtml, extraClass) {
     : '';
   const addRowHtml = m.id
     ? `<div class="reaction-add-row" data-picker-for="${m.id}">
-        <button type="button" class="add-reaction-btn" data-msg-id="${m.id}" aria-label="Add a reaction">
+        ${QUICK_REACTION_EMOJIS.map(e => `<button type="button" class="quick-reaction-btn${mine.has(e) ? ' mine' : ''}" data-emoji="${e}" data-msg-id="${m.id}">${e}</button>`).join('')}
+        <button type="button" class="add-reaction-btn" data-msg-id="${m.id}" aria-label="More reactions">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-            <circle cx="10.5" cy="12" r="7.5"/>
-            <circle cx="8" cy="10.3" r="0.9" fill="currentColor" stroke="none"/>
-            <circle cx="13" cy="10.3" r="0.9" fill="currentColor" stroke="none"/>
-            <path d="M7.3 13.2c0.9 1.3 2.1 2 3.2 2s2.3-0.7 3.2-2" stroke-linecap="round"/>
-            <path d="M18.5 6v5.5M15.75 8.75h5.5" stroke-linecap="round"/>
+            <circle cx="12" cy="12" r="8"/>
+            <circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/>
+            <circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/>
+            <path d="M8.2 13.5c1 1.5 2.4 2.3 3.8 2.3s2.8-0.8 3.8-2.3" stroke-linecap="round"/>
           </svg>
         </button>
         <input type="text" class="reaction-emoji-input" data-msg-id="${m.id}" placeholder="Tap 😊 on your keyboard" style="display:none;" />
@@ -3604,8 +3621,8 @@ function wireMessageReactions() {
     discipleBody.scrollTop = scrollPosition;
   };
 
-  // Tapping a bubble reveals that message's add-reaction row (closing
-  // any other one left open, so only one is ever showing at a time).
+  // Tapping a bubble reveals that message's reaction row (closing any
+  // other one left open, so only one is ever showing at a time).
   document.querySelectorAll('[data-react-trigger]').forEach(bubble => {
     bubble.onclick = () => {
       const row = document.querySelector(`.reaction-add-row[data-picker-for="${bubble.dataset.reactTrigger}"]`);
@@ -3625,10 +3642,18 @@ function wireMessageReactions() {
     };
   });
 
-  // Tapping the smiley+plus button reveals and focuses a text input —
+  // The one-tap quick reactions — reacts immediately, no extra step.
+  document.querySelectorAll('.quick-reaction-btn').forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      await reactAndRerender(btn.dataset.msgId, btn.dataset.emoji);
+    };
+  });
+
+  // Tapping the smiley "more" button reveals and focuses a text input —
   // focusing it is what actually brings up the phone's own keyboard,
   // where the person switches to their emoji keyboard the same way they
-  // would in any texting app.
+  // would in any texting app, for anything beyond the quick-tap set.
   document.querySelectorAll('.add-reaction-btn').forEach(btn => {
     btn.onclick = (e) => {
       e.stopPropagation();
