@@ -1997,7 +1997,17 @@
   }
 
   async function renderDiscipleStep() {
-    const account = await dSafeGet('account');
+    let account = await dSafeGet('account');
+    if (!account) {
+      // Covers the case where the "just came back from Google"
+      // sessionStorage flag didn't survive the mobile redirect (see the
+      // comment on syncAccountFromActiveSession) — if there's actually
+      // an authenticated session already, finish syncing it locally
+      // rather than showing the sign-in prompt to someone who already
+      // signed in.
+      const synced = await syncAccountFromActiveSession();
+      if (synced) account = await dSafeGet('account');
+    }
     if (!account) { renderAccountStep(); return; }
     await renderDiscipleshipApp();
   }
@@ -2113,16 +2123,35 @@
   // the Google redirect, this finds (or creates) their account the same
   // way logging in by email already works — by matching on email — so
   // existing groups, disciples, and progress carry over automatically if
-  // they've used the app before.
+  // they've used the app before. The actual work is in
+  // syncAccountFromActiveSession below — this function's own job is just
+  // the cheap, fast-path check (has the flag actually been set?) so this
+  // doesn't do a Supabase round trip on every normal page load.
   async function completeGoogleAuthIfPending() {
-    if (!supabaseClient) return false;
     if (sessionStorage.getItem('fj_google_auth_pending') !== '1') return false;
+    sessionStorage.removeItem('fj_google_auth_pending');
+    return await syncAccountFromActiveSession();
+  }
 
+  // The actual "find or create a local account from whatever Supabase
+  // session already exists" logic, pulled out on its own so it can be
+  // called two ways: from completeGoogleAuthIfPending above (the normal
+  // path, gated behind the sessionStorage flag), and as a direct
+  // fallback from renderDiscipleStep when no local account is found —
+  // covering the case where that flag never made it back. This happens
+  // on some mobile browsers, where the Google OAuth redirect can bounce
+  // through a different tab/browser context than the one that set the
+  // flag (e.g. a link opened from within Messages or WhatsApp) —
+  // sessionStorage doesn't survive that, even though the person really
+  // did finish signing in. Without this fallback, they'd be stuck
+  // re-seeing "Continue with Google" indefinitely despite already being
+  // authenticated.
+  async function syncAccountFromActiveSession() {
+    if (!supabaseClient) return false;
     const { data } = await supabaseClient.auth.getSession();
     const session = data && data.session;
     if (!session || !session.user) return false;
 
-    sessionStorage.removeItem('fj_google_auth_pending');
     const googleUser = session.user;
     const email = googleUser.email;
     if (!email) return false;
