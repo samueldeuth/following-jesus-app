@@ -145,6 +145,7 @@
   }
   .mini-btn.danger{border-color:var(--red);color:var(--red);}
   .mini-btn.gold{border-color:#B08D3E;color:#B08D3E;}
+  .mini-btn.active{background:var(--ink);border-color:var(--ink);color:#fff;}
 
   .qa-block{border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;}
   .qa-session{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-soft);margin-bottom:6px;}
@@ -684,22 +685,171 @@ function renderChurchesOverview(){
 // the whole panel's innerHTML on each keystroke would recreate the
 // <input> itself and throw away focus mid-typing.
 let allStudentsFilteredRows = [];
+// Shared across both the All Students view and any single church's
+// student list, so switching between "Active" and "Archived" sticks as
+// you navigate around rather than resetting on every click.
+let studentViewMode = 'active'; // 'active' | 'archived'
+let selectedEnrollmentIds = new Set();
+
+// Shared HTML for a student row's action buttons -- same markup and
+// button set whether it's the All Students table or a single church's,
+// since both render modes (active vs archived) need identical behavior.
+function studentActionButtonsHtml(r, isComplete){
+  const certBtn = isComplete ? `<button class="mini-btn gold" data-view-cert="${r.student_id}" data-cert-course="${r.course_id}">🏅 Certificate</button>` : '';
+  if(studentViewMode === 'archived'){
+    return `${certBtn}
+      <button class="mini-btn" data-restore="${r.enrollment_id}" data-name="${(r.full_name||'this student').replace(/"/g,'')}">Restore</button>
+      <button class="mini-btn danger" data-hard-delete="${r.enrollment_id}" data-name="${(r.full_name||'this student').replace(/"/g,'')}">Delete Permanently</button>`;
+  }
+  return `${certBtn}
+    <button class="mini-btn danger" data-archive="${r.enrollment_id}" data-name="${(r.full_name||'this student').replace(/"/g,'')}">Archive</button>`;
+}
+
+// Wires the checkbox column, select-all header checkbox, batch action
+// bar, and the archive/restore/delete buttons for a given table body.
+// Called after any (re)render of either student list. removeFromLocal is
+// how the caller removes/updates its own in-memory row array once an
+// action completes, since All Students and a single church track rows
+// differently (allRows vs a filtered slice of it).
+function wireStudentRowActions(tbodySelector, selectAllSelector, batchBarSelector, onChange){
+  const tbody = document.querySelector(tbodySelector);
+  if(!tbody) return;
+
+  // Checkbox (de)selection only needs to refresh the batch bar, not the
+  // whole table -- re-running the full page render callback here would
+  // rebuild the search input and other controls on every single click.
+  const refreshBatchBar = () => {
+    const bar = document.querySelector(batchBarSelector);
+    if(bar){ bar.innerHTML = batchActionBarHtml(); wireBatchActionBar(onChange); }
+  };
+
+  tbody.querySelectorAll('[data-row-select]').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation());
+    cb.addEventListener('change', () => {
+      if(cb.checked) selectedEnrollmentIds.add(cb.dataset.rowSelect);
+      else selectedEnrollmentIds.delete(cb.dataset.rowSelect);
+      refreshBatchBar();
+    });
+  });
+
+  const selectAll = document.querySelector(selectAllSelector);
+  if(selectAll){
+    selectAll.addEventListener('change', () => {
+      tbody.querySelectorAll('[data-row-select]').forEach(cb => {
+        cb.checked = selectAll.checked;
+        if(selectAll.checked) selectedEnrollmentIds.add(cb.dataset.rowSelect);
+        else selectedEnrollmentIds.delete(cb.dataset.rowSelect);
+      });
+      refreshBatchBar();
+    });
+  }
+
+  tbody.querySelectorAll('[data-archive]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if(!confirm(`Archive ${btn.dataset.name}? They'll be hidden from the active student list, but nothing is deleted -- you can restore them anytime from the Archived view.`)) return;
+      await supabaseClient.from('enrollments').update({ status: 'archived', archived_at: new Date().toISOString() }).eq('id', btn.dataset.archive);
+      onChange(btn.dataset.archive, 'archived');
+    });
+  });
+
+  tbody.querySelectorAll('[data-restore]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await supabaseClient.from('enrollments').update({ status: 'active', archived_at: null }).eq('id', btn.dataset.restore);
+      onChange(btn.dataset.restore, 'active');
+    });
+  });
+
+  tbody.querySelectorAll('[data-hard-delete]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if(!confirm(`Permanently delete ${btn.dataset.name}'s enrollment, progress, discussion answers, and certificate? This cannot be undone.`)) return;
+      const { error } = await supabaseClient.rpc('permanently_delete_enrollment', { p_enrollment_id: btn.dataset.hardDelete });
+      if(error){ alert('Could not delete: ' + error.message); return; }
+      onChange(btn.dataset.hardDelete, 'deleted');
+    });
+  });
+}
+
+// Renders the batch action bar shown above a student table whenever 1+
+// rows are checked. Returns '' (nothing rendered) when selection is
+// empty, so callers can just drop this straight into their template
+// string without an extra if/else at the call site.
+function batchActionBarHtml(){
+  const count = selectedEnrollmentIds.size;
+  if(count === 0) return '';
+  const actionBtn = studentViewMode === 'archived'
+    ? `<button class="mini-btn" id="batch-restore-btn">Restore ${count}</button><button class="mini-btn danger" id="batch-delete-btn">Delete ${count} Permanently</button>`
+    : `<button class="mini-btn danger" id="batch-archive-btn">Archive ${count}</button>`;
+  return `<div class="batch-action-bar" style="display:flex;align-items:center;gap:10px;background:var(--bg-soft);border-radius:10px;padding:10px 14px;margin-bottom:12px;">
+    <span style="font-size:13.5px;color:var(--ink-soft);">${count} selected</span>
+    ${actionBtn}
+  </div>`;
+}
+
+// Wires the batch bar's buttons. rows/setRows let the caller supply its
+// own current row list and a setter, since All Students (allRows) and a
+// single church's view (a filtered slice) track state differently.
+function wireBatchActionBar(onChange){
+  const archiveBtn = document.getElementById('batch-archive-btn');
+  if(archiveBtn){
+    archiveBtn.addEventListener('click', async () => {
+      const ids = [...selectedEnrollmentIds];
+      if(!confirm(`Archive ${ids.length} student${ids.length===1?'':'s'}? Nothing is deleted -- you can restore them anytime from the Archived view.`)) return;
+      await supabaseClient.from('enrollments').update({ status: 'archived', archived_at: new Date().toISOString() }).in('id', ids);
+      selectedEnrollmentIds.clear();
+      onChange(ids, 'archived');
+    });
+  }
+  const restoreBtn = document.getElementById('batch-restore-btn');
+  if(restoreBtn){
+    restoreBtn.addEventListener('click', async () => {
+      const ids = [...selectedEnrollmentIds];
+      await supabaseClient.from('enrollments').update({ status: 'active', archived_at: null }).in('id', ids);
+      selectedEnrollmentIds.clear();
+      onChange(ids, 'active');
+    });
+  }
+  const deleteBtn = document.getElementById('batch-delete-btn');
+  if(deleteBtn){
+    deleteBtn.addEventListener('click', async () => {
+      const ids = [...selectedEnrollmentIds];
+      if(!confirm(`Permanently delete ${ids.length} student${ids.length===1?'':'s'}? Their enrollment, progress, discussion answers, and certificates will all be removed. This cannot be undone.`)) return;
+      for(const id of ids){
+        const { error } = await supabaseClient.rpc('permanently_delete_enrollment', { p_enrollment_id: id });
+        if(error) console.error('Failed to delete', id, error.message);
+      }
+      selectedEnrollmentIds.clear();
+      onChange(ids, 'deleted');
+    });
+  }
+}
 
 function renderAllStudents(){
   activeChurchId = null;
   viewingNoChurch = false;
   viewingAllStudents = true;
+  selectedEnrollmentIds.clear();
   renderSidebar();
+
+  const activeCount = allRows.filter(r => r.status !== 'archived').length;
+  const archivedCount = allRows.filter(r => r.status === 'archived').length;
 
   document.getElementById('content').innerHTML = `
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">All Students</h2>
     <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:14px;">${allRows.length} student${allRows.length===1?'':'s'} across ${allChurches.length} church${allChurches.length===1?'':'es'}</p>
+    <div style="display:flex;gap:6px;margin-bottom:14px;">
+      <button class="mini-btn ${studentViewMode==='active'?'active':''}" id="student-mode-active-btn">Active (${activeCount})</button>
+      <button class="mini-btn ${studentViewMode==='archived'?'active':''}" id="student-mode-archived-btn">Archived (${archivedCount})</button>
+    </div>
     <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;">
       <input type="text" class="sidebar-search" id="all-students-search" placeholder="Search by name, email, or church…" style="max-width:280px;margin-bottom:0;" />
       <button class="mini-btn" id="export-all-students-btn">Export Students (CSV)</button>
     </div>
+    <div id="all-students-batch-bar"></div>
     <table>
-      <thead><tr><th>Student</th><th>Church</th><th>Progress</th><th>Actions</th></tr></thead>
+      <thead><tr><th style="width:34px;"><input type="checkbox" id="all-students-select-all" /></th><th>Student</th><th>Church</th><th>Progress</th><th>Actions</th></tr></thead>
       <tbody id="all-students-tbody"></tbody>
     </table>
   `;
@@ -709,16 +859,27 @@ function renderAllStudents(){
   document.getElementById('export-all-students-btn').addEventListener('click', () => {
     exportStudentsCSV(allStudentsFilteredRows, `all-students-${new Date().toISOString().slice(0,10)}.csv`, true);
   });
+  document.getElementById('student-mode-active-btn').addEventListener('click', () => {
+    studentViewMode = 'active';
+    selectedEnrollmentIds.clear();
+    renderAllStudents();
+  });
+  document.getElementById('student-mode-archived-btn').addEventListener('click', () => {
+    studentViewMode = 'archived';
+    selectedEnrollmentIds.clear();
+    renderAllStudents();
+  });
 }
 
 function renderAllStudentsRows(){
   const query = (document.getElementById('all-students-search')?.value || '').trim().toLowerCase();
+  const modeRows = allRows.filter(r => studentViewMode === 'archived' ? r.status === 'archived' : r.status !== 'archived');
   allStudentsFilteredRows = query
-    ? allRows.filter(r =>
+    ? modeRows.filter(r =>
         (r.full_name || '').toLowerCase().includes(query) ||
         (r.student_email || '').toLowerCase().includes(query) ||
         (r.church_name || '').toLowerCase().includes(query))
-    : allRows;
+    : modeRows;
 
   const rowsHtml = allStudentsFilteredRows.map(r => {
     const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
@@ -726,6 +887,7 @@ function renderAllStudentsRows(){
     const churchOptions = allChurches.map(c => `<option value="${c.id}" ${r.church_id===c.id?'selected':''}>${c.name}</option>`).join('');
     return `
       <tr data-student-id="${r.student_id}" data-course-id="${r.course_id}" data-enrollment-id="${r.enrollment_id}">
+        <td><input type="checkbox" data-row-select="${r.enrollment_id}" ${selectedEnrollmentIds.has(r.enrollment_id)?'checked':''} /></td>
         <td class="clickable-cell" data-open="true">
           <div class="student-name">${r.full_name || 'Unnamed student'}</div>
           <div class="student-email">${r.student_email || ''}</div>
@@ -741,30 +903,20 @@ function renderAllStudentsRows(){
         </td>
         <td>
           <div class="row-actions">
-            ${isComplete ? `<button class="mini-btn gold" data-view-cert="${r.student_id}" data-cert-course="${r.course_id}">🏅 Certificate</button>` : ''}
-            <button class="mini-btn danger" data-unenroll="${r.enrollment_id}" data-name="${(r.full_name||'this student').replace(/"/g,'')}">Unenroll</button>
+            ${studentActionButtonsHtml(r, isComplete)}
           </div>
         </td>
       </tr>`;
   }).join('');
 
-  document.getElementById('all-students-tbody').innerHTML = rowsHtml || `<tr><td colspan="4" style="color:var(--ink-soft);">${query ? 'No students match.' : 'No students yet.'}</td></tr>`;
+  document.getElementById('all-students-tbody').innerHTML = rowsHtml || `<tr><td colspan="5" style="color:var(--ink-soft);">${query ? 'No students match.' : (studentViewMode==='archived' ? 'No archived students.' : 'No students yet.')}</td></tr>`;
+  document.getElementById('all-students-batch-bar').innerHTML = batchActionBarHtml();
 
   document.querySelectorAll('#all-students-tbody td.clickable-cell').forEach(td => {
     td.style.cursor = 'pointer';
     td.addEventListener('click', () => {
       const tr = td.closest('tr');
       renderStudentDetail(tr.dataset.studentId, tr.dataset.courseId);
-    });
-  });
-
-  document.querySelectorAll('#all-students-tbody [data-unenroll]').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      if(!confirm(`Unenroll ${btn.dataset.name} from this course? Their progress and answers will be permanently deleted.`)) return;
-      await supabaseClient.from('enrollments').delete().eq('id', btn.dataset.unenroll);
-      allRows = allRows.filter(r => r.enrollment_id !== btn.dataset.unenroll);
-      renderAllStudentsRows();
     });
   });
 
@@ -799,6 +951,25 @@ function renderAllStudentsRows(){
       renderAllStudentsRows();
     });
   });
+
+  const onRowActionChange = (id, newStatus) => {
+    if(newStatus === 'deleted'){
+      allRows = allRows.filter(r => r.enrollment_id !== id);
+    } else {
+      const row = allRows.find(r => r.enrollment_id === id);
+      if(row) row.status = newStatus;
+    }
+    renderAllStudents(); // full re-render so the Active/Archived counts in the toggle stay correct
+  };
+  wireStudentRowActions('#all-students-tbody', '#all-students-select-all', '#all-students-batch-bar', onRowActionChange);
+  wireBatchActionBar((ids, newStatus) => {
+    if(newStatus === 'deleted'){
+      allRows = allRows.filter(r => !ids.includes(r.enrollment_id));
+    } else {
+      ids.forEach(id => { const row = allRows.find(r => r.enrollment_id === id); if(row) row.status = newStatus; });
+    }
+    renderAllStudents();
+  });
 }
 
 /* ---------- Level 2: students within a church ---------- */
@@ -806,9 +977,13 @@ async function renderChurchStudents(churchId){
   activeChurchId = churchId;
   viewingNoChurch = (churchId === null);
   viewingAllStudents = false;
+  selectedEnrollmentIds.clear();
   renderSidebar();
   const church = allChurches.find(c => c.id === churchId);
-  const rows = allRows.filter(r => churchId ? r.church_id === churchId : !r.church_id);
+  const churchRows = allRows.filter(r => churchId ? r.church_id === churchId : !r.church_id);
+  const rows = churchRows.filter(r => studentViewMode === 'archived' ? r.status === 'archived' : r.status !== 'archived');
+  const activeCount = churchRows.filter(r => r.status !== 'archived').length;
+  const archivedCount = churchRows.filter(r => r.status === 'archived').length;
   const groups = churchId ? await fetchGroups(churchId) : [];
   const currentAdmins = churchId ? await fetchChurchAdmins(churchId) : [];
   const pendingStudents = churchId ? await fetchPendingStudents(churchId) : [];
@@ -830,6 +1005,7 @@ async function renderChurchStudents(churchId){
       : `<select class="church-assign-select" data-enrollment-id="${r.enrollment_id}" data-student-id="${r.student_id}"><option value="">Assign a church…</option>${churchOptions}</select>`;
     return `
       <tr data-student-id="${r.student_id}" data-course-id="${r.course_id}" data-enrollment-id="${r.enrollment_id}">
+        <td><input type="checkbox" data-row-select="${r.enrollment_id}" ${selectedEnrollmentIds.has(r.enrollment_id)?'checked':''} /></td>
         <td class="clickable-cell" data-open="true">
           <div class="student-name">${r.full_name || 'Unnamed student'}</div>
           <div class="student-email">${r.student_email || ''}</div>
@@ -842,8 +1018,7 @@ async function renderChurchStudents(churchId){
         </td>
         <td>
           <div class="row-actions">
-            ${isComplete ? `<button class="mini-btn gold" data-view-cert="${r.student_id}" data-cert-course="${r.course_id}">🏅 Certificate</button>` : ''}
-            <button class="mini-btn danger" data-unenroll="${r.enrollment_id}" data-name="${(r.full_name||'this student').replace(/"/g,'')}">Unenroll</button>
+            ${studentActionButtonsHtml(r, isComplete)}
           </div>
         </td>
       </tr>`;
@@ -853,6 +1028,10 @@ async function renderChurchStudents(churchId){
     <div class="back-link" id="back-to-churches">&larr; All Churches</div>
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">${church ? church.name : 'No Church Assigned'}</h2>
     <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:14px;">${rows.length} student${rows.length===1?'':'s'}</p>
+    <div style="display:flex;gap:6px;margin-bottom:14px;">
+      <button class="mini-btn ${studentViewMode==='active'?'active':''}" id="student-mode-active-btn">Active (${activeCount})</button>
+      <button class="mini-btn ${studentViewMode==='archived'?'active':''}" id="student-mode-archived-btn">Archived (${archivedCount})</button>
+    </div>
     <div style="display:flex;gap:8px;margin-bottom:16px;">
       <button class="mini-btn" id="export-church-btn">Export Students (CSV)</button>
       <button class="mini-btn gold" id="view-report-btn">View Progress Report</button>
@@ -867,9 +1046,10 @@ async function renderChurchStudents(churchId){
     </div>` : ''}
 
     <div class="church-tab-panel active" data-tab-panel="students">
+      <div id="church-students-batch-bar">${batchActionBarHtml()}</div>
       <table>
-        <thead><tr><th>Student</th><th>Progress</th><th>Group</th><th>Actions</th></tr></thead>
-        <tbody>${rowsHtml || '<tr><td colspan="4" style="color:var(--ink-soft);">No students here yet.</td></tr>'}</tbody>
+        <thead><tr><th style="width:34px;"><input type="checkbox" id="church-students-select-all" /></th><th>Student</th><th>Progress</th><th>Group</th><th>Actions</th></tr></thead>
+        <tbody id="church-students-tbody">${rowsHtml || '<tr><td colspan="5" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : 'No students here yet.') + '</td></tr>'}</tbody>
       </table>
     </div>
 
@@ -1104,14 +1284,34 @@ async function renderChurchStudents(churchId){
     });
   });
 
-  document.querySelectorAll('[data-unenroll]').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      if(!confirm(`Unenroll ${btn.dataset.name} from this course? Their progress and answers will be permanently deleted.`)) return;
-      await supabaseClient.from('enrollments').delete().eq('id', btn.dataset.unenroll);
-      allRows = allRows.filter(r => r.enrollment_id !== btn.dataset.unenroll);
-      renderChurchStudents(churchId);
-    });
+  document.getElementById('student-mode-active-btn')?.addEventListener('click', () => {
+    studentViewMode = 'active';
+    selectedEnrollmentIds.clear();
+    renderChurchStudents(churchId);
+  });
+  document.getElementById('student-mode-archived-btn')?.addEventListener('click', () => {
+    studentViewMode = 'archived';
+    selectedEnrollmentIds.clear();
+    renderChurchStudents(churchId);
+  });
+
+  const onChurchRowActionChange = (id, newStatus) => {
+    if(newStatus === 'deleted'){
+      allRows = allRows.filter(r => r.enrollment_id !== id);
+    } else {
+      const row = allRows.find(r => r.enrollment_id === id);
+      if(row) row.status = newStatus;
+    }
+    renderChurchStudents(churchId); // full re-render so Active/Archived counts stay correct
+  };
+  wireStudentRowActions('#church-students-tbody', '#church-students-select-all', '#church-students-batch-bar', onChurchRowActionChange);
+  wireBatchActionBar((ids, newStatus) => {
+    if(newStatus === 'deleted'){
+      allRows = allRows.filter(r => !ids.includes(r.enrollment_id));
+    } else {
+      ids.forEach(id => { const row = allRows.find(r => r.enrollment_id === id); if(row) row.status = newStatus; });
+    }
+    renderChurchStudents(churchId);
   });
 
   document.querySelectorAll('[data-view-cert]').forEach(btn => {
