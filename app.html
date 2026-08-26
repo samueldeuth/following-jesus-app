@@ -1133,7 +1133,6 @@
     background: rgba(200,155,60,0.15); border-radius: 10px; padding: 2px 8px; margin-bottom: 4px;
   }
   .disciple-app-scope .msg.msg-action { border: 1.5px solid var(--ember); }
-  .disciple-app-scope .msg-input-row #assignActionBtn { flex: 0 0 auto; width: 44px; height: 44px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 
   .disciple-app-scope .teacher-section { margin-bottom: 20px; }
   .disciple-app-scope .teacher-section:last-child { margin-bottom: 0; }
@@ -3786,11 +3785,10 @@ async function renderGroupDetail(code) {
 
     <div class="chat-block">
       <div class="chat-panel-light">
-        <div class="section-label chat-panel-title">Group Chat &amp; Actions — everyone in this group can see this</div>
+        <div class="section-label chat-panel-title">Group Chat — everyone in this group can see this</div>
         <div class="msg-thread">${groupChatHtml}</div>
         <div class="msg-input-row">
-          <input type="text" id="groupMsgInput" placeholder="Message the group, or assign an action…" />
-          <button class="secondary" id="assignActionBtn" title="Assign as an action">📋</button>
+          <input type="text" id="groupMsgInput" placeholder="Message the group…" />
           <button class="primary" id="sendGroupMsgBtn">Send</button>
         </div>
       </div>
@@ -3845,19 +3843,6 @@ async function renderGroupDetail(code) {
     await sendChatMessage(input, (body) => sendGroupMessage(code, body), render);
   };
   wireEnterToSend(document.getElementById('groupMsgInput'), () => document.getElementById('sendGroupMsgBtn').click());
-  document.getElementById('assignActionBtn').onclick = async () => {
-    const input = document.getElementById('groupMsgInput');
-    const text = input.value.trim();
-    if (!text) { await showAppAlert('Type what you want to assign in the message box first, then tap this button.'); return; }
-    const actionResult = await createGroupAction(code, text);
-    const messageResult = await sendGroupMessage(code, text, true);
-    if (!actionResult.ok || !messageResult.ok) {
-      const detail = actionResult.error || messageResult.error || 'unknown error';
-      await showAppAlert(`That didn't go through.\n\nDetails: ${detail}`);
-      return;
-    }
-    render();
-  };
   [...document.querySelectorAll('[data-id]')].forEach(el => {
     el.onclick = () => { activeMemberId = el.dataset.id; view = 'memberDetail'; render(); };
   });
@@ -3920,7 +3905,6 @@ async function renderMemberDetail(memberId) {
     messages.forEach(m => { msgHtml += renderMessageHtml(m, m.from === 'leader', null); });
   }
 
-  const actionsBlockHtml = await renderLeaderActionsBlock('Actions Assigned', await getIndividualActions(myId, memberId));
   const completionMap = await getCourseCompletionMap([memberId]);
   const hasCompletedCourse = !!completionMap[memberId];
 
@@ -3942,7 +3926,6 @@ async function renderMemberDetail(memberId) {
       </div>
     </div>
     ${renderResourcesHtml()}
-    ${actionsBlockHtml}
     ${courseCardHtml('essentials', 'Following Jesus Essentials', '7 essentials for every follower of Jesus', stepsHtml, walkoutProgress, progress)}
   `;
 
@@ -3954,13 +3937,6 @@ async function renderMemberDetail(memberId) {
     await sendChatMessage(input, (body) => sendDirectMessage(myId, memberId, true, body), render);
   };
   wireEnterToSend(document.getElementById('msgInput'), () => document.getElementById('sendMsgBtn').click());
-  document.getElementById('newActionBtn').onclick = async () => {
-    const input = document.getElementById('newActionInput');
-    const text = input.value.trim();
-    if (!text) return;
-    await createIndividualAction(memberId, text);
-    render();
-  };
   scrollChatThreadsToBottom();
   wireMessageReactions();
 }
