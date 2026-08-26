@@ -3615,10 +3615,11 @@ async function renderGroupDetail(code) {
     const input = document.getElementById('groupMsgInput');
     const text = input.value.trim();
     if (!text) { await showAppAlert('Type what you want to assign in the message box first, then tap this button.'); return; }
-    const actionOk = await createGroupAction(code, text);
-    const messageOk = await sendGroupMessage(code, text, true);
-    if (!actionOk || !messageOk) {
-      await showAppAlert("That didn't go through — check your connection and try again.");
+    const actionResult = await createGroupAction(code, text);
+    const messageResult = await sendGroupMessage(code, text, true);
+    if (!actionResult.ok || !messageResult.ok) {
+      const detail = actionResult.error || messageResult.error || 'unknown error';
+      await showAppAlert(`That didn't go through.\n\nDetails: ${detail}`);
       return;
     }
     render();
@@ -3983,9 +3984,13 @@ async function renderDisciple() {
 async function sendChatMessage(input, sendFn, onSuccess) {
   const body = input.value.trim();
   if (!body) return;
-  const ok = await sendFn(body);
-  if (!ok) {
-    await showAppAlert("That message didn't send — check your connection and try again.");
+  const result = await sendFn(body);
+  if (!result.ok) {
+    // Temporarily showing the actual underlying error text (rather than
+    // a generic message) while this is being tracked down — this is the
+    // one place we actually know why a send failed, and mobile makes
+    // checking the browser console for that detail impractical.
+    await showAppAlert(`That message didn't send.\n\nDetails: ${result.error || 'unknown error'}`);
     return;
   }
   onSuccess();
@@ -4576,10 +4581,10 @@ async function getGroupMessages(code) {
 
 async function sendGroupMessage(code, body, isAction = false) {
   const { data: group } = await supabaseClient.from('discipleship_groups').select('id').eq('invite_code', code).maybeSingle();
-  if (!group) return false;
+  if (!group) return { ok: false, error: 'Could not find this group.' };
   const { error } = await supabaseClient.from('discipleship_messages').insert({ group_id: group.id, sender_id: myId, body, is_action: isAction });
-  if (error) { console.error('sendGroupMessage failed:', error); return false; }
-  return true;
+  if (error) { console.error('sendGroupMessage failed:', error); return { ok: false, error: error.message }; }
+  return { ok: true };
 }
 
 async function getGroupActions(code) {
@@ -4592,10 +4597,10 @@ async function getGroupActions(code) {
 
 async function createGroupAction(code, text) {
   const { data: group } = await supabaseClient.from('discipleship_groups').select('id').eq('invite_code', code).maybeSingle();
-  if (!group) return false;
+  if (!group) return { ok: false, error: 'Could not find this group.' };
   const { error } = await supabaseClient.from('discipleship_actions').insert({ assigned_by: myId, group_id: group.id, body: text });
-  if (error) { console.error('createGroupAction failed:', error); return false; }
-  return true;
+  if (error) { console.error('createGroupAction failed:', error); return { ok: false, error: error.message }; }
+  return { ok: true };
 }
 
 async function getIndividualActions(leaderId, discipleId) {
@@ -4808,8 +4813,8 @@ async function sendDirectMessage(leaderId, discipleId, senderIsLeader, body) {
   const senderId = senderIsLeader ? leaderId : discipleId;
   const recipientId = senderIsLeader ? discipleId : leaderId;
   const { error } = await supabaseClient.from('discipleship_messages').insert({ group_id: null, sender_id: senderId, recipient_id: recipientId, body });
-  if (error) { console.error('sendDirectMessage failed:', error); return false; }
-  return true;
+  if (error) { console.error('sendDirectMessage failed:', error); return { ok: false, error: error.message }; }
+  return { ok: true };
 }
 
 async function ensureRealIdentity() {
