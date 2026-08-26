@@ -1270,25 +1270,31 @@
   .disciple-app-scope .msg-wrap { display: flex; flex-direction: column; }
   .disciple-app-scope .msg-reactions { display: flex; gap: 4px; margin: 3px 0 0 2px; flex-wrap: wrap; }
   .disciple-app-scope .reaction-pill {
-    display: inline-flex; align-items: center; font-size: 11.5px; line-height: 1;
+    display: inline-flex; align-items: center; font-size: 11.5px; line-height: 1; cursor: pointer;
     background: rgba(255,255,255,0.1); border-radius: 10px; padding: 3px 7px; color: var(--white);
   }
   .disciple-app-scope .reaction-pill.mine { background: rgba(200,155,60,0.28); border: 1px solid var(--ember); }
-  .disciple-app-scope .reaction-picker {
-    display: none; gap: 4px; margin: 4px 0 2px 2px; background: rgba(255,255,255,0.08);
-    border-radius: 20px; padding: 5px 7px; width: fit-content;
+  .disciple-app-scope .reaction-add-row { display: none; align-items: center; margin: 4px 0 2px 2px; }
+  .disciple-app-scope .reaction-add-row.open { display: flex; }
+  .disciple-app-scope .add-reaction-btn {
+    background: rgba(255,255,255,0.08); border: none; cursor: pointer;
+    width: 26px; height: 26px; border-radius: 50%; padding: 0;
+    display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.6);
   }
-  .disciple-app-scope .reaction-picker.open { display: flex; }
-  .disciple-app-scope .reaction-pick-btn {
-    background: none; border: none; font-size: 17px; line-height: 1; cursor: pointer;
-    padding: 3px; border-radius: 50%;
+  .disciple-app-scope .add-reaction-btn svg { width: 17px; height: 17px; }
+  .disciple-app-scope .reaction-emoji-input {
+    margin-left: 6px; margin-bottom: 0; width: 150px; padding: 5px 12px;
+    border-radius: 14px; font-size: 12px; background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2); color: var(--white);
   }
-  .disciple-app-scope .reaction-pick-btn.mine { background: rgba(200,155,60,0.3); }
+  .disciple-app-scope .reaction-emoji-input::placeholder { color: rgba(255,255,255,0.4); }
   /* Light-theme overrides — same scoping already proven for .msg.them
-     directly above, since reaction pills/pickers live inside these same
+     directly above, since reactions live inside these same
      light-background chat panels and need the same treatment. */
   .disciple-app-scope .chat-pane .reaction-pill, .disciple-app-scope .chat-panel-light .reaction-pill { background: rgba(10,10,10,0.07); color: rgba(10,10,10,0.75); }
-  .disciple-app-scope .chat-pane .reaction-picker, .disciple-app-scope .chat-panel-light .reaction-picker { background: rgba(10,10,10,0.06); }
+  .disciple-app-scope .chat-pane .add-reaction-btn, .disciple-app-scope .chat-panel-light .add-reaction-btn { background: rgba(10,10,10,0.06); color: rgba(10,10,10,0.55); }
+  .disciple-app-scope .chat-pane .reaction-emoji-input, .disciple-app-scope .chat-panel-light .reaction-emoji-input { background: var(--white); border-color: rgba(10,10,10,0.18); color: var(--black); }
+  .disciple-app-scope .chat-pane .reaction-emoji-input::placeholder, .disciple-app-scope .chat-panel-light .reaction-emoji-input::placeholder { color: rgba(10,10,10,0.35); }
   .disciple-app-scope .msg-empty { font-size:12px; color: rgba(255,255,255,0.35); text-align:center; padding: 16px 0; }
   .disciple-app-scope .msg-input-row { display:flex; gap:8px; margin-bottom: 6px; align-items:center; }
   .disciple-modal-body.disciple-app-scope .msg-input-row input { flex:1; margin-bottom:0; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color:var(--white); border-radius: 22px; padding: 12px 18px; }
@@ -3525,10 +3531,10 @@ function scrollChatThreadsToBottom() {
 }
 
 // ---------- Message reactions ----------
-// Matches iMessage's own tapback set (minus the "?" one) — familiar
-// territory for anyone used to texting, which was the whole point of
-// modeling this chat on iMessage in the first place.
-const REACTION_EMOJIS = ['❤️', '👍', '‼️', '😂', '👎'];
+// Detects an emoji character anywhere in a string — used to notice the
+// moment someone picks something from their device's own emoji keyboard,
+// rather than making them type it into a separate "confirm" step.
+const EMOJI_DETECT_REGEX = /\p{Extended_Pictographic}/u;
 
 // Toggles the current user's reaction on a message — adds it if they
 // haven't reacted with this emoji yet, removes it if they have (tapping
@@ -3547,9 +3553,14 @@ async function toggleMessageReaction(messageId, emoji) {
 // Shared by every place a message bubble gets rendered (group chat,
 // direct messages, both leader and disciple sides) — builds one
 // message's full HTML: its sender label (if given), body, any existing
-// reaction pills, and a hidden tapback picker that wireMessageReactions()
-// below makes interactive. extraTagHtml is for the odd one-off, like the
-// "📋 Action" tag on assigned actions in group chat.
+// reaction pills (themselves tappable — tapping one toggles your own
+// matching reaction, the common "me too" gesture from apps like Slack),
+// and a hidden "add reaction" row that wireMessageReactions() below
+// makes interactive. Rather than a custom picker limited to a handful of
+// emoji, tapping the add-reaction button reveals a text input tied to
+// the device's own native emoji keyboard — richer, and something
+// everyone already knows how to use. extraTagHtml is for the odd
+// one-off, like the "📋 Action" tag on assigned actions in group chat.
 function renderMessageHtml(m, isMe, senderLabel, extraTagHtml, extraClass) {
   const counts = {};
   const mine = new Set();
@@ -3559,43 +3570,88 @@ function renderMessageHtml(m, isMe, senderLabel, extraTagHtml, extraClass) {
   });
   const pillsHtml = Object.keys(counts).length
     ? `<div class="msg-reactions">${Object.entries(counts).map(([emoji, count]) =>
-        `<span class="reaction-pill${mine.has(emoji) ? ' mine' : ''}">${emoji}${count > 1 ? ' ' + count : ''}</span>`
+        `<span class="reaction-pill${mine.has(emoji) ? ' mine' : ''}" data-emoji="${emoji}" data-msg-id="${m.id}">${emoji}${count > 1 ? ' ' + count : ''}</span>`
       ).join('')}</div>`
     : '';
-  const pickerHtml = m.id
-    ? `<div class="reaction-picker" data-picker-for="${m.id}">
-        ${REACTION_EMOJIS.map(e => `<button type="button" class="reaction-pick-btn${mine.has(e) ? ' mine' : ''}" data-emoji="${e}" data-msg-id="${m.id}">${e}</button>`).join('')}
+  const addRowHtml = m.id
+    ? `<div class="reaction-add-row" data-picker-for="${m.id}">
+        <button type="button" class="add-reaction-btn" data-msg-id="${m.id}" aria-label="Add a reaction">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <circle cx="10.5" cy="12" r="7.5"/>
+            <circle cx="8" cy="10.3" r="0.9" fill="currentColor" stroke="none"/>
+            <circle cx="13" cy="10.3" r="0.9" fill="currentColor" stroke="none"/>
+            <path d="M7.3 13.2c0.9 1.3 2.1 2 3.2 2s2.3-0.7 3.2-2" stroke-linecap="round"/>
+            <path d="M18.5 6v5.5M15.75 8.75h5.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <input type="text" class="reaction-emoji-input" data-msg-id="${m.id}" placeholder="Tap 😊 on your keyboard" style="display:none;" />
       </div>`
     : '';
   const labelHtml = senderLabel ? `<strong style="display:block;font-size:10px;opacity:0.7;margin-bottom:2px;">${escapeHtml(senderLabel)}</strong>` : '';
   return `<div class="msg-wrap">
     <div class="msg ${isMe ? 'me' : 'them'}${extraClass || ''}"${m.id ? ` data-react-trigger="${m.id}"` : ''}>${labelHtml}${extraTagHtml || ''}${linkify(m.body)}</div>
-    ${pillsHtml}${pickerHtml}
+    ${pillsHtml}${addRowHtml}
   </div>`;
 }
 
 // Shared by every chat-rendering function — wires up tap-to-react for
-// every message bubble currently on the page: tapping a bubble toggles
-// its own picker open/closed (closing any other picker that was open),
-// tapping an emoji inside a picker toggles that reaction and re-renders.
+// every message bubble currently on the page.
 function wireMessageReactions() {
+  const reactAndRerender = async (messageId, emoji) => {
+    const scrollPosition = discipleBody.scrollTop;
+    await toggleMessageReaction(messageId, emoji);
+    await render();
+    discipleBody.scrollTop = scrollPosition;
+  };
+
+  // Tapping a bubble reveals that message's add-reaction row (closing
+  // any other one left open, so only one is ever showing at a time).
   document.querySelectorAll('[data-react-trigger]').forEach(bubble => {
     bubble.onclick = () => {
-      const picker = document.querySelector(`.reaction-picker[data-picker-for="${bubble.dataset.reactTrigger}"]`);
-      if (!picker) return;
-      const wasOpen = picker.classList.contains('open');
-      document.querySelectorAll('.reaction-picker.open').forEach(p => p.classList.remove('open'));
-      if (!wasOpen) picker.classList.add('open');
+      const row = document.querySelector(`.reaction-add-row[data-picker-for="${bubble.dataset.reactTrigger}"]`);
+      if (!row) return;
+      const wasOpen = row.classList.contains('open');
+      document.querySelectorAll('.reaction-add-row.open').forEach(r => r.classList.remove('open'));
+      if (!wasOpen) row.classList.add('open');
     };
   });
-  document.querySelectorAll('.reaction-pick-btn').forEach(btn => {
-    btn.onclick = async (e) => {
+
+  // Tapping an existing reaction pill toggles that exact emoji for you —
+  // the quick "me too" gesture, no keyboard needed.
+  document.querySelectorAll('.reaction-pill').forEach(pill => {
+    pill.onclick = async (e) => {
       e.stopPropagation();
-      const scrollPosition = discipleBody.scrollTop;
-      await toggleMessageReaction(btn.dataset.msgId, btn.dataset.emoji);
-      await render();
-      discipleBody.scrollTop = scrollPosition;
+      await reactAndRerender(pill.dataset.msgId, pill.dataset.emoji);
     };
+  });
+
+  // Tapping the smiley+plus button reveals and focuses a text input —
+  // focusing it is what actually brings up the phone's own keyboard,
+  // where the person switches to their emoji keyboard the same way they
+  // would in any texting app.
+  document.querySelectorAll('.add-reaction-btn').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const input = document.querySelector(`.reaction-emoji-input[data-msg-id="${btn.dataset.msgId}"]`);
+      if (!input) return;
+      btn.style.display = 'none';
+      input.style.display = 'inline-block';
+      input.focus();
+    };
+  });
+
+  // The actual detection moment — as soon as anything typed or picked
+  // from the emoji keyboard contains a recognizable emoji character,
+  // react with it immediately rather than waiting for the person to
+  // press Enter or tap a separate confirm button.
+  document.querySelectorAll('.reaction-emoji-input').forEach(input => {
+    input.addEventListener('click', (e) => e.stopPropagation());
+    input.addEventListener('input', async () => {
+      const match = input.value.match(EMOJI_DETECT_REGEX);
+      if (!match) return;
+      input.value = '';
+      await reactAndRerender(input.dataset.msgId, match[0]);
+    });
   });
 }
 
