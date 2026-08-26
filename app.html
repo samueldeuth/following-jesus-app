@@ -1285,27 +1285,17 @@
     padding: 4px 5px; border-radius: 50%;
   }
   .disciple-app-scope .quick-reaction-btn.mine { background: rgba(200,155,60,0.3); }
-  .disciple-app-scope .add-reaction-btn {
-    background: rgba(255,255,255,0.1); border: none; cursor: pointer;
-    width: 26px; height: 26px; border-radius: 50%; padding: 0; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.6);
-  }
-  .disciple-app-scope .add-reaction-btn svg { width: 16px; height: 16px; }
-  .disciple-app-scope .reaction-emoji-input {
-    margin: 3px 0 0; margin-bottom: 0; width: 100%; padding: 5px 12px;
-    border-radius: 14px; font-size: 12px; background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.2); color: var(--white);
-  }
-  .disciple-app-scope .reaction-emoji-input::placeholder { color: rgba(255,255,255,0.4); }
+  /* Match the reaction pills/row to whichever side the message bubble
+     itself sits on — otherwise they default to the left regardless of
+     whether the message is yours (right-aligned) or theirs. */
+  .disciple-app-scope .msg-wrap.me .msg-reactions,
+  .disciple-app-scope .msg-wrap.me .reaction-add-row { align-self: flex-end; }
   /* Light-theme overrides — same scoping already proven for .msg.them
      directly above, since reactions live inside these same
      light-background chat panels and need the same treatment. */
   .disciple-app-scope .chat-pane .reaction-pill, .disciple-app-scope .chat-panel-light .reaction-pill { background: rgba(10,10,10,0.07); color: rgba(10,10,10,0.75); }
   .disciple-app-scope .chat-pane .reaction-add-row, .disciple-app-scope .chat-panel-light .reaction-add-row { background: rgba(10,10,10,0.05); }
   .disciple-app-scope .chat-pane .quick-reaction-btn.mine, .disciple-app-scope .chat-panel-light .quick-reaction-btn.mine { background: rgba(200,155,60,0.3); }
-  .disciple-app-scope .chat-pane .add-reaction-btn, .disciple-app-scope .chat-panel-light .add-reaction-btn { background: rgba(10,10,10,0.08); color: rgba(10,10,10,0.55); }
-  .disciple-app-scope .chat-pane .reaction-emoji-input, .disciple-app-scope .chat-panel-light .reaction-emoji-input { background: var(--white); border-color: rgba(10,10,10,0.18); color: var(--black); }
-  .disciple-app-scope .chat-pane .reaction-emoji-input::placeholder, .disciple-app-scope .chat-panel-light .reaction-emoji-input::placeholder { color: rgba(10,10,10,0.35); }
   .disciple-app-scope .msg-empty { font-size:12px; color: rgba(255,255,255,0.35); text-align:center; padding: 16px 0; }
   .disciple-app-scope .msg-input-row { display:flex; gap:8px; margin-bottom: 6px; align-items:center; }
   .disciple-modal-body.disciple-app-scope .msg-input-row input { flex:1; margin-bottom:0; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color:var(--white); border-radius: 22px; padding: 12px 18px; }
@@ -3411,14 +3401,17 @@ async function restoreDiscipleStateFromHash(hash) {
   return true;
 }
 
-async function render() {
+async function render(skipLoadingFlash) {
   updateDiscipleUrlHash();
-  main.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
+  if (!skipLoadingFlash) main.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
+  const isChatView = (view === 'groupDetail' && activeGroupCode) || (view === 'memberDetail' && activeMemberId) || topView === 'disciple';
+  if (!isChatView) unsubscribeFromChatUpdates();
   if (view === 'groupDetail' && activeGroupCode) { await renderGroupDetail(activeGroupCode); }
   else if (view === 'memberDetail' && activeMemberId) { await renderMemberDetail(activeMemberId); }
   else if (topView === 'leader') { await renderMentor(); }
   else if (topView === 'disciple') { await renderDisciple(); }
   else { await renderDiscipleshipHub(); }
+  if (isChatView) subscribeToChatUpdates();
 }
 
 // ============ LEADER ============
@@ -3541,18 +3534,61 @@ function scrollChatThreadsToBottom() {
   });
 }
 
+// ---------- Live chat updates ----------
+// Tracks the current realtime subscription so there's always exactly one
+// active at a time — Supabase channels need explicit cleanup, or
+// re-entering a chat view repeatedly would silently pile up duplicate
+// subscriptions, each firing the same callback again for every future
+// change.
+let activeChatChannel = null;
+
+function unsubscribeFromChatUpdates() {
+  if (activeChatChannel && supabaseClient) {
+    supabaseClient.removeChannel(activeChatChannel);
+  }
+  activeChatChannel = null;
+}
+
+// Subscribes to live message/reaction changes while a chat view is open —
+// this is what makes a message someone else sends show up automatically,
+// instead of needing a manual refresh to see it. Deliberately broad (no
+// server-side filter for a specific group or conversation) rather than
+// crafting a precise filter for every context this covers (a single
+// group, a direct message, the multi-group view with several threads
+// open at once) — the callback just triggers a normal re-render, which
+// already knows what to actually fetch and display for whatever's
+// currently open, and this app's message volume is far too low for the
+// extra chatter from a broad subscription to matter. Debounced so a
+// burst of rapid changes (several reactions landing at once) coalesces
+// into one re-render rather than several back-to-back ones, and uses the
+// same scroll-preserving, no-loading-flash render used for sending a
+// message — an incoming message should feel seamless, not like a fresh
+// page load.
+function subscribeToChatUpdates() {
+  if (!supabaseClient) return;
+  unsubscribeFromChatUpdates();
+  let debounceTimer = null;
+  const debouncedRerender = () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(async () => {
+      const scrollPosition = discipleBody.scrollTop;
+      await render(true);
+      discipleBody.scrollTop = scrollPosition;
+    }, 250);
+  };
+  activeChatChannel = supabaseClient
+    .channel('chat-updates')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'discipleship_messages' }, debouncedRerender)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'discipleship_message_reactions' }, debouncedRerender)
+    .subscribe();
+}
+
 // ---------- Message reactions ----------
 // The quick-tap row — same spirit as iMessage's own tapback set (heart,
 // thumbs up/down, laugh, "!!", "?", "100"), using standard emoji
 // characters rather than Apple's own proprietary tapback graphics.
-// Tapping any of these reacts immediately in one tap; anything beyond
-// this set is available via the "more" (smiley) button next to them.
+// Tapping any of these reacts immediately in one tap.
 const QUICK_REACTION_EMOJIS = ['❤️', '👍', '👎', '😂', '‼️', '❓', '💯'];
-
-// Detects an emoji character anywhere in a string — used to notice the
-// moment someone picks something from their device's own emoji keyboard,
-// rather than making them type it into a separate "confirm" step.
-const EMOJI_DETECT_REGEX = /\p{Extended_Pictographic}/u;
 
 // Toggles the current user's reaction on a message — adds it if they
 // haven't reacted with this emoji yet, removes it if they have (tapping
@@ -3573,11 +3609,9 @@ async function toggleMessageReaction(messageId, emoji) {
 // message's full HTML: its sender label (if given), body, any existing
 // reaction pills (themselves tappable — tapping one toggles your own
 // matching reaction, the common "me too" gesture from apps like Slack),
-// and a hidden reaction row that wireMessageReactions() below makes
-// interactive — quick one-tap options for the common cases, plus a
-// smiley "more" button that opens a text input tied to the device's own
-// native emoji keyboard for anything else. extraTagHtml is for the odd
-// one-off, like the "📋 Action" tag on assigned actions in group chat.
+// and a hidden row of one-tap quick reactions that wireMessageReactions()
+// below makes interactive. extraTagHtml is for the odd one-off, like the
+// "📋 Action" tag on assigned actions in group chat.
 function renderMessageHtml(m, isMe, senderLabel, extraTagHtml, extraClass) {
   const counts = {};
   const mine = new Set();
@@ -3593,19 +3627,10 @@ function renderMessageHtml(m, isMe, senderLabel, extraTagHtml, extraClass) {
   const addRowHtml = m.id
     ? `<div class="reaction-add-row" data-picker-for="${m.id}">
         ${QUICK_REACTION_EMOJIS.map(e => `<button type="button" class="quick-reaction-btn${mine.has(e) ? ' mine' : ''}" data-emoji="${e}" data-msg-id="${m.id}">${e}</button>`).join('')}
-        <button type="button" class="add-reaction-btn" data-msg-id="${m.id}" aria-label="More reactions">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-            <circle cx="12" cy="12" r="8"/>
-            <circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/>
-            <circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/>
-            <path d="M8.2 13.5c1 1.5 2.4 2.3 3.8 2.3s2.8-0.8 3.8-2.3" stroke-linecap="round"/>
-          </svg>
-        </button>
-        <input type="text" class="reaction-emoji-input" data-msg-id="${m.id}" placeholder="Tap 😊 on your keyboard" style="display:none;" />
       </div>`
     : '';
   const labelHtml = senderLabel ? `<strong style="display:block;font-size:10px;opacity:0.7;margin-bottom:2px;">${escapeHtml(senderLabel)}</strong>` : '';
-  return `<div class="msg-wrap">
+  return `<div class="msg-wrap ${isMe ? 'me' : 'them'}">
     <div class="msg ${isMe ? 'me' : 'them'}${extraClass || ''}"${m.id ? ` data-react-trigger="${m.id}"` : ''}>${labelHtml}${extraTagHtml || ''}${linkify(m.body)}</div>
     ${pillsHtml}${addRowHtml}
   </div>`;
@@ -3648,35 +3673,6 @@ function wireMessageReactions() {
       e.stopPropagation();
       await reactAndRerender(btn.dataset.msgId, btn.dataset.emoji);
     };
-  });
-
-  // Tapping the smiley "more" button reveals and focuses a text input —
-  // focusing it is what actually brings up the phone's own keyboard,
-  // where the person switches to their emoji keyboard the same way they
-  // would in any texting app, for anything beyond the quick-tap set.
-  document.querySelectorAll('.add-reaction-btn').forEach(btn => {
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      const input = document.querySelector(`.reaction-emoji-input[data-msg-id="${btn.dataset.msgId}"]`);
-      if (!input) return;
-      btn.style.display = 'none';
-      input.style.display = 'inline-block';
-      input.focus();
-    };
-  });
-
-  // The actual detection moment — as soon as anything typed or picked
-  // from the emoji keyboard contains a recognizable emoji character,
-  // react with it immediately rather than waiting for the person to
-  // press Enter or tap a separate confirm button.
-  document.querySelectorAll('.reaction-emoji-input').forEach(input => {
-    input.addEventListener('click', (e) => e.stopPropagation());
-    input.addEventListener('input', async () => {
-      const match = input.value.match(EMOJI_DETECT_REGEX);
-      if (!match) return;
-      input.value = '';
-      await reactAndRerender(input.dataset.msgId, match[0]);
-    });
   });
 }
 
