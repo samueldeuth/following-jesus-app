@@ -67,27 +67,26 @@ function stripReservedImageSpace(html) {
 }
 
 // If the featured/hero image (already shown separately above the title)
-// also appears as the very first image inside the article body —
-// common, since the original post on the source site often displays its
-// own featured image at the top of the post content too — strip that
-// one duplicate occurrence, leaving the hero as the only copy. Compares
-// URLs with any query string removed first (e.g. Squarespace's own
-// ?format=1500w sizing parameter), since the same underlying image is
-// frequently referenced at two different sizes. Only ever touches the
-// FIRST image in the body — a match further down the article is a
-// deliberate re-use by the author, not an accidental duplicate of the
-// featured image, and should stay untouched.
+// also appears anywhere inside the article body — common, since the
+// original post on the source site often displays its own featured
+// image at the top of the post content too — strip every matching
+// occurrence, leaving the hero as the only copy. Compares URLs with any
+// query string removed first (e.g. Squarespace's own ?format=1500w
+// sizing parameter), since the same underlying image is frequently
+// referenced at two different sizes. Scans every <img> in the body
+// rather than stopping at the first one — a real page can have a
+// noscript fallback, a tracking pixel, or some other unrelated image
+// ahead of the actual duplicate, and bailing out after checking only
+// the very first tag would miss it entirely.
 function stripDuplicateHeroImage(bodyHtml, heroImageUrl) {
   if (!bodyHtml || !heroImageUrl) return bodyHtml;
   const heroBase = heroImageUrl.split('?')[0];
-  const firstImgMatch = bodyHtml.match(/<img\b[^>]*>/i);
-  if (!firstImgMatch) return bodyHtml;
-  const firstImgTag = firstImgMatch[0];
-  const srcMatch = firstImgTag.match(/\ssrc="([^"]*)"/i) || firstImgTag.match(/\ssrc='([^']*)'/i);
-  if (!srcMatch || !srcMatch[1]) return bodyHtml;
-  const firstImgBase = srcMatch[1].split('?')[0];
-  if (firstImgBase !== heroBase) return bodyHtml;
-  return bodyHtml.replace(firstImgTag, '');
+  return bodyHtml.replace(/<img\b[^>]*>/gi, (imgTag) => {
+    const srcMatch = imgTag.match(/\ssrc="([^"]*)"/i) || imgTag.match(/\ssrc='([^']*)'/i);
+    if (!srcMatch || !srcMatch[1]) return imgTag;
+    const imgBase = srcMatch[1].split('?')[0];
+    return imgBase === heroBase ? '' : imgTag;
+  });
 }
 
 // Rewrites root-relative links/images (e.g. href="/products/...") to absolute
