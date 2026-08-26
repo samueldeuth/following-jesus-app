@@ -34,6 +34,38 @@ function sanitizeHtml(html) {
     .replace(/javascript:/gi, '');
 }
 
+// Squarespace (and several other page builders) lazy-load in-body images:
+// the real URL sits in data-src, and the <img> tag's own src is left
+// blank or pointed at a tiny placeholder until the page's own JavaScript
+// swaps the real one in on scroll. That JavaScript is part of
+// Squarespace's site, not this app, so it never runs here — every
+// in-body image would otherwise stay blank. This copies data-src into
+// src wherever src is missing or empty, so the image actually renders
+// instead.
+function fixLazyLoadedImages(html) {
+  if (!html) return html;
+  return html.replace(/<img\b([^>]*)>/gi, (fullTag, attrs) => {
+    const dataSrcMatch = attrs.match(/\sdata-src="([^"]*)"/i) || attrs.match(/\sdata-src='([^']*)'/i);
+    if (!dataSrcMatch || !dataSrcMatch[1]) return fullTag;
+    const hasRealSrc = /\ssrc="[^"]+"/.test(attrs) || /\ssrc='[^']+'/.test(attrs);
+    if (hasRealSrc) return fullTag; // already has a working src — leave it alone
+    return `<img${attrs} src="${dataSrcMatch[1]}">`;
+  });
+}
+
+// The other half of the same lazy-loading pattern: a wrapper element
+// reserves an image's vertical space up front (via a percentage
+// padding-bottom, a well-known aspect-ratio trick) so the page doesn't
+// jump around as images load in. That reserved space renders as pure
+// blank gap regardless of whether the image inside it ever actually
+// loads — which is exactly the large empty area between an article's
+// title and its first paragraph. Safe to strip broadly: this specific
+// inline-style pattern only ever exists for this one purpose.
+function stripReservedImageSpace(html) {
+  if (!html) return html;
+  return html.replace(/\bpadding-bottom:\s*[\d.]+%;?/gi, '');
+}
+
 // Rewrites root-relative links/images (e.g. href="/products/...") to absolute
 // URLs pointing back at the source site. Without this, a relative link in
 // content pulled from another domain resolves against OUR domain once
@@ -96,7 +128,7 @@ async function fetchSquarespacePosts() {
         excerpt: stripTags(item.excerpt || '').slice(0, 200),
         image: item.assetUrl || (item.mainImage && item.mainImage.assetUrl) || null,
         url: `https://www.samueldeuth.com${item.fullUrl || ''}`,
-        bodyHtml: makeLinksAbsolute(sanitizeHtml(item.body || item.excerpt || ''), 'https://www.samueldeuth.com'),
+        bodyHtml: stripReservedImageSpace(fixLazyLoadedImages(makeLinksAbsolute(sanitizeHtml(item.body || item.excerpt || ''), 'https://www.samueldeuth.com'))),
         date: item.publishOn ? new Date(item.publishOn).toISOString() : null
       });
     }
@@ -160,7 +192,7 @@ async function fetchShopifyPosts() {
       excerpt: stripTags(rawContent).slice(0, 200),
       image: imgMatch ? imgMatch[1] : null,
       url: link,
-      bodyHtml: makeLinksAbsolute(sanitizeHtml(rawContent), 'https://followingjesusbook.com'),
+      bodyHtml: stripReservedImageSpace(fixLazyLoadedImages(makeLinksAbsolute(sanitizeHtml(rawContent), 'https://followingjesusbook.com'))),
       date: published ? new Date(published).toISOString() : null
     });
   }
