@@ -1943,21 +1943,37 @@
   // If someone opened the app via a shared invite link (?join=CODE), take
   // them straight into the join flow with the code already filled in,
   // instead of leaving them to find the banner and type it in by hand.
+  // Deferred with setTimeout for the same reason as the Google-auth
+  // block right below — hideMainScreens/showPageHeader are declared in
+  // the second <script> tag further down the page, not this one; calling
+  // them here directly, synchronously, would hit them before they exist
+  // and throw. That throw was silent (nothing here is inside a try/catch
+  // or visible console the user would see) but fatal to the rest of this
+  // script block — everything after it, including the Google-auth
+  // completion block below, would simply never run. That's what was
+  // actually behind all three symptoms reported together: the modal
+  // never auto-opening from a join link, Google sign-in never landing
+  // back on the join form, and "Become a Disciple" asking to sign in
+  // again every time afterward (completeGoogleAuthIfPending, which
+  // actually finishes saving the account, never got the chance to run).
   window.pendingJoinCode = new URLSearchParams(window.location.search).get('join');
   if (window.pendingJoinCode) {
-    hideMainScreens();
-    showPageHeader('Make Disciples');
-    discipleModal.classList.add('open');
-    updateSyncStatusBadge();
-    // Set the hash immediately, synchronously — restoreTabFromUrl runs
-    // later, at the end of the second script tag, and without this it
-    // would see an empty hash (this ?join= is a query param, not a
-    // hash) and immediately close the modal this just opened, before
-    // renderDiscipleStep's own async chain below has even resolved.
-    // replaceState rather than pushState since this is just clarifying
-    // the page's initial state, not a new navigation step.
-    history.replaceState({}, '', '#disciple');
-    renderDiscipleStep();
+    setTimeout(() => {
+      hideMainScreens();
+      showPageHeader('Make Disciples');
+      discipleModal.classList.add('open');
+      updateSyncStatusBadge();
+      // Set the hash immediately, synchronously (within this deferred
+      // callback) — restoreTabFromUrl runs later, at the end of the
+      // second script tag, and without this it would see an empty hash
+      // (this ?join= is a query param, not a hash) and immediately close
+      // the modal this just opened, before renderDiscipleStep's own
+      // async chain below has even resolved. replaceState rather than
+      // pushState since this is just clarifying the page's initial
+      // state, not a new navigation step.
+      history.replaceState({}, '', '#disciple');
+      renderDiscipleStep();
+    }, 0);
   }
 
   // If someone just came back from the Google sign-in redirect, finish
