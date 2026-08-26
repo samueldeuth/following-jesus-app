@@ -1182,6 +1182,11 @@
   .disciple-app-scope .section-label a { color: var(--ember); text-decoration:none; font-size:10.5px; cursor:pointer; }
   .disciple-app-scope .row { background:var(--white); border-radius:2px; padding:16px 18px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
   .disciple-app-scope .row .info { flex:1; min-width:0; cursor:pointer; }
+  .disciple-app-scope .unread-dm-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--ember); margin-left: 7px; vertical-align: middle;
+    flex-shrink: 0;
+  }
   .disciple-app-scope .row .name { font-family:var(--font-display); font-weight:700; font-size:14px; color:var(--black); }
   .disciple-app-scope .row .sub { font-size:11px; color:var(--ink-soft); margin-top:3px; }
   .disciple-app-scope .row .arrow { color:var(--black); font-size:16px; cursor:pointer; flex-shrink:0; }
@@ -3508,6 +3513,7 @@ async function renderGroupDetail(code) {
   const notInGroup = allDisciples.filter(d => !memberIds.includes(d.id));
   const application = await getLeaderApplication(myId);
   const myName = application ? application.name : 'Leader';
+  const unreadDmSenderIds = await getUnreadDmSenderIds(myId);
 
   const groupMessages = await getGroupMessages(code);
   let groupChatHtml = '';
@@ -3543,7 +3549,7 @@ async function renderGroupDetail(code) {
       membersHtml += `
         <div class="row">
           <div class="info" data-id="${m.id}">
-            <div class="name">${escapeHtml(m.name)}</div>
+            <div class="name">${escapeHtml(m.name)}${unreadDmSenderIds.has(m.id) ? '<span class="unread-dm-dot" title="New message"></span>' : ''}</div>
             <div class="sub">${doneCount} of ${course.steps.length} steps · ${escapeHtml(course.title)}</div>
           </div>
           <div class="arrow" data-id="${m.id}">→</div>
@@ -3720,6 +3726,7 @@ async function renderMemberDetail(memberId) {
   const disciples = await getLeaderDisciples(myId);
   const member = disciples.find(d => d.id === memberId);
   const { progress, walkoutProgress } = await getCourseProgressData(memberId, 'essentials');
+  await markDirectMessagesRead(myId, memberId);
   const messages = await getDirectMessages(myId, memberId);
 
   let stepsHtml = '';
@@ -4261,6 +4268,7 @@ async function renderDiscipleshipHub() {
   let disciples = [];
   let directCode = null;
   let discipledCount = 0;
+  let unreadDmSenderIds = new Set();
 
   if (!isApprovedLeader) {
     leaderSectionHtml = `
@@ -4284,6 +4292,7 @@ async function renderDiscipleshipHub() {
     const { data: directGroup } = await supabaseClient.from('discipleship_groups').select('invite_code').eq('leader_id', myId).eq('is_direct', true).maybeSingle();
     directCode = directGroup ? directGroup.invite_code : null;
     discipledCount = await computeDiscipledCount(myId);
+    unreadDmSenderIds = await getUnreadDmSenderIds(myId);
 
     leaderSectionHtml = `
       <div class="discipled-stat-card">
@@ -4364,7 +4373,7 @@ async function renderDiscipleshipHub() {
           html += `
             <div class="row">
               <div class="info" data-id="${d.id}">
-                <div class="name">${escapeHtml(d.name)}</div>
+                <div class="name">${escapeHtml(d.name)}${unreadDmSenderIds.has(d.id) ? '<span class="unread-dm-dot" title="New message"></span>' : ''}</div>
                 <div class="sub">${doneCount}/${STEPS.length} steps · ${escapeHtml(groupLabels)}</div>
               </div>
               <button class="del-btn" data-delid="${d.id}" title="Remove disciple">✕</button>
@@ -4885,6 +4894,28 @@ async function updateProgressRow(studentId, courseKey, stepIndex, updates) {
 // merged and sorted client-side, rather than one query with a complex
 // .or() filter string — same preference for simple, predictable queries
 // used throughout this whole migration.
+
+// Returns a Set of discipleIds who have sent this leader at least one
+// direct message that hasn't been read yet — used to show an unread
+// indicator on the leader's disciple lists, without needing a separate
+// query per person.
+async function getUnreadDmSenderIds(leaderId) {
+  if (!supabaseClient || !leaderId) return new Set();
+  const { data } = await supabaseClient.from('discipleship_messages')
+    .select('sender_id').is('group_id', null).eq('recipient_id', leaderId).is('read_at', null);
+  return new Set((data || []).map(m => m.sender_id));
+}
+
+// Marks every direct message from this disciple to this leader as read.
+// Called when the leader actually opens that disciple's detail page —
+// that's the one place they're guaranteed to see the message, so it's
+// the right moment to clear the indicator.
+async function markDirectMessagesRead(leaderId, discipleId) {
+  if (!supabaseClient) return;
+  await supabaseClient.from('discipleship_messages')
+    .update({ read_at: new Date().toISOString() })
+    .is('group_id', null).eq('sender_id', discipleId).eq('recipient_id', leaderId).is('read_at', null);
+}
 
 async function getDirectMessages(leaderId, discipleId) {
   if (!supabaseClient) return [];
