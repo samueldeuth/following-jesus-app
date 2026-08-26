@@ -2988,15 +2988,18 @@ function wireWalkoutToggles(container, prefix) {
 // Lightweight, dependency-free confetti burst, self-removing after it
 // finishes. Fires the moment a course hits 100% complete.
 // ---------- Discipled counts ----------
+// Counts how many of this leader's CURRENT disciples have hit full
+// milestone completion (all 7 manual items checked, plus the auto
+// course-completion item). Previously this counted Essentials-flow
+// completion instead — that flow is still there and still usable, it
+// just no longer feeds this number, since it's self-paced with no
+// leader involvement at all, and this count is meant to reflect real,
+// confirmed discipleship milestones.
 async function computeDiscipledCount(leaderId) {
   const disciples = await getLeaderDisciples(leaderId);
   let count = 0;
   for (const d of disciples) {
-    const { progress: dProgress } = await getCourseProgressData(d.id, 'essentials');
-    // dProgress is already final for essentials (real course-derived) —
-    // displayStepStatus would incorrectly re-derive it from Walk It Out
-    // completion instead, which is now a separate, unrelated signal.
-    const allDone = STEPS.every((_, i) => (dProgress[i] || 'not_started') === 'done');
+    const { allDone } = await getDiscipleshipMilestonesData(d.id);
     if (allDone) count++;
   }
   return count;
@@ -3014,6 +3017,113 @@ async function getGlobalDiscipleCount() {
 async function incrementGlobalDiscipleCount() {
   const current = await getGlobalDiscipleCount();
   await safeSet('global-disciple-count', current + 1, true);
+}
+
+// ---------- Discipleship milestone checklist ----------
+// A leader (or the disciple themselves) checks off real-world markers
+// for a specific person — separate from both the app's own built-in
+// Essentials step flow and the course platform's session progress. One
+// item (course completion) is never manually toggled; its checked state
+// is always derived live from the course platform's certificates table,
+// scoped specifically to the free course — so a future bonus course
+// (e.g. Water Baptism) issuing its own certificate can't falsely mark
+// this item done just because some course was completed.
+let milestoneDefsCache = null;
+async function getMilestoneDefinitions() {
+  if (milestoneDefsCache) return milestoneDefsCache;
+  const { data } = await supabaseClient.from('discipleship_milestones').select('*').order('sort_order');
+  milestoneDefsCache = data || [];
+  return milestoneDefsCache;
+}
+
+async function hasCompletedFreeCourse(discipleId) {
+  const { data: freeCourse } = await supabaseClient.from('courses').select('id').eq('is_free', true).limit(1).maybeSingle();
+  if (!freeCourse) return false;
+  const { data: cert } = await supabaseClient.from('certificates').select('id').eq('student_id', discipleId).eq('course_id', freeCourse.id).maybeSingle();
+  return !!cert;
+}
+
+async function getDiscipleshipMilestonesData(discipleId) {
+  const [defs, completionsRes, courseDone] = await Promise.all([
+    getMilestoneDefinitions(),
+    supabaseClient.from('discipleship_milestone_completions').select('milestone_id, completed_at').eq('disciple_id', discipleId),
+    hasCompletedFreeCourse(discipleId)
+  ]);
+  const doneByMilestoneId = {};
+  (completionsRes.data || []).forEach(c => { doneByMilestoneId[c.milestone_id] = c.completed_at; });
+
+  const items = defs.map(m => ({
+    id: m.id,
+    label: m.label,
+    isAuto: m.is_auto,
+    done: m.is_auto ? courseDone : !!doneByMilestoneId[m.id]
+  }));
+  const allDone = items.length > 0 && items.every(i => i.done);
+  return { items, allDone };
+}
+
+async function toggleMilestone(discipleId, milestoneId, done) {
+  if (done) {
+    await supabaseClient.from('discipleship_milestone_completions').upsert({
+      disciple_id: discipleId, milestone_id: milestoneId, completed_by: myId
+    }, { onConflict: 'disciple_id,milestone_id' });
+  } else {
+    await supabaseClient.from('discipleship_milestone_completions').delete().eq('disciple_id', discipleId).eq('milestone_id', milestoneId);
+  }
+}
+
+// Fires the one-time celebration + global counter increment the moment
+// all milestones are done for someone — same guarded, at-most-once
+// pattern as checkAndCelebrateEssentialsCompletion, just tracked via its
+// own profiles column (milestones_celebrated_at) since this is a
+// separate completion definition from the older Essentials-flow one.
+async function checkAndCelebrateMilestones(discipleId, allDone) {
+  if (!allDone || !supabaseClient) return;
+  const { data: profileRow } = await supabaseClient.from('profiles').select('milestones_celebrated_at').eq('id', discipleId).maybeSingle();
+  if (profileRow && profileRow.milestones_celebrated_at) return; // already celebrated, never again
+  await supabaseClient.from('profiles').update({ milestones_celebrated_at: new Date().toISOString() }).eq('id', discipleId);
+  if (discipleId === myId) triggerConfetti();
+  incrementGlobalDiscipleCount();
+}
+
+// Reuses the existing walk-it-out checkbox/progress-bar styling so this
+// doesn't need its own CSS — same visual language as the Essentials
+// sub-checklists, just a different data source.
+function milestonesChecklistHtml(items, interactive) {
+  const doneCount = items.filter(i => i.done).length;
+  const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
+  const rows = items.map(item => {
+    const canToggle = interactive && !item.isAuto;
+    return `
+    <div class="walkout-item${canToggle ? ' interactive' : ''}"${canToggle ? ` data-milestone-id="${item.id}"` : ''}>
+      <div class="walkout-check ${item.done ? 'done' : ''}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>
+      </div>
+      <div class="walkout-item-text">${escapeHtml(item.label)}${item.isAuto ? ' <span style="opacity:0.55;">(auto)</span>' : ''}</div>
+    </div>`;
+  }).join('');
+  return `
+    <div class="walkout-progress-row">
+      <div class="walkout-progress-bar"><div class="walkout-progress-fill" style="width:${pct}%;"></div></div>
+      <div class="walkout-progress-pct">${pct}%</div>
+    </div>
+    <div class="walk-it-out-list">${rows}</div>`;
+}
+
+// Wires click-to-toggle on the manual items only (the auto course-
+// completion item never gets a data-milestone-id, so it's naturally
+// excluded here). onToggled is called after each toggle completes so
+// the caller can re-render and re-check for celebration.
+function wireMilestoneToggles(container, discipleId, onToggled) {
+  container.querySelectorAll('[data-milestone-id]').forEach(el => {
+    el.addEventListener('click', async () => {
+      const milestoneId = el.dataset.milestoneId;
+      const nowDone = !el.querySelector('.walkout-check').classList.contains('done');
+      el.style.pointerEvents = 'none';
+      await toggleMilestone(discipleId, milestoneId, nowDone);
+      onToggled();
+    });
+  });
 }
 
 // Essentials completion is now discovered on render (real course
@@ -3908,12 +4018,21 @@ async function renderMemberDetail(memberId) {
   const completionMap = await getCourseCompletionMap([memberId]);
   const hasCompletedCourse = !!completionMap[memberId];
 
+  const { items: milestoneItems, allDone: milestonesAllDone } = await getDiscipleshipMilestonesData(memberId);
+  checkAndCelebrateMilestones(memberId, milestonesAllDone);
+
   main.innerHTML = `
     <a class="back-link" id="backBtn">← Back</a>
     <div class="card">
       <h2>${member ? escapeHtml(member.name) : 'Friend'}</h2>
       <p>Following their progress through the 7 essentials</p>
       ${hasCompletedCourse ? `<div class="hub-leader-badge" style="margin-top:10px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg> Completed the FJ Course</div>` : ''}
+      ${milestonesAllDone ? `<div class="hub-leader-badge" style="margin-top:10px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg> Fully Discipled</div>` : ''}
+    </div>
+    <div class="card" id="milestonesCard">
+      <h2>Discipleship Checklist</h2>
+      <p>Tap an item to mark it covered.</p>
+      ${milestonesChecklistHtml(milestoneItems, true)}
     </div>
     <div class="chat-block">
       <div class="chat-panel-light">
@@ -3932,6 +4051,7 @@ async function renderMemberDetail(memberId) {
   document.getElementById('backBtn').onclick = () => { view = 'home'; activeMemberId = null; render(); };
   wireCourseToggle('essentials', () => renderMemberDetail(memberId));
   wireWalkoutToggles(main, 'Leader');
+  wireMilestoneToggles(document.getElementById('milestonesCard'), memberId, () => renderMemberDetail(memberId));
   document.getElementById('sendMsgBtn').onclick = async () => {
     const input = document.getElementById('msgInput');
     await sendChatMessage(input, (body) => sendDirectMessage(myId, memberId, true, body), render);
@@ -3979,6 +4099,8 @@ async function renderDisciple() {
   const leaderId = membership.leaderId;
   const { progress, walkoutProgress, essentialsSessionData } = await getCourseProgressData(myId, 'essentials');
   checkAndCelebrateEssentialsCompletion(myId, progress);
+  const { items: milestoneItems, allDone: milestonesAllDone } = await getDiscipleshipMilestonesData(myId);
+  checkAndCelebrateMilestones(myId, milestonesAllDone);
   const messages = await getDirectMessages(leaderId, myId);
   const myGroups = await getDiscipleGroups(myId);
   const leaderName = (await getLeaderName(leaderId)) || 'Your Leader';
@@ -4089,6 +4211,11 @@ async function renderDisciple() {
     <a class="back-link" id="backToHubBtn">← My Discipleship</a>
     <button type="button" class="join-another-btn" id="joinAnotherBtn">+ Join Another Group</button>
     ${groupPeersHtml}
+    <div class="card" id="milestonesCard">
+      <h2>Discipleship Checklist</h2>
+      <p>${milestonesAllDone ? "You've covered everything on this list — well done!" : `Tap an item to mark it covered${leaderName ? `, or let ${escapeHtml(leaderName)} check it off with you` : ''}.`}</p>
+      ${milestonesChecklistHtml(milestoneItems, true)}
+    </div>
     ${myGroups.length === 0 ? `
     <div class="chat-block">
       <div class="chat-panel-light">
@@ -4107,6 +4234,7 @@ async function renderDisciple() {
   `;
   document.getElementById('backToHubBtn').onclick = () => { topView = 'hub'; render(); };
   wireCourseToggle('essentials', render);
+  wireMilestoneToggles(document.getElementById('milestonesCard'), myId, render);
   document.getElementById('joinAnotherBtn').onclick = async () => {
     const codeInput = (await showAppPrompt("Enter the invite code", "e.g. AB12CD"))?.trim().toUpperCase();
     if (!codeInput) return;
