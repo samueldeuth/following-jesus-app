@@ -67,6 +67,20 @@
     width: auto;
   }
 
+  /* Swaps in for the logo above on the 4 page-style views — same spot,
+     same bar, white text on the header's existing black background,
+     rather than each of those views carrying its own separate title bar
+     underneath the logo one. */
+  .header-page-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--white);
+    line-height: 30px; /* matches the logo image's height so the bar's own height never shifts */
+  }
+
   /* ---------- Screens ---------- */
   .screens {
     flex: 1;
@@ -925,27 +939,12 @@
   }
   .embed-modal.open { display: flex; }
 
-  .embed-header {
+  .embed-open-browser-row {
     flex-shrink: 0;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 16px 16px 14px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    justify-content: flex-end;
+    padding: 14px 16px;
   }
-  .embed-title {
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 13px;
-    letter-spacing: 0.04em;
-    color: var(--white);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0; /* lets it actually shrink/truncate as a flex item, rather than forcing the row wider */
-  }
-  .embed-actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
 
   .sync-status-badge {
     display: none;
@@ -973,16 +972,6 @@
     text-transform: uppercase;
     color: var(--ember);
     text-decoration: none;
-  }
-  .embed-close {
-    background: rgba(255,255,255,0.08);
-    border: none;
-    color: var(--white);
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    font-size: 13px;
-    cursor: pointer;
   }
   .embed-frame {
     flex: 1;
@@ -1515,15 +1504,6 @@
 #discipleModal .own-journey-sub { color: rgba(10,10,10,0.55); }
 #discipleModal .own-journey-card.own-journey-prompt .own-journey-sub { color: rgba(255,255,255,0.85); }
 
-/* The top "Make Disciples" bar stays black with white text, matching
-   how it always looked — it never had its own background color, it was
-   just showing through to the modal's own background, which used to be
-   black and is now the light paper color. Scoped to #discipleModal
-   specifically since .embed-header is shared with 3 other modals
-   (embed viewer, Gospel, articles) that should stay exactly as they
-   were — this only touches this one modal's header. */
-#discipleModal .embed-header { background: var(--black); }
-
 /* Same shared-class issue as everything else here — .global-count-banner
    is also used on the Today tab (still black background, white text is
    still correct there). Scoped so only this modal's instance changes. */
@@ -1535,7 +1515,8 @@
 <div class="app">
 
   <header>
-    <img src="/assets/header-logo.png" alt="Following Jesus" />
+    <img src="/assets/header-logo.png" alt="Following Jesus" id="headerLogo" />
+    <div class="header-page-title" id="headerPageTitle" style="display:none;"></div>
   </header>
 
   <div class="screens">
@@ -1816,34 +1797,22 @@
          only what that class does in CSS changed (see the .embed-modal /
          .disciple-modal / .article-modal rules), not the JS calling it. -->
     <div class="embed-modal" id="embedModal">
-      <div class="embed-header">
-        <div class="embed-title" id="embedTitle">Loading…</div>
-        <div class="embed-actions">
-          <a id="embedFallback" class="embed-fallback" href="#" target="_blank" rel="noopener">Open in Browser ↗</a>
-        </div>
+      <div class="embed-open-browser-row">
+        <a id="embedFallback" class="embed-fallback" href="#" target="_blank" rel="noopener">Open in Browser ↗</a>
       </div>
       <iframe id="embedFrame" class="embed-frame" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>
     </div>
 
     <div class="disciple-modal" id="discipleModal">
-      <div class="embed-header">
-        <div class="embed-title">Make Disciples</div>
-      </div>
       <div id="syncStatusBadge" class="sync-status-badge"></div>
       <div class="disciple-modal-body disciple-app-scope" id="discipleModalBody"></div>
     </div>
 
     <div class="disciple-modal" id="gospelModal">
-      <div class="embed-header">
-        <div class="embed-title">Share the Gospel</div>
-      </div>
       <div class="disciple-modal-body disciple-app-scope" id="gospelModalBody"></div>
     </div>
 
     <div class="article-modal" id="articleModal">
-      <div class="embed-header">
-        <div class="embed-title" id="articleModalTag">Blog</div>
-      </div>
       <div class="article-modal-body" id="articleModalBody"></div>
     </div>
 
@@ -1921,12 +1890,14 @@
 
   document.getElementById('discipleBannerBtn').addEventListener('click', () => {
     hideMainScreens();
+    showPageHeader('Make Disciples');
     discipleModal.classList.add('open');
     updateSyncStatusBadge();
     renderDiscipleStep();
   });
   document.getElementById('becomeDiscipleBannerBtn').addEventListener('click', () => {
     hideMainScreens();
+    showPageHeader('Make Disciples');
     discipleModal.classList.add('open');
     updateSyncStatusBadge();
     renderDiscipleStep();
@@ -1953,6 +1924,7 @@
 
   document.getElementById('shareGospelBannerBtn').addEventListener('click', () => {
     hideMainScreens();
+    showPageHeader('Share the Gospel');
     document.getElementById('gospelModal').classList.add('open');
     renderGospelGrid();
     pushUrlHash('gospel');
@@ -1964,6 +1936,7 @@
   window.pendingJoinCode = new URLSearchParams(window.location.search).get('join');
   if (window.pendingJoinCode) {
     hideMainScreens();
+    showPageHeader('Make Disciples');
     discipleModal.classList.add('open');
     updateSyncStatusBadge();
     // Set the hash immediately, synchronously — restoreTabFromUrl runs
@@ -1989,6 +1962,7 @@
       const completed = await completeGoogleAuthIfPending();
       if (completed) {
         hideMainScreens();
+        showPageHeader('Make Disciples');
         discipleModal.classList.add('open');
         updateSyncStatusBadge();
         renderDiscipleStep();
@@ -3266,6 +3240,7 @@ async function restoreDiscipleStateFromHash(hash) {
   if (parts[0] !== 'disciple') return false;
 
   discipleModal.classList.add('open');
+  showPageHeader('Make Disciples');
   updateSyncStatusBadge();
 
   if (parts[1] === 'group' && parts[2]) {
@@ -4911,7 +4886,6 @@ async function renderDiscipleshipApp() {
 
   const articleModal = document.getElementById('articleModal');
   const articleModalBody = document.getElementById('articleModalBody');
-  const articleModalTag = document.getElementById('articleModalTag');
 
   // ---------- Live blog feed ----------
   // Tries the real backend (netlify/functions/get-blog-posts.js) which live-pulls
@@ -5008,7 +4982,6 @@ async function renderDiscipleshipApp() {
   function openArticle(id, skipHistoryPush) {
     const a = BLOG_POSTS.find(p => p.id === id);
     if (!a) return;
-    articleModalTag.textContent = a.tag;
     const hasImage = isValidImageUrl(a.image);
     const heroStyle = hasImage
       ? `background-image:url('${a.image}');`
@@ -5025,6 +4998,7 @@ async function renderDiscipleshipApp() {
       </div>
     `;
     hideMainScreens();
+    showPageHeader('Blog');
     articleModal.classList.add('open');
     articleModalBody.scrollTop = 0;
     if (!skipHistoryPush) pushUrlHash(`article/${id}`);
@@ -5142,16 +5116,15 @@ async function renderDiscipleshipApp() {
   // ---------- Embed modal ----------
   const embedModal = document.getElementById('embedModal');
   const embedFrame = document.getElementById('embedFrame');
-  const embedTitle = document.getElementById('embedTitle');
   const embedFallback = document.getElementById('embedFallback');
 
   // skipHistoryPush is true only when restoreTabFromUrl calls this to
   // reopen the player after a refresh — see the same note on openArticle.
   window.openEmbed = function(url, title, fallbackUrl, skipHistoryPush) {
-    embedTitle.textContent = title;
     embedFallback.href = fallbackUrl;
     embedFrame.src = url;
     hideMainScreens();
+    showPageHeader(title);
     embedModal.classList.add('open');
     bannerPaused = true;
     if (!skipHistoryPush) pushUrlHash('player');
@@ -5665,6 +5638,23 @@ async function renderDiscipleshipApp() {
       frame.src = '';
       setTimeout(() => { bannerPaused = false; }, 500);
     }
+    showLogoHeader();
+  }
+
+  // The shared top header shows either the Following Jesus logo (the 5
+  // main tabs) or the current page's own title in the same spot, white
+  // text on the same black bar — swapped in on open, restored on close,
+  // rather than each of the 4 views carrying its own separate header bar
+  // underneath the logo one, which was costing real vertical space.
+  function showPageHeader(title) {
+    document.getElementById('headerLogo').style.display = 'none';
+    const titleEl = document.getElementById('headerPageTitle');
+    titleEl.textContent = title;
+    titleEl.style.display = 'block';
+  }
+  function showLogoHeader() {
+    document.getElementById('headerLogo').style.display = '';
+    document.getElementById('headerPageTitle').style.display = 'none';
   }
 
   // The other direction of the same problem closeAllModals solves: these
@@ -5713,6 +5703,7 @@ async function renderDiscipleshipApp() {
       if (handled) return;
     }
     if (hash === 'gospel') {
+      showPageHeader('Share the Gospel');
       document.getElementById('gospelModal').classList.add('open');
       renderGospelGrid();
       return;
