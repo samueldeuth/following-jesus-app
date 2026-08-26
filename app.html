@@ -2176,7 +2176,18 @@
 
     const name = (googleUser.user_metadata && googleUser.user_metadata.full_name) || email.split('@')[0];
     const photoUrl = (googleUser.user_metadata && googleUser.user_metadata.avatar_url) || null;
-    const account = { name, email, id: uid(), photoUrl };
+    // Use the real Supabase auth user id here, not a throwaway local
+    // uid() — this profiles row's id needs to match what
+    // ensureRealIdentity() will resolve myId to moments later (the same
+    // session.user.id), since everything that references a person by id
+    // elsewhere (like leader_applications.applicant_id, via a foreign
+    // key straight to profiles.id) needs a matching row to actually
+    // exist. The old uid() here created a profiles row under a random,
+    // orphaned id that nothing else ever pointed to — ensureRealIdentity
+    // corrects the local account copy's id afterward, but never goes
+    // back and fixes this already-written row, so it just sat there
+    // unused while the real id had no profile at all.
+    const account = { name, email, id: googleUser.id, photoUrl };
     await dSafeSet('account', account);
     syncSharedProfile(account);
     return true;
@@ -4864,6 +4875,16 @@ async function ensureRealIdentity() {
   if (account.id !== resolvedId) {
     account.id = resolvedId;
     await dSafeSet('account', account);
+    // Self-healing safety net: anything that ever creates a local
+    // account with an id that doesn't match the real session (the bug
+    // just fixed in syncAccountFromActiveSession being one example, but
+    // this guards against any future version of the same mistake) would
+    // otherwise leave profiles with no row under the id everything else
+    // in the app actually uses — which is exactly what caused
+    // leader_applications' foreign key to reject a real submission.
+    // Re-syncing here means that gap gets closed automatically the next
+    // time this runs, without needing a manual database fix.
+    if (account.name) syncSharedProfile(account);
   }
   return resolvedId;
 }
