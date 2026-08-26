@@ -4044,7 +4044,18 @@ async function sendChatMessage(input, sendFn, onSuccess) {
     await showAppAlert(`That message didn't send.\n\nDetails: ${result.error || 'unknown error'}`);
     return;
   }
-  onSuccess();
+  // main.innerHTML getting replaced (which is what onSuccess/render()
+  // does) resets discipleBody's own scroll position back to the top of
+  // the page — capture where the person actually was and restore it
+  // right after, so sending a message doesn't throw them back to the
+  // top and force them to scroll all the way back down to see it.
+  // onSuccess must be awaited here since render() is itself async —
+  // restoring scroll before the re-render has actually finished
+  // replacing the page content would just get overwritten the moment
+  // it does finish.
+  const scrollPosition = discipleBody.scrollTop;
+  await onSuccess();
+  discipleBody.scrollTop = scrollPosition;
 }
 
 // Same idea as sendChatMessage above, but for text inputs where Enter
