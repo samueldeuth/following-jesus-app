@@ -3337,7 +3337,7 @@ async function wireLeaderQuickActions() {
   const inviteFriendBtn = document.getElementById('inviteFriendBtn');
   const newGroupBtn = document.getElementById('newGroupBtn');
   if (inviteFriendBtn) {
-    inviteFriendBtn.textContent = directCode ? 'Show My Link' : 'Invite an Individual';
+    inviteFriendBtn.textContent = 'Invite a Friend';
     inviteFriendBtn.onclick = async () => {
       if (!directCode) {
         directCode = await getOrCreateDirectInviteCode();
@@ -4104,7 +4104,7 @@ async function renderDiscipleshipHub() {
         <div class="discipled-stat-label">${discipledCount === 1 ? 'Person' : 'People'} You've Discipled</div>
       </div>
       <div class="two-col two-col-compact">
-        <button class="compact-action-btn" id="inviteFriendBtn">${directCode ? 'Show My Link' : 'Invite an Individual'}</button>
+        <button class="compact-action-btn" id="inviteFriendBtn">Invite a Friend</button>
         <button class="compact-action-btn" id="newGroupBtn">Create a Group</button>
       </div>
       <div class="subnav">
