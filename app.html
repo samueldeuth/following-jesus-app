@@ -1133,7 +1133,7 @@
     background: rgba(200,155,60,0.15); border-radius: 10px; padding: 2px 8px; margin-bottom: 4px;
   }
   .disciple-app-scope .msg.msg-action { border: 1.5px solid var(--ember); }
-  .disciple-app-scope .msg-input-row #assignActionBtn { flex: 0 0 auto; width: auto; padding: 14px 16px; }
+  .disciple-app-scope .msg-input-row #assignActionBtn { flex: 0 0 auto; width: 44px; height: 44px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 
   .disciple-app-scope .teacher-section { margin-bottom: 20px; }
   .disciple-app-scope .teacher-section:last-child { margin-bottom: 0; }
@@ -1259,10 +1259,10 @@
   .disciple-app-scope .msg.me { align-self:flex-end; background: var(--ember); color: var(--black); border-bottom-right-radius:3px; }
   .disciple-app-scope .msg.them { align-self:flex-start; background: rgba(255,255,255,0.08); color: var(--white); border-bottom-left-radius:3px; }
   .disciple-app-scope .msg-empty { font-size:12px; color: rgba(255,255,255,0.35); text-align:center; padding: 16px 0; }
-  .disciple-app-scope .msg-input-row { display:flex; gap:8px; margin-bottom: 6px; }
-  .disciple-modal-body.disciple-app-scope .msg-input-row input { flex:1; margin-bottom:0; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color:var(--white); }
+  .disciple-app-scope .msg-input-row { display:flex; gap:8px; margin-bottom: 6px; align-items:center; }
+  .disciple-modal-body.disciple-app-scope .msg-input-row input { flex:1; margin-bottom:0; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color:var(--white); border-radius: 22px; padding: 12px 18px; }
   .disciple-modal-body.disciple-app-scope .msg-input-row input::placeholder { color: rgba(255,255,255,0.35); }
-  .disciple-app-scope .msg-input-row button { width:auto; padding:14px 18px; }
+  .disciple-app-scope .msg-input-row button { width:auto; padding:12px 20px; border-radius: 22px; }
   .disciple-app-scope .chat-block { margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.08); }
   .disciple-app-scope .chat-panel-light { background: var(--paper); padding: 18px 18px 20px; border-radius: 0 0 2px 2px; margin-top: 0; border-top: 3px solid #0d7a6e; }
   .disciple-app-scope .chat-panel-title { color: var(--ink-soft); margin-top: 0; margin-bottom: 12px; }
@@ -3608,16 +3608,19 @@ async function renderGroupDetail(code) {
   };
   document.getElementById('sendGroupMsgBtn').onclick = async () => {
     const input = document.getElementById('groupMsgInput');
-    if (!input.value.trim()) return;
-    await sendGroupMessage(code, input.value.trim());
-    render();
+    await sendChatMessage(input, (body) => sendGroupMessage(code, body), render);
   };
+  wireEnterToSend(document.getElementById('groupMsgInput'), () => document.getElementById('sendGroupMsgBtn').click());
   document.getElementById('assignActionBtn').onclick = async () => {
     const input = document.getElementById('groupMsgInput');
     const text = input.value.trim();
     if (!text) { await showAppAlert('Type what you want to assign in the message box first, then tap this button.'); return; }
-    await createGroupAction(code, text);
-    await sendGroupMessage(code, text, true);
+    const actionOk = await createGroupAction(code, text);
+    const messageOk = await sendGroupMessage(code, text, true);
+    if (!actionOk || !messageOk) {
+      await showAppAlert("That didn't go through — check your connection and try again.");
+      return;
+    }
     render();
   };
   [...document.querySelectorAll('[data-id]')].forEach(el => {
@@ -3710,10 +3713,9 @@ async function renderMemberDetail(memberId) {
   wireWalkoutToggles(main, 'Leader');
   document.getElementById('sendMsgBtn').onclick = async () => {
     const input = document.getElementById('msgInput');
-    if (!input.value.trim()) return;
-    await sendDirectMessage(myId, memberId, true, input.value.trim());
-    render();
+    await sendChatMessage(input, (body) => sendDirectMessage(myId, memberId, true, body), render);
   };
+  wireEnterToSend(document.getElementById('msgInput'), () => document.getElementById('sendMsgBtn').click());
   document.getElementById('newActionBtn').onclick = async () => {
     const input = document.getElementById('newActionInput');
     const text = input.value.trim();
@@ -3916,12 +3918,11 @@ async function renderDisciple() {
   [...document.querySelectorAll('.leaderMsgSendInline')].forEach(btn => {
     btn.onclick = async () => {
       const input = btn.parentElement.querySelector('.leaderMsgInputInline');
-      const body = input.value.trim();
-      if (!body) return;
       const targetLeaderId = btn.dataset.leaderId || leaderId;
-      await sendDirectMessage(targetLeaderId, myId, false, body);
-      render();
+      await sendChatMessage(input, (body) => sendDirectMessage(targetLeaderId, myId, false, body), render);
     };
+    const inlineInput = btn.parentElement.querySelector('.leaderMsgInputInline');
+    wireEnterToSend(inlineInput, () => btn.click());
   });
 
 
@@ -3950,21 +3951,55 @@ async function renderDisciple() {
   });
 
   const sendMsgBtn = document.getElementById('sendMsgBtn');
-  if (sendMsgBtn) sendMsgBtn.onclick = async () => {
-    const input = document.getElementById('msgInput');
-    if (!input.value.trim()) return;
-    await sendDirectMessage(leaderId, myId, false, input.value.trim());
-    render();
-  };
+  if (sendMsgBtn) {
+    sendMsgBtn.onclick = async () => {
+      const input = document.getElementById('msgInput');
+      await sendChatMessage(input, (body) => sendDirectMessage(leaderId, myId, false, body), render);
+    };
+    wireEnterToSend(document.getElementById('msgInput'), () => sendMsgBtn.click());
+  }
 
   [...document.querySelectorAll('.groupChatSend')].forEach(btn => {
     btn.onclick = async () => {
       const gCode = btn.dataset.code;
       const input = document.querySelector(`.groupChatInput[data-code="${gCode}"]`);
-      if (!input.value.trim()) return;
-      await sendGroupMessage(gCode, input.value.trim());
-      render();
+      await sendChatMessage(input, (body) => sendGroupMessage(gCode, body), render);
     };
+    const gCode = btn.dataset.code;
+    const groupInput = document.querySelector(`.groupChatInput[data-code="${gCode}"]`);
+    wireEnterToSend(groupInput, () => btn.click());
+  });
+}
+
+// Shared by every "type a message, hit Send" spot in this modal (group
+// chat, direct messages, both leader and disciple sides) — sends via the
+// given async sendFn (sendGroupMessage or sendDirectMessage, both of
+// which now report true/false rather than silently swallowing errors),
+// and only clears the input / re-renders on an actual success. On
+// failure, whatever was typed stays in the box exactly as typed — the
+// previous behavior cleared the input and re-rendered regardless of
+// whether the message actually saved, which is what made a failed send
+// look identical to a successful one.
+async function sendChatMessage(input, sendFn, onSuccess) {
+  const body = input.value.trim();
+  if (!body) return;
+  const ok = await sendFn(body);
+  if (!ok) {
+    await showAppAlert("That message didn't send — check your connection and try again.");
+    return;
+  }
+  onSuccess();
+}
+
+// Same idea as sendChatMessage above, but for text inputs where Enter
+// should act like tapping Send — previously nothing here handled the
+// Enter/Return key at all, which is what caused "big load refresh"-type
+// behavior on some mobile keyboards instead of actually sending.
+function wireEnterToSend(input, onEnter) {
+  input.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    onEnter();
   });
 }
 
@@ -4541,8 +4576,10 @@ async function getGroupMessages(code) {
 
 async function sendGroupMessage(code, body, isAction = false) {
   const { data: group } = await supabaseClient.from('discipleship_groups').select('id').eq('invite_code', code).maybeSingle();
-  if (!group) return;
-  await supabaseClient.from('discipleship_messages').insert({ group_id: group.id, sender_id: myId, body, is_action: isAction });
+  if (!group) return false;
+  const { error } = await supabaseClient.from('discipleship_messages').insert({ group_id: group.id, sender_id: myId, body, is_action: isAction });
+  if (error) { console.error('sendGroupMessage failed:', error); return false; }
+  return true;
 }
 
 async function getGroupActions(code) {
@@ -4555,8 +4592,10 @@ async function getGroupActions(code) {
 
 async function createGroupAction(code, text) {
   const { data: group } = await supabaseClient.from('discipleship_groups').select('id').eq('invite_code', code).maybeSingle();
-  if (!group) return;
-  await supabaseClient.from('discipleship_actions').insert({ assigned_by: myId, group_id: group.id, body: text });
+  if (!group) return false;
+  const { error } = await supabaseClient.from('discipleship_actions').insert({ assigned_by: myId, group_id: group.id, body: text });
+  if (error) { console.error('createGroupAction failed:', error); return false; }
+  return true;
 }
 
 async function getIndividualActions(leaderId, discipleId) {
@@ -4768,7 +4807,9 @@ async function getDirectMessages(leaderId, discipleId) {
 async function sendDirectMessage(leaderId, discipleId, senderIsLeader, body) {
   const senderId = senderIsLeader ? leaderId : discipleId;
   const recipientId = senderIsLeader ? discipleId : leaderId;
-  await supabaseClient.from('discipleship_messages').insert({ group_id: null, sender_id: senderId, recipient_id: recipientId, body });
+  const { error } = await supabaseClient.from('discipleship_messages').insert({ group_id: null, sender_id: senderId, recipient_id: recipientId, body });
+  if (error) { console.error('sendDirectMessage failed:', error); return false; }
+  return true;
 }
 
 async function ensureRealIdentity() {
