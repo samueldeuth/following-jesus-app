@@ -420,6 +420,17 @@ async function init(){
     document.documentElement.style.setProperty('--blue', church.primary_color);
   }
 
+  // Archived means the page itself is gone, not just enrollment — stop
+  // here entirely rather than loading and rendering any course content.
+  if(church?.course_status === 'archived'){
+    document.getElementById('app').innerHTML = `
+      <div class="loading" style="text-align:center; padding:60px 24px;">
+        <h2 style="margin-bottom:12px;">This course is no longer available</h2>
+        <p>Please reach out to your church for more information.</p>
+      </div>`;
+    return;
+  }
+
   const { data: { user } } = await supabaseClient.auth.getUser();
   currentUser = user;
 
@@ -522,8 +533,11 @@ async function ensureProfileAndEnrollment(){
     });
   }
 
-  // Enroll them in this course if they aren't already
-  if(course){
+  // Enroll them in this course if they aren't already — skipped
+  // entirely for draft/archived churches, as a backstop beyond just
+  // disabling the button (e.g. someone already signed in from a
+  // previous visit landing here directly).
+  if(course && church?.course_status !== 'draft' && church?.course_status !== 'archived'){
     const { data: existingEnrollment } = await supabaseClient
       .from('enrollments').select('id').eq('student_id', currentUser.id).eq('course_id', course.id).maybeSingle();
 
@@ -885,6 +899,10 @@ function renderHero(skipHistoryPush){
   activeItem = null;
   viewingSurvey = false;
   updateItemUrlParam(null, skipHistoryPush);
+  const isDraft = church?.course_status === 'draft';
+  const startButtonHtml = isDraft
+    ? `<p class="draft-notice" style="opacity:0.75; font-size:14px; margin-top:8px;">This course isn't currently open for enrollment. Please check back later or reach out to your church.</p>`
+    : `<button class="btn-blue" id="start-btn">Start Course Today!</button>`;
   document.getElementById('app').innerHTML = `
     <div class="hero">
       <div class="topbar on-hero">
@@ -894,7 +912,7 @@ function renderHero(skipHistoryPush){
       <div>
         <h1>${course.title}</h1>
         <p>${course.subtitle || ''}</p>
-        <button class="btn-blue" id="start-btn">Start Course Today!</button>
+        ${startButtonHtml}
       </div>
     </div>
     ${letterSectionHtml(course, church)}
@@ -904,14 +922,16 @@ function renderHero(skipHistoryPush){
     ${footerHtml()}
   `;
   bindAuthStatusLinks();
-  document.getElementById('start-btn').addEventListener('click', () => {
-    if(!currentUser){
-      sessionStorage.setItem('fj_pending_start', '1');
-      renderAuthModal('signup');
-      return;
-    }
-    goToFirstLesson();
-  });
+  if(!isDraft){
+    document.getElementById('start-btn').addEventListener('click', () => {
+      if(!currentUser){
+        sessionStorage.setItem('fj_pending_start', '1');
+        renderAuthModal('signup');
+        return;
+      }
+      goToFirstLesson();
+    });
+  }
   wirePreviewVideo();
   wireLetterVideo();
   wireCourseOverviewWidget();

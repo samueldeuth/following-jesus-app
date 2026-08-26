@@ -85,6 +85,17 @@
   .sidebar-church-item:hover, .sidebar-church-item.active{background:var(--bg-soft);}
   .sidebar-church-item .count{font-size:11px;color:var(--ink-soft);flex-shrink:0;}
   .sidebar-church-item.active{font-weight:600;}
+  .sidebar-status-filters{display:flex;gap:4px;margin-bottom:8px;}
+  .status-filter-btn{
+    flex:1;font-size:10.5px;font-weight:600;letter-spacing:0.02em;text-transform:uppercase;
+    padding:5px 4px;border-radius:6px;border:1px solid var(--line);background:#fff;
+    color:var(--ink-soft);cursor:pointer;
+  }
+  .status-filter-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .sidebar-church-item .status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-right:6px;display:inline-block;}
+  .sidebar-church-item .status-dot.live{background:#22c55e;}
+  .sidebar-church-item .status-dot.draft{background:#f59e0b;}
+  .sidebar-church-item .status-dot.archived{background:#9ca3af;}
 
   @media(max-width:820px){
     main{padding-left:64px !important;padding-top:70px;}
@@ -233,6 +244,12 @@
     <a class="sidebar-link" id="sidebar-overview-link">Overview</a>
     <a class="sidebar-link" id="sidebar-all-students-link">All Students</a>
     <div class="sidebar-section-title">Churches (<span id="sidebar-church-count">0</span>)</div>
+    <div class="sidebar-status-filters" id="sidebar-status-filters">
+      <button class="status-filter-btn active" data-status-filter="all">All</button>
+      <button class="status-filter-btn" data-status-filter="live">Live</button>
+      <button class="status-filter-btn" data-status-filter="draft">Draft</button>
+      <button class="status-filter-btn" data-status-filter="archived">Archived</button>
+    </div>
     <input type="text" class="sidebar-search" id="sidebar-church-search" placeholder="Search churches…" />
     <div id="sidebar-church-list"></div>
     <div class="sidebar-add-church">
@@ -293,6 +310,9 @@ let viewingNoChurch = false;
 // Students), so this flag is what actually distinguishes this one for
 // sidebar highlighting and for the student-detail page's back link.
 let viewingAllStudents = false;
+// Which status tab is active in the church sidebar list — 'all' shows
+// everything, otherwise only churches matching that course_status.
+let sidebarStatusFilter = 'all';
 
 function renderAccountInfo(email){
   const el = document.getElementById('admin-account-info');
@@ -583,15 +603,24 @@ function renderSidebar(){
   const noChurchCount = allRows.filter(r => !r.church_id).length;
   const noChurchItemHtml = `<div class="sidebar-church-item ${viewingNoChurch ? 'active' : ''}" id="sidebar-no-church-item" style="border-bottom:1px solid var(--line);margin-bottom:6px;padding-bottom:10px;"><span>Following Jesus <span style="color:var(--ink-soft);font-weight:400;">(Primary)</span></span><span class="count">${noChurchCount}</span></div>`;
 
-  const filtered = query ? allChurches.filter(c => c.name.toLowerCase().includes(query)) : allChurches;
+  let filtered = query ? allChurches.filter(c => c.name.toLowerCase().includes(query)) : allChurches;
+  if(sidebarStatusFilter !== 'all'){
+    filtered = filtered.filter(c => (c.course_status || 'live') === sidebarStatusFilter);
+  }
   listEl.innerHTML = noChurchItemHtml + (filtered.map(ch => {
     const count = allRows.filter(r => r.church_id === ch.id).length;
-    return `<div class="sidebar-church-item ${ch.id === activeChurchId ? 'active' : ''}" data-church-id="${ch.id}"><span>${ch.name}</span><span class="count">${count}</span></div>`;
+    const status = ch.course_status || 'live';
+    return `<div class="sidebar-church-item ${ch.id === activeChurchId ? 'active' : ''}" data-church-id="${ch.id}"><span><span class="status-dot ${status}" title="${status}"></span>${ch.name}</span><span class="count">${count}</span></div>`;
   }).join('') || '<p style="font-size:12px;color:var(--ink-soft);padding:8px 10px;">No matches.</p>');
 
   document.getElementById('sidebar-no-church-item').addEventListener('click', () => renderChurchStudents(null));
   listEl.querySelectorAll('.sidebar-church-item[data-church-id]').forEach(el => {
     el.addEventListener('click', () => renderChurchStudents(el.dataset.churchId));
+  });
+
+  document.querySelectorAll('.status-filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.statusFilter === sidebarStatusFilter);
+    btn.onclick = () => { sidebarStatusFilter = btn.dataset.statusFilter; renderSidebar(); };
   });
 
   document.getElementById('sidebar-overview-link').classList.toggle('active', activeChurchId === null && !viewingNoChurch && !viewingAllStudents);
@@ -863,6 +892,17 @@ async function renderChurchStudents(churchId){
       <input type="text" class="field-input" id="edit-church-slug" value="${(church?.slug||'').replace(/"/g,'&quot;')}" />
       <p class="field-hint">Link: <a href="https://followingjesus.com/courses/${church?.slug || ''}" target="_blank" rel="noopener" id="church-link-preview">followingjesus.com/courses/${church?.slug || '...'}</a></p>
 
+      <label class="field-label">Course Status</label>
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+        <select class="field-input" id="edit-course-status" style="width:auto; flex:1;">
+          <option value="live" ${(church?.course_status||'live')==='live'?'selected':''}>Live — page works, enrollment open</option>
+          <option value="draft" ${church?.course_status==='draft'?'selected':''}>Draft — page shows, enrollment closed</option>
+          <option value="archived" ${church?.course_status==='archived'?'selected':''}>Archived — page not shown at all</option>
+        </select>
+        <span id="course-status-badge" style="font-size:11px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; padding:4px 10px; border-radius:20px; white-space:nowrap;"></span>
+      </div>
+      <p class="field-hint" style="margin-bottom:8px;">Use Draft if a church pauses using the course (their link stays live so nothing breaks, but no one can newly enroll). Use Archived only once a church is fully done — the page itself stops showing, even to someone with the direct link.</p>
+
       <h4 class="field-section-title">Church Admin</h4>
       <div id="current-admins-list">
         ${currentAdmins.length ? currentAdmins.map(a => `
@@ -992,6 +1032,25 @@ async function renderChurchStudents(churchId){
   });
 
   const saveSettingsBtn = document.getElementById('save-church-settings-btn');
+  if(saveSettingsBtn) {
+    const statusSelect = document.getElementById('edit-course-status');
+    const statusBadge = document.getElementById('course-status-badge');
+    const STATUS_STYLES = {
+      live: { bg: '#dcf5e3', color: '#166534', label: 'Live' },
+      draft: { bg: '#fef3c7', color: '#92400e', label: 'Draft' },
+      archived: { bg: '#e5e7eb', color: '#4b5563', label: 'Archived' }
+    };
+    const updateStatusBadge = () => {
+      const s = STATUS_STYLES[statusSelect.value] || STATUS_STYLES.live;
+      statusBadge.textContent = s.label;
+      statusBadge.style.background = s.bg;
+      statusBadge.style.color = s.color;
+    };
+    if(statusSelect && statusBadge){
+      updateStatusBadge();
+      statusSelect.addEventListener('change', updateStatusBadge);
+    }
+  }
   if(saveSettingsBtn) saveSettingsBtn.addEventListener('click', async () => {
     const newSlug = document.getElementById('edit-church-slug').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
     const statusEl = document.getElementById('save-status');
@@ -1012,6 +1071,7 @@ async function renderChurchStudents(churchId){
       name: document.getElementById('edit-church-name').value.trim(),
       slug: newSlug,
       primary_color: document.getElementById('edit-church-color').value.trim() || null,
+      course_status: document.getElementById('edit-course-status').value,
       letter_title: document.getElementById('edit-letter-title').value.trim() || null,
       letter_subtitle: document.getElementById('edit-letter-subtitle').value.trim() || null,
       letter_body: document.getElementById('edit-letter-body').value.trim() || null,
