@@ -2239,7 +2239,7 @@
       <button class="secondary-btn" id="profEditBtn">Edit Profile</button>
       ${approvalHtml}
       <button class="secondary-btn" id="profLogoutBtn" style="margin-top:24px;">Log Out of This Profile</button>
-      <p class="dm-note">Heads up: logging out only clears the profile on this device — nothing you've built (groups, disciples, progress) is deleted, it's still tied to your account in the background. But there's currently no way to "log back in" to it afterward, since accounts aren't looked up by name or email — so only log out if you're sure, or if you're setting this device up for someone else.</p>
+      <p class="dm-note">Logging out signs you out on this device entirely — including the course site, since they share the same account. Nothing you've built (groups, disciples, progress) is deleted. Sign back in anytime with the same Google account to pick right back up.</p>
     `;
     document.getElementById('profileBackBtn').onclick = () => { topView = 'hub'; renderDiscipleStep(); };
     document.getElementById('profEditBtn').onclick = () => renderProfileSettings(true);
@@ -2257,7 +2257,17 @@
       renderProfileSettings(false);
     };
     document.getElementById('profLogoutBtn').onclick = async () => {
-      if (!(await showAppConfirm("Log out of this profile on this device? This device won't remember your account anymore, but nothing you've built is deleted."))) return;
+      if (!(await showAppConfirm("Log out of this profile? You'll be signed out here and on the course site too, since they share the same account. Nothing you've built is deleted."))) return;
+      // Actually end the shared Supabase session, not just the local
+      // account copy — otherwise renderDiscipleStep's active-session
+      // fallback (see syncAccountFromActiveSession) would immediately
+      // find the still-live session and sync the account right back,
+      // making this button appear to do nothing. This also correctly
+      // signs the person out of course-player.html too, since both
+      // products share the same Supabase auth session.
+      if (supabaseClient) {
+        try { await supabaseClient.auth.signOut(); } catch (e) { /* best effort — still clear the local copy below regardless */ }
+      }
       await dSafeSet('account', null);
       topView = 'hub';
       renderDiscipleStep();
