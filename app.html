@@ -1164,10 +1164,14 @@
   }
   .disciple-app-scope .leader-info-name { font-size: 11.5px; color: rgba(255,255,255,0.6); }
   .disciple-app-scope .leave-group-btn {
-    display: block; margin: 10px auto 0; background: none; border: none;
-    color: rgba(255,255,255,0.4); font-family: var(--font-display); font-size: 10.5px;
-    letter-spacing: 0.03em; text-decoration: underline; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    margin: 14px auto 0; background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.14); border-radius: 20px; padding: 8px 16px;
+    color: rgba(255,255,255,0.55); font-family: var(--font-display); font-size: 10.5px;
+    font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer;
   }
+  .disciple-app-scope .leave-group-btn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; flex-shrink: 0; }
+  .disciple-app-scope .leave-group-btn:active { background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.75); }
   .disciple-app-scope .join-another-btn {
     display: block; width: 100%; background: rgba(255,255,255,0.06);
     border: 1px dashed rgba(255,255,255,0.25); border-radius: 2px; padding: 12px;
@@ -3876,7 +3880,10 @@ async function renderDisciple() {
           ${gLeaderPhoto ? `<img class="leader-avatar" src="${gLeaderPhoto}" alt="${escapeHtml(gLeaderName)}" />` : `<span class="leader-avatar leader-avatar-fallback">${escapeHtml(gLeaderName.charAt(0).toUpperCase())}</span>`}
           <span class="leader-info-name">Led by ${escapeHtml(gLeaderName)}</span>
         </div>
-        <button type="button" class="leave-group-btn" data-leave-code="${g.code}">Leave Group</button>
+        <button type="button" class="leave-group-btn" data-leave-code="${g.code}">
+          <svg viewBox="0 0 24 24" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+          Leave Group
+        </button>
       </div>
       <div class="chat-toggle" data-code="${g.code}">
         <button type="button" class="chat-toggle-btn active" data-pane="group">Group Chat</button>
