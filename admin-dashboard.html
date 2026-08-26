@@ -20,11 +20,27 @@
   body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
   .admin-shell{display:flex;min-height:100vh;position:relative;}
 
+  /* Default (sidebar expanded): a normal flex child of .logo-badge below,
+     sitting at its right edge via that badge's own justify-content —
+     never position:fixed here, since fixed elements are pulled out of
+     flex layout entirely and wouldn't follow the badge's actual width.
+     Smaller and tinted to read as part of the dark badge bar rather than
+     its own separate control. */
   .sidebar-toggle-btn{
-    position:fixed;top:16px;left:16px;z-index:50;
-    background:var(--ink);color:#fff;border:none;border-radius:8px;
-    width:38px;height:38px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    background:rgba(255,255,255,0.14);color:#fff;border:none;border-radius:7px;
+    width:28px;height:28px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;
   }
+  .sidebar-toggle-btn svg{width:16px;height:16px;}
+  /* Collapsed: the sidebar (and the badge inside it) is width:0 and
+     hidden, so the button needs to escape that entirely — fixed
+     positioning takes it out of the hidden layout and back to floating
+     over the page itself, restored to its original standalone size and
+     solid dark background since it's no longer sitting on the badge. */
+  .admin-shell.sidebar-collapsed .sidebar-toggle-btn{
+    position:fixed;top:16px;left:16px;z-index:50;
+    background:var(--ink);width:38px;height:38px;border-radius:8px;
+  }
+  .admin-shell.sidebar-collapsed .sidebar-toggle-btn svg{width:18px;height:18px;}
   .admin-shell.sidebar-collapsed .admin-sidebar{
     width:0;padding-left:0;padding-right:0;border-right:none;overflow:hidden;
   }
@@ -38,7 +54,8 @@
   }
   .logo-badge{
     background:var(--ink);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:700;
-    letter-spacing:0.14em;font-size:12px;padding:10px 14px;text-transform:uppercase;display:inline-block;margin-bottom:16px;
+    letter-spacing:0.14em;font-size:12px;padding:10px 10px 10px 14px;text-transform:uppercase;
+    margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;
   }
   .account-email{font-size:12px;color:var(--ink-soft);margin-bottom:2px;}
   .signout-link{font-size:12px;color:var(--ink);font-weight:600;cursor:pointer;text-decoration:underline;background:none;border:none;padding:0;font-family:'Inter',sans-serif;}
@@ -205,11 +222,13 @@
 <body>
 
 <div class="admin-shell" id="admin-shell">
-  <button type="button" class="sidebar-toggle-btn" id="sidebar-toggle-btn" aria-label="Toggle menu">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-  </button>
   <div class="admin-sidebar">
-    <div class="logo-badge">Following Jesus</div>
+    <div class="logo-badge">
+      <span>Following Jesus</span>
+      <button type="button" class="sidebar-toggle-btn" id="sidebar-toggle-btn" aria-label="Toggle menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </div>
     <div id="admin-account-info"></div>
     <a class="sidebar-link" id="sidebar-overview-link">Overview</a>
     <div class="sidebar-section-title">Churches (<span id="sidebar-church-count">0</span>)</div>
