@@ -1496,6 +1496,9 @@
 
 #discipleModal .subnav button { background: rgba(10,10,10,0.045); border-color: rgba(10,10,10,0.1); color: rgba(10,10,10,0.55); }
 #discipleModal .subnav button.active { background: var(--black); color: var(--white); border-color: var(--black); }
+#discipleModal .chat-toggle { background: rgba(10,10,10,0.045); }
+#discipleModal .chat-toggle-btn { color: rgba(10,10,10,0.55); }
+#discipleModal .chat-toggle-btn.active { color: var(--white); }
 
 #discipleModal .leader-info-name { color: rgba(10,10,10,0.6); }
 #discipleModal .section-label { color: rgba(10,10,10,0.4); }
@@ -3819,8 +3822,7 @@ async function renderDisciple() {
   checkAndCelebrateEssentialsCompletion(myId, progress);
   const messages = await getDirectMessages(leaderId, myId);
   const myGroups = await getDiscipleGroups(myId);
-  const leaderApp = await getLeaderApplication(leaderId);
-  const leaderName = leaderApp ? leaderApp.name : 'Your Leader';
+  const leaderName = (await getLeaderName(leaderId)) || 'Your Leader';
 
   let stepsHtml = '';
   STEPS.forEach((title, i) => {
@@ -3863,8 +3865,7 @@ async function renderDisciple() {
     // Each group can have its own leader, so this can't reuse the outer
     // singular leaderName/messages — those are just for the "no groups yet"
     // fallback case further down.
-    const gLeaderApp = await getLeaderApplication(g.leaderId);
-    const gLeaderName = gLeaderApp ? gLeaderApp.name : 'Your Leader';
+    const gLeaderName = (await getLeaderName(g.leaderId)) || 'Your Leader';
     const { data: gLeaderProfile } = supabaseClient ? await supabaseClient.from('profiles').select('photo_url').eq('id', g.leaderId).maybeSingle() : { data: null };
     const gLeaderPhoto = gLeaderProfile ? gLeaderProfile.photo_url : null;
     const gPrivateMessages = await getDirectMessages(g.leaderId, myId);
@@ -4424,6 +4425,22 @@ async function renderDiscipleshipHub() {
 // the app keeps reading the same {name, church, pastorName, pastorEmail,
 // status} shape it always has, so this migration doesn't ripple out
 // into every rendering function that displays this data.
+// For looking up someone ELSE's leader name for display (e.g. "Led by
+// ___", the group header, a join-confirmation dialog) — deliberately
+// separate from getLeaderApplication below, which reads the full
+// application row and is only appropriate for checking your OWN
+// status. A regular member was never able to read another person's
+// leader_applications row directly (nor should they be able to — that
+// row also holds their pastor's email and an approval token), which is
+// exactly why the leader's name kept silently falling back to the
+// generic "Your Leader" placeholder. This calls a narrow database
+// function that returns only the name, nothing else.
+async function getLeaderName(leaderId) {
+  if (!supabaseClient || !leaderId) return null;
+  const { data } = await supabaseClient.rpc('get_leader_name', { leader_user_id: leaderId });
+  return data || null;
+}
+
 async function getLeaderApplication(userId) {
   if (!supabaseClient || !userId) return null;
   const { data } = await supabaseClient.from('leader_applications').select('*').eq('applicant_id', userId).maybeSingle();
@@ -4507,8 +4524,8 @@ async function joinGroupByCode(codeInput) {
   const { data: existingMembership } = await existingQuery.maybeSingle();
   if (existingMembership) return { ok: false, error: group.is_direct ? "You're already connected with this leader." : "You're already in this group." };
 
-  const leaderApp = await getLeaderApplication(group.leader_id);
-  if (!(await showAppConfirm(`Join "${group.label}"?\n\nLed by ${leaderApp ? leaderApp.name : 'this leader'}`))) {
+  const leaderName = await getLeaderName(group.leader_id);
+  if (!(await showAppConfirm(`Join "${group.label}"?\n\nLed by ${leaderName || 'this leader'}`))) {
     return { ok: false, cancelled: true };
   }
 
