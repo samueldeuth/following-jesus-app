@@ -66,6 +66,30 @@ function stripReservedImageSpace(html) {
   return html.replace(/\bpadding-bottom:\s*[\d.]+%;?/gi, '');
 }
 
+// If the featured/hero image (already shown separately above the title)
+// also appears as the very first image inside the article body —
+// common, since the original post on the source site often displays its
+// own featured image at the top of the post content too — strip that
+// one duplicate occurrence, leaving the hero as the only copy. Compares
+// URLs with any query string removed first (e.g. Squarespace's own
+// ?format=1500w sizing parameter), since the same underlying image is
+// frequently referenced at two different sizes. Only ever touches the
+// FIRST image in the body — a match further down the article is a
+// deliberate re-use by the author, not an accidental duplicate of the
+// featured image, and should stay untouched.
+function stripDuplicateHeroImage(bodyHtml, heroImageUrl) {
+  if (!bodyHtml || !heroImageUrl) return bodyHtml;
+  const heroBase = heroImageUrl.split('?')[0];
+  const firstImgMatch = bodyHtml.match(/<img\b[^>]*>/i);
+  if (!firstImgMatch) return bodyHtml;
+  const firstImgTag = firstImgMatch[0];
+  const srcMatch = firstImgTag.match(/\ssrc="([^"]*)"/i) || firstImgTag.match(/\ssrc='([^']*)'/i);
+  if (!srcMatch || !srcMatch[1]) return bodyHtml;
+  const firstImgBase = srcMatch[1].split('?')[0];
+  if (firstImgBase !== heroBase) return bodyHtml;
+  return bodyHtml.replace(firstImgTag, '');
+}
+
 // Rewrites root-relative links/images (e.g. href="/products/...") to absolute
 // URLs pointing back at the source site. Without this, a relative link in
 // content pulled from another domain resolves against OUR domain once
@@ -121,14 +145,16 @@ async function fetchSquarespacePosts() {
 
     const items = data.items || [];
     for (const item of items) {
+      const heroImageUrl = item.assetUrl || (item.mainImage && item.mainImage.assetUrl) || null;
+      const cleanedBody = stripReservedImageSpace(fixLazyLoadedImages(makeLinksAbsolute(sanitizeHtml(item.body || item.excerpt || ''), 'https://www.samueldeuth.com')));
       posts.push({
         id: `sd-${safeId(item.id || item.urlId || item.fullUrl)}`,
         source: 'samueldeuth.com',
         title: item.title || '',
         excerpt: stripTags(item.excerpt || '').slice(0, 200),
-        image: item.assetUrl || (item.mainImage && item.mainImage.assetUrl) || null,
+        image: heroImageUrl,
         url: `https://www.samueldeuth.com${item.fullUrl || ''}`,
-        bodyHtml: stripReservedImageSpace(fixLazyLoadedImages(makeLinksAbsolute(sanitizeHtml(item.body || item.excerpt || ''), 'https://www.samueldeuth.com'))),
+        bodyHtml: stripDuplicateHeroImage(cleanedBody, heroImageUrl),
         date: item.publishOn ? new Date(item.publishOn).toISOString() : null
       });
     }
@@ -184,15 +210,17 @@ async function fetchShopifyPosts() {
 
     const imgMatch = rawContent.match(/<img[^>]*src="([^"]*)"/i);
     const slug = (link.split('/').pop() || idTag || Date.now().toString());
+    const heroImageUrl = imgMatch ? imgMatch[1] : null;
+    const cleanedBody = stripReservedImageSpace(fixLazyLoadedImages(makeLinksAbsolute(sanitizeHtml(rawContent), 'https://followingjesusbook.com')));
 
     posts.push({
       id: `fj-${safeId(slug)}`,
       source: 'followingjesusbook.com',
       title,
       excerpt: stripTags(rawContent).slice(0, 200),
-      image: imgMatch ? imgMatch[1] : null,
+      image: heroImageUrl,
       url: link,
-      bodyHtml: stripReservedImageSpace(fixLazyLoadedImages(makeLinksAbsolute(sanitizeHtml(rawContent), 'https://followingjesusbook.com'))),
+      bodyHtml: stripDuplicateHeroImage(cleanedBody, heroImageUrl),
       date: published ? new Date(published).toISOString() : null
     });
   }
