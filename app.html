@@ -909,18 +909,19 @@
   }
 
   /* ---------- Embed modal ----------
-     These render as full pages, not pop-up sheets: no slide transform,
-     just an instant display toggle so it feels like tab-style page
-     navigation rather than a sheet appearing on top of the app. */
+     These are children of .screens now (same as the 5 main tab
+     sections), not viewport-covering overlays — height:100% matches
+     whatever space .screens has available, so the bottom tab bar stays
+     visible below them the whole time. Each still keeps its own header
+     fixed and body scrolling internally (flex-direction: column below,
+     with the body's own overflow-y: auto) rather than letting .screens
+     itself scroll, which is what keeps the title pinned in place while
+     someone scrolls the content under it. */
   .embed-modal {
-    position: fixed;
-    inset: 0;
+    height: 100%;
     background: var(--black);
-    z-index: 999;
     display: none;
     flex-direction: column;
-    max-width: 480px;
-    margin: 0 auto;
   }
   .embed-modal.open { display: flex; }
 
@@ -932,21 +933,6 @@
     gap: 12px;
     padding: 16px 16px 14px;
     border-bottom: 1px solid rgba(255,255,255,0.1);
-  }
-  .embed-header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
-  .modal-home-btn {
-    flex-shrink: 0;
-    background: rgba(255,255,255,0.08);
-    border: none;
-    color: var(--white);
-    font-family: var(--font-display);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    padding: 9px 13px;
-    border-radius: 20px;
-    cursor: pointer;
   }
   .embed-title {
     font-family: var(--font-display);
@@ -1006,14 +992,10 @@
   }
 
   .disciple-modal {
-    position: fixed;
-    inset: 0;
+    height: 100%;
     background: var(--black);
-    z-index: 999;
     display: none;
     flex-direction: column;
-    max-width: 480px;
-    margin: 0 auto;
   }
   .disciple-modal.open { display: flex; }
   .disciple-modal-body { flex: 1; overflow-y: auto; padding: 26px 22px; scrollbar-width: none; }
@@ -1442,14 +1424,10 @@
   .secondary-btn { background: transparent; color: var(--white); border: 1px solid rgba(255,255,255,0.25); }
 
   .article-modal {
-    position: fixed;
-    inset: 0;
+    height: 100%;
     background: var(--black);
-    z-index: 999;
     display: none;
     flex-direction: column;
-    max-width: 480px;
-    margin: 0 auto;
   }
   .article-modal.open { display: flex; }
   .article-modal-body { flex: 1; overflow-y: auto; scrollbar-width: none; }
@@ -1830,6 +1808,45 @@
       <div class="jesus-cta-sub">Start the free Following Jesus course</div>
     </section>
 
+    <!-- These 4 render as additional full-height "screens" alongside the
+         5 main tabs above, rather than viewport-covering overlays — that's
+         what keeps the bottom tab bar visible and usable the whole time
+         someone's on one of these, so tapping any tab is how you leave.
+         Each toggles via the same .open class its JS already used before;
+         only what that class does in CSS changed (see the .embed-modal /
+         .disciple-modal / .article-modal rules), not the JS calling it. -->
+    <div class="embed-modal" id="embedModal">
+      <div class="embed-header">
+        <div class="embed-title" id="embedTitle">Loading…</div>
+        <div class="embed-actions">
+          <a id="embedFallback" class="embed-fallback" href="#" target="_blank" rel="noopener">Open in Browser ↗</a>
+        </div>
+      </div>
+      <iframe id="embedFrame" class="embed-frame" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>
+    </div>
+
+    <div class="disciple-modal" id="discipleModal">
+      <div class="embed-header">
+        <div class="embed-title">Make Disciples</div>
+      </div>
+      <div id="syncStatusBadge" class="sync-status-badge"></div>
+      <div class="disciple-modal-body disciple-app-scope" id="discipleModalBody"></div>
+    </div>
+
+    <div class="disciple-modal" id="gospelModal">
+      <div class="embed-header">
+        <div class="embed-title">Share the Gospel</div>
+      </div>
+      <div class="disciple-modal-body disciple-app-scope" id="gospelModalBody"></div>
+    </div>
+
+    <div class="article-modal" id="articleModal">
+      <div class="embed-header">
+        <div class="embed-title" id="articleModalTag">Blog</div>
+      </div>
+      <div class="article-modal-body" id="articleModalBody"></div>
+    </div>
+
   </div>
 
   <nav class="tabbar">
@@ -1854,50 +1871,6 @@
       <span class="label">Jesus</span>
     </button>
   </nav>
-
-  <div class="embed-modal" id="embedModal">
-    <div class="embed-header">
-      <div class="embed-header-left">
-        <button class="modal-home-btn" id="embedClose">← Home</button>
-        <div class="embed-title" id="embedTitle">Loading…</div>
-      </div>
-      <div class="embed-actions">
-        <a id="embedFallback" class="embed-fallback" href="#" target="_blank" rel="noopener">Open in Browser ↗</a>
-      </div>
-    </div>
-    <iframe id="embedFrame" class="embed-frame" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>
-  </div>
-
-  <div class="disciple-modal" id="discipleModal">
-    <div class="embed-header">
-      <div class="embed-header-left">
-        <button class="modal-home-btn" id="discipleModalClose">← Home</button>
-        <div class="embed-title">Make Disciples</div>
-      </div>
-    </div>
-    <div id="syncStatusBadge" class="sync-status-badge"></div>
-    <div class="disciple-modal-body disciple-app-scope" id="discipleModalBody"></div>
-  </div>
-
-  <div class="disciple-modal" id="gospelModal">
-    <div class="embed-header">
-      <div class="embed-header-left">
-        <button class="modal-home-btn" id="gospelModalClose">← Home</button>
-        <div class="embed-title">Share the Gospel</div>
-      </div>
-    </div>
-    <div class="disciple-modal-body disciple-app-scope" id="gospelModalBody"></div>
-  </div>
-
-  <div class="article-modal" id="articleModal">
-    <div class="embed-header">
-      <div class="embed-header-left">
-        <button class="modal-home-btn" id="articleModalClose">← Home</button>
-        <div class="embed-title" id="articleModalTag">Blog</div>
-      </div>
-    </div>
-    <div class="article-modal-body" id="articleModalBody"></div>
-  </div>
 
 </div>
 
@@ -1947,11 +1920,13 @@
   }
 
   document.getElementById('discipleBannerBtn').addEventListener('click', () => {
+    hideMainScreens();
     discipleModal.classList.add('open');
     updateSyncStatusBadge();
     renderDiscipleStep();
   });
   document.getElementById('becomeDiscipleBannerBtn').addEventListener('click', () => {
+    hideMainScreens();
     discipleModal.classList.add('open');
     updateSyncStatusBadge();
     renderDiscipleStep();
@@ -1969,33 +1944,18 @@
       if (el) el.textContent = '📣 Disciples made through this app';
     }
   })();
-  // The header's "← Home" button always exits all the way back to the
-  // main app now, rather than stepping back one nested level at a time —
-  // every nested view inside this modal (group detail, member detail,
-  // leader application) already has its own dedicated "← back" link
-  // built into its own content for that step-by-step navigation, so this
-  // top-level button doesn't need to duplicate it. goHome() is defined
-  // further down, alongside TAB_HASH_MAP — both are plain function/const
-  // declarations in the second <script> tag on this page, which (unlike
-  // the disciple-flow state above) are NOT visible from this earlier
-  // script block by variable reference. But goHome is a function
-  // declaration, so it's still globally callable from here; the closure
-  // it forms captures TAB_HASH_MAP from its own defining scope, not the
-  // caller's — this is what actually fixed a real bug here: the previous
-  // version of this handler referenced TAB_HASH_MAP directly, which threw
-  // silently (never seen, since it's inside a click handler) every time
-  // someone closed this modal from the top level.
-  document.getElementById('discipleModalClose').addEventListener('click', () => {
-    goHome();
-  });
+  // No dedicated close/Home button on this or the other 3 page-style
+  // views anymore — the bottom tab bar (always visible now, since these
+  // live inside .screens rather than covering it) is how someone leaves
+  // any of them. Every nested view inside this modal (group detail,
+  // member detail, leader application) still has its own "← back" link
+  // for stepping back one level at a time within the flow itself.
 
   document.getElementById('shareGospelBannerBtn').addEventListener('click', () => {
+    hideMainScreens();
     document.getElementById('gospelModal').classList.add('open');
     renderGospelGrid();
     pushUrlHash('gospel');
-  });
-  document.getElementById('gospelModalClose').addEventListener('click', () => {
-    goHome();
   });
 
   // If someone opened the app via a shared invite link (?join=CODE), take
@@ -2003,6 +1963,7 @@
   // instead of leaving them to find the banner and type it in by hand.
   window.pendingJoinCode = new URLSearchParams(window.location.search).get('join');
   if (window.pendingJoinCode) {
+    hideMainScreens();
     discipleModal.classList.add('open');
     updateSyncStatusBadge();
     // Set the hash immediately, synchronously — restoreTabFromUrl runs
@@ -2027,6 +1988,7 @@
     setTimeout(async () => {
       const completed = await completeGoogleAuthIfPending();
       if (completed) {
+        hideMainScreens();
         discipleModal.classList.add('open');
         updateSyncStatusBadge();
         renderDiscipleStep();
@@ -5062,13 +5024,11 @@ async function renderDiscipleshipApp() {
         <a class="article-source-link" href="${a.sourceUrl}" target="_blank" rel="noopener">View Original Post ↗</a>
       </div>
     `;
+    hideMainScreens();
     articleModal.classList.add('open');
     articleModalBody.scrollTop = 0;
     if (!skipHistoryPush) pushUrlHash(`article/${id}`);
   }
-  document.getElementById('articleModalClose').addEventListener('click', () => {
-    goHome();
-  });
 
   // ---------- Randomized blog banner (from live feed once loaded) ----------
   function setupBlogBanner() {
@@ -5191,16 +5151,11 @@ async function renderDiscipleshipApp() {
     embedTitle.textContent = title;
     embedFallback.href = fallbackUrl;
     embedFrame.src = url;
+    hideMainScreens();
     embedModal.classList.add('open');
     bannerPaused = true;
     if (!skipHistoryPush) pushUrlHash('player');
   };
-
-  document.getElementById('embedClose').addEventListener('click', () => {
-    embedFrame.src = '';
-    goHome();
-    setTimeout(() => bannerPaused = false, 500);
-  });
 
   // ---------- Banner carousel dots ----------
   const bannerScroll = document.getElementById('bannerScroll');
@@ -5694,24 +5649,35 @@ async function renderDiscipleshipApp() {
   // All 4 of the page-style views (disciple, gospel, article, player)
   // are siblings that each cover the full screen when open — always
   // closing every one of them first avoids two ever ending up stacked
-  // or a stale one bleeding through when switching between them.
+  // or a stale one bleeding through when switching between them. Also
+  // stops any playing embed and lets the Today banner carousel resume
+  // auto-advancing — this used to live only in a dedicated close button
+  // for the player, but now that leaving any of these 4 views happens
+  // via the bottom tab bar instead, it belongs here so it still happens
+  // no matter which tab someone taps to leave.
   function closeAllModals() {
     document.getElementById('embedModal').classList.remove('open');
     document.getElementById('discipleModal').classList.remove('open');
     document.getElementById('gospelModal').classList.remove('open');
     document.getElementById('articleModal').classList.remove('open');
+    const frame = document.getElementById('embedFrame');
+    if (frame && frame.src) {
+      frame.src = '';
+      setTimeout(() => { bannerPaused = false; }, 500);
+    }
   }
 
-  // Shared by every page-style view's "← Home" button — closes all of
-  // them and restores the URL to whichever of the 5 main tabs is still
-  // active underneath (it was never actually changed while one of these
-  // was open on top of it, so this is just re-syncing the hash to match).
-  function goHome() {
-    closeAllModals();
-    const activeScreen = document.querySelector('.screen.active');
-    const activeScreenId = activeScreen ? activeScreen.id : 'screen-today';
-    const tabHash = TAB_HASH_MAP[activeScreenId] || '';
-    history.pushState({ screenId: activeScreenId }, '', tabHash ? `#${tabHash}` : window.location.pathname);
+  // The other direction of the same problem closeAllModals solves: these
+  // 4 views are now regular children of .screens rather than viewport-
+  // covering overlays, so whichever of the 5 main screens was already
+  // .active doesn't get touched just by one of these 4 opening on top of
+  // it — without this, both would render stacked in normal document
+  // flow at once. Called at every place one of the 4 opens (see below).
+  // Doesn't touch the tab buttons' own active state — none of them
+  // correspond to these 4 views anyway, so leaving all 5 unhighlighted
+  // while on one of these is the correct, expected result.
+  function hideMainScreens() {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   }
 
   // Small shared helper for the gospel/article/player views, which don't
@@ -5740,6 +5706,7 @@ async function renderDiscipleshipApp() {
   async function restoreTabFromUrl() {
     const hash = window.location.hash.replace('#', '');
     closeAllModals();
+    hideMainScreens(); // paired with closeAllModals — whichever branch below actually applies re-activates the one screen it needs
 
     if (hash.startsWith('disciple')) {
       const handled = await restoreDiscipleStateFromHash(hash);
