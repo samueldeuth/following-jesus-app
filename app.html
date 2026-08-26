@@ -1519,6 +1519,15 @@
    after this change. Fixing it here since it's directly in scope. */
 #discipleModal .own-journey-sub { color: rgba(10,10,10,0.55); }
 #discipleModal .own-journey-card.own-journey-prompt .own-journey-sub { color: rgba(255,255,255,0.85); }
+
+/* The top "Make Disciples" bar stays black with white text, matching
+   how it always looked — it never had its own background color, it was
+   just showing through to the modal's own background, which used to be
+   black and is now the light paper color. Scoped to #discipleModal
+   specifically since .embed-header is shared with 3 other modals
+   (embed viewer, Gospel, articles) that should stay exactly as they
+   were — this only touches this one modal's header. */
+#discipleModal .embed-header { background: var(--black); }
 </style>
 </head>
 <body>
