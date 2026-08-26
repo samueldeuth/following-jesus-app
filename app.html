@@ -1264,9 +1264,31 @@
   }
   .disciple-app-scope .msg-thread { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; max-height:220px; overflow-y:auto; scrollbar-width: none; }
   .disciple-app-scope .msg-thread::-webkit-scrollbar { display: none; width: 0; height: 0; }
-  .disciple-app-scope .msg { max-width:78%; padding:10px 14px; border-radius:14px; font-size:13px; line-height:1.4; }
+  .disciple-app-scope .msg { max-width:78%; padding:10px 14px; border-radius:14px; font-size:13px; line-height:1.4; cursor: pointer; }
   .disciple-app-scope .msg.me { align-self:flex-end; background: var(--ember); color: var(--black); border-bottom-right-radius:3px; }
   .disciple-app-scope .msg.them { align-self:flex-start; background: rgba(255,255,255,0.08); color: var(--white); border-bottom-left-radius:3px; }
+  .disciple-app-scope .msg-wrap { display: flex; flex-direction: column; }
+  .disciple-app-scope .msg-reactions { display: flex; gap: 4px; margin: 3px 0 0 2px; flex-wrap: wrap; }
+  .disciple-app-scope .reaction-pill {
+    display: inline-flex; align-items: center; font-size: 11.5px; line-height: 1;
+    background: rgba(255,255,255,0.1); border-radius: 10px; padding: 3px 7px; color: var(--white);
+  }
+  .disciple-app-scope .reaction-pill.mine { background: rgba(200,155,60,0.28); border: 1px solid var(--ember); }
+  .disciple-app-scope .reaction-picker {
+    display: none; gap: 4px; margin: 4px 0 2px 2px; background: rgba(255,255,255,0.08);
+    border-radius: 20px; padding: 5px 7px; width: fit-content;
+  }
+  .disciple-app-scope .reaction-picker.open { display: flex; }
+  .disciple-app-scope .reaction-pick-btn {
+    background: none; border: none; font-size: 17px; line-height: 1; cursor: pointer;
+    padding: 3px; border-radius: 50%;
+  }
+  .disciple-app-scope .reaction-pick-btn.mine { background: rgba(200,155,60,0.3); }
+  /* Light-theme overrides — same scoping already proven for .msg.them
+     directly above, since reaction pills/pickers live inside these same
+     light-background chat panels and need the same treatment. */
+  .disciple-app-scope .chat-pane .reaction-pill, .disciple-app-scope .chat-panel-light .reaction-pill { background: rgba(10,10,10,0.07); color: rgba(10,10,10,0.75); }
+  .disciple-app-scope .chat-pane .reaction-picker, .disciple-app-scope .chat-panel-light .reaction-picker { background: rgba(10,10,10,0.06); }
   .disciple-app-scope .msg-empty { font-size:12px; color: rgba(255,255,255,0.35); text-align:center; padding: 16px 0; }
   .disciple-app-scope .msg-input-row { display:flex; gap:8px; margin-bottom: 6px; align-items:center; }
   .disciple-modal-body.disciple-app-scope .msg-input-row input { flex:1; margin-bottom:0; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color:var(--white); border-radius: 22px; padding: 12px 18px; }
@@ -3502,6 +3524,81 @@ function scrollChatThreadsToBottom() {
   });
 }
 
+// ---------- Message reactions ----------
+// Matches iMessage's own tapback set (minus the "?" one) — familiar
+// territory for anyone used to texting, which was the whole point of
+// modeling this chat on iMessage in the first place.
+const REACTION_EMOJIS = ['❤️', '👍', '‼️', '😂', '👎'];
+
+// Toggles the current user's reaction on a message — adds it if they
+// haven't reacted with this emoji yet, removes it if they have (tapping
+// the same reaction again un-reacts).
+async function toggleMessageReaction(messageId, emoji) {
+  if (!supabaseClient || !messageId) return;
+  const { data: existing } = await supabaseClient.from('discipleship_message_reactions')
+    .select('id').eq('message_id', messageId).eq('user_id', myId).eq('emoji', emoji).maybeSingle();
+  if (existing) {
+    await supabaseClient.from('discipleship_message_reactions').delete().eq('id', existing.id);
+  } else {
+    await supabaseClient.from('discipleship_message_reactions').insert({ message_id: messageId, user_id: myId, emoji });
+  }
+}
+
+// Shared by every place a message bubble gets rendered (group chat,
+// direct messages, both leader and disciple sides) — builds one
+// message's full HTML: its sender label (if given), body, any existing
+// reaction pills, and a hidden tapback picker that wireMessageReactions()
+// below makes interactive. extraTagHtml is for the odd one-off, like the
+// "📋 Action" tag on assigned actions in group chat.
+function renderMessageHtml(m, isMe, senderLabel, extraTagHtml, extraClass) {
+  const counts = {};
+  const mine = new Set();
+  (m.reactions || []).forEach(r => {
+    counts[r.emoji] = (counts[r.emoji] || 0) + 1;
+    if (r.userId === myId) mine.add(r.emoji);
+  });
+  const pillsHtml = Object.keys(counts).length
+    ? `<div class="msg-reactions">${Object.entries(counts).map(([emoji, count]) =>
+        `<span class="reaction-pill${mine.has(emoji) ? ' mine' : ''}">${emoji}${count > 1 ? ' ' + count : ''}</span>`
+      ).join('')}</div>`
+    : '';
+  const pickerHtml = m.id
+    ? `<div class="reaction-picker" data-picker-for="${m.id}">
+        ${REACTION_EMOJIS.map(e => `<button type="button" class="reaction-pick-btn${mine.has(e) ? ' mine' : ''}" data-emoji="${e}" data-msg-id="${m.id}">${e}</button>`).join('')}
+      </div>`
+    : '';
+  const labelHtml = senderLabel ? `<strong style="display:block;font-size:10px;opacity:0.7;margin-bottom:2px;">${escapeHtml(senderLabel)}</strong>` : '';
+  return `<div class="msg-wrap">
+    <div class="msg ${isMe ? 'me' : 'them'}${extraClass || ''}"${m.id ? ` data-react-trigger="${m.id}"` : ''}>${labelHtml}${extraTagHtml || ''}${linkify(m.body)}</div>
+    ${pillsHtml}${pickerHtml}
+  </div>`;
+}
+
+// Shared by every chat-rendering function — wires up tap-to-react for
+// every message bubble currently on the page: tapping a bubble toggles
+// its own picker open/closed (closing any other picker that was open),
+// tapping an emoji inside a picker toggles that reaction and re-renders.
+function wireMessageReactions() {
+  document.querySelectorAll('[data-react-trigger]').forEach(bubble => {
+    bubble.onclick = () => {
+      const picker = document.querySelector(`.reaction-picker[data-picker-for="${bubble.dataset.reactTrigger}"]`);
+      if (!picker) return;
+      const wasOpen = picker.classList.contains('open');
+      document.querySelectorAll('.reaction-picker.open').forEach(p => p.classList.remove('open'));
+      if (!wasOpen) picker.classList.add('open');
+    };
+  });
+  document.querySelectorAll('.reaction-pick-btn').forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const scrollPosition = discipleBody.scrollTop;
+      await toggleMessageReaction(btn.dataset.msgId, btn.dataset.emoji);
+      await render();
+      discipleBody.scrollTop = scrollPosition;
+    };
+  });
+}
+
 async function renderGroupDetail(code) {
   const groups = await getLeaderGroups(myId);
   const group = groups.find(g => g.code === code);
@@ -3522,7 +3619,7 @@ async function renderGroupDetail(code) {
   } else {
     groupMessages.forEach(m => {
       const actionTag = m.isAction ? `<span class="chat-action-tag">📋 Action</span>` : '';
-      groupChatHtml += `<div class="msg ${m.senderId === myId ? 'me' : 'them'}${m.isAction ? ' msg-action' : ''}"><strong style="display:block;font-size:10px;opacity:0.7;margin-bottom:2px;">${escapeHtml(m.senderName)}</strong>${actionTag}${linkify(m.body)}</div>`;
+      groupChatHtml += renderMessageHtml(m, m.senderId === myId, m.senderName, actionTag, m.isAction ? ' msg-action' : '');
     });
   }
 
@@ -3706,6 +3803,7 @@ async function renderGroupDetail(code) {
     };
   });
   scrollChatThreadsToBottom();
+  wireMessageReactions();
 }
 
 async function closeGroup(code) {
@@ -3742,7 +3840,7 @@ async function renderMemberDetail(memberId) {
   if (messages.length === 0) {
     msgHtml = '<div class="msg-empty">No messages yet — send some encouragement.</div>';
   } else {
-    messages.forEach(m => { msgHtml += `<div class="msg ${m.from === 'leader' ? 'me' : 'them'}">${linkify(m.body)}</div>`; });
+    messages.forEach(m => { msgHtml += renderMessageHtml(m, m.from === 'leader', null); });
   }
 
   const actionsBlockHtml = await renderLeaderActionsBlock('Actions Assigned', await getIndividualActions(myId, memberId));
@@ -3787,6 +3885,7 @@ async function renderMemberDetail(memberId) {
     render();
   };
   scrollChatThreadsToBottom();
+  wireMessageReactions();
 }
 
 // ============ FRIEND ============
@@ -3841,7 +3940,7 @@ async function renderDisciple() {
 
   let msgHtml = '';
   if (messages.length === 0) { msgHtml = '<div class="msg-empty">No messages yet.</div>'; }
-  else { messages.forEach(m => { msgHtml += `<div class="msg ${m.from === 'disciple' ? 'me' : 'them'}">${linkify(m.body)}</div>`; }); }
+  else { messages.forEach(m => { msgHtml += renderMessageHtml(m, m.from === 'disciple', null); }); }
 
   let groupPeersHtml = '';
   for (const g of myGroups) {
@@ -3865,7 +3964,7 @@ async function renderDisciple() {
       groupChatHtml = '<div class="msg-empty">No group messages yet.</div>';
     } else {
       groupMessages.forEach(m => {
-        groupChatHtml += `<div class="msg ${m.senderId === myId ? 'me' : 'them'}"><strong style="display:block;font-size:10px;opacity:0.7;margin-bottom:2px;">${escapeHtml(m.senderName)}</strong>${linkify(m.body)}</div>`;
+        groupChatHtml += renderMessageHtml(m, m.senderId === myId, m.senderName);
       });
     }
 
@@ -3878,7 +3977,7 @@ async function renderDisciple() {
     const gPrivateMessages = await getDirectMessages(g.leaderId, myId);
     let gMsgHtml = '';
     if (gPrivateMessages.length === 0) { gMsgHtml = '<div class="msg-empty">No messages yet.</div>'; }
-    else { gPrivateMessages.forEach(m => { gMsgHtml += `<div class="msg ${m.from === 'disciple' ? 'me' : 'them'}">${linkify(m.body)}</div>`; }); }
+    else { gPrivateMessages.forEach(m => { gMsgHtml += renderMessageHtml(m, m.from === 'disciple', null); }); }
 
     groupPeersHtml += `
       <div class="group-header-bar" style="margin:28px 0 0;">
@@ -4036,6 +4135,7 @@ async function renderDisciple() {
     wireEnterToSend(groupInput, () => btn.click());
   });
   scrollChatThreadsToBottom();
+  wireMessageReactions();
 }
 
 // Shared by every "type a message, hit Send" spot in this modal (group
@@ -4664,19 +4764,37 @@ async function getGroupMemberIds(code) {
 // discipleship_actions has assigned_by pointing to profiles, on top of
 // group_id/disciple_id, so an embedded join could be ambiguous.
 
+// Shared by both getGroupMessages and getDirectMessages — one batch
+// query for all reactions across a whole set of message ids, rather than
+// a separate query per message. Returns a map of messageId -> array of
+// { userId, emoji }.
+async function getReactionsForMessages(messageIds) {
+  if (!supabaseClient || !messageIds.length) return {};
+  const { data } = await supabaseClient.from('discipleship_message_reactions')
+    .select('message_id, user_id, emoji').in('message_id', messageIds);
+  const byMessage = {};
+  (data || []).forEach(r => {
+    if (!byMessage[r.message_id]) byMessage[r.message_id] = [];
+    byMessage[r.message_id].push({ userId: r.user_id, emoji: r.emoji });
+  });
+  return byMessage;
+}
+
 async function getGroupMessages(code) {
   const { data: group } = await supabaseClient.from('discipleship_groups').select('id').eq('invite_code', code).maybeSingle();
   if (!group) return [];
   const { data: messages } = await supabaseClient.from('discipleship_messages')
-    .select('sender_id, body, sent_at, is_action').eq('group_id', group.id).order('sent_at');
+    .select('id, sender_id, body, sent_at, is_action').eq('group_id', group.id).order('sent_at');
   if (!messages || !messages.length) return [];
   const senderIds = [...new Set(messages.map(m => m.sender_id))];
   const { data: profiles } = await supabaseClient.from('profiles').select('id, full_name').in('id', senderIds);
   const nameById = {};
   (profiles || []).forEach(p => { nameById[p.id] = p.full_name || 'Friend'; });
+  const reactionsByMessage = await getReactionsForMessages(messages.map(m => m.id));
   return messages.map(m => ({
-    senderId: m.sender_id, senderName: nameById[m.sender_id] || 'Friend',
-    body: m.body, isAction: m.is_action, at: new Date(m.sent_at).getTime()
+    id: m.id, senderId: m.sender_id, senderName: nameById[m.sender_id] || 'Friend',
+    body: m.body, isAction: m.is_action, at: new Date(m.sent_at).getTime(),
+    reactions: reactionsByMessage[m.id] || []
   }));
 }
 
@@ -4920,15 +5038,16 @@ async function markDirectMessagesRead(leaderId, discipleId) {
 async function getDirectMessages(leaderId, discipleId) {
   if (!supabaseClient) return [];
   const [{ data: fromLeader }, { data: fromDisciple }] = await Promise.all([
-    supabaseClient.from('discipleship_messages').select('sender_id, body, sent_at').is('group_id', null).eq('sender_id', leaderId).eq('recipient_id', discipleId),
-    supabaseClient.from('discipleship_messages').select('sender_id, body, sent_at').is('group_id', null).eq('sender_id', discipleId).eq('recipient_id', leaderId)
+    supabaseClient.from('discipleship_messages').select('id, sender_id, body, sent_at').is('group_id', null).eq('sender_id', leaderId).eq('recipient_id', discipleId),
+    supabaseClient.from('discipleship_messages').select('id, sender_id, body, sent_at').is('group_id', null).eq('sender_id', discipleId).eq('recipient_id', leaderId)
   ]);
   const all = [...(fromLeader || []), ...(fromDisciple || [])];
   all.sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
+  const reactionsByMessage = await getReactionsForMessages(all.map(m => m.id));
   return all.map(m => ({
-    from: m.sender_id === leaderId ? 'leader' : 'disciple',
-    body: m.body,
-    at: new Date(m.sent_at).getTime()
+    id: m.id, from: m.sender_id === leaderId ? 'leader' : 'disciple',
+    body: m.body, at: new Date(m.sent_at).getTime(),
+    reactions: reactionsByMessage[m.id] || []
   }));
 }
 
