@@ -231,6 +231,7 @@
     </div>
     <div id="admin-account-info"></div>
     <a class="sidebar-link" id="sidebar-overview-link">Overview</a>
+    <a class="sidebar-link" id="sidebar-all-students-link">All Students</a>
     <div class="sidebar-section-title">Churches (<span id="sidebar-church-count">0</span>)</div>
     <input type="text" class="sidebar-search" id="sidebar-church-search" placeholder="Search churches…" />
     <div id="sidebar-church-list"></div>
@@ -287,6 +288,11 @@ let activeChurchId = null; // null = "all churches" overview
 // renderChurchStudents/renderChurchesOverview below, never touched
 // anywhere else.
 let viewingNoChurch = false;
+// Same idea as viewingNoChurch above — activeChurchId === null is shared
+// by three different views (Overview, "No Church Assigned", and now All
+// Students), so this flag is what actually distinguishes this one for
+// sidebar highlighting and for the student-detail page's back link.
+let viewingAllStudents = false;
 
 function renderAccountInfo(email){
   const el = document.getElementById('admin-account-info');
@@ -347,6 +353,7 @@ async function init(){
   allChurches = churches || [];
   renderSidebar();
   document.getElementById('sidebar-overview-link').addEventListener('click', renderChurchesOverview);
+  document.getElementById('sidebar-all-students-link').addEventListener('click', renderAllStudents);
   document.getElementById('sidebar-church-search').addEventListener('input', renderSidebar);
   wireAddChurchForm();
   renderChurchesOverview();
@@ -587,13 +594,15 @@ function renderSidebar(){
     el.addEventListener('click', () => renderChurchStudents(el.dataset.churchId));
   });
 
-  document.getElementById('sidebar-overview-link').classList.toggle('active', activeChurchId === null && !viewingNoChurch);
+  document.getElementById('sidebar-overview-link').classList.toggle('active', activeChurchId === null && !viewingNoChurch && !viewingAllStudents);
+  document.getElementById('sidebar-all-students-link').classList.toggle('active', viewingAllStudents);
 }
 
 /* ---------- Level 1: all churches ---------- */
 function renderChurchesOverview(){
   activeChurchId = null;
   viewingNoChurch = false;
+  viewingAllStudents = false;
   renderSidebar();
   const totalChurches = allChurches.length;
   const totalStudents = allRows.length;
@@ -639,10 +648,106 @@ function renderChurchesOverview(){
   });
 }
 
+/* ---------- All Students: every student across every church, one flat list ---------- */
+// Split into a shell (rendered once) and a rows function (re-rendered on
+// every search keystroke and after unenroll) — same reason renderSidebar
+// only replaces the church list and not its own search input: rebuilding
+// the whole panel's innerHTML on each keystroke would recreate the
+// <input> itself and throw away focus mid-typing.
+let allStudentsFilteredRows = [];
+
+function renderAllStudents(){
+  activeChurchId = null;
+  viewingNoChurch = false;
+  viewingAllStudents = true;
+  renderSidebar();
+
+  document.getElementById('content').innerHTML = `
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">All Students</h2>
+    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:14px;">${allRows.length} student${allRows.length===1?'':'s'} across ${allChurches.length} church${allChurches.length===1?'':'es'}</p>
+    <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;">
+      <input type="text" class="sidebar-search" id="all-students-search" placeholder="Search by name, email, or church…" style="max-width:280px;margin-bottom:0;" />
+      <button class="mini-btn" id="export-all-students-btn">Export Students (CSV)</button>
+    </div>
+    <table>
+      <thead><tr><th>Student</th><th>Church</th><th>Progress</th><th>Actions</th></tr></thead>
+      <tbody id="all-students-tbody"></tbody>
+    </table>
+  `;
+
+  renderAllStudentsRows();
+  document.getElementById('all-students-search').addEventListener('input', renderAllStudentsRows);
+  document.getElementById('export-all-students-btn').addEventListener('click', () => {
+    exportStudentsCSV(allStudentsFilteredRows, `all-students-${new Date().toISOString().slice(0,10)}.csv`, true);
+  });
+}
+
+function renderAllStudentsRows(){
+  const query = (document.getElementById('all-students-search')?.value || '').trim().toLowerCase();
+  allStudentsFilteredRows = query
+    ? allRows.filter(r =>
+        (r.full_name || '').toLowerCase().includes(query) ||
+        (r.student_email || '').toLowerCase().includes(query) ||
+        (r.church_name || '').toLowerCase().includes(query))
+    : allRows;
+
+  const rowsHtml = allStudentsFilteredRows.map(r => {
+    const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
+    const isComplete = r.total_items > 0 && r.items_completed === r.total_items;
+    return `
+      <tr data-student-id="${r.student_id}" data-course-id="${r.course_id}" data-enrollment-id="${r.enrollment_id}">
+        <td class="clickable-cell" data-open="true">
+          <div class="student-name">${r.full_name || 'Unnamed student'}</div>
+          <div class="student-email">${r.student_email || ''}</div>
+        </td>
+        <td>${r.church_name || 'No Church Assigned'}</td>
+        <td class="clickable-cell" data-open="true">
+          <div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${r.items_completed}/${r.total_items}</span></div>
+        </td>
+        <td>
+          <div class="row-actions">
+            ${isComplete ? `<button class="mini-btn gold" data-view-cert="${r.student_id}" data-cert-course="${r.course_id}">🏅 Certificate</button>` : ''}
+            <button class="mini-btn danger" data-unenroll="${r.enrollment_id}" data-name="${(r.full_name||'this student').replace(/"/g,'')}">Unenroll</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  document.getElementById('all-students-tbody').innerHTML = rowsHtml || `<tr><td colspan="4" style="color:var(--ink-soft);">${query ? 'No students match.' : 'No students yet.'}</td></tr>`;
+
+  document.querySelectorAll('#all-students-tbody td.clickable-cell').forEach(td => {
+    td.style.cursor = 'pointer';
+    td.addEventListener('click', () => {
+      const tr = td.closest('tr');
+      renderStudentDetail(tr.dataset.studentId, tr.dataset.courseId);
+    });
+  });
+
+  document.querySelectorAll('#all-students-tbody [data-unenroll]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if(!confirm(`Unenroll ${btn.dataset.name} from this course? Their progress and answers will be permanently deleted.`)) return;
+      await supabaseClient.from('enrollments').delete().eq('id', btn.dataset.unenroll);
+      allRows = allRows.filter(r => r.enrollment_id !== btn.dataset.unenroll);
+      renderAllStudentsRows();
+    });
+  });
+
+  document.querySelectorAll('#all-students-tbody [data-view-cert]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const { data: cert } = await supabaseClient.from('certificates').select('certificate_code').eq('student_id', btn.dataset.viewCert).eq('course_id', btn.dataset.certCourse).maybeSingle();
+      if(cert) window.open(`certificate.html?code=${cert.certificate_code}`, '_blank');
+      else alert('No certificate found yet for this student.');
+    });
+  });
+}
+
 /* ---------- Level 2: students within a church ---------- */
 async function renderChurchStudents(churchId){
   activeChurchId = churchId;
   viewingNoChurch = (churchId === null);
+  viewingAllStudents = false;
   renderSidebar();
   const church = allChurches.find(c => c.id === churchId);
   const rows = allRows.filter(r => churchId ? r.church_id === churchId : !r.church_id);
@@ -1092,13 +1197,16 @@ async function renderStudentDetail(studentId, courseId){
   }).join('');
 
   content.innerHTML = `
-    <div class="back-link" id="back-to-list">&larr; Back to ${row?.church_name || 'students'}</div>
+    <div class="back-link" id="back-to-list">&larr; Back to ${viewingAllStudents ? 'All Students' : (row?.church_name || 'students')}</div>
     <h2 style="font-family:'Space Grotesk',sans-serif;margin-bottom:4px;">${row?.full_name || 'Student'}</h2>
     <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:24px;">${row?.course_title || ''} · ${row?.student_email || ''}</p>
     ${blocksHtml || '<p style="color:var(--ink-soft);">No discussion questions found for this course.</p>'}
   `;
 
-  document.getElementById('back-to-list').addEventListener('click', () => renderChurchStudents(activeChurchId));
+  document.getElementById('back-to-list').addEventListener('click', () => {
+    if(viewingAllStudents) renderAllStudents();
+    else renderChurchStudents(activeChurchId);
+  });
 
   content.querySelectorAll('.reply-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
