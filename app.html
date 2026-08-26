@@ -3475,6 +3475,21 @@ async function removeDisciple(discipleId) {
   ]);
 }
 
+// Chat threads scroll within their own small internal box (.msg-thread),
+// separate from the page itself — so every time one gets freshly
+// rendered (opening a chat, sending a message, a re-render for any
+// reason), it defaults back to showing the very first message rather
+// than staying scrolled to the most recent one, unless explicitly told
+// to scroll down. Sweeping every .msg-thread on the page covers all of
+// them at once, including the multi-group view where more than one
+// exists simultaneously — scrolling one that's already short enough to
+// not need it is a harmless no-op.
+function scrollChatThreadsToBottom() {
+  document.querySelectorAll('.msg-thread').forEach(el => {
+    el.scrollTop = el.scrollHeight;
+  });
+}
+
 async function renderGroupDetail(code) {
   const groups = await getLeaderGroups(myId);
   const group = groups.find(g => g.code === code);
@@ -3677,6 +3692,7 @@ async function renderGroupDetail(code) {
       render();
     };
   });
+  scrollChatThreadsToBottom();
 }
 
 async function closeGroup(code) {
@@ -3756,6 +3772,7 @@ async function renderMemberDetail(memberId) {
     await createIndividualAction(memberId, text);
     render();
   };
+  scrollChatThreadsToBottom();
 }
 
 // ============ FRIEND ============
@@ -3944,6 +3961,7 @@ async function renderDisciple() {
         [...document.querySelectorAll(`.chat-pane[data-code="${code}"]`)].forEach(pane => {
           pane.style.display = (pane.dataset.pane === btn.dataset.pane) ? 'block' : 'none';
         });
+        scrollChatThreadsToBottom();
       };
     });
   });
@@ -4002,6 +4020,7 @@ async function renderDisciple() {
     const groupInput = document.querySelector(`.groupChatInput[data-code="${gCode}"]`);
     wireEnterToSend(groupInput, () => btn.click());
   });
+  scrollChatThreadsToBottom();
 }
 
 // Shared by every "type a message, hit Send" spot in this modal (group

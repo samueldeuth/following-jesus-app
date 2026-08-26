@@ -694,13 +694,19 @@ function renderAllStudentsRows(){
   const rowsHtml = allStudentsFilteredRows.map(r => {
     const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
     const isComplete = r.total_items > 0 && r.items_completed === r.total_items;
+    const churchOptions = allChurches.map(c => `<option value="${c.id}" ${r.church_id===c.id?'selected':''}>${c.name}</option>`).join('');
     return `
       <tr data-student-id="${r.student_id}" data-course-id="${r.course_id}" data-enrollment-id="${r.enrollment_id}">
         <td class="clickable-cell" data-open="true">
           <div class="student-name">${r.full_name || 'Unnamed student'}</div>
           <div class="student-email">${r.student_email || ''}</div>
         </td>
-        <td>${r.church_name || 'No Church Assigned'}</td>
+        <td>
+          <select class="church-assign-select" data-enrollment-id="${r.enrollment_id}" data-student-id="${r.student_id}">
+            <option value="">${r.church_id ? 'No Church Assigned' : 'Assign a church…'}</option>
+            ${churchOptions}
+          </select>
+        </td>
         <td class="clickable-cell" data-open="true">
           <div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${r.items_completed}/${r.total_items}</span></div>
         </td>
@@ -739,6 +745,29 @@ function renderAllStudentsRows(){
       const { data: cert } = await supabaseClient.from('certificates').select('certificate_code').eq('student_id', btn.dataset.viewCert).eq('course_id', btn.dataset.certCourse).maybeSingle();
       if(cert) window.open(`certificate.html?code=${cert.certificate_code}`, '_blank');
       else alert('No certificate found yet for this student.');
+    });
+  });
+
+  document.querySelectorAll('#all-students-tbody .church-assign-select').forEach(sel => {
+    sel.addEventListener('click', (e) => e.stopPropagation());
+    sel.addEventListener('change', async () => {
+      if(!sel.value) return;
+      const newChurchId = sel.value;
+      // Same pattern as the No Church Assigned view — update both the
+      // enrollment (what the dashboards filter by) and the student's own
+      // profile (what the course page uses for branding when they're
+      // logged in), so the assignment stays consistent everywhere.
+      await Promise.all([
+        supabaseClient.from('enrollments').update({ church_id: newChurchId }).eq('id', sel.dataset.enrollmentId),
+        supabaseClient.from('profiles').update({ church_id: newChurchId }).eq('id', sel.dataset.studentId)
+      ]);
+      const row = allRows.find(r => r.enrollment_id === sel.dataset.enrollmentId);
+      if(row){
+        row.church_id = newChurchId;
+        const ch = allChurches.find(c => c.id === newChurchId);
+        row.church_name = ch ? ch.name : null;
+      }
+      renderAllStudentsRows();
     });
   });
 }
