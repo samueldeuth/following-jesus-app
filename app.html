@@ -1508,6 +1508,16 @@
    is also used on the Today tab (still black background, white text is
    still correct there). Scoped so only this modal's instance changes. */
 #discipleModal .global-count-banner { color: rgba(10,10,10,0.55); }
+
+/* Profile view (name/email) and the account/Google-sign-in screen's
+   buttons + note text — all still white-on-white against this modal's
+   light background, since none of these were touched by the earlier
+   background pass. .secondary-btn also covers the Google sign-in button
+   on this modal's account screen, not just Edit Profile/Log Out. */
+#discipleModal .profile-view-name { color: var(--black); }
+#discipleModal .profile-view-email { color: rgba(10,10,10,0.55); }
+#discipleModal .secondary-btn { color: var(--black); border-color: rgba(10,10,10,0.25); }
+#discipleModal .dm-note { color: rgba(10,10,10,0.5); }
 </style>
 </head>
 <body>
