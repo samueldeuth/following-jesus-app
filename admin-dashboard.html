@@ -154,6 +154,21 @@
   .qa-answer.empty{color:var(--ink-soft);font-style:italic;}
   .qa-reply{background:var(--bg-soft);border-radius:8px;padding:10px 12px;font-size:13.5px;margin-bottom:8px;}
   .qa-reply .label{font-size:11px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:3px;}
+
+  .session-group{border:1px solid var(--line);border-radius:var(--radius);margin-bottom:14px;overflow:hidden;}
+  .session-group summary{
+    cursor:pointer;padding:14px 18px;font-weight:600;font-size:14.5px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    list-style:none;background:var(--bg-soft);
+  }
+  .session-group summary::-webkit-details-marker{display:none;}
+  .session-group summary::marker{content:'';}
+  .session-group .session-progress{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--ink-soft);white-space:nowrap;}
+  .session-group .chevron{transition:transform 0.15s;display:inline-block;}
+  .session-group[open] .chevron{transform:rotate(90deg);}
+  .session-group-body{padding:16px 18px;}
+  .session-group-body .qa-block{border:none;border-radius:0;padding:0;margin-bottom:0;}
+  .session-group-body .qa-block + .qa-block{border-top:1px solid var(--line);margin-top:16px;padding-top:16px;}
   .reply-box{width:100%;border:1.5px solid var(--line);border-radius:8px;padding:10px;font-family:'Inter',sans-serif;font-size:13.5px;min-height:60px;}
   .reply-btn{margin-top:8px;background:var(--ink);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12.5px;font-weight:600;cursor:pointer;}
 
@@ -1468,13 +1483,27 @@ async function renderStudentDetail(studentId, courseId){
   const responseByQ = {};
   (responses||[]).forEach(r => { responseByQ[r.question_id] = r; });
 
-  const blocksHtml = discussionItems.map(item => {
-    const itemQuestions = (questions||[]).filter(q=>q.item_id===item.id);
-    return itemQuestions.map(q => {
+  // Group questions by session (in session order) instead of one long
+  // flat list — each session becomes its own expand/collapse block, so
+  // reviewing one session's answers doesn't mean scrolling past every
+  // other session's too.
+  const questionsByItem = {};
+  (questions||[]).forEach(q => { (questionsByItem[q.item_id] = questionsByItem[q.item_id] || []).push(q); });
+
+  const sessionGroups = (sessions||[])
+    .map(s => {
+      const items = (s.session_items||[]).filter(i => i.type === 'discussion');
+      const sessionQuestions = items.flatMap(i => questionsByItem[i.id] || []);
+      return { session: s, questions: sessionQuestions };
+    })
+    .filter(g => g.questions.length > 0);
+
+  const sessionsHtml = sessionGroups.map((g, idx) => {
+    const answeredCount = g.questions.filter(q => responseByQ[q.id]?.response_text).length;
+    const qaHtml = g.questions.map(q => {
       const r = responseByQ[q.id];
       return `
         <div class="qa-block">
-          <div class="qa-session">${item.sessionTitle}</div>
           <div class="qa-question">${q.question_text}</div>
           <div class="qa-answer ${r?.response_text ? '' : 'empty'}">${r?.response_text || 'No answer yet'}</div>
           ${r?.admin_reply ? `<div class="qa-reply"><div class="label">Reply</div>${r.admin_reply}</div>` : ''}
@@ -1483,18 +1512,37 @@ async function renderStudentDetail(studentId, courseId){
             <button class="reply-btn" data-response-id="${r.id}">Send Reply</button>` : ''}
         </div>`;
     }).join('');
+    // First session starts expanded as a preview; the rest start
+    // collapsed so a student with many sessions doesn't load into a
+    // wall of answers.
+    return `
+      <details class="session-group" ${idx===0 ? 'open' : ''}>
+        <summary>
+          <span>${g.session.title}</span>
+          <span class="session-progress">${answeredCount}/${g.questions.length} answered <span class="chevron">›</span></span>
+        </summary>
+        <div class="session-group-body">${qaHtml}</div>
+      </details>`;
   }).join('');
 
   content.innerHTML = `
     <div class="back-link" id="back-to-list">&larr; Back to ${viewingAllStudents ? 'All Students' : (row?.church_name || 'students')}</div>
     <h2 style="font-family:'Space Grotesk',sans-serif;margin-bottom:4px;">${row?.full_name || 'Student'}</h2>
-    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:24px;">${row?.course_title || ''} · ${row?.student_email || ''}</p>
-    ${blocksHtml || '<p style="color:var(--ink-soft);">No discussion questions found for this course.</p>'}
+    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:16px;">${row?.course_title || ''} · ${row?.student_email || ''}</p>
+    ${sessionGroups.length ? `<div style="margin-bottom:14px;"><button class="mini-btn" id="expand-all-btn">Expand All</button> <button class="mini-btn" id="collapse-all-btn">Collapse All</button></div>` : ''}
+    ${sessionsHtml || '<p style="color:var(--ink-soft);">No discussion questions found for this course.</p>'}
   `;
 
   document.getElementById('back-to-list').addEventListener('click', () => {
     if(viewingAllStudents) renderAllStudents();
     else renderChurchStudents(activeChurchId);
+  });
+
+  document.getElementById('expand-all-btn')?.addEventListener('click', () => {
+    content.querySelectorAll('.session-group').forEach(el => { el.open = true; });
+  });
+  document.getElementById('collapse-all-btn')?.addEventListener('click', () => {
+    content.querySelectorAll('.session-group').forEach(el => { el.open = false; });
   });
 
   content.querySelectorAll('.reply-btn').forEach(btn => {
