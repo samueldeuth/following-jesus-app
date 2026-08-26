@@ -4929,10 +4929,26 @@ async function ensureRealIdentity() {
   // name in chat as "Friend" — the message's sender_id was always
   // correct, but no matching profiles row with their real name existed
   // for that id, so every name lookup fell back to the placeholder.
+  //
+  // Checking for a blank name specifically, not just a missing row — a
+  // profiles row commonly gets auto-created the instant someone first
+  // signs up (a database trigger reacting to the new auth.users row,
+  // before any of this app's own code ever runs), which meant a row
+  // already existed with a blank name, and the previous "only create if
+  // totally missing" check saw that row and considered the job done,
+  // never actually writing the real name in.
   if (account.name) {
-    const { data: existingProfile } = await supabaseClient.from('profiles').select('id').eq('id', resolvedId).maybeSingle();
-    if (!existingProfile) {
-      syncSharedProfile({ ...account, id: resolvedId });
+    const { data: existingProfile } = await supabaseClient.from('profiles').select('id, full_name, photo_url').eq('id', resolvedId).maybeSingle();
+    if (!existingProfile || !existingProfile.full_name) {
+      // Preserve whatever photo_url is already in the database rather
+      // than letting this device's local (possibly stale or blank)
+      // copy overwrite a photo uploaded from a different device — only
+      // fall back to the local copy if the database genuinely has none.
+      await supabaseClient.from('profiles').upsert({
+        id: resolvedId,
+        full_name: account.name,
+        photo_url: existingProfile?.photo_url ?? (account.photoUrl || null)
+      }, { onConflict: 'id' });
     }
   }
   return resolvedId;
