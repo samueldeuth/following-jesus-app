@@ -344,9 +344,11 @@ let sidebarStatusFilter = 'all';
 // Courses that get their own sidebar entry instead of being buried as a
 // per-church filter — these are NOT white-labeled (no per-church variants),
 // so each one shows every enrolled student regardless of church. Add future
-// non-white-labeled courses here; each just needs its real course_id.
+// non-white-labeled courses here; each just needs its real course_id and its
+// actual live URL (the path alone doesn't reliably follow from the title, so
+// this is spelled out explicitly rather than derived).
 const NON_WHITE_LABEL_COURSES = [
-  { id: '9fd36fd4-8c3d-4305-a7dd-d2a1d7f3abcc', title: 'Process of Promotion' }
+  { id: '9fd36fd4-8c3d-4305-a7dd-d2a1d7f3abcc', title: 'Process of Promotion', url: 'https://followingjesus.com/theprocessofpromotion' }
 ];
 // Mirrors activeChurchId, but for the course-sidebar-entry view above —
 // kept separate so a course view and a church view can never both read as
@@ -1702,6 +1704,8 @@ async function renderCourseStudents(courseId, courseTitle){
   selectedEnrollmentIds.clear();
   renderSidebar();
 
+  const courseConfig = NON_WHITE_LABEL_COURSES.find(c => c.id === courseId);
+
   const courseRows = allRows.filter(r => r.course_id === courseId);
   const rows = courseRows.filter(r => studentViewMode === 'archived' ? r.status === 'archived' : r.status !== 'archived');
   const activeCount = courseRows.filter(r => r.status !== 'archived').length;
@@ -1741,6 +1745,7 @@ async function renderCourseStudents(courseId, courseTitle){
       <button class="mini-btn" id="export-course-btn">Export Students (CSV)</button>
       <button class="mini-btn gold" id="view-report-btn">View Progress Report</button>
     </div>
+    ${courseConfig?.url ? `<p class="field-hint" style="margin-bottom:14px;">Link: <a href="${courseConfig.url}" target="_blank" rel="noopener">${courseConfig.url.replace(/^https?:\/\//, '')}</a></p>` : ''}
 
     <div id="course-students-batch-bar">${batchActionBarHtml()}</div>
     <table>

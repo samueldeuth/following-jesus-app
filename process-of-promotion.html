@@ -11,20 +11,21 @@
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Jost:wght@400;500;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=Lora:ital@1&display=swap" rel="stylesheet">
 <style>
   :root{
-    --yellow:#F5E100;
-    --ink:#141210;
-    --cream:#FBF7EC;
-    --gold:#A9822E;
-    --line:rgba(20,18,16,0.12);
+    --yellow:#FEF200;
+    --ink:#17191D;
+    --ink-soft:#6B7280;
+    --bg:#FFFFFF;
+    --bg-soft:#F4F4F2;
+    --line:#E4E3DD;
     --white:#FFFFFF;
   }
   *{box-sizing:border-box;}
   html{scroll-behavior:smooth;}
   body{
-    margin:0;background:var(--cream);color:var(--ink);
+    margin:0;background:var(--bg);color:var(--ink);
     font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;
     line-height:1.6;
   }
@@ -36,23 +37,23 @@
   .topbar .wrap{display:flex;align-items:center;justify-content:space-between;}
   .topbar .wordmark{height:22px;display:block;}
   .topbar a.enroll-link{
-    font-family:'Jost',sans-serif;font-weight:600;font-size:12px;letter-spacing:0.08em;
+    font-family:'Inter',sans-serif;font-weight:600;font-size:12px;letter-spacing:0.06em;
     text-transform:uppercase;color:var(--yellow);text-decoration:none;
     border:1px solid var(--yellow);padding:8px 16px;border-radius:100px;
   }
 
   /* ---------- Hero ---------- */
   .hero{background:var(--yellow);padding:48px 0 56px;}
-  .hero-art{width:100%;max-width:100%;display:block;border-radius:6px;box-shadow:0 12px 32px rgba(20,18,16,0.14);}
+  .hero-art{width:100%;max-width:100%;display:block;border-radius:6px;box-shadow:0 12px 32px rgba(23,25,29,0.14);}
   .eyebrow{
-    font-family:'Jost',sans-serif;font-weight:600;font-size:12.5px;letter-spacing:0.14em;
+    font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;letter-spacing:0.1em;
     text-transform:uppercase;color:var(--ink);opacity:0.7;margin:0 0 18px;
   }
   .hero-cta-row{margin-top:32px;text-align:center;}
   .hero-cta{
     display:inline-block;background:var(--ink);color:var(--yellow);text-decoration:none;
-    font-family:'Jost',sans-serif;font-weight:600;font-size:14px;letter-spacing:0.04em;
-    text-transform:uppercase;padding:16px 30px;border-radius:100px;
+    font-family:'Inter',sans-serif;font-weight:600;font-size:14px;letter-spacing:0.02em;
+    padding:16px 30px;border-radius:100px;
   }
   .hero-cta:hover{opacity:0.88;}
 
@@ -63,8 +64,8 @@
   /* ---------- Nine ways ---------- */
   .ways{padding:40px 0 24px;}
   .ways h2{
-    font-family:'Jost',sans-serif;font-weight:600;font-size:13px;letter-spacing:0.12em;
-    text-transform:uppercase;color:var(--gold);margin:0 0 28px;
+    font-family:'Inter',sans-serif;font-weight:600;font-size:13px;letter-spacing:0.1em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 28px;
   }
   .way{
     display:grid;grid-template-columns:56px 1fr;gap:20px;align-items:start;
@@ -73,34 +74,34 @@
   .way:last-child{border-bottom:1px solid var(--line);}
   .way-num{
     width:40px;height:40px;border-radius:50%;background:var(--ink);color:var(--yellow);
-    font-family:'Jost',sans-serif;font-weight:600;font-size:13px;
+    font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13px;
     display:flex;align-items:center;justify-content:center;
   }
-  .way-title{font-family:'EB Garamond',serif;font-weight:500;font-size:21px;margin:2px 0 6px;}
+  .way-title{font-family:'Lora',serif;font-style:italic;font-weight:500;font-size:21px;margin:2px 0 6px;}
   .way-desc{font-size:15px;color:var(--ink);opacity:0.72;margin:0;}
 
   /* ---------- Book cross-sell ---------- */
   .books{padding:56px 0;}
   .books h2{
-    font-family:'Jost',sans-serif;font-weight:600;font-size:13px;letter-spacing:0.12em;
-    text-transform:uppercase;color:var(--gold);margin:0 0 24px;
+    font-family:'Inter',sans-serif;font-weight:600;font-size:13px;letter-spacing:0.1em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 24px;
   }
   .books-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
   .book-card{
     background:var(--white);border:1px solid var(--line);border-radius:14px;padding:26px;
     text-decoration:none;color:var(--ink);
   }
-  .book-card .kicker{font-family:'Jost',sans-serif;font-size:11.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold);}
-  .book-card h3{font-family:'EB Garamond',serif;font-size:22px;font-weight:500;margin:8px 0 10px;}
+  .book-card .kicker{font-family:'Inter',sans-serif;font-size:11.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-soft);}
+  .book-card h3{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:600;margin:8px 0 10px;}
   .book-card p{font-size:14px;color:var(--ink);opacity:0.7;margin:0 0 14px;}
-  .book-card .link{font-family:'Jost',sans-serif;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.04em;}
+  .book-card .link{font-family:'Inter',sans-serif;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.02em;}
 
   /* ---------- CTA block ---------- */
   .cta-block{background:var(--ink);padding:64px 0;text-align:center;}
   .cta-block .eyebrow{color:var(--yellow);opacity:0.8;}
   .cta-block h2{
-    font-family:'Archivo Black',sans-serif;font-weight:400;color:var(--white);
-    font-size:clamp(28px,4.5vw,42px);line-height:1.1;margin:0 0 28px;
+    font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--white);
+    font-size:clamp(28px,4.5vw,42px);line-height:1.15;margin:0 0 28px;
   }
   .cta-block .hero-cta{background:var(--yellow);color:var(--ink);}
 
@@ -129,7 +130,7 @@
     <div class="wrap">
       <img class="hero-art" src="/assets/process-of-promotion-hero.jpg" alt="The Process of Promotion — Nine ways God uses obscurity to prepare you for your purpose. A 10-part e-course by Samuel Deuth.">
       <div class="hero-cta-row">
-        <a class="hero-cta" href="/course-promotion" id="start">Start the Course</a>
+        <a class="hero-cta" href="/theprocessofpromotion" id="start">Start the Course</a>
       </div>
     </div>
   </section>
@@ -243,7 +244,7 @@
     <div class="wrap">
       <p class="eyebrow">Ready When You Are</p>
       <h2>Your purpose is waiting on<br>the other side of obscurity.</h2>
-      <a class="hero-cta" href="/course-promotion">Start the Course</a>
+      <a class="hero-cta" href="/theprocessofpromotion">Start the Course</a>
     </div>
   </section>
 
