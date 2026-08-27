@@ -4403,7 +4403,7 @@ async function renderDisciple() {
   `;
   document.getElementById('backToHubBtn').onclick = () => { topView = 'hub'; render(); };
   wireCourseToggle('essentials', render);
-  wireMilestoneToggles(document.getElementById('milestonesCard'), myId, render);
+  wireMilestoneToggles(document.getElementById('milestonesCard'), myId, () => render(true));
   document.getElementById('joinAnotherBtn').onclick = async () => {
     const codeInput = (await showAppPrompt("Enter the invite code", "e.g. AB12CD"))?.trim().toUpperCase();
     if (!codeInput) return;
@@ -4863,7 +4863,7 @@ async function renderDiscipleshipHub() {
     btn.onclick = () => { topView = 'disciple'; render(); };
   });
   const hubMilestonesCard = document.getElementById('hubMilestonesCard');
-  if (hubMilestonesCard) wireMilestoneToggles(hubMilestonesCard, myId, render);
+  if (hubMilestonesCard) wireMilestoneToggles(hubMilestonesCard, myId, () => render(true));
   if (!isApprovedLeader) {
     document.getElementById('goLeaderDash').onclick = () => { topView = 'leader'; render(); };
     document.getElementById('inviteAFriendBtn').onclick = async () => {
