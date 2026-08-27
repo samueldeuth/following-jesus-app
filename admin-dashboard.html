@@ -1409,6 +1409,13 @@ async function renderChurchStudents(churchId){
       <div id="promote-admin-results"></div>
       <span id="promote-status" style="font-size:12.5px;color:var(--ink-soft);"></span>
 
+      <h4 class="field-section-title">Church Contact <span style="font-weight:400;text-transform:none;letter-spacing:normal;color:var(--ink-soft);">(optional — for reference only, doesn't grant any access)</span></h4>
+      <p class="field-hint" style="margin-bottom:8px;">Who to reach out to about this church — doesn't have to be the same person as the Church Admin above.</p>
+      <label class="field-label">Contact Name</label>
+      <input type="text" class="field-input" id="edit-contact-name" value="${(church?.contact_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Pastor John Smith" />
+      <label class="field-label">Contact Email</label>
+      <input type="text" class="field-input" id="edit-contact-email" value="${(church?.contact_email||'').replace(/"/g,'&quot;')}" placeholder="pastor@example.com" />
+
       <label class="field-label">Accent Color</label>
       <div class="color-field-row">
         <input type="color" class="color-swatch" id="edit-church-color-picker" value="${/^#[0-9a-fA-F]{6}$/.test(church?.primary_color||'') ? church.primary_color : '#3E82F7'}" />
@@ -1562,6 +1569,8 @@ async function renderChurchStudents(churchId){
       slug: newSlug,
       primary_color: document.getElementById('edit-church-color').value.trim() || null,
       course_status: document.getElementById('edit-course-status').value,
+      contact_name: document.getElementById('edit-contact-name').value.trim() || null,
+      contact_email: document.getElementById('edit-contact-email').value.trim() || null,
       letter_title: document.getElementById('edit-letter-title').value.trim() || null,
       letter_subtitle: document.getElementById('edit-letter-subtitle').value.trim() || null,
       letter_body: document.getElementById('edit-letter-body').value.trim() || null,
