@@ -1157,6 +1157,41 @@
   .disciple-app-scope .group-header-bar .name { font-family:var(--font-display); font-weight:900; font-size:19px; letter-spacing:0.03em; color: var(--white); text-transform:uppercase; }
   .disciple-app-scope .leader-info-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; }
   .disciple-app-scope .leader-avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+
+  /* Compact "people in this group" row -- sits right under the group
+     banner, showing who's in the group as a row of overlapping avatar
+     circles at a glance, rather than requiring the person to open a
+     collapsible section first just to see who's here. */
+  .disciple-app-scope .people-row-card {
+    background: var(--white); margin: 0 20px; padding: 14px 18px;
+    border-radius: 0 0 10px 10px; display: flex; align-items: center;
+    justify-content: space-between; gap: 12px; cursor: pointer;
+    border-bottom: 1px solid var(--rule);
+  }
+  .disciple-app-scope .people-row-avatars { display: flex; align-items: center; }
+  .disciple-app-scope .people-row-avatar {
+    width: 34px; height: 34px; border-radius: 50%; object-fit: cover;
+    border: 2px solid var(--white); margin-left: -10px; flex-shrink: 0;
+  }
+  .disciple-app-scope .people-row-avatar:first-child { margin-left: 0; }
+  .disciple-app-scope .people-row-avatar-fallback {
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(200,155,60,0.18); color: var(--ember);
+    font-family: var(--font-display); font-weight: 800; font-size: 13px;
+  }
+  .disciple-app-scope .people-row-overflow {
+    width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--white);
+    margin-left: -10px; flex-shrink: 0; background: var(--paper); color: var(--ink-soft);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-weight: 700; font-size: 11px;
+  }
+  .disciple-app-scope .people-row-label { font-size: 12.5px; color: var(--ink-soft); margin-left: 10px; white-space: nowrap; }
+  .disciple-app-scope .people-row-add-btn {
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+    background: var(--black); color: var(--white); border: none;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .disciple-app-scope .people-row-add-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; }
   .disciple-app-scope .leader-avatar-fallback {
     display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.12);
     font-family: var(--font-display); font-weight: 800; font-size: 11px; color: var(--ember);
@@ -2650,6 +2685,20 @@
 // ============================================================
 const escapeHtml = escapeHtmlMain;
 
+// Renders a small circular avatar — the person's photo if they have
+// one, or a colored circle with their first initial as a fallback if
+// not. sizeClass picks the CSS variant (e.g. "people-row-avatar"),
+// which also supplies a matching "<sizeClass>-fallback" class for the
+// no-photo case.
+function memberAvatarHtml(name, photoUrl, sizeClass) {
+  const initial = (name || '?').charAt(0).toUpperCase();
+  if (photoUrl) {
+    return `<img class="${sizeClass}" src="${photoUrl}" alt="${escapeHtml(name || '')}" />`;
+  }
+  return `<span class="${sizeClass} ${sizeClass}-fallback">${escapeHtml(initial)}</span>`;
+}
+
+
 
 const STEPS = [
   "Introduction: Following Jesus", "Prayer & Worship", "The Bible", "Water Baptism",
@@ -3563,7 +3612,7 @@ async function renderMentor() {
         await showAppAlert(`That didn't save.\n\nDetails: ${result.error || 'unknown error'}`);
         return;
       }
-      render();
+      renderPreservingScroll(render);
     };
     return;
   }
@@ -3623,7 +3672,7 @@ async function wireLeaderQuickActions() {
       const label = await showAppPrompt('Name this group', 'e.g. "Wednesday Youth Group"');
       if (!label || !label.trim()) return;
       const newCode = await createNewGroup(label.trim());
-      render();
+      await renderPreservingScroll(render);
       showShareModal(newCode, label.trim());
     };
   }
@@ -3690,17 +3739,7 @@ function subscribeToChatUpdates() {
   let debounceTimer = null;
   const debouncedRerender = () => {
     clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(async () => {
-      // Same fix as sendChatMessage: a re-render here can also replace
-      // the focused input's container, dismissing the keyboard and
-      // jumping the whole page to the top — not just resetting
-      // discipleBody's own internal scroll.
-      const scrollPosition = discipleBody.scrollTop;
-      const pageScrollPosition = window.scrollY;
-      await render(true);
-      discipleBody.scrollTop = scrollPosition;
-      window.scrollTo(0, pageScrollPosition);
-    }, 250);
+    debounceTimer = setTimeout(() => renderPreservingScroll(() => render(true)), 250);
   };
   activeChatChannel = supabaseClient
     .channel('chat-updates')
@@ -3766,15 +3805,8 @@ function renderMessageHtml(m, isMe, senderLabel, extraTagHtml, extraClass) {
 // every message bubble currently on the page.
 function wireMessageReactions() {
   const reactAndRerender = async (messageId, emoji) => {
-    // Same fix as sendChatMessage and the realtime rerender — reacting
-    // re-renders the page too, with the same risk of the whole page
-    // jumping to the top, not just discipleBody's own scroll.
-    const scrollPosition = discipleBody.scrollTop;
-    const pageScrollPosition = window.scrollY;
     await toggleMessageReaction(messageId, emoji);
-    await render();
-    discipleBody.scrollTop = scrollPosition;
-    window.scrollTo(0, pageScrollPosition);
+    await renderPreservingScroll(render);
   };
 
   // Tapping a bubble reveals that message's reaction row (closing any
@@ -3869,6 +3901,15 @@ async function renderGroupDetail(code) {
     <button type="button" class="course-select-btn ${cid === groupCourseId ? 'active' : ''}" data-course="${cid}">${escapeHtml(COURSES[cid].title)}</button>
   `).join('');
 
+  // Up to 5 avatars shown as an overlapping row, then a "+N" circle for
+  // anyone beyond that — same pattern as the facepile used in most chat
+  // and social apps for "who's in this".
+  const maxAvatarsShown = 5;
+  const avatarMembers = members.slice(0, maxAvatarsShown);
+  const avatarOverflowCount = members.length - avatarMembers.length;
+  const avatarsRowHtml = avatarMembers.map(m => memberAvatarHtml(m.name, m.photoUrl, 'people-row-avatar')).join('')
+    + (avatarOverflowCount > 0 ? `<span class="people-row-overflow">+${avatarOverflowCount}</span>` : '');
+
   main.innerHTML = `
     <a class="back-link" id="backToHubBtn">← My Discipleship</a>
     <a class="back-link" id="backBtn">← All Groups</a>
@@ -3876,24 +3917,23 @@ async function renderGroupDetail(code) {
       <div class="eyebrow">Group</div>
       <div class="name">${escapeHtml(group ? group.label : '')}</div>
     </div>
-    <button type="button" class="invite-toggle-btn" id="inviteToggleBtn">
-      <span>Invite Someone to Join</span>
-      <svg class="course-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
-    <div class="card invite-toggle-body" id="inviteToggleBody" style="border-radius:0 0 2px 2px; margin-top:0;">
+    <div class="people-row-card" id="peopleRowCard">
+      <div class="people-row-avatars">${avatarsRowHtml}</div>
+      <div class="people-row-label">${members.length} ${members.length === 1 ? 'person' : 'people'}</div>
+      <button type="button" class="people-row-add-btn" id="peopleRowAddBtn" title="Invite someone to join">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
+
+    <div class="card invite-toggle-body" id="inviteToggleBody" style="margin:0 20px;border-radius:0 0 10px 10px;">
       <div class="code-display">
         <div class="code">${code}</div>
         <div class="hint">Share this code — anyone who enters it joins this group</div>
       </div>
       <button class="secondary" id="reshareBtn">Share Invite</button>
     </div>
-    <div class="group-section-spacer"></div>
 
-    <button type="button" class="invite-toggle-btn" id="peopleToggleBtn">
-      <span>People in This Group (${members.length})</span>
-      <svg class="course-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
-    <div class="card invite-toggle-body" id="peopleToggleBody" style="border-radius:0 0 2px 2px; margin-top:0;">
+    <div class="card invite-toggle-body" id="peopleToggleBody" style="margin:0 20px;border-radius:0 0 10px 10px;">
       <p class="dm-p" style="margin-bottom:14px;">Everyone here can see each other's progress on the group's course.</p>
       ${membersHtml}
       ${notInGroup.length > 0 ? `
@@ -3904,6 +3944,7 @@ async function renderGroupDetail(code) {
         <button class="secondary" id="addExistingBtn">Add to Group</button>
       </div>` : ''}
     </div>
+    <div class="group-section-spacer"></div>
 
     <div class="group-course-card">
       <div class="section-label" style="margin-top:0;">This Group's Course</div>
@@ -3934,17 +3975,16 @@ async function renderGroupDetail(code) {
   document.getElementById('backBtn').onclick = () => { view = 'home'; activeGroupCode = null; render(); };
   document.getElementById('backToHubBtn').onclick = () => { topView = 'hub'; view = 'home'; activeGroupCode = null; activeMemberId = null; render(); };
   document.getElementById('reshareBtn').onclick = () => showShareModal(code, group ? group.label : '');
-  document.getElementById('inviteToggleBtn').onclick = () => {
-    const body = document.getElementById('inviteToggleBody');
-    const btn = document.getElementById('inviteToggleBtn');
-    const nowOpen = body.classList.toggle('open');
-    btn.classList.toggle('open', nowOpen);
+  // Tapping the row (avatars/label) opens the detailed member list;
+  // tapping + specifically opens the invite code instead — stopping
+  // propagation there so it doesn't also toggle the member list, since
+  // the + button sits inside the same clickable row.
+  document.getElementById('peopleRowCard').onclick = () => {
+    document.getElementById('peopleToggleBody').classList.toggle('open');
   };
-  document.getElementById('peopleToggleBtn').onclick = () => {
-    const body = document.getElementById('peopleToggleBody');
-    const btn = document.getElementById('peopleToggleBtn');
-    const nowOpen = body.classList.toggle('open');
-    btn.classList.toggle('open', nowOpen);
+  document.getElementById('peopleRowAddBtn').onclick = (e) => {
+    e.stopPropagation();
+    document.getElementById('inviteToggleBody').classList.toggle('open');
   };
   document.getElementById('teacherViewToggleBtn').onclick = () => {
     const body = document.getElementById('teacherViewToggleBody');
@@ -3956,7 +3996,7 @@ async function renderGroupDetail(code) {
     btn.onclick = async () => {
       const chosenId = btn.dataset.course;
       await setGroupCourse(code, chosenId);
-      render();
+      renderPreservingScroll(render);
     };
   });
   document.getElementById('closeGroupBtn').onclick = async () => {
@@ -3983,7 +4023,7 @@ async function renderGroupDetail(code) {
     addBtn.onclick = async () => {
       const discipleId = document.getElementById('addExistingSelect').value;
       await addDiscipleToGroupByCode(code, discipleId);
-      render();
+      renderPreservingScroll(render);
     };
   }
   [...document.querySelectorAll('[data-removeid]')].forEach(el => {
@@ -3993,7 +4033,7 @@ async function renderGroupDetail(code) {
       const disc = members.find(m => m.id === discipleId);
       if (!(await showAppConfirm(`Remove ${disc ? disc.name : 'this person'} from "${group ? group.label : 'this group'}"? They'll keep their other progress with you, just not this group.`))) return;
       await removeFromGroupByCode(code, discipleId);
-      render();
+      renderPreservingScroll(render);
     };
   });
   scrollChatThreadsToBottom();
@@ -4271,7 +4311,7 @@ async function renderDisciple() {
       if (result.error) await showAppAlert(result.error);
       return;
     }
-    render();
+    renderPreservingScroll(render);
   };
 
   [...document.querySelectorAll('.chat-toggle')].forEach(toggle => {
@@ -4311,7 +4351,7 @@ async function renderDisciple() {
       const code = btn.dataset.leaveCode;
       if (!(await showAppConfirm('Leave this group? You can rejoin later with the invite code if you change your mind.'))) return;
       await leaveGroupByCode(code);
-      render();
+      renderPreservingScroll(render);
     };
   });
 
@@ -4320,7 +4360,7 @@ async function renderDisciple() {
       const id = btn.dataset.actionId;
       const isDone = btn.classList.contains('done');
       await toggleActionDone(id, isDone);
-      render();
+      renderPreservingScroll(render);
     };
   });
 
@@ -4356,6 +4396,21 @@ async function renderDisciple() {
 // previous behavior cleared the input and re-rendered regardless of
 // whether the message actually saved, which is what made a failed send
 // look identical to a successful one.
+// Wraps any action that triggers a re-render so the page doesn't jump
+// back to the top afterward. Root cause: replacing content can make
+// whatever's currently focused (a chat input, especially) lose focus,
+// which on mobile dismisses the keyboard — and that keyboard dismissal
+// itself resets the whole page's scroll position, on top of whatever
+// happens to discipleBody's own internal scroll. Both need capturing
+// and restoring, not just one.
+async function renderPreservingScroll(renderFn) {
+  const scrollPosition = discipleBody.scrollTop;
+  const pageScrollPosition = window.scrollY;
+  await renderFn();
+  discipleBody.scrollTop = scrollPosition;
+  window.scrollTo(0, pageScrollPosition);
+}
+
 async function sendChatMessage(input, sendFn, onSuccess) {
   const body = input.value.trim();
   if (!body) return;
@@ -4373,22 +4428,7 @@ async function sendChatMessage(input, sendFn, onSuccess) {
   // the page — capture where the person actually was and restore it
   // right after, so sending a message doesn't throw them back to the
   // top and force them to scroll all the way back down to see it.
-  // onSuccess must be awaited here since render() is itself async —
-  // restoring scroll before the re-render has actually finished
-  // replacing the page content would just get overwritten the moment
-  // it does finish.
-  //
-  // The outer page scroll needs the same treatment, separately from
-  // discipleBody's own internal scroll: replacing the input field's
-  // container makes it lose focus, and on mobile that dismisses the
-  // keyboard — which itself resets the whole page's scroll position
-  // back to the very top, on top of (not instead of) whatever was
-  // happening inside discipleBody.
-  const scrollPosition = discipleBody.scrollTop;
-  const pageScrollPosition = window.scrollY;
-  await onSuccess();
-  discipleBody.scrollTop = scrollPosition;
-  window.scrollTo(0, pageScrollPosition);
+  await renderPreservingScroll(onSuccess);
 }
 
 // Same idea as sendChatMessage above, but for text inputs where Enter
@@ -4706,7 +4746,7 @@ async function renderDiscipleshipHub() {
             e.stopPropagation();
             if (!(await showAppConfirm('Remove this disciple? This deletes their progress and messages with you.'))) return;
             await removeDisciple(el.dataset.delid);
-            render();
+            renderPreservingScroll(render);
           };
         });
       }
@@ -4895,9 +4935,10 @@ async function getLeaderDisciples(leaderId) {
   if (!memberships || !memberships.length) return [];
 
   const discipleIds = [...new Set(memberships.map(m => m.disciple_id))];
-  const { data: profiles } = await supabaseClient.from('profiles').select('id, full_name').in('id', discipleIds);
+  const { data: profiles } = await supabaseClient.from('profiles').select('id, full_name, photo_url').in('id', discipleIds);
   const nameById = {};
-  (profiles || []).forEach(p => { nameById[p.id] = p.full_name || 'Friend'; });
+  const photoById = {};
+  (profiles || []).forEach(p => { nameById[p.id] = p.full_name || 'Friend'; photoById[p.id] = p.photo_url || null; });
 
   const groupIds = [...new Set(memberships.map(m => m.group_id).filter(Boolean))];
   const labelByGroupId = {};
@@ -4908,7 +4949,7 @@ async function getLeaderDisciples(leaderId) {
 
   const byDisciple = {};
   memberships.forEach(m => {
-    if (!byDisciple[m.disciple_id]) byDisciple[m.disciple_id] = { id: m.disciple_id, name: nameById[m.disciple_id] || 'Friend', groups: [] };
+    if (!byDisciple[m.disciple_id]) byDisciple[m.disciple_id] = { id: m.disciple_id, name: nameById[m.disciple_id] || 'Friend', photoUrl: photoById[m.disciple_id] || null, groups: [] };
     if (m.group_id && labelByGroupId[m.group_id]) byDisciple[m.disciple_id].groups.push(labelByGroupId[m.group_id]);
   });
   return Object.values(byDisciple);
