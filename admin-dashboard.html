@@ -129,6 +129,15 @@
   tbody tr.clickable:hover{background:var(--bg-soft);}
   .student-name{font-weight:600;}
   .student-email{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+
+  .merge-col{flex:1;min-width:280px;}
+  .merge-col-label{font-weight:600;font-size:14px;margin-bottom:2px;}
+  .merge-col-hint{font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);}
+  .row:last-child{border-bottom:none;}
+  .row .info{flex:1;min-width:0;}
+  .row .name{font-weight:600;font-size:13.5px;}
+  .row .sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
   .bar-wrap{display:flex;align-items:center;gap:10px;}
   .bar-track{flex:1;height:7px;background:var(--bg-soft);border-radius:4px;overflow:hidden;min-width:70px;}
   .bar-fill{height:100%;background:var(--ink);}
@@ -259,6 +268,7 @@
     <div id="admin-account-info"></div>
     <a class="sidebar-link" id="sidebar-overview-link">Overview</a>
     <a class="sidebar-link" id="sidebar-all-students-link">All Students</a>
+    <a class="sidebar-link" id="sidebar-merge-accounts-link">Merge Accounts</a>
     <div class="sidebar-section-title">Churches (<span id="sidebar-church-count">0</span>)</div>
     <div class="sidebar-status-filters" id="sidebar-status-filters">
       <button class="status-filter-btn active" data-status-filter="all">All</button>
@@ -326,6 +336,7 @@ let viewingNoChurch = false;
 // Students), so this flag is what actually distinguishes this one for
 // sidebar highlighting and for the student-detail page's back link.
 let viewingAllStudents = false;
+let viewingMergeAccounts = false;
 // Which status tab is active in the church sidebar list — 'all' shows
 // everything, otherwise only churches matching that course_status.
 let sidebarStatusFilter = 'all';
@@ -390,6 +401,7 @@ async function init(){
   renderSidebar();
   document.getElementById('sidebar-overview-link').addEventListener('click', renderChurchesOverview);
   document.getElementById('sidebar-all-students-link').addEventListener('click', renderAllStudents);
+  document.getElementById('sidebar-merge-accounts-link').addEventListener('click', renderMergeAccounts);
   document.getElementById('sidebar-church-search').addEventListener('input', renderSidebar);
   wireAddChurchForm();
   renderChurchesOverview();
@@ -639,8 +651,9 @@ function renderSidebar(){
     btn.onclick = () => { sidebarStatusFilter = btn.dataset.statusFilter; renderSidebar(); };
   });
 
-  document.getElementById('sidebar-overview-link').classList.toggle('active', activeChurchId === null && !viewingNoChurch && !viewingAllStudents);
+  document.getElementById('sidebar-overview-link').classList.toggle('active', activeChurchId === null && !viewingNoChurch && !viewingAllStudents && !viewingMergeAccounts);
   document.getElementById('sidebar-all-students-link').classList.toggle('active', viewingAllStudents);
+  document.getElementById('sidebar-merge-accounts-link').classList.toggle('active', viewingMergeAccounts);
 }
 
 /* ---------- Level 1: all churches ---------- */
@@ -648,6 +661,7 @@ function renderChurchesOverview(){
   activeChurchId = null;
   viewingNoChurch = false;
   viewingAllStudents = false;
+  viewingMergeAccounts = false;
   renderSidebar();
   const totalChurches = allChurches.length;
   const totalStudents = allRows.length;
@@ -845,6 +859,7 @@ function renderAllStudents(){
   activeChurchId = null;
   viewingNoChurch = false;
   viewingAllStudents = true;
+  viewingMergeAccounts = false;
   selectedEnrollmentIds.clear();
   renderSidebar();
 
@@ -987,11 +1002,152 @@ function renderAllStudentsRows(){
   });
 }
 
+/* ---------- Merge duplicate accounts ---------- */
+function renderMergeAccounts(){
+  activeChurchId = null;
+  viewingNoChurch = false;
+  viewingAllStudents = false;
+  viewingMergeAccounts = true;
+  renderSidebar();
+
+  // Local-only selection state for this view -- doesn't need to persist
+  // anywhere else, so plain closure variables are enough.
+  let oldProfile = null;
+  let newProfile = null;
+
+  function searchColumnHtml(side, label, hint){
+    return `
+      <div class="merge-col" data-side="${side}">
+        <div class="merge-col-label">${label}</div>
+        <div class="merge-col-hint">${hint}</div>
+        <input type="text" class="sidebar-search" data-merge-search="${side}" placeholder="Search by name or email…" style="margin-bottom:8px;" />
+        <div data-merge-results="${side}"></div>
+      </div>`;
+  }
+
+  document.getElementById('content').innerHTML = `
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">Merge Accounts</h2>
+    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:20px;">For when someone ends up with two accounts — everything moves from the duplicate onto the one they'll keep using.</p>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;">
+      ${searchColumnHtml('old', 'Duplicate account (will be emptied)', 'The extra account — its data moves out, nothing stays behind.')}
+      ${searchColumnHtml('new', 'Keep this account', "The one they'll actually sign in with going forward.")}
+    </div>
+    <div id="merge-action-area" style="margin-top:24px;"></div>
+    <div id="merge-result-area" style="margin-top:20px;"></div>
+  `;
+
+  function renderSelectedCard(side, profile){
+    const area = document.querySelector(`[data-merge-results="${side}"]`);
+    area.innerHTML = `
+      <div class="row" style="border:1.5px solid var(--ink);border-radius:8px;padding:10px 12px;">
+        <div class="info">
+          <div class="name">${escapeHtml(profile.full_name || 'Unnamed')}</div>
+          <div class="sub">${escapeHtml(profile.email || 'No email on file')}${profile.church_name ? ' · ' + escapeHtml(profile.church_name) : ''} · ${profile.enrollment_count} enrollment${profile.enrollment_count===1?'':'s'}</div>
+        </div>
+        <button type="button" class="mini-btn" data-merge-clear="${side}">Change</button>
+      </div>`;
+    document.querySelector(`[data-merge-clear="${side}"]`).addEventListener('click', () => {
+      if(side === 'old') oldProfile = null; else newProfile = null;
+      area.innerHTML = '';
+      document.querySelector(`[data-merge-search="${side}"]`).value = '';
+      document.querySelector(`[data-merge-search="${side}"]`).style.display = '';
+      updateActionArea();
+    });
+  }
+
+  function updateActionArea(){
+    const area = document.getElementById('merge-action-area');
+    if(!oldProfile || !newProfile){
+      area.innerHTML = '';
+      return;
+    }
+    if(oldProfile.id === newProfile.id){
+      area.innerHTML = `<p style="color:var(--red);font-size:13.5px;">Pick two different accounts — these are the same one.</p>`;
+      return;
+    }
+    area.innerHTML = `
+      <div style="background:var(--bg-soft);border-radius:10px;padding:16px 18px;">
+        <p style="margin:0 0 12px;font-size:14px;">This will move everything from <strong>${escapeHtml(oldProfile.full_name || 'the duplicate')}</strong> onto <strong>${escapeHtml(newProfile.full_name || 'the kept account')}</strong> — enrollments, course progress, discussion answers, certificates, discipleship milestones, messages, and group leadership. The duplicate account is left empty afterward, not deleted.</p>
+        <button type="button" class="mini-btn danger" id="confirm-merge-btn">Merge Accounts</button>
+      </div>`;
+    document.getElementById('confirm-merge-btn').addEventListener('click', doMerge);
+  }
+
+  async function doMerge(){
+    if(!confirm(`Merge "${oldProfile.full_name || 'this account'}" into "${newProfile.full_name || 'this account'}"? This moves all their data and can't be undone.`)) return;
+    const btn = document.getElementById('confirm-merge-btn');
+    btn.disabled = true;
+    btn.textContent = 'Merging…';
+
+    const { data, error } = await supabaseClient.rpc('merge_profiles', { p_old_id: oldProfile.id, p_new_id: newProfile.id });
+    const resultArea = document.getElementById('merge-result-area');
+
+    if(error){
+      resultArea.innerHTML = `<p style="color:var(--red);font-size:13.5px;">Merge failed: ${escapeHtml(error.message)}</p>`;
+      btn.disabled = false;
+      btn.textContent = 'Merge Accounts';
+      return;
+    }
+
+    const summary = (data && data.summary) || [];
+    const skippedRows = summary.filter(s => s.skipped > 0);
+    const rowsHtml = summary.map(s =>
+      `<tr><td>${escapeHtml(s.table)}.${escapeHtml(s.column)}</td><td>${s.moved}</td><td>${s.skipped > 0 ? `<span style="color:var(--red);">${s.skipped}</span>` : '0'}</td></tr>`
+    ).join('');
+
+    resultArea.innerHTML = `
+      <div class="card" style="border-color:var(--green,#2e7d32);">
+        <h3 style="margin-top:0;">Merge complete</h3>
+        ${skippedRows.length ? `<p style="color:var(--red);font-size:13.5px;">${skippedRows.length} table${skippedRows.length===1?'':'s'} had a row that couldn't move because the kept account already had a matching one — those were left on the duplicate for manual review.</p>` : `<p style="font-size:13.5px;color:var(--ink-soft);">Everything moved cleanly, nothing was skipped.</p>`}
+        ${summary.length ? `<table><thead><tr><th>Table</th><th>Moved</th><th>Skipped</th></tr></thead><tbody>${rowsHtml}</tbody></table>` : `<p style="font-size:13.5px;color:var(--ink-soft);">The duplicate account had no data to move.</p>`}
+      </div>`;
+
+    // Reset the form for another merge without a full page reload.
+    oldProfile = null; newProfile = null;
+    document.querySelectorAll('[data-merge-search]').forEach(el => { el.value = ''; el.style.display = ''; });
+    document.querySelectorAll('[data-merge-results]').forEach(el => { el.innerHTML = ''; });
+    document.getElementById('merge-action-area').innerHTML = '';
+  }
+
+  let searchTimers = {};
+  document.querySelectorAll('[data-merge-search]').forEach(input => {
+    input.addEventListener('input', () => {
+      const side = input.dataset.mergeSearch;
+      clearTimeout(searchTimers[side]);
+      const query = input.value.trim();
+      const resultsArea = document.querySelector(`[data-merge-results="${side}"]`);
+      if(query.length < 2){ resultsArea.innerHTML = ''; return; }
+      searchTimers[side] = setTimeout(async () => {
+        const { data, error } = await supabaseClient.rpc('search_profiles_for_merge', { p_query: query });
+        if(error){ resultsArea.innerHTML = `<p style="color:var(--red);font-size:13px;">${escapeHtml(error.message)}</p>`; return; }
+        if(!data || data.length === 0){ resultsArea.innerHTML = `<p style="color:var(--ink-soft);font-size:13px;">No matches.</p>`; return; }
+        resultsArea.innerHTML = data.map(p => `
+          <div class="row clickable-cell" data-pick="${side}" data-id="${p.id}" data-name="${escapeHtml(p.full_name || '')}" data-email="${escapeHtml(p.email || '')}" data-church="${escapeHtml(p.church_name || '')}" data-count="${p.enrollment_count}" style="cursor:pointer;">
+            <div class="info">
+              <div class="name">${escapeHtml(p.full_name || 'Unnamed')}</div>
+              <div class="sub">${escapeHtml(p.email || 'No email on file')}${p.church_name ? ' · ' + escapeHtml(p.church_name) : ''} · ${p.enrollment_count} enrollment${p.enrollment_count===1?'':'s'}</div>
+            </div>
+          </div>`).join('');
+        resultsArea.querySelectorAll('[data-pick]').forEach(row => {
+          row.addEventListener('click', () => {
+            const picked = { id: row.dataset.id, full_name: row.dataset.name, email: row.dataset.email, church_name: row.dataset.church, enrollment_count: parseInt(row.dataset.count, 10) };
+            if(side === 'old') oldProfile = picked; else newProfile = picked;
+            document.querySelector(`[data-merge-search="${side}"]`).style.display = 'none';
+            renderSelectedCard(side, picked);
+            updateActionArea();
+          });
+        });
+      }, 300);
+    });
+  });
+}
+
 /* ---------- Level 2: students within a church ---------- */
 async function renderChurchStudents(churchId){
   activeChurchId = churchId;
   viewingNoChurch = (churchId === null);
   viewingAllStudents = false;
+  viewingMergeAccounts = false;
   selectedEnrollmentIds.clear();
   renderSidebar();
   const church = allChurches.find(c => c.id === churchId);
