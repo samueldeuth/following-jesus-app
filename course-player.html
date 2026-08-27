@@ -45,10 +45,6 @@
   .logo-badge-full{display:block;width:100%;text-align:center;padding:22px 16px;box-sizing:border-box;}
   .logo-badge-img{height:30px;display:inline-block;vertical-align:middle;}
   .logo-badge-img.logo-badge-full{display:block;width:auto;height:36px;margin:20px auto;padding:0;}
-  /* Plain dark text, no background box -- for a course whose own hero
-     image is light, where the default dark badge box would look heavy
-     sitting on top of it. */
-  .logo-badge-dark{background:none;color:var(--ink);padding:0;}
   .topbar nav{display:flex;align-items:center;gap:22px;font-size:12.5px;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;}
   .topbar.on-hero nav{color:#fff;}
 
@@ -71,7 +67,7 @@
      -- dark text stays readable on top, and the image's own colors show
      through more than a heavy dark overlay would allow. */
   .hero-light{
-    background:linear-gradient(180deg, rgba(255,255,255,0.88), rgba(255,255,255,0.93)), var(--hero-bg-image) center/cover;
+    background:linear-gradient(180deg, rgba(255,255,255,0.44), rgba(255,255,255,0.47)), var(--hero-bg-image) center/cover;
     color:var(--ink);
   }
   .hero-light h1, .hero-light p{color:var(--ink);}
@@ -408,23 +404,26 @@ const COURSE_LOGO_MAP = {};
 // A course with its own hero image here gets the shaded-image hero
 // layout (its hero image as the background, with a light tint so its
 // own headline text stays visible underneath, and this course's title/
-// subtitle/logoText overlaid in dark text on top) instead of the
-// default dark-overlay-with-white-text hero built for a dark background
-// image. title/subtitle/logoText here are this hero section's own
-// copy -- separate from the course's actual title/subtitle used
-// elsewhere (sidebar, profile listing, certificates), which stay as the
-// course's real name for those more compact spots.
+// subtitle overlaid in dark text on top) instead of the default
+// dark-overlay-with-white-text hero built for a dark background image.
+// title/subtitle here are this hero section's own copy -- separate from
+// the course's actual title/subtitle used elsewhere (sidebar, profile
+// listing, certificates), which stay as the course's real name for
+// those more compact spots.
+//
+// The logo badge itself deliberately stays the plain "Following Jesus"
+// text for every course, including this one -- same cadence as the
+// Following Jesus course: the badge reinforces the shared platform, and
+// each course's own name does the distinguishing work as the hero's
+// actual title.
 const COURSE_CUSTOM_HERO_MAP = {
   '9fd36fd4-8c3d-4305-a7dd-d2a1d7f3abcc': {
     image: '/assets/process-of-promotion-hero.jpg',
-    logoText: 'The Process of Promotion',
     title: 'The Process of Promotion',
     subtitle: "This course engages God's 9 ways He uses obscurity to prepare you for your purpose!"
   }
 };
 function logoBadgeHtml(extraClass){
-  const customHero = course?.id ? COURSE_CUSTOM_HERO_MAP[course.id] : null;
-  if(customHero?.logoText) return `<div class="logo-badge logo-badge-dark${extraClass ? ' ' + extraClass : ''}">${customHero.logoText}</div>`;
   const logoUrl = course?.id ? COURSE_LOGO_MAP[course.id] : null;
   if(logoUrl) return `<img class="logo-badge-img${extraClass ? ' ' + extraClass : ''}" src="${logoUrl}" alt="${course.title}">`;
   return `<div class="logo-badge${extraClass ? ' ' + extraClass : ''}">Following Jesus</div>`;
