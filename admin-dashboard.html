@@ -129,6 +129,13 @@
   tbody tr.clickable:hover{background:var(--bg-soft);}
   .student-name{font-weight:600;}
   .student-email{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .church-link{cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:2px;}
+  .church-link:hover{text-decoration-color:var(--ink);}
+  .church-edit-btn{
+    background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:13px;
+    padding:2px 4px;margin-left:4px;border-radius:4px;
+  }
+  .church-edit-btn:hover{background:var(--bg-soft);color:var(--ink);}
 
   .merge-col{flex:1;min-width:280px;}
   .merge-col-label{font-weight:600;font-size:14px;margin-bottom:2px;}
@@ -1008,11 +1015,16 @@ function renderAllStudentsRows(){
           <div class="student-name">${r.full_name || 'Unnamed student'}</div>
           <div class="student-email">${r.student_email || ''}</div>
         </td>
-        <td>
-          <select class="church-assign-select" data-enrollment-id="${r.enrollment_id}" data-student-id="${r.student_id}">
-            <option value="">${r.church_id ? 'No Church Assigned' : 'Assign a church…'}</option>
-            ${churchOptions}
-          </select>
+        <td class="church-cell" data-enrollment-id="${r.enrollment_id}" data-student-id="${r.student_id}" data-church-id="${r.church_id || ''}">
+          ${r.church_id ? `
+            <span class="church-link" data-goto-church="${r.church_id}">${r.church_name || 'Unnamed church'}</span>
+            <button type="button" class="church-edit-btn" data-edit-church-cell title="Change church">✎</button>
+          ` : `
+            <select class="church-assign-select" data-enrollment-id="${r.enrollment_id}" data-student-id="${r.student_id}">
+              <option value="">Assign a church…</option>
+              ${churchOptions}
+            </select>
+          `}
         </td>
         <td class="clickable-cell" data-open="true">
           <div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${r.items_completed}/${r.total_items}</span></div>
@@ -1045,7 +1057,10 @@ function renderAllStudentsRows(){
     });
   });
 
-  document.querySelectorAll('#all-students-tbody .church-assign-select').forEach(sel => {
+  // Reusable so the same click/change wiring applies whether the select
+  // is part of the initial render below, or swapped in later by the
+  // edit-pencil handler for a student who already has a church.
+  function wireChurchAssignSelect(sel){
     sel.addEventListener('click', (e) => e.stopPropagation());
     sel.addEventListener('change', async () => {
       if(!sel.value) return;
@@ -1065,6 +1080,28 @@ function renderAllStudentsRows(){
         row.church_name = ch ? ch.name : null;
       }
       renderAllStudentsRows();
+    });
+  }
+  document.querySelectorAll('#all-students-tbody .church-assign-select').forEach(wireChurchAssignSelect);
+
+  // Most students already have a church (they signed up through a
+  // specific church's link) -- for those, the common action is jumping
+  // straight to that church's own dashboard, not reassigning them. The
+  // dropdown only shows by default for students with no church yet; a
+  // small edit pencil lets you swap to it on demand for anyone who does.
+  document.querySelectorAll('#all-students-tbody [data-goto-church]').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.stopPropagation();
+      renderChurchStudents(link.dataset.gotoChurch);
+    });
+  });
+  document.querySelectorAll('#all-students-tbody [data-edit-church-cell]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const cell = btn.closest('.church-cell');
+      const churchOptions = allChurches.map(c => `<option value="${c.id}" ${cell.dataset.churchId===c.id?'selected':''}>${c.name}</option>`).join('');
+      cell.innerHTML = `<select class="church-assign-select" data-enrollment-id="${cell.dataset.enrollmentId}" data-student-id="${cell.dataset.studentId}"><option value="">Assign a church…</option>${churchOptions}</select>`;
+      wireChurchAssignSelect(cell.querySelector('.church-assign-select'));
     });
   });
 
