@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Process of Promotion — A Course by Samuel Deuth</title>
+<meta name="description" content="Nine ways God uses obscurity to prepare you for your purpose. A 10-part video course by Samuel Deuth.">
+<meta property="og:title" content="The Process of Promotion — A Course by Samuel Deuth">
+<meta property="og:description" content="Nine ways God uses obscurity to prepare you for your purpose.">
+<meta property="og:image" content="/assets/process-of-promotion-hero.jpg">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Jost:wght@400;500;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --yellow:#F5E100;
+    --ink:#141210;
+    --cream:#FBF7EC;
+    --gold:#A9822E;
+    --line:rgba(20,18,16,0.12);
+    --white:#FFFFFF;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;background:var(--cream);color:var(--ink);
+    font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;
+    line-height:1.6;
+  }
+  a{color:inherit;}
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px;}
+
+  /* ---------- Top bar ---------- */
+  .topbar{background:var(--ink);padding:16px 0;}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;}
+  .topbar .wordmark{height:22px;display:block;}
+  .topbar a.enroll-link{
+    font-family:'Jost',sans-serif;font-weight:600;font-size:12px;letter-spacing:0.08em;
+    text-transform:uppercase;color:var(--yellow);text-decoration:none;
+    border:1px solid var(--yellow);padding:8px 16px;border-radius:100px;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero{background:var(--yellow);padding:48px 0 56px;}
+  .hero-art{width:100%;max-width:100%;display:block;border-radius:6px;box-shadow:0 12px 32px rgba(20,18,16,0.14);}
+  .eyebrow{
+    font-family:'Jost',sans-serif;font-weight:600;font-size:12.5px;letter-spacing:0.14em;
+    text-transform:uppercase;color:var(--ink);opacity:0.7;margin:0 0 18px;
+  }
+  .hero-cta-row{margin-top:32px;text-align:center;}
+  .hero-cta{
+    display:inline-block;background:var(--ink);color:var(--yellow);text-decoration:none;
+    font-family:'Jost',sans-serif;font-weight:600;font-size:14px;letter-spacing:0.04em;
+    text-transform:uppercase;padding:16px 30px;border-radius:100px;
+  }
+  .hero-cta:hover{opacity:0.88;}
+
+  /* ---------- Intro ---------- */
+  .intro{padding:56px 0 8px;}
+  .intro p{font-size:17.5px;max-width:56ch;color:var(--ink);opacity:0.85;}
+
+  /* ---------- Nine ways ---------- */
+  .ways{padding:40px 0 24px;}
+  .ways h2{
+    font-family:'Jost',sans-serif;font-weight:600;font-size:13px;letter-spacing:0.12em;
+    text-transform:uppercase;color:var(--gold);margin:0 0 28px;
+  }
+  .way{
+    display:grid;grid-template-columns:56px 1fr;gap:20px;align-items:start;
+    padding:22px 0;border-top:1px solid var(--line);
+  }
+  .way:last-child{border-bottom:1px solid var(--line);}
+  .way-num{
+    width:40px;height:40px;border-radius:50%;background:var(--ink);color:var(--yellow);
+    font-family:'Jost',sans-serif;font-weight:600;font-size:13px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .way-title{font-family:'EB Garamond',serif;font-weight:500;font-size:21px;margin:2px 0 6px;}
+  .way-desc{font-size:15px;color:var(--ink);opacity:0.72;margin:0;}
+
+  /* ---------- Book cross-sell ---------- */
+  .books{padding:56px 0;}
+  .books h2{
+    font-family:'Jost',sans-serif;font-weight:600;font-size:13px;letter-spacing:0.12em;
+    text-transform:uppercase;color:var(--gold);margin:0 0 24px;
+  }
+  .books-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .book-card{
+    background:var(--white);border:1px solid var(--line);border-radius:14px;padding:26px;
+    text-decoration:none;color:var(--ink);
+  }
+  .book-card .kicker{font-family:'Jost',sans-serif;font-size:11.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold);}
+  .book-card h3{font-family:'EB Garamond',serif;font-size:22px;font-weight:500;margin:8px 0 10px;}
+  .book-card p{font-size:14px;color:var(--ink);opacity:0.7;margin:0 0 14px;}
+  .book-card .link{font-family:'Jost',sans-serif;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.04em;}
+
+  /* ---------- CTA block ---------- */
+  .cta-block{background:var(--ink);padding:64px 0;text-align:center;}
+  .cta-block .eyebrow{color:var(--yellow);opacity:0.8;}
+  .cta-block h2{
+    font-family:'Archivo Black',sans-serif;font-weight:400;color:var(--white);
+    font-size:clamp(28px,4.5vw,42px);line-height:1.1;margin:0 0 28px;
+  }
+  .cta-block .hero-cta{background:var(--yellow);color:var(--ink);}
+
+  /* ---------- Footer ---------- */
+  footer{padding:36px 0;text-align:center;}
+  footer p{font-size:12.5px;color:var(--ink);opacity:0.55;margin:0 0 10px;}
+  footer .social a{color:var(--ink);opacity:0.6;text-decoration:none;font-size:12.5px;margin:0 8px;}
+
+  @media (max-width:600px){
+    .hero{padding:48px 0 56px;}
+    .hero-badge{position:static;margin-top:28px;}
+    .books-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="wrap">
+      <img class="wordmark" src="/assets/process-of-promotion-wordmark.png" alt="The Process of Promotion">
+      <a class="enroll-link" href="#start">Start the Course</a>
+    </div>
+  </div>
+
+  <section class="hero">
+    <div class="wrap">
+      <img class="hero-art" src="/assets/process-of-promotion-hero.jpg" alt="The Process of Promotion — Nine ways God uses obscurity to prepare you for your purpose. A 10-part e-course by Samuel Deuth.">
+      <div class="hero-cta-row">
+        <a class="hero-cta" href="/course-promotion" id="start">Start the Course</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="intro">
+    <div class="wrap">
+      <p>If God promotes you, nothing on earth can stop you. This course walks through the nine ways obscurity does its quiet work in a season of waiting — so you recognize what God's doing, instead of just enduring it. Each session pairs a short teaching video with a memory verse and a few questions to sit with.</p>
+    </div>
+  </section>
+
+  <section class="ways">
+    <div class="wrap">
+      <h2>The Nine Ways</h2>
+
+      <div class="way">
+        <div class="way-num">01</div>
+        <div>
+          <div class="way-title">The Repetition of Obscurity</div>
+          <p class="way-desc">Why the same lessons keep circling back until they finally take root.</p>
+        </div>
+      </div>
+
+      <div class="way">
+        <div class="way-num">02</div>
+        <div>
+          <div class="way-title">The Darkness of Obscurity</div>
+          <p class="way-desc">Facing pride, comparison, and the pull toward the spotlight before you're ready.</p>
+        </div>
+      </div>
+
+      <div class="way">
+        <div class="way-num">03</div>
+        <div>
+          <div class="way-title">The Invisibility of Obscurity</div>
+          <p class="way-desc">What it means to build faithfully in a season no one else can see.</p>
+        </div>
+      </div>
+
+      <div class="way">
+        <div class="way-num">04</div>
+        <div>
+          <div class="way-title">The Quietness of Obscurity</div>
+          <p class="way-desc">Learning to listen when the noise of comparison and busyness fades.</p>
+        </div>
+      </div>
+
+      <div class="way">
+        <div class="way-num">05</div>
+        <div>
+          <div class="way-title">The Clarity of Obscurity</div>
+          <p class="way-desc">Discovering the specific gifts God has actually given you to carry.</p>
+        </div>
+      </div>
+
+      <div class="way">
+        <div class="way-num">06</div>
+        <div>
+          <div class="way-title">The Separation of Obscurity</div>
+          <p class="way-desc">Guarding the dream from distraction, approval-seeking, and burnout.</p>
+        </div>
+      </div>
+
+      <div class="way">
+        <div class="way-num">07</div>
+        <div>
+          <div class="way-title">The Length of Obscurity</div>
+          <p class="way-desc">Why promotion rarely comes on the timeline you'd choose — and how to wait well.</p>
+        </div>
+      </div>
+
+      <div class="way">
+        <div class="way-num">08</div>
+        <div>
+          <div class="way-title">The Danger of Obscurity</div>
+          <p class="way-desc">The real risk of quitting right before the process finishes its work.</p>
+        </div>
+      </div>
+
+      <div class="way">
+        <div class="way-num">09</div>
+        <div>
+          <div class="way-title">The Reward of Obscurity</div>
+          <p class="way-desc">Trusting that God sees, remembers, and rewards what's been done in secret.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="books">
+    <div class="wrap">
+      <h2>Go Deeper</h2>
+      <div class="books-grid">
+        <a class="book-card" href="https://www.amazon.com/dp/B09GJSBCTF" target="_blank" rel="noopener">
+          <div class="kicker">The Book</div>
+          <h3>The Process of Promotion</h3>
+          <p>The full teaching behind the course, in print.</p>
+          <span class="link">Get the Book &rarr;</span>
+        </a>
+        <a class="book-card" href="https://www.amazon.com/dp/B09NRF394T" target="_blank" rel="noopener">
+          <div class="kicker">The Workbook</div>
+          <h3>Companion Workbook</h3>
+          <p>Chapter questions and reflection space for each of the nine ways.</p>
+          <span class="link">Get the Workbook &rarr;</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-block">
+    <div class="wrap">
+      <p class="eyebrow">Ready When You Are</p>
+      <h2>Your purpose is waiting on<br>the other side of obscurity.</h2>
+      <a class="hero-cta" href="/course-promotion">Start the Course</a>
+    </div>
+  </section>
+
+  <footer>
+    <p>&copy; Samuel Deuth &middot; The Process of Promotion</p>
+    <div class="social">
+      <a href="https://www.instagram.com/followingjesusbook" target="_blank" rel="noopener">Instagram</a>
+      <a href="https://www.facebook.com/followingjesusbook" target="_blank" rel="noopener">Facebook</a>
+      <a href="https://www.youtube.com/channel/UCWmDAkrHx81dxWfi92dP-Eg" target="_blank" rel="noopener">YouTube</a>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -374,9 +374,22 @@ function getChurchSlug(){
 // Courses" list on the profile page) — falls back to the original
 // "first free course" behavior when absent, so existing links/bookmarks
 // keep working exactly as before.
+//
+// Also supports friendly single-segment paths (e.g. /course-promotion)
+// for specific non-white-labeled courses, checked before the ?course=
+// param — add future ones here alongside admin-dashboard's
+// NON_WHITE_LABEL_COURSES list, and give each its own _redirects line
+// pointing at /course-player.html.
+const COURSE_SLUG_MAP = {
+  'course-promotion': '9fd36fd4-8c3d-4305-a7dd-d2a1d7f3abcc'
+};
 function getCourseIdParam(){
   const params = new URLSearchParams(window.location.search);
-  return params.get('course') || null;
+  const explicit = params.get('course');
+  if(explicit) return explicit; // an explicit ?course= (e.g. switching courses from the profile list) always wins over the pathname slug below
+  const slugMatch = window.location.pathname.match(/^\/([^\/]+)\/?$/);
+  if(slugMatch && COURSE_SLUG_MAP[slugMatch[1]]) return COURSE_SLUG_MAP[slugMatch[1]];
+  return null;
 }
 
 function getItemIdParam(){
@@ -899,6 +912,12 @@ function renderHero(skipHistoryPush){
   activeItem = null;
   viewingSurvey = false;
   updateItemUrlParam(null, skipHistoryPush);
+  // The <title> tag in the HTML head is just a static placeholder for
+  // whichever course happens to load first -- without this, every
+  // course's browser tab (and any bookmark/history entry) would
+  // permanently say "Following Jesus Course" regardless of which course
+  // is actually being viewed.
+  if(course?.title) document.title = `${course.title} — A Guided Discipleship Course`;
   const isDraft = church?.course_status === 'draft';
   const startButtonHtml = isDraft
     ? `<p class="draft-notice" style="opacity:0.75; font-size:14px; margin-top:8px;">This course isn't currently open for enrollment. Please check back later or reach out to your church.</p>`
