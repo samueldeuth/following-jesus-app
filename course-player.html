@@ -73,6 +73,16 @@
   .hero-light h1, .hero-light p{color:var(--ink);}
   .hero-light .btn-blue{background:var(--ink);}
   .hero-light .topbar.on-hero nav{color:var(--ink);}
+  .purchase-required-body{
+    max-width:480px;margin:0 auto;padding:80px 24px;text-align:center;
+  }
+  .purchase-required-body h1{
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(24px,4vw,32px);margin:0 0 16px;
+  }
+  .purchase-required-body p{font-size:15px;line-height:1.6;color:var(--ink-soft);margin:0 0 28px;}
+  .purchase-required-body .btn-blue{display:inline-block;text-decoration:none;}
+  .purchase-required-back{display:block;margin-top:20px;font-size:13px;color:var(--ink-soft);text-decoration:none;}
+  .purchase-required-back:hover{color:var(--ink);}
   .btn-blue{
     background:var(--blue);color:#fff;border:none;
     font-weight:600;font-size:15px;
@@ -421,7 +431,8 @@ const COURSE_CUSTOM_HERO_MAP = {
   '9fd36fd4-8c3d-4305-a7dd-d2a1d7f3abcc': {
     bgColor: '#FEF200', // sampled directly from process-of-promotion-hero.jpg's background
     title: 'The Process of Promotion',
-    subtitle: "This course engages God's 9 ways He uses obscurity to prepare you for your purpose!"
+    subtitle: "This course engages God's 9 ways He uses obscurity to prepare you for your purpose!",
+    shopifyProductUrl: 'https://followingjesusbook.com/products/1824415'
   }
 };
 function logoBadgeHtml(extraClass){
@@ -459,6 +470,11 @@ function updateItemUrlParam(item, skipHistoryPush){
 
 let church = null;
 let course = null;
+// null = not checked yet this session, true/false = the actual result.
+// Only relevant for a course with requires_purchase set -- cached so
+// clicking between lessons doesn't re-hit the database on every single
+// click, just the first time someone tries to view lesson content.
+let hasPurchaseAccess = null;
 let sessions = [];       // each with .items[]
 let currentUser = null;
 let doneItemIds = new Set();
@@ -1025,8 +1041,57 @@ function goToFirstLesson(){
   renderPlayer(firstItem || null);
 }
 
+// Shown instead of lesson content when someone is signed in but hasn't
+// purchased a course with requires_purchase set. Their Google account
+// itself isn't the problem -- access is matched by email against a
+// Shopify order, so the message is specifically about that email
+// needing a completed purchase, not about signing in again.
+function renderPurchaseRequired(){
+  const customHero = course?.id ? COURSE_CUSTOM_HERO_MAP[course.id] : null;
+  const buyUrl = customHero?.shopifyProductUrl;
+  document.getElementById('app').innerHTML = `
+    <div class="purchase-required">
+      <div class="topbar">
+        ${logoBadgeHtml()}
+        <nav><a href="https://qrco.de/fjapp">App</a>${authStatusHtml()}</nav>
+      </div>
+      <div class="purchase-required-body">
+        <h1>This course requires purchase</h1>
+        <p>${course.title} isn't included with your account yet. If you've already bought it, make sure you're signed in with the same email you used at checkout${currentUser?.email ? ` (you're currently signed in as ${escapeHtmlPlayer(currentUser.email)})` : ''}.</p>
+        ${buyUrl ? `<a class="btn-blue" href="${buyUrl}" target="_blank" rel="noopener">Purchase ${escapeHtmlPlayer(course.title)} →</a>` : ''}
+        <a class="purchase-required-back" href="#" id="purchase-required-back-link">← Back to the course overview</a>
+      </div>
+    </div>
+  `;
+  bindAuthStatusLinks();
+  document.getElementById('purchase-required-back-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    renderHero();
+  });
+}
+
+function escapeHtmlPlayer(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 /* ---------- Player shell ---------- */
-function renderPlayer(item, skipHistoryPush){
+async function renderPlayer(item, skipHistoryPush){
+  // Paywall gate -- this is the one function every path into lesson
+  // content goes through (the Start button, resuming after sign-up, and
+  // a bookmarked ?item= URL all end up here), so it's the single place
+  // this needs to be checked rather than guarding each entry point
+  // separately.
+  if(course?.requires_purchase && hasPurchaseAccess !== true){
+    if(hasPurchaseAccess === null){
+      const { data } = await supabaseClient.rpc('has_purchased_course', { p_course_id: course.id });
+      hasPurchaseAccess = !!data;
+    }
+    if(!hasPurchaseAccess){
+      renderPurchaseRequired();
+      return;
+    }
+  }
+
   activeItem = item;
   const totalItems = sessions.reduce((n,s)=>n+s.session_items.length,0);
   const completedCount = sessions.reduce((n,s)=>n+s.session_items.filter(i=>doneItemIds.has(i.id)).length,0);

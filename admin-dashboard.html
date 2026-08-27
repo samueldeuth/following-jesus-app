@@ -355,7 +355,7 @@ let sidebarStatusFilter = 'all';
 // actual live URL (the path alone doesn't reliably follow from the title, so
 // this is spelled out explicitly rather than derived).
 const NON_WHITE_LABEL_COURSES = [
-  { id: '9fd36fd4-8c3d-4305-a7dd-d2a1d7f3abcc', title: 'Process of Promotion', url: 'https://followingjesus.com/theprocessofpromotion' }
+  { id: '9fd36fd4-8c3d-4305-a7dd-d2a1d7f3abcc', title: 'Process of Promotion', url: 'https://followingjesus.com/theprocessofpromotion', requiresPurchase: true }
 ];
 // Mirrors activeChurchId, but for the course-sidebar-entry view above —
 // kept separate so a course view and a church view can never both read as
@@ -1850,6 +1850,16 @@ async function renderCourseStudents(courseId, courseTitle){
       <button class="mini-btn gold" id="view-report-btn">View Progress Report</button>
     </div>
     ${courseConfig?.url ? `<p class="field-hint" style="margin-bottom:14px;">Link: <a href="${courseConfig.url}" target="_blank" rel="noopener">${courseConfig.url.replace(/^https?:\/\//, '')}</a></p>` : ''}
+    ${courseConfig?.requiresPurchase ? `
+    <div class="panel" style="margin-bottom:16px;">
+      <h3>Grant Access</h3>
+      <p class="field-hint" style="margin:0 0 10px;">For comps, reviewers, or anyone who paid outside Shopify -- this grants access the same as a real purchase, matched by email when they sign in.</p>
+      <div class="new-group-form">
+        <input type="text" id="grant-access-email" placeholder="Their email address" />
+        <button id="grant-access-btn">Grant Access</button>
+      </div>
+      <span id="grant-access-status" style="font-size:12.5px;color:var(--ink-soft);"></span>
+    </div>` : ''}
 
     <div id="course-students-batch-bar">${batchActionBarHtml()}</div>
     <table>
@@ -1859,6 +1869,21 @@ async function renderCourseStudents(courseId, courseTitle){
   `;
 
   document.getElementById('back-to-churches').addEventListener('click', renderChurchesOverview);
+
+  const grantBtn = document.getElementById('grant-access-btn');
+  if(grantBtn) grantBtn.addEventListener('click', async () => {
+    const email = document.getElementById('grant-access-email').value.trim();
+    const statusEl = document.getElementById('grant-access-status');
+    if(!email){ statusEl.textContent = 'Enter an email first.'; return; }
+    statusEl.textContent = 'Granting...';
+    const { error } = await supabaseClient.rpc('grant_course_purchase', { p_course_id: courseId, p_email: email });
+    if(error){
+      statusEl.textContent = 'Something went wrong. Please try again.';
+      return;
+    }
+    statusEl.textContent = 'Access granted ✓';
+    document.getElementById('grant-access-email').value = '';
+  });
 
   document.getElementById('student-mode-active-btn').addEventListener('click', () => {
     studentViewMode = 'active';
