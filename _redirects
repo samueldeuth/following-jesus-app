@@ -5,6 +5,7 @@
 /admin  /admin-dashboard.html  200
 /leader  /group-leader-dashboard.html  200
 /leader-approval  /leader-approval.html  200
+/admin-invite  /admin-invite.html  200
 /course-reminder-unsubscribe  /course-reminder-unsubscribe.html  200
 /privacy  /privacy-policy.html  200
 /terms  /terms-of-service.html  200
