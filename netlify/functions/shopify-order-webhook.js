@@ -66,6 +66,7 @@ exports.handler = async (event) => {
   const resendApiKey = process.env.RESEND_API_KEY;
   const missing = ['SHOPIFY_WEBHOOK_SECRET', 'SHOPIFY_WEBHOOK_FUNCTION_SECRET', 'RESEND_API_KEY'].filter(name => !process.env[name]);
   if (missing.length) {
+    console.error(`shopify-order-webhook: missing env vars: ${missing.join(', ')}`);
     return { statusCode: 500, body: `Missing environment variables: ${missing.join(', ')} -- see setup notes at the top of this file.` };
   }
 
@@ -76,6 +77,7 @@ exports.handler = async (event) => {
   const rawBody = event.isBase64Encoded ? Buffer.from(event.body, 'base64') : Buffer.from(event.body || '', 'utf8');
   const hmacHeader = event.headers['x-shopify-hmac-sha256'] || event.headers['X-Shopify-Hmac-Sha256'];
   if (!hmacHeader) {
+    console.error('shopify-order-webhook: no x-shopify-hmac-sha256 header on the request');
     return { statusCode: 401, body: 'Missing Shopify signature header.' };
   }
   const computedHmac = crypto.createHmac('sha256', shopifySecret).update(rawBody).digest('base64');
@@ -83,13 +85,16 @@ exports.handler = async (event) => {
     Buffer.byteLength(hmacHeader) === Buffer.byteLength(computedHmac) &&
     crypto.timingSafeEqual(Buffer.from(hmacHeader), Buffer.from(computedHmac));
   if (!signaturesMatch) {
+    console.error('shopify-order-webhook: signature mismatch -- SHOPIFY_WEBHOOK_SECRET likely does not match what Shopify shows for this webhook');
     return { statusCode: 401, body: 'Invalid webhook signature.' };
   }
+  console.log('shopify-order-webhook: signature verified OK');
 
   let order;
   try {
     order = JSON.parse(rawBody.toString('utf8'));
   } catch (e) {
+    console.error('shopify-order-webhook: body was not valid JSON');
     return { statusCode: 400, body: 'Invalid JSON body.' };
   }
 
@@ -97,11 +102,13 @@ exports.handler = async (event) => {
   const firstName = order.customer?.first_name || '';
   const lineItems = Array.isArray(order.line_items) ? order.line_items : [];
   const productIds = [...new Set(lineItems.map(li => String(li.product_id)).filter(Boolean))];
+  console.log(`shopify-order-webhook: order ${order.id || '(no id)'} -- email present: ${!!customerEmail}, product_ids: ${JSON.stringify(productIds)}`);
 
   if (!customerEmail || productIds.length === 0) {
     // Still a 200 -- this is a legitimate, verified webhook, just not
     // one with anything for us to do. Returning an error here would
     // make Shopify retry it repeatedly for no reason.
+    console.log('shopify-order-webhook: skipped -- no email or no line items (expected for Shopify\'s test payload)');
     return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'no email or line items on this order' }) };
   }
 
@@ -124,11 +131,15 @@ exports.handler = async (event) => {
   });
 
   if (!rpcRes.ok) {
-    return { statusCode: 502, body: `process_shopify_order call failed: ${await rpcRes.text()}` };
+    const errText = await rpcRes.text();
+    console.error(`shopify-order-webhook: process_shopify_order RPC failed (${rpcRes.status}): ${errText}`);
+    return { statusCode: 502, body: `process_shopify_order call failed: ${errText}` };
   }
 
   const matchedCourses = await rpcRes.json();
+  console.log(`shopify-order-webhook: matched courses: ${JSON.stringify(matchedCourses)}`);
   if (!Array.isArray(matchedCourses) || matchedCourses.length === 0) {
+    console.log('shopify-order-webhook: skipped -- none of this order\'s product_ids matched a course.shopify_product_id (expected for Shopify\'s test payload, or if shopify_product_id isn\'t set correctly yet)');
     return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'no matching course product in this order' }) };
   }
 
@@ -137,6 +148,7 @@ exports.handler = async (event) => {
     const emailSent = await sendAccessEmail(customerEmail, firstName, course.title, resendApiKey);
     results.push({ course: course.title, emailSent });
   }
+  console.log(`shopify-order-webhook: granted access + email results: ${JSON.stringify(results)}`);
 
   return { statusCode: 200, body: JSON.stringify({ processed: results }) };
 };
