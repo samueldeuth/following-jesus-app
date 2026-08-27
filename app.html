@@ -3691,9 +3691,15 @@ function subscribeToChatUpdates() {
   const debouncedRerender = () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(async () => {
+      // Same fix as sendChatMessage: a re-render here can also replace
+      // the focused input's container, dismissing the keyboard and
+      // jumping the whole page to the top — not just resetting
+      // discipleBody's own internal scroll.
       const scrollPosition = discipleBody.scrollTop;
+      const pageScrollPosition = window.scrollY;
       await render(true);
       discipleBody.scrollTop = scrollPosition;
+      window.scrollTo(0, pageScrollPosition);
     }, 250);
   };
   activeChatChannel = supabaseClient
@@ -3760,10 +3766,15 @@ function renderMessageHtml(m, isMe, senderLabel, extraTagHtml, extraClass) {
 // every message bubble currently on the page.
 function wireMessageReactions() {
   const reactAndRerender = async (messageId, emoji) => {
+    // Same fix as sendChatMessage and the realtime rerender — reacting
+    // re-renders the page too, with the same risk of the whole page
+    // jumping to the top, not just discipleBody's own scroll.
     const scrollPosition = discipleBody.scrollTop;
+    const pageScrollPosition = window.scrollY;
     await toggleMessageReaction(messageId, emoji);
     await render();
     discipleBody.scrollTop = scrollPosition;
+    window.scrollTo(0, pageScrollPosition);
   };
 
   // Tapping a bubble reveals that message's reaction row (closing any
@@ -4366,9 +4377,18 @@ async function sendChatMessage(input, sendFn, onSuccess) {
   // restoring scroll before the re-render has actually finished
   // replacing the page content would just get overwritten the moment
   // it does finish.
+  //
+  // The outer page scroll needs the same treatment, separately from
+  // discipleBody's own internal scroll: replacing the input field's
+  // container makes it lose focus, and on mobile that dismisses the
+  // keyboard — which itself resets the whole page's scroll position
+  // back to the very top, on top of (not instead of) whatever was
+  // happening inside discipleBody.
   const scrollPosition = discipleBody.scrollTop;
+  const pageScrollPosition = window.scrollY;
   await onSuccess();
   discipleBody.scrollTop = scrollPosition;
+  window.scrollTo(0, pageScrollPosition);
 }
 
 // Same idea as sendChatMessage above, but for text inputs where Enter
