@@ -653,6 +653,56 @@ function renderSidebar(){
 }
 
 /* ---------- Level 1: all churches ---------- */
+// Start date for each time-range option, computed fresh each time so
+// "last 7 days" etc. always means relative to right now, not whenever
+// the page happened to load.
+function rangeStartDate(rangeKey){
+  const now = new Date();
+  if(rangeKey === '7d') return new Date(now.getTime() - 7*24*60*60*1000);
+  if(rangeKey === '30d') return new Date(now.getTime() - 30*24*60*60*1000);
+  if(rangeKey === '90d') return new Date(now.getTime() - 90*24*60*60*1000);
+  if(rangeKey === 'mtd') return new Date(now.getFullYear(), now.getMonth(), 1);
+  if(rangeKey === 'ytd') return new Date(now.getFullYear(), 0, 1);
+  return new Date(now.getTime() - 30*24*60*60*1000);
+}
+const rangeLabels = { '7d': 'Last 7 Days', '30d': 'Last 30 Days', '90d': 'Last 90 Days', 'mtd': 'Month to Date', 'ytd': 'Year to Date' };
+let overviewRangeKey = '30d';
+
+// Churches and students are already cached client-side (allChurches,
+// allRows) so those two counts are a simple filter -- no new query.
+// Completions needs one, since when a course was actually finished
+// (certificates.issued_at) isn't part of the cached progress data.
+async function renderOverviewRangeMetrics(){
+  const container = document.getElementById('overview-range-metrics');
+  if(!container) return;
+  container.innerHTML = `<p style="color:var(--ink-soft);font-size:13px;">Loading…</p>`;
+
+  const startDate = rangeStartDate(overviewRangeKey);
+  const startIso = startDate.toISOString();
+
+  const newChurches = allChurches.filter(c => c.created_at && c.created_at >= startIso).length;
+  const newStudents = allRows.filter(r => r.enrolled_at && r.enrolled_at >= startIso).length;
+  const { count: newCompletions } = await supabaseClient
+    .from('certificates').select('id', { count: 'exact', head: true }).gte('issued_at', startIso);
+
+  container.innerHTML = `
+    <div class="summary-row">
+      <div class="summary-card"><div class="num">${newChurches}</div><div class="label">New Churches</div></div>
+      <div class="summary-card"><div class="num">${newStudents}</div><div class="label">New Students</div></div>
+      <div class="summary-card"><div class="num">${newCompletions || 0}</div><div class="label">Completions</div></div>
+    </div>`;
+}
+
+function wireOverviewRangeSelector(){
+  document.querySelectorAll('[data-overview-range]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      overviewRangeKey = btn.dataset.overviewRange;
+      document.querySelectorAll('[data-overview-range]').forEach(b => b.classList.toggle('active', b.dataset.overviewRange === overviewRangeKey));
+      renderOverviewRangeMetrics();
+    });
+  });
+}
+
 function renderChurchesOverview(){
   activeChurchId = null;
   viewingNoChurch = false;
@@ -685,12 +735,19 @@ function renderChurchesOverview(){
       <div class="summary-card"><div class="num">${totalStudents}</div><div class="label">Total students</div></div>
       <div class="summary-card"><div class="num">${totalCompleted}</div><div class="label">Finished a course</div></div>
     </div>
+    <div style="display:flex;gap:6px;margin:18px 0 10px;flex-wrap:wrap;">
+      ${Object.keys(rangeLabels).map(key => `<button class="mini-btn ${key===overviewRangeKey?'active':''}" data-overview-range="${key}">${rangeLabels[key]}</button>`).join('')}
+    </div>
+    <div id="overview-range-metrics" style="margin-bottom:16px;"></div>
     <button class="mini-btn" id="export-all-btn" style="margin-bottom:16px;">Export All Students (CSV)</button>
     <table>
       <thead><tr><th>Church</th><th>Students</th><th>Avg. Progress</th></tr></thead>
       <tbody>${churchRowsHtml || '<tr><td colspan="3" style="color:var(--ink-soft);">No churches yet.</td></tr>'}</tbody>
     </table>
   `;
+
+  wireOverviewRangeSelector();
+  renderOverviewRangeMetrics();
 
   const exportAllBtn = document.getElementById('export-all-btn');
   if(exportAllBtn) exportAllBtn.addEventListener('click', () => {
