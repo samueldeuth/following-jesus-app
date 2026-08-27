@@ -4769,20 +4769,35 @@ async function renderDiscipleshipHub() {
   let discipledCount = 0;
   let unreadDmSenderIds = new Set();
 
+  // Not yet an approved leader. "Being Discipled" is gone now that their
+  // actual groups show directly below -- no need for a generic link to
+  // the same place. Join a New Group stays available either way (for a
+  // future invite to a second group), but moves depending on whether
+  // they're in one already: right up front if they have none yet (their
+  // clear next step), or below Become a Disciple Maker once they do
+  // (a secondary, occasional action from then on, not a repeated ask).
+  const joinNewGroupBtnHtml = `
+    <button type="button" class="hub-role-card hub-role-card-standalone" id="joinNewGroupBtn">
+      <div class="hub-role-title">Join a New Group</div>
+      <div class="hub-role-sub">Have an invite code for another group? →</div>
+    </button>`;
+  const becomeLeaderBtnHtml = `
+    <button type="button" class="hub-role-card hub-role-cta-gold hub-role-card-standalone" id="goLeaderDash">
+      <div class="hub-role-title">Become a Disciple Maker</div>
+      <div class="hub-role-sub">${leaderApp ? 'Application pending →' : 'Get approved to formally lead others →'}</div>
+    </button>`;
+  const groupsSectionHtml = myOwnGroups.length
+    ? `<div class="section-label">Groups</div>${myGroupsHtml}`
+    : '';
+
   if (!isApprovedLeader) {
     leaderSectionHtml = `
-      <div class="hub-role-grid">
-        <button type="button" class="hub-role-card" id="inviteAFriendBtn">
-          <div class="hub-role-title">Invite a Friend</div>
-          <div class="hub-role-sub">Go through a course together →</div>
-        </button>
-        ${discipleCardHtml}
-      </div>
-      ${myGroupsHtml}
-      <button type="button" class="hub-role-card hub-role-cta-gold hub-role-card-standalone" id="goLeaderDash">
-        <div class="hub-role-title">Become a Disciple Maker</div>
-        <div class="hub-role-sub">${leaderApp ? 'Application pending →' : 'Get approved to formally lead others →'}</div>
+      <button type="button" class="hub-role-card hub-role-cta hub-role-card-standalone" id="inviteAFriendBtn">
+        <div class="hub-role-title">Invite a Friend</div>
+        <div class="hub-role-sub">Go through a course together →</div>
       </button>
+      ${groupsSectionHtml}
+      ${myOwnGroups.length === 0 ? joinNewGroupBtnHtml + becomeLeaderBtnHtml : becomeLeaderBtnHtml + joinNewGroupBtnHtml}
     `;
   } else {
     // Approved: the leader dashboard now lives directly on the Hub instead
@@ -4827,7 +4842,17 @@ async function renderDiscipleshipHub() {
   `;
 
   document.getElementById('profileLinkBtn').onclick = () => renderProfileSettings();
-  document.getElementById('goDiscipleDash').onclick = () => { topView = 'disciple'; render(); };
+  document.getElementById('goDiscipleDash')?.addEventListener('click', () => { topView = 'disciple'; render(); });
+  document.getElementById('joinNewGroupBtn')?.addEventListener('click', async () => {
+    const codeInput = (await showAppPrompt("Enter the invite code", "e.g. AB12CD"))?.trim().toUpperCase();
+    if (!codeInput) return;
+    const result = await attemptJoinGroup(codeInput);
+    if (!result.ok) {
+      if (result.error) await showAppAlert(result.error);
+      return;
+    }
+    renderPreservingScroll(() => render(true));
+  });
   document.querySelectorAll('.go-my-group-btn').forEach(btn => {
     // renderDisciple shows all of a person's groups together on one
     // page rather than a separate screen per group, so any group card
