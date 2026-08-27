@@ -4182,11 +4182,6 @@ async function renderMemberDetail(memberId) {
       ${hasCompletedCourse ? `<div class="hub-leader-badge" style="margin-top:10px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg> Completed the FJ Course</div>` : ''}
       ${milestonesAllDone ? `<div class="hub-leader-badge" style="margin-top:10px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg> Fully Discipled</div>` : ''}
     </div>
-    <div class="card" id="milestonesCard">
-      <h2>Discipleship Checklist</h2>
-      <p>Tap an item to mark it covered.</p>
-      ${milestonesChecklistHtml(milestonesData, true)}
-    </div>
     <div class="chat-block">
       <div class="chat-panel-light">
         <div class="section-label chat-panel-title">Messages</div>
@@ -4197,8 +4192,14 @@ async function renderMemberDetail(memberId) {
         </div>
       </div>
     </div>
-    ${renderResourcesHtml()}
+    <div class="card" id="milestonesCard">
+      <h2>Discipleship Pathway</h2>
+      <p>Tap an item to mark it covered.</p>
+      ${milestonesChecklistHtml(milestonesData, true)}
+    </div>
+    <div class="section-label">Courses</div>
     ${courseCardHtml('essentials', 'Following Jesus Essentials', '7 essentials for every follower of Jesus', stepsHtml, walkoutProgress, progress)}
+    ${renderResourcesHtml()}
   `;
 
   document.getElementById('backBtn').onclick = () => { view = 'home'; activeMemberId = null; render(); };
