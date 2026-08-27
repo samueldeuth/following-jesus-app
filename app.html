@@ -3028,6 +3028,17 @@ async function incrementGlobalDiscipleCount() {
 // scoped specifically to the free course — so a future bonus course
 // (e.g. Water Baptism) issuing its own certificate can't falsely mark
 // this item done just because some course was completed.
+// Cached lookup of the current user's own display name, for headers that
+// need to show both people in a 1:1 relationship (e.g. "Kenzie & Samuel"
+// on a member detail screen) rather than just the other person's name.
+let myNameCache = null;
+async function getMyName() {
+  if (myNameCache) return myNameCache;
+  const { data } = await supabaseClient.from('profiles').select('full_name').eq('id', myId).maybeSingle();
+  myNameCache = (data && data.full_name) || 'You';
+  return myNameCache;
+}
+
 let milestoneDefsCache = null;
 async function getMilestoneDefinitions() {
   if (milestoneDefsCache) return milestoneDefsCache;
@@ -4021,10 +4032,16 @@ async function renderMemberDetail(memberId) {
   const { items: milestoneItems, allDone: milestonesAllDone } = await getDiscipleshipMilestonesData(memberId);
   checkAndCelebrateMilestones(memberId, milestonesAllDone);
 
+  // Shows both people's names together (e.g. "Kenzie & Samuel") rather
+  // than just the disciple's — this is a shared relationship view, not
+  // just a profile the leader is looking at from the outside.
+  const myName = await getMyName();
+  const headerName = member ? `${escapeHtml(member.name)} & ${escapeHtml(myName)}` : 'Friend';
+
   main.innerHTML = `
     <a class="back-link" id="backBtn">← Back</a>
     <div class="card">
-      <h2>${member ? escapeHtml(member.name) : 'Friend'}</h2>
+      <h2>${headerName}</h2>
       <p>Following their progress through the 7 essentials</p>
       ${hasCompletedCourse ? `<div class="hub-leader-badge" style="margin-top:10px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg> Completed the FJ Course</div>` : ''}
       ${milestonesAllDone ? `<div class="hub-leader-badge" style="margin-top:10px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg> Fully Discipled</div>` : ''}
