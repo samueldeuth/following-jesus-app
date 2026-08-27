@@ -2047,7 +2047,7 @@
   // actually behind all three symptoms reported together: the modal
   // never auto-opening from a join link, Google sign-in never landing
   // back on the join form, and "Become a Disciple" asking to sign in
-  // again every time afterward (completeGoogleAuthIfPending, which
+  // again every time afterward (completeOAuthIfPending, which
   // actually finishes saving the account, never got the chance to run).
   window.pendingJoinCode = new URLSearchParams(window.location.search).get('join');
   if (window.pendingJoinCode) {
@@ -2076,9 +2076,9 @@
   // runs only after the whole script (including supabaseClient, declared
   // further down) has finished its initial pass — calling this directly
   // here would hit supabaseClient before it exists.
-  if (sessionStorage.getItem('fj_google_auth_pending') === '1') {
+  if (sessionStorage.getItem('fj_oauth_pending') === '1') {
     setTimeout(async () => {
-      const completed = await completeGoogleAuthIfPending();
+      const completed = await completeOAuthIfPending();
       if (completed) {
         hideMainScreens();
         showPageHeader('Make Disciples');
@@ -2111,12 +2111,17 @@
     }
     skipNextDiscipleHistoryPush = false;
     discipleBody.innerHTML = `
+      <button class="secondary-btn" id="appleAuthBtn" style="display:flex; align-items:center; justify-content:center; gap:10px; background:#000; color:#fff; border-color:#000; margin-bottom:10px;">
+        <svg width="16" height="16" viewBox="0 0 17 20" fill="#fff"><path d="M13.94 10.6c-.02-2.06 1.68-3.05 1.76-3.1-.96-1.4-2.45-1.6-2.98-1.62-1.27-.13-2.48.75-3.12.75-.64 0-1.63-.73-2.68-.71-1.38.02-2.65.8-3.36 2.03-1.43 2.48-.37 6.15 1.03 8.16.68.98 1.5 2.08 2.57 2.04 1.03-.04 1.42-.66 2.67-.66 1.24 0 1.6.66 2.68.64 1.11-.02 1.81-1 2.48-1.99.78-1.13 1.1-2.24 1.12-2.3-.02-.01-2.15-.83-2.17-3.24zM11.86 4.3c.56-.68.94-1.62.83-2.56-.81.03-1.78.54-2.36 1.21-.52.6-.98 1.56-.86 2.48.9.07 1.82-.46 2.39-1.13z"/></svg>
+        Sign in with Apple
+      </button>
       <button class="secondary-btn" id="googleAuthBtn" style="display:flex; align-items:center; justify-content:center; gap:10px;">
         <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.84 2.09-1.8 2.73v2.27h2.92c1.7-1.57 2.68-3.88 2.68-6.64z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.27c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.34C2.44 15.98 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.97 10.71c-.18-.54-.28-1.11-.28-1.71s.1-1.17.28-1.71V4.95H.96C.35 6.17 0 7.55 0 9s.35 2.83.96 4.05l3.01-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.59-2.59C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.95l3.01 2.34C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
         Continue with Google
       </button>
       <p class="dm-p" style="margin-top:14px;">Making disciples through the app starts with a quick, secure sign-in — no separate password to create, and it works with any email address you already use (Yahoo, Outlook, iCloud, anything), not just Gmail. Everything else in the app stays free to use with no account needed.</p>
     `;
+    document.getElementById('appleAuthBtn').onclick = handleAppleAuth;
     document.getElementById('googleAuthBtn').onclick = handleGoogleAuth;
   }
 
@@ -2172,7 +2177,7 @@
   }
 
   // Looks up an existing profile by email — used only after a real Google
-  // sign-in completes (see completeGoogleAuthIfPending below), to avoid
+  // sign-in completes (see completeOAuthIfPending below), to avoid
   // creating a duplicate account for someone who already has one under
   // this same email. The email is verified by Google at that point, so
   // this is safe — it's no longer used as a standalone "log in with just
@@ -2191,14 +2196,14 @@
 
   // Kicks off the Google OAuth redirect. The person leaves the app
   // entirely, signs in with Google, and gets sent back here — the actual
-  // account creation/login happens in completeGoogleAuthIfPending() below,
+  // account creation/login happens in completeOAuthIfPending() below,
   // since that's the point where a real session finally exists.
   async function handleGoogleAuth() {
     if (!supabaseClient) {
       await showAppAlert("Google Sign-In isn't available right now — try creating an account with your name and email instead.");
       return;
     }
-    sessionStorage.setItem('fj_google_auth_pending', '1');
+    sessionStorage.setItem('fj_oauth_pending', '1');
     await supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -2224,23 +2229,46 @@
     });
   }
 
+  // Same shape as handleGoogleAuth above, minus the Google-specific
+  // account-picker query param -- Apple's sign-in flow doesn't have an
+  // equivalent "always show the picker" option in the same sense, since
+  // it's tied to whichever Apple ID the device itself is signed into
+  // rather than a list of cached browser accounts. Shares the same
+  // fj_oauth_pending flag and completeOAuthIfPending/
+  // syncAccountFromActiveSession completion path as Google, since that
+  // logic already reads whatever session exists rather than assuming a
+  // specific provider.
+  async function handleAppleAuth() {
+    if (!supabaseClient) {
+      await showAppAlert("Sign in with Apple isn't available right now — try creating an account with your name and email instead.");
+      return;
+    }
+    sessionStorage.setItem('fj_oauth_pending', '1');
+    await supabaseClient.auth.signInWithOAuth({
+      provider: 'apple',
+      options: {
+        redirectTo: window.location.origin + window.location.pathname + window.location.search
+      }
+    });
+  }
+
   // Checked once when the app first loads. If someone just came back from
-  // the Google redirect, this finds (or creates) their account the same
-  // way logging in by email already works — by matching on email — so
-  // existing groups, disciples, and progress carry over automatically if
-  // they've used the app before. The actual work is in
+  // the Google or Apple redirect, this finds (or creates) their account
+  // the same way logging in by email already works — by matching on
+  // email — so existing groups, disciples, and progress carry over
+  // automatically if they've used the app before. The actual work is in
   // syncAccountFromActiveSession below — this function's own job is just
   // the cheap, fast-path check (has the flag actually been set?) so this
   // doesn't do a Supabase round trip on every normal page load.
-  async function completeGoogleAuthIfPending() {
-    if (sessionStorage.getItem('fj_google_auth_pending') !== '1') return false;
-    sessionStorage.removeItem('fj_google_auth_pending');
+  async function completeOAuthIfPending() {
+    if (sessionStorage.getItem('fj_oauth_pending') !== '1') return false;
+    sessionStorage.removeItem('fj_oauth_pending');
     return await syncAccountFromActiveSession();
   }
 
   // The actual "find or create a local account from whatever Supabase
   // session already exists" logic, pulled out on its own so it can be
-  // called two ways: from completeGoogleAuthIfPending above (the normal
+  // called two ways: from completeOAuthIfPending above (the normal
   // path, gated behind the sessionStorage flag), and as a direct
   // fallback from renderDiscipleStep when no local account is found —
   // covering the case where that flag never made it back. This happens
