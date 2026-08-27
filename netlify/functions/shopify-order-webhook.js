@@ -1,9 +1,21 @@
 // netlify/functions/shopify-order-webhook.js
 //
-// Receives Shopify's "Order payment" webhook. When a paid order includes
-// a product matching one of our courses' shopify_product_id, grants that
+// Receives Shopify's order webhooks. When a paid order includes a
+// product matching one of our courses' shopify_product_id, grants that
 // buyer access to the course (via the process_shopify_order Postgres
 // function) and emails them a direct link.
+//
+// Subscribed to TWO Shopify webhook topics pointing at this same
+// function: "Order payment" (orders/paid) as the primary trigger, and
+// "Order creation" (orders/create) as a backup. This is because
+// orders/paid is known to sometimes not fire even for a genuinely paid
+// order -- a real, documented Shopify platform quirk, not specific to
+// this integration. Since orders/create fires before payment
+// necessarily clears, this function checks order.financial_status ===
+// 'paid' itself before granting anything, so access still only follows
+// real payment either way, and process_shopify_order tracks whether
+// each grant is new so the same order firing both webhooks doesn't
+// double-email anyone.
 //
 // No Supabase service-role key anywhere -- same pattern as every other
 // cross-boundary function in this project (see
@@ -15,7 +27,9 @@
 // ---------------------------------------------------------------------
 // SETUP (do this after uploading the file, in this order):
 // ---------------------------------------------------------------------
-// 1. Run paywall-schema.sql first, if you haven't already.
+// 1. Run paywall-schema.sql first, if you haven't already, then also
+//    run paywall-dedupe-emails.sql (needed for the is_new tracking this
+//    version of the function relies on).
 //
 // 2. Find the real Shopify product ID for "The Process of Promotion"
 //    (the URL slug, 1824415, is NOT reliably the same as the internal
@@ -24,16 +38,19 @@
 //      https://admin.shopify.com/store/<yourstore>/products/<PRODUCT_ID>
 //    That numeric ID at the end is the one you need.
 //
-// 3. Run this SQL with the real ID from step 2:
+// 3. Run this SQL with the real ID from step 2 (skip if already done):
 //      update courses set shopify_product_id = '<the real product id>'
 //      where id = '9fd36fd4-8c3d-4305-a7dd-d2a1d7f3abcc';
 //
 // 4. In Shopify Admin: Settings > Notifications > scroll down to
-//    Webhooks > Create webhook.
-//      Event: Order payment
-//      Format: JSON
-//      URL: https://followingjesus.com/.netlify/functions/shopify-order-webhook
-//    Shopify shows a signing secret on that same page -- copy it.
+//    Webhooks > Create webhook -- do this TWICE, once for each event
+//    below, both pointing at the exact same URL:
+//      Event: Order payment       (topic: orders/paid)
+//      Event: Order creation      (topic: orders/create)
+//      Format: JSON (both)
+//      URL (both): https://followingjesus.com/.netlify/functions/shopify-order-webhook
+//    Shopify shows a signing secret on that same page -- it's shared
+//    across all webhooks on this store, so you only need to copy it once.
 //
 // 5. Add these Netlify environment variables (Site settings >
 //    Environment variables), both marked as secret:
@@ -43,11 +60,11 @@
 //    RESEND_API_KEY should already be set from the other email functions
 //    -- nothing new needed there if so.
 //
-// 6. Use Shopify's "Send test notification" button on the webhook to
-//    confirm it reaches this function before relying on it for a real
-//    sale. A test notification won't match a real product ID, so expect
-//    a "skipped" response -- that still confirms the signature check
-//    and connection are working.
+// 6. Use Shopify's "Send test notification" button on EACH of the two
+//    webhooks to confirm both reach this function before relying on it
+//    for a real sale. A test notification won't match a real product ID
+//    or have financial_status set, so expect a "skipped" response --
+//    that still confirms the signature check and connection are working.
 
 const crypto = require('crypto');
 
@@ -102,7 +119,21 @@ exports.handler = async (event) => {
   const firstName = order.customer?.first_name || '';
   const lineItems = Array.isArray(order.line_items) ? order.line_items : [];
   const productIds = [...new Set(lineItems.map(li => String(li.product_id)).filter(Boolean))];
-  console.log(`shopify-order-webhook: order ${order.id || '(no id)'} -- email present: ${!!customerEmail}, product_ids: ${JSON.stringify(productIds)}`);
+  console.log(`shopify-order-webhook: order ${order.id || '(no id)'} -- email present: ${!!customerEmail}, financial_status: ${order.financial_status}, product_ids: ${JSON.stringify(productIds)}`);
+
+  // This function is subscribed to BOTH orders/paid and orders/create --
+  // orders/create fires for an order the moment it's placed, before
+  // payment necessarily clears, so this check is what actually keeps
+  // access gated on real payment rather than just "an order exists."
+  // orders/paid is kept as the primary trigger (and is checked here too,
+  // redundantly but harmlessly) since it's the more precise signal when
+  // it does fire -- orders/create is the backup for the cases where
+  // orders/paid doesn't, which is a known, documented Shopify quirk and
+  // not specific to this integration.
+  if (order.financial_status !== 'paid') {
+    console.log(`shopify-order-webhook: skipped -- financial_status is "${order.financial_status}", not "paid" yet`);
+    return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: `financial_status is ${order.financial_status}, not paid` }) };
+  }
 
   if (!customerEmail || productIds.length === 0) {
     // Still a 200 -- this is a legitimate, verified webhook, just not
@@ -114,7 +145,9 @@ exports.handler = async (event) => {
 
   // The security-definer function does the real work: matching
   // product_ids against our courses, inserting the purchase row(s),
-  // and returning which courses actually matched.
+  // and returning which courses actually matched (and whether each was
+  // a brand new grant, so this doesn't double-email someone if both
+  // orders/create and orders/paid fire for the same order).
   const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/process_shopify_order`, {
     method: 'POST',
     headers: {
@@ -145,8 +178,12 @@ exports.handler = async (event) => {
 
   const results = [];
   for (const course of matchedCourses) {
-    const emailSent = await sendAccessEmail(customerEmail, firstName, course.title, resendApiKey);
-    results.push({ course: course.title, emailSent });
+    // Only email on a genuinely new grant -- if orders/create already
+    // granted this same course+email for this order (or a prior
+    // delivery attempt), skip the email rather than sending a second
+    // one for the same purchase.
+    const emailSent = course.is_new ? await sendAccessEmail(customerEmail, firstName, course.title, resendApiKey) : false;
+    results.push({ course: course.title, isNew: course.is_new, emailSent });
   }
   console.log(`shopify-order-webhook: granted access + email results: ${JSON.stringify(results)}`);
 
