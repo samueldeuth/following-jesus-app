@@ -45,6 +45,10 @@
   .logo-badge-full{display:block;width:100%;text-align:center;padding:22px 16px;box-sizing:border-box;}
   .logo-badge-img{height:30px;display:inline-block;vertical-align:middle;}
   .logo-badge-img.logo-badge-full{display:block;width:auto;height:36px;margin:20px auto;padding:0;}
+  /* Plain dark text, no background box -- for a course whose own hero
+     image is light, where the default dark badge box would look heavy
+     sitting on top of it. */
+  .logo-badge-dark{background:none;color:var(--ink);padding:0;}
   .topbar nav{display:flex;align-items:center;gap:22px;font-size:12.5px;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;}
   .topbar.on-hero nav{color:#fff;}
 
@@ -62,18 +66,17 @@
     margin:0 0 14px;
   }
   .hero p{max-width:560px;margin:0 auto 26px;font-size:16px;line-height:1.6;opacity:0.92;}
-  /* Standalone hero banner variant: the image already carries its own
-     baked-in headline (see COURSE_CUSTOM_HERO_MAP), so it's shown clean
-     -- no dark overlay, no text on top of it -- with a fresh title/
-     subtitle as its own text block underneath instead of competing with
-     the image's own title for the same space. */
-  .hero-banner-img{width:100%;display:block;}
-  .hero-text-below{text-align:center;padding:40px 20px 50px;max-width:640px;margin:0 auto;}
-  .hero-text-below h1{
-    font-family:'Space Grotesk',sans-serif;font-weight:700;
-    font-size:clamp(26px,4.5vw,38px);line-height:1.25;margin:0 0 14px;color:var(--ink);
+  /* Light-shaded hero variant: a course whose own hero image is bright
+     (yellow, here) needs a light wash rather than the default dark one
+     -- dark text stays readable on top, and the image's own colors show
+     through more than a heavy dark overlay would allow. */
+  .hero-light{
+    background:linear-gradient(180deg, rgba(255,255,255,0.88), rgba(255,255,255,0.93)), var(--hero-bg-image) center/cover;
+    color:var(--ink);
   }
-  .hero-text-below p{font-size:16px;line-height:1.6;color:var(--ink-soft);margin:0 0 26px;}
+  .hero-light h1, .hero-light p{color:var(--ink);}
+  .hero-light .btn-blue{background:var(--ink);}
+  .hero-light .topbar.on-hero nav{color:var(--ink);}
   .btn-blue{
     background:var(--blue);color:#fff;border:none;
     font-weight:600;font-size:15px;
@@ -401,24 +404,27 @@ const COURSE_SLUG_MAP = {
 // fixed platform mark -- a course with its own logo here shows its own
 // image instead of the plain "Following Jesus" text badge. Add future
 // courses' logos here as they're built.
-const COURSE_LOGO_MAP = {
-  '9fd36fd4-8c3d-4305-a7dd-d2a1d7f3abcc': '/assets/process-of-promotion-wordmark.png'
-};
-// A course with its own hero image here gets the clean standalone-
-// banner layout (image, then title/subtitle as their own text block
-// below it) instead of the default dark-overlay-with-white-text hero.
-// title/subtitle here are this hero section's own headline copy --
-// separate from the course's actual title/subtitle used elsewhere
-// (sidebar, profile listing, certificates), which stay as the course's
-// real name for those more compact spots.
+const COURSE_LOGO_MAP = {};
+// A course with its own hero image here gets the shaded-image hero
+// layout (its hero image as the background, with a light tint so its
+// own headline text stays visible underneath, and this course's title/
+// subtitle/logoText overlaid in dark text on top) instead of the
+// default dark-overlay-with-white-text hero built for a dark background
+// image. title/subtitle/logoText here are this hero section's own
+// copy -- separate from the course's actual title/subtitle used
+// elsewhere (sidebar, profile listing, certificates), which stay as the
+// course's real name for those more compact spots.
 const COURSE_CUSTOM_HERO_MAP = {
   '9fd36fd4-8c3d-4305-a7dd-d2a1d7f3abcc': {
     image: '/assets/process-of-promotion-hero.jpg',
-    title: "If God promotes you nothing on earth can stop you!",
+    logoText: 'The Process of Promotion',
+    title: 'The Process of Promotion',
     subtitle: "This course engages God's 9 ways He uses obscurity to prepare you for your purpose!"
   }
 };
 function logoBadgeHtml(extraClass){
+  const customHero = course?.id ? COURSE_CUSTOM_HERO_MAP[course.id] : null;
+  if(customHero?.logoText) return `<div class="logo-badge logo-badge-dark${extraClass ? ' ' + extraClass : ''}">${customHero.logoText}</div>`;
   const logoUrl = course?.id ? COURSE_LOGO_MAP[course.id] : null;
   if(logoUrl) return `<img class="logo-badge-img${extraClass ? ' ' + extraClass : ''}" src="${logoUrl}" alt="${course.title}">`;
   return `<div class="logo-badge${extraClass ? ' ' + extraClass : ''}">Following Jesus</div>`;
@@ -964,15 +970,16 @@ function renderHero(skipHistoryPush){
     : `<button class="btn-blue" id="start-btn">Start Course Today!</button>`;
   const customHero = course?.id ? COURSE_CUSTOM_HERO_MAP[course.id] : null;
   const heroHtml = customHero ? `
-    <div class="topbar">
-      ${logoBadgeHtml()}
-      <nav><a href="https://qrco.de/fjapp">App</a>${authStatusHtml()}</nav>
-    </div>
-    <img class="hero-banner-img" src="${customHero.image}" alt="${course.title}">
-    <div class="hero-text-below">
-      <h1>${customHero.title}</h1>
-      <p>${customHero.subtitle}</p>
-      ${startButtonHtml}
+    <div class="hero hero-light" style="--hero-bg-image:url('${customHero.image}');">
+      <div class="topbar on-hero">
+        ${logoBadgeHtml()}
+        <nav><a href="https://qrco.de/fjapp">App</a>${authStatusHtml()}</nav>
+      </div>
+      <div>
+        <h1>${customHero.title}</h1>
+        <p>${customHero.subtitle}</p>
+        ${startButtonHtml}
+      </div>
     </div>
   ` : `
     <div class="hero">
