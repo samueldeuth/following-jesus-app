@@ -129,6 +129,8 @@
   tbody tr.clickable:hover{background:var(--bg-soft);}
   .student-name{font-weight:600;}
   .student-email{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .date-started{font-size:12.5px;color:var(--ink-soft);white-space:nowrap;}
+  .date-completed{font-size:12.5px;color:var(--blue);white-space:nowrap;margin-top:2px;font-weight:600;}
   .church-link{cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:2px;}
   .church-link:hover{text-decoration-color:var(--ink);}
   .church-edit-btn{
@@ -481,9 +483,9 @@ function exportStudentsCSV(rows, filename, includeChurchColumn){
   const lines = [headers.map(csvEscape).join(',')];
 
   rows.forEach(r => {
-    const completed = r.total_items > 0 && r.items_completed === r.total_items;
     const progress = r.total_items > 0 ? `${r.items_completed}/${r.total_items}` : '0/0';
     const enrolledDate = r.enrolled_at ? new Date(r.enrolled_at).toLocaleDateString() : '';
+    const completedDate = r.completed_at ? new Date(r.completed_at).toLocaleDateString() : '';
     const fields = [
       r.full_name || 'Unnamed student',
       r.student_email || '',
@@ -491,7 +493,7 @@ function exportStudentsCSV(rows, filename, includeChurchColumn){
       r.course_title || '',
       enrolledDate,
       progress,
-      completed ? 'Yes' : 'No'
+      completedDate
     ];
     lines.push(fields.map(csvEscape).join(','));
   });
@@ -814,6 +816,16 @@ let selectedEnrollmentIds = new Set();
 // Shared HTML for a student row's action buttons -- same markup and
 // button set whether it's the All Students table or a single church's,
 // since both render modes (active vs archived) need identical behavior.
+// Shared by all three student tables (All Students, a church's
+// students, a course's students) so the date formatting and layout
+// stay identical everywhere rather than drifting between copies.
+function startedCompletedCellHtml(r){
+  const fmt = d => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  const started = r.enrolled_at ? `<div class="date-started">Started ${fmt(r.enrolled_at)}</div>` : '';
+  const completed = r.completed_at ? `<div class="date-completed">Completed ${fmt(r.completed_at)}</div>` : '';
+  return started + completed || '<span style="color:var(--ink-soft);">—</span>';
+}
+
 function studentActionButtonsHtml(r, isComplete){
   const certBtn = isComplete ? `<button class="mini-btn gold" data-view-cert="${r.student_id}" data-cert-course="${r.course_id}">🏅 Certificate</button>` : '';
   if(studentViewMode === 'archived'){
@@ -971,7 +983,7 @@ function renderAllStudents(){
     </div>
     <div id="all-students-batch-bar"></div>
     <table>
-      <thead><tr><th style="width:34px;"><input type="checkbox" id="all-students-select-all" /></th><th>Student</th><th>Church</th><th>Progress</th><th>Actions</th></tr></thead>
+      <thead><tr><th style="width:34px;"><input type="checkbox" id="all-students-select-all" /></th><th>Student</th><th>Church</th><th>Progress</th><th>Dates</th><th>Actions</th></tr></thead>
       <tbody id="all-students-tbody"></tbody>
     </table>
   `;
@@ -1029,6 +1041,7 @@ function renderAllStudentsRows(){
         <td class="clickable-cell" data-open="true">
           <div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${r.items_completed}/${r.total_items}</span></div>
         </td>
+        <td>${startedCompletedCellHtml(r)}</td>
         <td>
           <div class="row-actions">
             ${studentActionButtonsHtml(r, isComplete)}
@@ -1037,7 +1050,7 @@ function renderAllStudentsRows(){
       </tr>`;
   }).join('');
 
-  document.getElementById('all-students-tbody').innerHTML = rowsHtml || `<tr><td colspan="5" style="color:var(--ink-soft);">${query ? 'No students match.' : (studentViewMode==='archived' ? 'No archived students.' : 'No students yet.')}</td></tr>`;
+  document.getElementById('all-students-tbody').innerHTML = rowsHtml || `<tr><td colspan="6" style="color:var(--ink-soft);">${query ? 'No students match.' : (studentViewMode==='archived' ? 'No archived students.' : 'No students yet.')}</td></tr>`;
   document.getElementById('all-students-batch-bar').innerHTML = batchActionBarHtml();
 
   document.querySelectorAll('#all-students-tbody td.clickable-cell').forEach(td => {
@@ -1311,6 +1324,7 @@ async function renderChurchStudents(churchId){
         <td class="clickable-cell" data-open="true">
           <div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${r.items_completed}/${r.total_items}</span></div>
         </td>
+        <td>${startedCompletedCellHtml(r)}</td>
         <td>
           ${assignmentCell}
         </td>
@@ -1346,8 +1360,8 @@ async function renderChurchStudents(churchId){
     <div class="church-tab-panel active" data-tab-panel="students">
       <div id="church-students-batch-bar">${batchActionBarHtml()}</div>
       <table>
-        <thead><tr><th style="width:34px;"><input type="checkbox" id="church-students-select-all" /></th><th>Student</th><th>Progress</th><th>Group</th><th>Actions</th></tr></thead>
-        <tbody id="church-students-tbody">${rowsHtml || '<tr><td colspan="5" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : 'No students here yet.') + '</td></tr>'}</tbody>
+        <thead><tr><th style="width:34px;"><input type="checkbox" id="church-students-select-all" /></th><th>Student</th><th>Progress</th><th>Dates</th><th>Group</th><th>Actions</th></tr></thead>
+        <tbody id="church-students-tbody">${rowsHtml || '<tr><td colspan="6" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : 'No students here yet.') + '</td></tr>'}</tbody>
       </table>
     </div>
 
@@ -1829,6 +1843,7 @@ async function renderCourseStudents(courseId, courseTitle){
         <td class="clickable-cell" data-open="true">
           <div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${r.items_completed}/${r.total_items}</span></div>
         </td>
+        <td>${startedCompletedCellHtml(r)}</td>
         <td>
           <div class="row-actions">
             ${studentActionButtonsHtml(r, isComplete)}
@@ -1863,8 +1878,8 @@ async function renderCourseStudents(courseId, courseTitle){
 
     <div id="course-students-batch-bar">${batchActionBarHtml()}</div>
     <table>
-      <thead><tr><th style="width:34px;"><input type="checkbox" id="course-students-select-all" /></th><th>Student</th><th>Church</th><th>Progress</th><th>Actions</th></tr></thead>
-      <tbody id="course-students-tbody">${rowsHtml || '<tr><td colspan="5" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : 'No students enrolled yet.') + '</td></tr>'}</tbody>
+      <thead><tr><th style="width:34px;"><input type="checkbox" id="course-students-select-all" /></th><th>Student</th><th>Church</th><th>Progress</th><th>Dates</th><th>Actions</th></tr></thead>
+      <tbody id="course-students-tbody">${rowsHtml || '<tr><td colspan="6" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : 'No students enrolled yet.') + '</td></tr>'}</tbody>
     </table>
   `;
 
