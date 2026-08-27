@@ -1058,7 +1058,7 @@ function renderPurchaseRequired(){
       <div class="purchase-required-body">
         <h1>This course requires purchase</h1>
         <p>${course.title} isn't included with your account yet. If you've already bought it, make sure you're signed in with the same email you used at checkout${currentUser?.email ? ` (you're currently signed in as ${escapeHtmlPlayer(currentUser.email)})` : ''}.</p>
-        ${buyUrl ? `<a class="btn-blue" href="${buyUrl}" target="_blank" rel="noopener">Purchase ${escapeHtmlPlayer(course.title)} →</a>` : ''}
+        ${buyUrl ? `<a class="btn-blue" href="${buyUrl}">Purchase ${escapeHtmlPlayer(course.title)} →</a>` : ''}
         <a class="purchase-required-back" href="#" id="purchase-required-back-link">← Back to the course overview</a>
       </div>
     </div>
