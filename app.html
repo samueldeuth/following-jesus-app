@@ -1301,6 +1301,8 @@
     color: #a5453f; text-decoration: underline; cursor: pointer;
   }
   .disciple-app-scope .msg-thread { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; max-height:220px; overflow-y:auto; scrollbar-width: none; }
+  .disciple-app-scope .msg-thread.collapsed { max-height: 100px; }
+  .disciple-app-scope .msg-thread-expand-hint { text-align:center; font-size:11.5px; color:var(--ink-soft); padding:2px 0 12px; cursor:pointer; }
   .disciple-app-scope .msg-thread::-webkit-scrollbar { display: none; width: 0; height: 0; }
   .disciple-app-scope .msg { max-width:78%; padding:10px 14px; border-radius:14px; font-size:13px; line-height:1.4; cursor: pointer; }
   .disciple-app-scope .msg.me { align-self:flex-end; background: var(--ember); color: var(--black); border-bottom-right-radius:3px; }
@@ -2957,7 +2959,7 @@ function teacherCourseViewHtml(course) {
   });
   return `
     <button type="button" class="invite-toggle-btn" id="teacherViewToggleBtn">
-      <span>Teacher View — ${escapeHtml(course.title)}</span>
+      <span>Leader's Notes — ${escapeHtml(course.title)}</span>
       <svg class="course-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <div class="card invite-toggle-body" id="teacherViewToggleBody" style="border-radius:0 0 2px 2px; margin-top:0;">
@@ -3795,6 +3797,31 @@ function scrollChatThreadsToBottom() {
 // change.
 let activeChatChannel = null;
 
+// Chat starts visually collapsed (a short peek at the most recent
+// message) on the member and group detail pages, so page content below
+// it -- like the Discipleship Pathway heading -- doesn't get pushed
+// below the fold before someone's even looked at chat. Expanding once
+// (by tapping in) keeps it expanded for the rest of that visit, tracked
+// per member/group so it resets when navigating to someone else's page.
+let expandedChatKeys = new Set();
+function expandChatThread(key) {
+  expandedChatKeys.add(key);
+  const thread = document.querySelector(`.msg-thread[data-chat-key="${key}"]`);
+  if (thread) thread.classList.remove('collapsed');
+  const hint = document.querySelector(`.msg-thread-expand-hint[data-chat-key="${key}"]`);
+  if (hint) hint.remove();
+  scrollChatThreadsToBottom();
+}
+
+// Wires every collapsed thread + its hint on the current page to expand
+// on tap. Called after any render that might include one of these —
+// harmless to call even when nothing collapsed is present.
+function wireChatExpandHints() {
+  document.querySelectorAll('.msg-thread.collapsed[data-chat-key], .msg-thread-expand-hint[data-chat-key]').forEach(el => {
+    el.addEventListener('click', () => expandChatThread(el.dataset.chatKey), { once: true });
+  });
+}
+
 function unsubscribeFromChatUpdates() {
   if (activeChatChannel && supabaseClient) {
     supabaseClient.removeChannel(activeChatChannel);
@@ -4040,18 +4067,19 @@ async function renderGroupDetail(code) {
       <div class="overall-progress-sub">${completedCount} of ${members.length} ${members.length === 1 ? 'person has' : 'people have'} completed ${escapeHtml(course.title)}</div>
     </div>
 
-    <div class="chat-block">
+    ${teacherCourseViewHtml(course)}
+
+    <div class="chat-block" id="groupChatBlock">
       <div class="chat-panel-light">
         <div class="section-label chat-panel-title">Group Chat — everyone in this group can see this</div>
-        <div class="msg-thread">${groupChatHtml}</div>
+        <div class="msg-thread${expandedChatKeys.has('group-' + code) ? '' : ' collapsed'}" data-chat-key="group-${code}">${groupChatHtml}</div>
+        ${expandedChatKeys.has('group-' + code) ? '' : `<div class="msg-thread-expand-hint" data-chat-key="group-${code}">Tap to see the full conversation</div>`}
         <div class="msg-input-row">
           <input type="text" id="groupMsgInput" placeholder="Message the group…" />
           <button class="primary" id="sendGroupMsgBtn">Send</button>
         </div>
       </div>
     </div>
-
-    ${teacherCourseViewHtml(course)}
 
     <a class="close-group-link" id="closeGroupBtn">Delete This Group</a>
   `;
@@ -4122,6 +4150,7 @@ async function renderGroupDetail(code) {
   });
   scrollChatThreadsToBottom();
   wireMessageReactions();
+  wireChatExpandHints();
 }
 
 async function closeGroup(code) {
@@ -4185,7 +4214,8 @@ async function renderMemberDetail(memberId) {
     <div class="chat-block">
       <div class="chat-panel-light">
         <div class="section-label chat-panel-title">Messages</div>
-        <div class="msg-thread">${msgHtml}</div>
+        <div class="msg-thread${expandedChatKeys.has('member-' + memberId) ? '' : ' collapsed'}" data-chat-key="member-${memberId}">${msgHtml}</div>
+        ${expandedChatKeys.has('member-' + memberId) ? '' : `<div class="msg-thread-expand-hint" data-chat-key="member-${memberId}">Tap to see the full conversation</div>`}
         <div class="msg-input-row">
           <input type="text" id="msgInput" placeholder="Send encouragement…" />
           <button class="primary" id="sendMsgBtn">Send</button>
@@ -4213,6 +4243,7 @@ async function renderMemberDetail(memberId) {
   wireEnterToSend(document.getElementById('msgInput'), () => document.getElementById('sendMsgBtn').click());
   scrollChatThreadsToBottom();
   wireMessageReactions();
+  wireChatExpandHints();
 }
 
 // ============ FRIEND ============
