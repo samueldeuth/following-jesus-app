@@ -1279,6 +1279,10 @@
   .disciple-app-scope .course-card-body { display: none; padding-top: 14px; }
   .disciple-app-scope .course-card-body.open { display: block; }
   .disciple-app-scope .walk-it-out-list { display: flex; flex-direction: column; gap: 10px; }
+  .disciple-app-scope .milestone-stage { margin-top: 20px; }
+  .disciple-app-scope .milestone-stage:first-of-type { margin-top: 4px; }
+  .disciple-app-scope .milestone-stage-title { font-family: var(--font-display); font-weight: 800; font-size: 14px; letter-spacing: 0.02em; margin-bottom: 4px; color: var(--black); }
+  .disciple-app-scope .milestone-stage-overview { font-size: 13px; color: var(--ink-soft); line-height: 1.5; margin: 0 0 10px; }
   .disciple-app-scope .walkout-item { display: flex; align-items: flex-start; gap: 10px; }
   .disciple-app-scope .walkout-item.interactive { cursor: pointer; touch-action: manipulation; }
   .disciple-app-scope .walkout-check {
@@ -3096,6 +3100,14 @@ async function getMilestoneDefinitions() {
   return milestoneDefsCache;
 }
 
+let stageDefsCache = null;
+async function getStageDefinitions() {
+  if (stageDefsCache) return stageDefsCache;
+  const { data } = await supabaseClient.from('discipleship_stages').select('*').order('sort_order');
+  stageDefsCache = data || [];
+  return stageDefsCache;
+}
+
 async function hasCompletedFreeCourse(discipleId) {
   const { data: freeCourse } = await supabaseClient.from('courses').select('id').eq('is_free', true).limit(1).maybeSingle();
   if (!freeCourse) return false;
@@ -3103,23 +3115,70 @@ async function hasCompletedFreeCourse(discipleId) {
   return !!cert;
 }
 
+// "Applying to Make Disciples" checks for any leader application on
+// file for this person, regardless of its approval status -- the
+// milestone is about having applied, not (yet) being approved.
+async function hasAppliedToLead(discipleId) {
+  const { data } = await supabaseClient.from('leader_applications').select('id').eq('applicant_id', discipleId).limit(1).maybeSingle();
+  return !!data;
+}
+
+// Dispatches to the right underlying check based on each item's
+// auto_source, rather than a single hardcoded course-completion check --
+// new auto-detected milestones just need a new case added here.
+async function isAutoMilestoneDone(autoSource, discipleId) {
+  if (autoSource === 'course_completion') return hasCompletedFreeCourse(discipleId);
+  if (autoSource === 'leader_application') return hasAppliedToLead(discipleId);
+  return false;
+}
+
 async function getDiscipleshipMilestonesData(discipleId) {
-  const [defs, completionsRes, courseDone] = await Promise.all([
-    getMilestoneDefinitions(),
+  const defs = await getMilestoneDefinitions();
+  const autoSources = [...new Set(defs.filter(m => m.auto_source).map(m => m.auto_source))];
+  const [stages, completionsRes, ...autoResults] = await Promise.all([
+    getStageDefinitions(),
     supabaseClient.from('discipleship_milestone_completions').select('milestone_id, completed_at').eq('disciple_id', discipleId),
-    hasCompletedFreeCourse(discipleId)
+    ...autoSources.map(source => isAutoMilestoneDone(source, discipleId))
   ]);
+  const autoDoneBySource = {};
+  autoSources.forEach((source, i) => { autoDoneBySource[source] = autoResults[i]; });
+
   const doneByMilestoneId = {};
   (completionsRes.data || []).forEach(c => { doneByMilestoneId[c.milestone_id] = c.completed_at; });
 
-  const items = defs.map(m => ({
-    id: m.id,
-    label: m.label,
-    isAuto: m.is_auto,
-    done: m.is_auto ? courseDone : !!doneByMilestoneId[m.id]
-  }));
+  const items = defs.map(m => {
+    const autoResult = m.auto_source ? !!autoDoneBySource[m.auto_source] : false;
+    const manuallyChecked = !!doneByMilestoneId[m.id];
+    return {
+      id: m.id,
+      label: m.label,
+      isAuto: !!m.auto_source,
+      allowsOverride: !!m.allow_manual_override,
+      stageKey: m.stage_key,
+      // An override-eligible auto item counts as done from either
+      // source -- the real, automatic detection, or a leader manually
+      // vouching for it (e.g. the course was taken in person, so no
+      // certificate exists in the app to auto-detect).
+      done: m.auto_source ? (autoResult || (m.allow_manual_override && manuallyChecked)) : manuallyChecked,
+      // Clickable if it's a plain manual item, or it's override-eligible
+      // and not already genuinely auto-verified -- once the real,
+      // automatic detection is true, there's nothing left to toggle.
+      canToggle: !m.auto_source || (m.allow_manual_override && !autoResult)
+    };
+  });
   const allDone = items.length > 0 && items.every(i => i.done);
-  return { items, allDone };
+
+  // Group items under their stage, in stage order, for the checklist
+  // UI -- each stage carries its own title/overview alongside its items.
+  const stageGroups = stages.map(s => ({
+    key: s.key, title: s.title, overview: s.overview,
+    items: items.filter(i => i.stageKey === s.key)
+  })).filter(g => g.items.length > 0);
+  // Anything without a matching stage (shouldn't normally happen) still
+  // shows up, rather than silently disappearing from the checklist.
+  const ungrouped = items.filter(i => !stageGroups.some(g => g.items.includes(i)));
+
+  return { items, allDone, stageGroups, ungrouped };
 }
 
 async function toggleMilestone(discipleId, milestoneId, done) {
@@ -3148,26 +3207,51 @@ async function checkAndCelebrateMilestones(discipleId, allDone) {
 
 // Reuses the existing walk-it-out checkbox/progress-bar styling so this
 // doesn't need its own CSS — same visual language as the Essentials
-// sub-checklists, just a different data source.
-function milestonesChecklistHtml(items, interactive) {
-  const doneCount = items.filter(i => i.done).length;
-  const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
-  const rows = items.map(item => {
-    const canToggle = interactive && !item.isAuto;
+// sub-checklists, just a different data source. Renders one section per
+// stage (title + overview paragraph + its own items), with one overall
+// progress bar across everything at the top — stages are purely
+// organizational here, not a gate, so items from any stage can be
+// checked in any order.
+function milestonesChecklistHtml(data, interactive) {
+  const allItems = data.items;
+  const doneCount = allItems.filter(i => i.done).length;
+  const pct = allItems.length ? Math.round((doneCount / allItems.length) * 100) : 0;
+
+  const itemRowHtml = (item) => {
+    const canToggle = interactive && item.canToggle;
+    // Only label something "(auto)" when it's actually locked to
+    // automatic detection right now -- an override-eligible item a
+    // leader can currently check themselves shouldn't read as
+    // untouchable. When it IS currently clickable specifically because
+    // of an override (not a plain manual item), say so, so it's clear
+    // why an otherwise-automatic item can be tapped.
+    const showAutoTag = item.isAuto && !canToggle;
+    const showOverrideHint = item.isAuto && canToggle;
     return `
     <div class="walkout-item${canToggle ? ' interactive' : ''}"${canToggle ? ` data-milestone-id="${item.id}"` : ''}>
       <div class="walkout-check ${item.done ? 'done' : ''}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>
       </div>
-      <div class="walkout-item-text">${escapeHtml(item.label)}${item.isAuto ? ' <span style="opacity:0.55;">(auto)</span>' : ''}</div>
+      <div class="walkout-item-text">${escapeHtml(item.label)}${showAutoTag ? ' <span style="opacity:0.55;">(auto)</span>' : ''}${showOverrideHint ? ' <span style="opacity:0.55;">(or check if done elsewhere)</span>' : ''}</div>
     </div>`;
-  }).join('');
+  };
+
+  const stagesHtml = (data.stageGroups || []).map(stage => `
+    <div class="milestone-stage">
+      <div class="milestone-stage-title">${escapeHtml(stage.title)}</div>
+      <p class="milestone-stage-overview">${escapeHtml(stage.overview)}</p>
+      <div class="walk-it-out-list">${stage.items.map(itemRowHtml).join('')}</div>
+    </div>`).join('');
+
+  const ungroupedHtml = (data.ungrouped && data.ungrouped.length)
+    ? `<div class="walk-it-out-list">${data.ungrouped.map(itemRowHtml).join('')}</div>` : '';
+
   return `
     <div class="walkout-progress-row">
       <div class="walkout-progress-bar"><div class="walkout-progress-fill" style="width:${pct}%;"></div></div>
       <div class="walkout-progress-pct">${pct}%</div>
     </div>
-    <div class="walk-it-out-list">${rows}</div>`;
+    ${stagesHtml}${ungroupedHtml}`;
 }
 
 // Wires click-to-toggle on the manual items only (the auto course-
@@ -4080,7 +4164,8 @@ async function renderMemberDetail(memberId) {
   const completionMap = await getCourseCompletionMap([memberId]);
   const hasCompletedCourse = !!completionMap[memberId];
 
-  const { items: milestoneItems, allDone: milestonesAllDone } = await getDiscipleshipMilestonesData(memberId);
+  const milestonesData = await getDiscipleshipMilestonesData(memberId);
+  const milestonesAllDone = milestonesData.allDone;
   checkAndCelebrateMilestones(memberId, milestonesAllDone);
 
   // Shows both people's names together (e.g. "Kenzie & Samuel") rather
@@ -4100,7 +4185,7 @@ async function renderMemberDetail(memberId) {
     <div class="card" id="milestonesCard">
       <h2>Discipleship Checklist</h2>
       <p>Tap an item to mark it covered.</p>
-      ${milestonesChecklistHtml(milestoneItems, true)}
+      ${milestonesChecklistHtml(milestonesData, true)}
     </div>
     <div class="chat-block">
       <div class="chat-panel-light">
@@ -4167,7 +4252,8 @@ async function renderDisciple() {
   const leaderId = membership.leaderId;
   const { progress, walkoutProgress, essentialsSessionData } = await getCourseProgressData(myId, 'essentials');
   checkAndCelebrateEssentialsCompletion(myId, progress);
-  const { items: milestoneItems, allDone: milestonesAllDone } = await getDiscipleshipMilestonesData(myId);
+  const milestonesData = await getDiscipleshipMilestonesData(myId);
+  const milestonesAllDone = milestonesData.allDone;
   checkAndCelebrateMilestones(myId, milestonesAllDone);
   const messages = await getDirectMessages(leaderId, myId);
   const myGroups = await getDiscipleGroups(myId);
@@ -4282,7 +4368,7 @@ async function renderDisciple() {
     <div class="card" id="milestonesCard">
       <h2>Discipleship Checklist</h2>
       <p>${milestonesAllDone ? "You've covered everything on this list — well done!" : `Tap an item to mark it covered${leaderName ? `, or let ${escapeHtml(leaderName)} check it off with you` : ''}.`}</p>
-      ${milestonesChecklistHtml(milestoneItems, true)}
+      ${milestonesChecklistHtml(milestonesData, true)}
     </div>
     ${myGroups.length === 0 ? `
     <div class="chat-block">
