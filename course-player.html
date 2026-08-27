@@ -43,6 +43,8 @@
     display:inline-block;
   }
   .logo-badge-full{display:block;width:100%;text-align:center;padding:22px 16px;box-sizing:border-box;}
+  .logo-badge-img{height:30px;display:inline-block;vertical-align:middle;}
+  .logo-badge-img.logo-badge-full{display:block;width:auto;height:36px;margin:20px auto;padding:0;}
   .topbar nav{display:flex;align-items:center;gap:22px;font-size:12.5px;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;}
   .topbar.on-hero nav{color:#fff;}
 
@@ -383,6 +385,18 @@ function getChurchSlug(){
 const COURSE_SLUG_MAP = {
   'course-promotion': '9fd36fd4-8c3d-4305-a7dd-d2a1d7f3abcc'
 };
+// The header/sidebar logo badge is course-specific branding, not one
+// fixed platform mark -- a course with its own logo here shows its own
+// image instead of the plain "Following Jesus" text badge. Add future
+// courses' logos here as they're built.
+const COURSE_LOGO_MAP = {
+  '9fd36fd4-8c3d-4305-a7dd-d2a1d7f3abcc': '/assets/process-of-promotion-wordmark.png'
+};
+function logoBadgeHtml(extraClass){
+  const logoUrl = course?.id ? COURSE_LOGO_MAP[course.id] : null;
+  if(logoUrl) return `<img class="logo-badge-img${extraClass ? ' ' + extraClass : ''}" src="${logoUrl}" alt="${course.title}">`;
+  return `<div class="logo-badge${extraClass ? ' ' + extraClass : ''}">Following Jesus</div>`;
+}
 function getCourseIdParam(){
   const params = new URLSearchParams(window.location.search);
   const explicit = params.get('course');
@@ -925,7 +939,7 @@ function renderHero(skipHistoryPush){
   document.getElementById('app').innerHTML = `
     <div class="hero">
       <div class="topbar on-hero">
-        <div class="logo-badge">Following Jesus</div>
+        ${logoBadgeHtml()}
         <nav><a href="https://qrco.de/fjapp">App</a>${authStatusHtml()}</nav>
       </div>
       <div>
@@ -977,7 +991,7 @@ function renderPlayer(item, skipHistoryPush){
         <span>${course.title} — Lessons</span>
       </button>
       <div class="sidebar" id="sidebar">
-        <div class="logo-badge logo-badge-full">Following Jesus</div>
+        ${logoBadgeHtml('logo-badge-full')}
         <div class="sidebar-body">
           <a class="back-link" id="back-link">&larr; Go to Dashboard</a>
           ${church?.name ? `<div class="church-name-heading">${church.name}</div>` : ''}
