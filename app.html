@@ -3612,7 +3612,7 @@ async function renderMentor() {
         await showAppAlert(`That didn't save.\n\nDetails: ${result.error || 'unknown error'}`);
         return;
       }
-      renderPreservingScroll(render);
+      renderPreservingScroll(() => render(true));
     };
     return;
   }
@@ -3672,7 +3672,7 @@ async function wireLeaderQuickActions() {
       const label = await showAppPrompt('Name this group', 'e.g. "Wednesday Youth Group"');
       if (!label || !label.trim()) return;
       const newCode = await createNewGroup(label.trim());
-      await renderPreservingScroll(render);
+      await renderPreservingScroll(() => render(true));
       showShareModal(newCode, label.trim());
     };
   }
@@ -3806,7 +3806,7 @@ function renderMessageHtml(m, isMe, senderLabel, extraTagHtml, extraClass) {
 function wireMessageReactions() {
   const reactAndRerender = async (messageId, emoji) => {
     await toggleMessageReaction(messageId, emoji);
-    await renderPreservingScroll(render);
+    await renderPreservingScroll(() => render(true));
   };
 
   // Tapping a bubble reveals that message's reaction row (closing any
@@ -3996,7 +3996,7 @@ async function renderGroupDetail(code) {
     btn.onclick = async () => {
       const chosenId = btn.dataset.course;
       await setGroupCourse(code, chosenId);
-      renderPreservingScroll(render);
+      renderPreservingScroll(() => render(true));
     };
   });
   document.getElementById('closeGroupBtn').onclick = async () => {
@@ -4012,7 +4012,7 @@ async function renderGroupDetail(code) {
   };
   document.getElementById('sendGroupMsgBtn').onclick = async () => {
     const input = document.getElementById('groupMsgInput');
-    await sendChatMessage(input, (body) => sendGroupMessage(code, body), render);
+    await sendChatMessage(input, (body) => sendGroupMessage(code, body), () => render(true));
   };
   wireEnterToSend(document.getElementById('groupMsgInput'), () => document.getElementById('sendGroupMsgBtn').click());
   [...document.querySelectorAll('[data-id]')].forEach(el => {
@@ -4023,7 +4023,7 @@ async function renderGroupDetail(code) {
     addBtn.onclick = async () => {
       const discipleId = document.getElementById('addExistingSelect').value;
       await addDiscipleToGroupByCode(code, discipleId);
-      renderPreservingScroll(render);
+      renderPreservingScroll(() => render(true));
     };
   }
   [...document.querySelectorAll('[data-removeid]')].forEach(el => {
@@ -4033,7 +4033,7 @@ async function renderGroupDetail(code) {
       const disc = members.find(m => m.id === discipleId);
       if (!(await showAppConfirm(`Remove ${disc ? disc.name : 'this person'} from "${group ? group.label : 'this group'}"? They'll keep their other progress with you, just not this group.`))) return;
       await removeFromGroupByCode(code, discipleId);
-      renderPreservingScroll(render);
+      renderPreservingScroll(() => render(true));
     };
   });
   scrollChatThreadsToBottom();
@@ -4122,7 +4122,7 @@ async function renderMemberDetail(memberId) {
   wireMilestoneToggles(document.getElementById('milestonesCard'), memberId, () => renderMemberDetail(memberId));
   document.getElementById('sendMsgBtn').onclick = async () => {
     const input = document.getElementById('msgInput');
-    await sendChatMessage(input, (body) => sendDirectMessage(myId, memberId, true, body), render);
+    await sendChatMessage(input, (body) => sendDirectMessage(myId, memberId, true, body), () => render(true));
   };
   wireEnterToSend(document.getElementById('msgInput'), () => document.getElementById('sendMsgBtn').click());
   scrollChatThreadsToBottom();
@@ -4311,7 +4311,7 @@ async function renderDisciple() {
       if (result.error) await showAppAlert(result.error);
       return;
     }
-    renderPreservingScroll(render);
+    renderPreservingScroll(() => render(true));
   };
 
   [...document.querySelectorAll('.chat-toggle')].forEach(toggle => {
@@ -4333,7 +4333,7 @@ async function renderDisciple() {
     btn.onclick = async () => {
       const input = btn.parentElement.querySelector('.leaderMsgInputInline');
       const targetLeaderId = btn.dataset.leaderId || leaderId;
-      await sendChatMessage(input, (body) => sendDirectMessage(targetLeaderId, myId, false, body), render);
+      await sendChatMessage(input, (body) => sendDirectMessage(targetLeaderId, myId, false, body), () => render(true));
     };
     const inlineInput = btn.parentElement.querySelector('.leaderMsgInputInline');
     wireEnterToSend(inlineInput, () => btn.click());
@@ -4351,7 +4351,7 @@ async function renderDisciple() {
       const code = btn.dataset.leaveCode;
       if (!(await showAppConfirm('Leave this group? You can rejoin later with the invite code if you change your mind.'))) return;
       await leaveGroupByCode(code);
-      renderPreservingScroll(render);
+      renderPreservingScroll(() => render(true));
     };
   });
 
@@ -4360,7 +4360,7 @@ async function renderDisciple() {
       const id = btn.dataset.actionId;
       const isDone = btn.classList.contains('done');
       await toggleActionDone(id, isDone);
-      renderPreservingScroll(render);
+      renderPreservingScroll(() => render(true));
     };
   });
 
@@ -4368,7 +4368,7 @@ async function renderDisciple() {
   if (sendMsgBtn) {
     sendMsgBtn.onclick = async () => {
       const input = document.getElementById('msgInput');
-      await sendChatMessage(input, (body) => sendDirectMessage(leaderId, myId, false, body), render);
+      await sendChatMessage(input, (body) => sendDirectMessage(leaderId, myId, false, body), () => render(true));
     };
     wireEnterToSend(document.getElementById('msgInput'), () => sendMsgBtn.click());
   }
@@ -4377,7 +4377,7 @@ async function renderDisciple() {
     btn.onclick = async () => {
       const gCode = btn.dataset.code;
       const input = document.querySelector(`.groupChatInput[data-code="${gCode}"]`);
-      await sendChatMessage(input, (body) => sendGroupMessage(gCode, body), render);
+      await sendChatMessage(input, (body) => sendGroupMessage(gCode, body), () => render(true));
     };
     const gCode = btn.dataset.code;
     const groupInput = document.querySelector(`.groupChatInput[data-code="${gCode}"]`);
@@ -4757,7 +4757,7 @@ async function renderDiscipleshipHub() {
             e.stopPropagation();
             if (!(await showAppConfirm('Remove this disciple? This deletes their progress and messages with you.'))) return;
             await removeDisciple(el.dataset.delid);
-            renderPreservingScroll(render);
+            renderPreservingScroll(() => render(true));
           };
         });
       }
