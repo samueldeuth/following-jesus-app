@@ -95,22 +95,60 @@ exports.handler = async (event) => {
 async function sendInviteEmail(invite, apiKey) {
   const claimUrl = `${APP_URL}/admin-invite?token=${invite.invite_token}`;
   const courseUrl = `${APP_URL}/courses/${invite.church_slug}`;
+  // contact_name may hold a full name ("John Smith") -- the greeting
+  // only wants the first token of it, and falls back to a plain "Hi
+  // Pastor," when there's no name on file at all.
+  const firstName = invite.contact_name ? invite.contact_name.trim().split(/\s+/)[0] : '';
+  const greeting = firstName ? `Hi Pastor ${escapeHtml(firstName)},` : 'Hi Pastor,';
+
+  // A draft church has enrollment turned off (see 15-add-course-status.sql)
+  // -- someone who stopped using the site, not someone actively running
+  // it right now. Telling them to "share this link with your
+  // congregation" would be misleading since nobody could actually
+  // enroll until they turn it back on, so this gets re-engagement
+  // framing and a different course-link section instead of the
+  // straightforward migration notice a live church gets.
+  const isDraft = invite.course_status === 'draft';
+
+  const subject = isDraft
+    ? `We'd love to have ${invite.church_name} back on Following Jesus`
+    : `${invite.church_name}'s course has a new home`;
+
+  const intro = isDraft
+    ? `<p>It's been a while since <strong>${escapeHtml(invite.church_name)}</strong>'s Following Jesus course was active, and we'd love to have you back!</p>
+      <p>We're excited to reach out to let you know that we're adding some great new features to our Following Jesus course that will allow you to engage with your church going through the course in a way we'd never been able to before.</p>`
+    : `<p><strong>${escapeHtml(invite.church_name)}</strong>'s Following Jesus course is moving to a new platform and adding new features to serve your church family.</p>
+      <p>Here's what's changing and what to do next.</p>`;
+
+  const courseLinkSection = isDraft
+    ? `<p style="margin-top:24px;"><strong>Once you're signed in, you can turn your course back on whenever you're ready.</strong> Your church's course link will be:</p>
+      <p style="word-break:break-all;"><a href="${courseUrl}">${courseUrl}</a></p>`
+    : `<p style="margin-top:24px;"><strong>Your church's course link</strong> (share this with your congregation):</p>
+      <p style="word-break:break-all;"><a href="${courseUrl}">${courseUrl}</a></p>`;
+
+  const adminAccessLabel = isDraft
+    ? `<strong>Your admin access</strong> — sign in to pick back up and see your church's past students:`
+    : `<strong>Your admin access</strong> — this is for you specifically, to see who's enrolled and track progress:`;
 
   const html = `
     <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-      <p>Hi,</p>
-      <p><strong>${escapeHtml(invite.church_name)}</strong>'s Following Jesus course is moving to a new platform. Here's what's changing and what to do next.</p>
+      <p>${greeting}</p>
+      ${intro}
 
-      <p style="margin-top:24px;"><strong>Your church's course link</strong> (share this with your congregation):</p>
-      <p style="word-break:break-all;"><a href="${courseUrl}">${courseUrl}</a></p>
+      ${isDraft ? '' : courseLinkSection}
 
-      <p style="margin-top:24px;"><strong>Your admin access</strong> — this is for you specifically, to see who's enrolled and track progress:</p>
+      <p style="margin-top:24px;">${adminAccessLabel}</p>
       <p style="margin: 20px 0;">
         <a href="${claimUrl}" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Set Up Admin Access →</a>
       </p>
-      <p style="color:#666;font-size:13px;">Sign in with Google using this same email address (${escapeHtml(invite.email)}) — that's how your access gets matched to your account.</p>
+      <p style="color:#666;font-size:13px;">Sign in with Google using this same email address (${escapeHtml(invite.email)}) — that's how your access gets matched to your account. If you'd rather use a different email, sign in with that account instead and you'll be given the option to use it.</p>
 
-      <p style="color:#666;font-size:13px;margin-top:28px;border-top:1px solid #eee;padding-top:16px;">This link is good for 30 days.</p>
+      ${isDraft ? courseLinkSection : ''}
+
+      <p style="color:#666;font-size:13px;margin-top:28px;border-top:1px solid #eee;padding-top:16px;">This link will no longer work after September 30, 2026.</p>
+
+      <p style="margin-top:28px;">Any questions let us know,</p>
+      <p>Thank you,<br>Following Jesus Team</p>
     </div>
   `;
 
@@ -121,7 +159,7 @@ async function sendInviteEmail(invite, apiKey) {
       body: JSON.stringify({
         from: FROM_EMAIL,
         to: invite.email,
-        subject: `${invite.church_name}'s course has a new home`,
+        subject,
         html
       })
     });
