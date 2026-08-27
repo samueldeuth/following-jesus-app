@@ -1353,11 +1353,9 @@ async function renderChurchStudents(churchId){
           </div>`).join('') : '<p style="color:var(--ink-soft);font-size:13px;margin:0 0 12px;">No church admin assigned yet.</p>'}
       </div>
       <label class="field-label">Promote a Student to Admin</label>
-      <p class="field-hint" style="margin-bottom:8px;">They must already have an account (signed up at least once) before you can promote them.</p>
-      <div class="new-group-form">
-        <input type="text" id="promote-admin-email" placeholder="Their email address" />
-        <button id="promote-admin-btn">Make Admin</button>
-      </div>
+      <p class="field-hint" style="margin-bottom:8px;">Search this church's active students — an admin has to already be enrolled here.</p>
+      <input type="text" class="sidebar-search" id="promote-admin-search" placeholder="Search by name or email…" style="margin-bottom:8px;" />
+      <div id="promote-admin-results"></div>
       <span id="promote-status" style="font-size:12.5px;color:var(--ink-soft);"></span>
 
       <label class="field-label">Accent Color</label>
@@ -1663,22 +1661,91 @@ async function renderChurchStudents(churchId){
     }
   });
 
-  const promoteBtn = document.getElementById('promote-admin-btn');
-  if(promoteBtn) promoteBtn.addEventListener('click', async () => {
-    const email = document.getElementById('promote-admin-email').value.trim();
+  // The actual promote-plus-notify action, extracted so it can be
+  // triggered from the "Make Admin" button inside a selected-student
+  // card below, rather than reading a plain typed-in email.
+  async function doPromoteToAdmin(targetEmail, targetName){
     const statusEl = document.getElementById('promote-status');
-    if(!email){ statusEl.textContent = 'Enter an email first.'; return; }
     statusEl.textContent = 'Promoting...';
-    const { data: result, error } = await supabaseClient.rpc('promote_to_church_admin', { target_email: email, target_church_id: churchId });
-    if(error || result !== 'success'){
-      statusEl.textContent = result === 'not_found'
+    const { data: result, error } = await supabaseClient.rpc('promote_to_church_admin', { target_email: targetEmail, target_church_id: churchId });
+    if(error || !result || result.status !== 'success'){
+      statusEl.textContent = result?.status === 'not_found'
         ? 'No account found with that email — they need to sign up first.'
         : 'Something went wrong. Please try again.';
       return;
     }
-    statusEl.textContent = 'Promoted ✓';
-    renderChurchStudents(churchId);
-  });
+    statusEl.textContent = 'Promoted ✓ Sending them an email…';
+    // Best-effort: the promotion itself already succeeded above, so a
+    // failed notification email shouldn't read as the whole action
+    // having failed -- just surface it separately so it's not silently
+    // missed.
+    try {
+      const emailRes = await fetch('/.netlify/functions/send-church-admin-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminName: result.full_name || targetName, adminEmail: result.email, churchName: church?.name || 'your church' })
+      });
+      statusEl.textContent = emailRes.ok ? 'Promoted ✓ Email sent ✓' : 'Promoted ✓ (their notification email failed to send)';
+    } catch (e) {
+      statusEl.textContent = 'Promoted ✓ (their notification email failed to send)';
+    }
+    // Brief pause so the status message above is actually readable
+    // before the panel re-renders and replaces it.
+    setTimeout(() => renderChurchStudents(churchId), 1400);
+  }
+
+  const promoteSearchInput = document.getElementById('promote-admin-search');
+  const promoteResultsEl = document.getElementById('promote-admin-results');
+  if(promoteSearchInput && promoteResultsEl){
+    const currentAdminIds = new Set(currentAdmins.map(a => a.id));
+    // Active only -- churchRows (not the toggle-filtered rows) so this
+    // search always covers active students regardless of whether the
+    // Students tab currently has Active or Archived selected.
+    const eligibleStudents = churchRows.filter(r => r.status !== 'archived' && !currentAdminIds.has(r.student_id));
+
+    const renderPromoteResults = (query) => {
+      if(!query){ promoteResultsEl.innerHTML = ''; return; }
+      const q = query.toLowerCase();
+      const matches = eligibleStudents.filter(r =>
+        (r.full_name || '').toLowerCase().includes(q) || (r.student_email || '').toLowerCase().includes(q)
+      ).slice(0, 6);
+      if(!matches.length){
+        promoteResultsEl.innerHTML = `<p style="color:var(--ink-soft);font-size:12.5px;margin:4px 0;">No matching active students.</p>`;
+        return;
+      }
+      promoteResultsEl.innerHTML = matches.map(r => `
+        <div class="group-row clickable-cell" data-pick-admin="${r.student_id}" data-pick-email="${(r.student_email||'').replace(/"/g,'&quot;')}" data-pick-name="${(r.full_name||'').replace(/"/g,'&quot;')}" style="cursor:pointer;">
+          <span>${r.full_name || 'Unnamed student'} <span style="color:var(--ink-soft);font-size:12px;">${r.student_email || ''}</span></span>
+        </div>`).join('');
+      promoteResultsEl.querySelectorAll('[data-pick-admin]').forEach(row => {
+        row.addEventListener('click', () => {
+          const name = row.dataset.pickName;
+          const email = row.dataset.pickEmail;
+          promoteSearchInput.style.display = 'none';
+          promoteResultsEl.innerHTML = `
+            <div class="row" style="border:1.5px solid var(--ink);border-radius:8px;padding:10px 12px;">
+              <div class="info">
+                <div class="name">${name || 'Unnamed student'}</div>
+                <div class="sub">${email}</div>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <button type="button" class="mini-btn" id="promote-selected-change">Change</button>
+                <button type="button" class="mini-btn" id="promote-selected-confirm" style="background:var(--ink);color:#fff;border-color:var(--ink);">Make Admin</button>
+              </div>
+            </div>`;
+          document.getElementById('promote-selected-change').addEventListener('click', () => {
+            promoteSearchInput.style.display = '';
+            promoteSearchInput.value = '';
+            promoteResultsEl.innerHTML = '';
+            promoteSearchInput.focus();
+          });
+          document.getElementById('promote-selected-confirm').addEventListener('click', () => doPromoteToAdmin(email, name));
+        });
+      });
+    };
+
+    promoteSearchInput.addEventListener('input', () => renderPromoteResults(promoteSearchInput.value.trim()));
+  }
 
   document.querySelectorAll('[data-remove-admin]').forEach(btn => {
     btn.addEventListener('click', async () => {
