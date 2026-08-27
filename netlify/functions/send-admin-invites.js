@@ -159,6 +159,7 @@ async function sendInviteEmail(invite, apiKey) {
       body: JSON.stringify({
         from: FROM_EMAIL,
         to: invite.email,
+        reply_to: 'info@followingjesusbook.com',
         subject,
         html
       })
