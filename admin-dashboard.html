@@ -268,7 +268,6 @@
     <div id="admin-account-info"></div>
     <a class="sidebar-link" id="sidebar-overview-link">Overview</a>
     <a class="sidebar-link" id="sidebar-all-students-link">All Students</a>
-    <a class="sidebar-link" id="sidebar-merge-accounts-link">Merge Accounts</a>
     <div class="sidebar-section-title">Churches (<span id="sidebar-church-count">0</span>)</div>
     <div class="sidebar-status-filters" id="sidebar-status-filters">
       <button class="status-filter-btn active" data-status-filter="all">All</button>
@@ -336,7 +335,6 @@ let viewingNoChurch = false;
 // Students), so this flag is what actually distinguishes this one for
 // sidebar highlighting and for the student-detail page's back link.
 let viewingAllStudents = false;
-let viewingMergeAccounts = false;
 // Which status tab is active in the church sidebar list — 'all' shows
 // everything, otherwise only churches matching that course_status.
 let sidebarStatusFilter = 'all';
@@ -401,7 +399,6 @@ async function init(){
   renderSidebar();
   document.getElementById('sidebar-overview-link').addEventListener('click', renderChurchesOverview);
   document.getElementById('sidebar-all-students-link').addEventListener('click', renderAllStudents);
-  document.getElementById('sidebar-merge-accounts-link').addEventListener('click', renderMergeAccounts);
   document.getElementById('sidebar-church-search').addEventListener('input', renderSidebar);
   wireAddChurchForm();
   renderChurchesOverview();
@@ -651,9 +648,8 @@ function renderSidebar(){
     btn.onclick = () => { sidebarStatusFilter = btn.dataset.statusFilter; renderSidebar(); };
   });
 
-  document.getElementById('sidebar-overview-link').classList.toggle('active', activeChurchId === null && !viewingNoChurch && !viewingAllStudents && !viewingMergeAccounts);
+  document.getElementById('sidebar-overview-link').classList.toggle('active', activeChurchId === null && !viewingNoChurch && !viewingAllStudents);
   document.getElementById('sidebar-all-students-link').classList.toggle('active', viewingAllStudents);
-  document.getElementById('sidebar-merge-accounts-link').classList.toggle('active', viewingMergeAccounts);
 }
 
 /* ---------- Level 1: all churches ---------- */
@@ -661,7 +657,6 @@ function renderChurchesOverview(){
   activeChurchId = null;
   viewingNoChurch = false;
   viewingAllStudents = false;
-  viewingMergeAccounts = false;
   renderSidebar();
   const totalChurches = allChurches.length;
   const totalStudents = allRows.length;
@@ -859,7 +854,6 @@ function renderAllStudents(){
   activeChurchId = null;
   viewingNoChurch = false;
   viewingAllStudents = true;
-  viewingMergeAccounts = false;
   selectedEnrollmentIds.clear();
   renderSidebar();
 
@@ -876,6 +870,7 @@ function renderAllStudents(){
     <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;">
       <input type="text" class="sidebar-search" id="all-students-search" placeholder="Search by name, email, or church…" style="max-width:280px;margin-bottom:0;" />
       <button class="mini-btn" id="export-all-students-btn">Export Students (CSV)</button>
+      <button class="mini-btn" id="merge-accounts-btn">Merge Accounts</button>
     </div>
     <div id="all-students-batch-bar"></div>
     <table>
@@ -889,6 +884,7 @@ function renderAllStudents(){
   document.getElementById('export-all-students-btn').addEventListener('click', () => {
     exportStudentsCSV(allStudentsFilteredRows, `all-students-${new Date().toISOString().slice(0,10)}.csv`, true);
   });
+  document.getElementById('merge-accounts-btn').addEventListener('click', renderMergeAccounts);
   document.getElementById('student-mode-active-btn').addEventListener('click', () => {
     studentViewMode = 'active';
     selectedEnrollmentIds.clear();
@@ -1004,10 +1000,12 @@ function renderAllStudentsRows(){
 
 /* ---------- Merge duplicate accounts ---------- */
 function renderMergeAccounts(){
+  // Reached via a button on the All Students page rather than its own
+  // sidebar entry, so keep that link highlighted and give this view its
+  // own way back to it.
   activeChurchId = null;
   viewingNoChurch = false;
-  viewingAllStudents = false;
-  viewingMergeAccounts = true;
+  viewingAllStudents = true;
   renderSidebar();
 
   // Local-only selection state for this view -- doesn't need to persist
@@ -1026,6 +1024,7 @@ function renderMergeAccounts(){
   }
 
   document.getElementById('content').innerHTML = `
+    <div class="back-link" id="back-to-all-students">&larr; All Students</div>
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">Merge Accounts</h2>
     <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:20px;">For when someone ends up with two accounts — everything moves from the duplicate onto the one they'll keep using.</p>
     <div style="display:flex;gap:20px;flex-wrap:wrap;">
@@ -1035,14 +1034,15 @@ function renderMergeAccounts(){
     <div id="merge-action-area" style="margin-top:24px;"></div>
     <div id="merge-result-area" style="margin-top:20px;"></div>
   `;
+  document.getElementById('back-to-all-students').addEventListener('click', renderAllStudents);
 
   function renderSelectedCard(side, profile){
     const area = document.querySelector(`[data-merge-results="${side}"]`);
     area.innerHTML = `
       <div class="row" style="border:1.5px solid var(--ink);border-radius:8px;padding:10px 12px;">
         <div class="info">
-          <div class="name">${escapeHtml(profile.full_name || 'Unnamed')}</div>
-          <div class="sub">${escapeHtml(profile.email || 'No email on file')}${profile.church_name ? ' · ' + escapeHtml(profile.church_name) : ''} · ${profile.enrollment_count} enrollment${profile.enrollment_count===1?'':'s'}</div>
+          <div class="name">${escapeHtmlReport(profile.full_name || 'Unnamed')}</div>
+          <div class="sub">${escapeHtmlReport(profile.email || 'No email on file')}${profile.church_name ? ' · ' + escapeHtmlReport(profile.church_name) : ''} · ${profile.enrollment_count} enrollment${profile.enrollment_count===1?'':'s'}</div>
         </div>
         <button type="button" class="mini-btn" data-merge-clear="${side}">Change</button>
       </div>`;
@@ -1067,7 +1067,7 @@ function renderMergeAccounts(){
     }
     area.innerHTML = `
       <div style="background:var(--bg-soft);border-radius:10px;padding:16px 18px;">
-        <p style="margin:0 0 12px;font-size:14px;">This will move everything from <strong>${escapeHtml(oldProfile.full_name || 'the duplicate')}</strong> onto <strong>${escapeHtml(newProfile.full_name || 'the kept account')}</strong> — enrollments, course progress, discussion answers, certificates, discipleship milestones, messages, and group leadership. The duplicate account is left empty afterward, not deleted.</p>
+        <p style="margin:0 0 12px;font-size:14px;">This will move everything from <strong>${escapeHtmlReport(oldProfile.full_name || 'the duplicate')}</strong> onto <strong>${escapeHtmlReport(newProfile.full_name || 'the kept account')}</strong> — enrollments, course progress, discussion answers, certificates, discipleship milestones, messages, and group leadership. The duplicate account is left empty afterward, not deleted.</p>
         <button type="button" class="mini-btn danger" id="confirm-merge-btn">Merge Accounts</button>
       </div>`;
     document.getElementById('confirm-merge-btn').addEventListener('click', doMerge);
@@ -1083,7 +1083,7 @@ function renderMergeAccounts(){
     const resultArea = document.getElementById('merge-result-area');
 
     if(error){
-      resultArea.innerHTML = `<p style="color:var(--red);font-size:13.5px;">Merge failed: ${escapeHtml(error.message)}</p>`;
+      resultArea.innerHTML = `<p style="color:var(--red);font-size:13.5px;">Merge failed: ${escapeHtmlReport(error.message)}</p>`;
       btn.disabled = false;
       btn.textContent = 'Merge Accounts';
       return;
@@ -1092,7 +1092,7 @@ function renderMergeAccounts(){
     const summary = (data && data.summary) || [];
     const skippedRows = summary.filter(s => s.skipped > 0);
     const rowsHtml = summary.map(s =>
-      `<tr><td>${escapeHtml(s.table)}.${escapeHtml(s.column)}</td><td>${s.moved}</td><td>${s.skipped > 0 ? `<span style="color:var(--red);">${s.skipped}</span>` : '0'}</td></tr>`
+      `<tr><td>${escapeHtmlReport(s.table)}.${escapeHtmlReport(s.column)}</td><td>${s.moved}</td><td>${s.skipped > 0 ? `<span style="color:var(--red);">${s.skipped}</span>` : '0'}</td></tr>`
     ).join('');
 
     resultArea.innerHTML = `
@@ -1119,13 +1119,13 @@ function renderMergeAccounts(){
       if(query.length < 2){ resultsArea.innerHTML = ''; return; }
       searchTimers[side] = setTimeout(async () => {
         const { data, error } = await supabaseClient.rpc('search_profiles_for_merge', { p_query: query });
-        if(error){ resultsArea.innerHTML = `<p style="color:var(--red);font-size:13px;">${escapeHtml(error.message)}</p>`; return; }
+        if(error){ resultsArea.innerHTML = `<p style="color:var(--red);font-size:13px;">${escapeHtmlReport(error.message)}</p>`; return; }
         if(!data || data.length === 0){ resultsArea.innerHTML = `<p style="color:var(--ink-soft);font-size:13px;">No matches.</p>`; return; }
         resultsArea.innerHTML = data.map(p => `
-          <div class="row clickable-cell" data-pick="${side}" data-id="${p.id}" data-name="${escapeHtml(p.full_name || '')}" data-email="${escapeHtml(p.email || '')}" data-church="${escapeHtml(p.church_name || '')}" data-count="${p.enrollment_count}" style="cursor:pointer;">
+          <div class="row clickable-cell" data-pick="${side}" data-id="${p.id}" data-name="${escapeHtmlReport(p.full_name || '')}" data-email="${escapeHtmlReport(p.email || '')}" data-church="${escapeHtmlReport(p.church_name || '')}" data-count="${p.enrollment_count}" style="cursor:pointer;">
             <div class="info">
-              <div class="name">${escapeHtml(p.full_name || 'Unnamed')}</div>
-              <div class="sub">${escapeHtml(p.email || 'No email on file')}${p.church_name ? ' · ' + escapeHtml(p.church_name) : ''} · ${p.enrollment_count} enrollment${p.enrollment_count===1?'':'s'}</div>
+              <div class="name">${escapeHtmlReport(p.full_name || 'Unnamed')}</div>
+              <div class="sub">${escapeHtmlReport(p.email || 'No email on file')}${p.church_name ? ' · ' + escapeHtmlReport(p.church_name) : ''} · ${p.enrollment_count} enrollment${p.enrollment_count===1?'':'s'}</div>
             </div>
           </div>`).join('');
         resultsArea.querySelectorAll('[data-pick]').forEach(row => {
@@ -1147,7 +1147,6 @@ async function renderChurchStudents(churchId){
   activeChurchId = churchId;
   viewingNoChurch = (churchId === null);
   viewingAllStudents = false;
-  viewingMergeAccounts = false;
   selectedEnrollmentIds.clear();
   renderSidebar();
   const church = allChurches.find(c => c.id === churchId);
