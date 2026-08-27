@@ -4406,9 +4406,20 @@ async function renderDisciple() {
 async function renderPreservingScroll(renderFn) {
   const scrollPosition = discipleBody.scrollTop;
   const pageScrollPosition = window.scrollY;
+  const restore = () => {
+    discipleBody.scrollTop = scrollPosition;
+    window.scrollTo(0, pageScrollPosition);
+  };
   await renderFn();
-  discipleBody.scrollTop = scrollPosition;
-  window.scrollTo(0, pageScrollPosition);
+  restore();
+  // The mobile keyboard dismissing (from the input losing focus when
+  // its container gets replaced) doesn't always finish settling in the
+  // same instant as the render above — it can jump the page again a
+  // beat later, after this function has already returned. Restoring
+  // again across the next couple of frames, plus once more shortly
+  // after, catches that late jump too instead of just the immediate one.
+  requestAnimationFrame(() => { restore(); requestAnimationFrame(restore); });
+  setTimeout(restore, 150);
 }
 
 async function sendChatMessage(input, sendFn, onSuccess) {
