@@ -686,6 +686,7 @@ function renderSidebar(){
 // the page happened to load.
 function rangeStartDate(rangeKey){
   const now = new Date();
+  if(rangeKey === 'today') return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   if(rangeKey === '7d') return new Date(now.getTime() - 7*24*60*60*1000);
   if(rangeKey === '30d') return new Date(now.getTime() - 30*24*60*60*1000);
   if(rangeKey === '90d') return new Date(now.getTime() - 90*24*60*60*1000);
@@ -693,7 +694,7 @@ function rangeStartDate(rangeKey){
   if(rangeKey === 'ytd') return new Date(now.getFullYear(), 0, 1);
   return new Date(now.getTime() - 30*24*60*60*1000);
 }
-const rangeLabels = { '7d': 'Last 7 Days', '30d': 'Last 30 Days', '90d': 'Last 90 Days', 'mtd': 'Month to Date', 'ytd': 'Year to Date' };
+const rangeLabels = { 'today': 'Today', '7d': 'Last 7 Days', '30d': 'Last 30 Days', '90d': 'Last 90 Days', 'mtd': 'Month to Date', 'ytd': 'Year to Date' };
 let overviewRangeKey = '30d';
 
 // Churches and students are already cached client-side (allChurches,

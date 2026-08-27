@@ -67,7 +67,7 @@
      -- dark text stays readable on top, and the image's own colors show
      through more than a heavy dark overlay would allow. */
   .hero-light{
-    background:linear-gradient(180deg, rgba(255,255,255,0.44), rgba(255,255,255,0.47)), var(--hero-bg-image) center/cover;
+    background:var(--hero-bg-color);
     color:var(--ink);
   }
   .hero-light h1, .hero-light p{color:var(--ink);}
@@ -401,11 +401,10 @@ const COURSE_SLUG_MAP = {
 // image instead of the plain "Following Jesus" text badge. Add future
 // courses' logos here as they're built.
 const COURSE_LOGO_MAP = {};
-// A course with its own hero image here gets the shaded-image hero
-// layout (its hero image as the background, with a light tint so its
-// own headline text stays visible underneath, and this course's title/
-// subtitle overlaid in dark text on top) instead of the default
-// dark-overlay-with-white-text hero built for a dark background image.
+// A course with its own brand color here gets a solid-color hero
+// (dark text over a full-strength flat background, no image, no wash
+// needed since it's just solid color) instead of the default dark-
+// overlay-with-white-text hero built for a photographic background.
 // title/subtitle here are this hero section's own copy -- separate from
 // the course's actual title/subtitle used elsewhere (sidebar, profile
 // listing, certificates), which stay as the course's real name for
@@ -418,7 +417,7 @@ const COURSE_LOGO_MAP = {};
 // actual title.
 const COURSE_CUSTOM_HERO_MAP = {
   '9fd36fd4-8c3d-4305-a7dd-d2a1d7f3abcc': {
-    image: '/assets/process-of-promotion-hero.jpg',
+    bgColor: '#FEF200', // sampled directly from process-of-promotion-hero.jpg's background
     title: 'The Process of Promotion',
     subtitle: "This course engages God's 9 ways He uses obscurity to prepare you for your purpose!"
   }
@@ -969,7 +968,7 @@ function renderHero(skipHistoryPush){
     : `<button class="btn-blue" id="start-btn">Start Course Today!</button>`;
   const customHero = course?.id ? COURSE_CUSTOM_HERO_MAP[course.id] : null;
   const heroHtml = customHero ? `
-    <div class="hero hero-light" style="--hero-bg-image:url('${customHero.image}');">
+    <div class="hero hero-light" style="--hero-bg-color:${customHero.bgColor};">
       <div class="topbar on-hero">
         ${logoBadgeHtml()}
         <nav><a href="https://qrco.de/fjapp">App</a>${authStatusHtml()}</nav>
