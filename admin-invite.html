@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Church Admin Access — Following Jesus</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --black: #0a0a0a;
+    --white: #ffffff;
+    --paper: #f6f4ef;
+    --ink-soft: #57534d;
+    --ember: #c89b3c;
+    --font-display: 'Archivo', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--black); color:var(--white);
+    font-family:var(--font-body); -webkit-font-smoothing:antialiased;
+    min-height:100vh; display:flex; flex-direction:column;
+  }
+  .wrap{
+    max-width:440px; margin:0 auto; padding:60px 24px 40px;
+    flex:1; display:flex; flex-direction:column; justify-content:center;
+    text-align:center;
+  }
+  .logo-badge{
+    background:var(--white); color:var(--black); font-family:var(--font-display); font-weight:700;
+    letter-spacing:0.14em; font-size:13px; padding:10px 16px; text-transform:uppercase;
+    display:inline-block; margin-bottom:32px;
+  }
+  h1{
+    font-family:var(--font-display); font-weight:800; font-size:24px;
+    line-height:1.3; margin:0 0 14px;
+  }
+  .detail{
+    font-size:15px; color:rgba(255,255,255,0.75); line-height:1.6; margin:0 0 32px;
+  }
+  .detail strong{ color:var(--white); }
+  .actions{display:flex; flex-direction:column; gap:12px;}
+  .btn{
+    border:none; border-radius:6px; padding:14px 20px; font-family:var(--font-display);
+    font-weight:700; font-size:15px; cursor:pointer; width:100%; text-decoration:none;
+    display:inline-block;
+  }
+  .btn-primary{background:var(--white); color:var(--black);}
+  .btn-secondary{background:rgba(255,255,255,0.06); color:var(--white); border:1px solid rgba(255,255,255,0.15);}
+  .btn:disabled{opacity:0.5; cursor:default;}
+  .status-icon{font-size:40px; margin-bottom:16px;}
+  .loading{color:rgba(255,255,255,0.5); font-size:14px;}
+  .email-tag{
+    display:inline-block; background:rgba(255,255,255,0.08); border-radius:6px;
+    padding:4px 10px; font-size:13px; color:var(--white); margin-top:4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap" id="content">
+  <div class="logo-badge">Following Jesus</div>
+  <p class="loading">Loading…</p>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function getToken(){
+  const params = new URLSearchParams(window.location.search);
+  return params.get('token');
+}
+
+function renderContent(html){
+  document.getElementById('content').innerHTML = `<div class="logo-badge">Following Jesus</div>${html}`;
+}
+
+async function init(){
+  const token = getToken();
+  if(!token){
+    renderContent(`<h1>Link Not Found</h1><p class="detail">This link is missing some information. Please use the link from your email directly.</p>`);
+    return;
+  }
+
+  const { data, error } = await supabaseClient.rpc('get_admin_invite_by_token', { lookup_token: token });
+  const invite = data && data[0];
+
+  if(error || !invite){
+    renderContent(`<h1>Link Not Found</h1><p class="detail">This invite link doesn't match anything on file. It may have been entered incorrectly — please use the link from your email directly.</p>`);
+    return;
+  }
+
+  if(invite.expires_at && new Date(invite.expires_at) < new Date() && invite.status !== 'claimed'){
+    renderContent(`<h1>This Invite Has Expired</h1><p class="detail">This link is no longer valid. Reach out directly and a new one can be sent.</p>`);
+    return;
+  }
+
+  // Already signed in? Check whether it's the right account before
+  // doing anything else.
+  const { data: { session } } = await supabaseClient.auth.getSession();
+
+  if(session?.user?.email && session.user.email.toLowerCase() === invite.email.toLowerCase()){
+    await claimInvite(token, invite);
+    return;
+  }
+
+  if(session?.user?.email){
+    // Signed in, but as the wrong Google account for this invite.
+    renderContent(`
+      <h1>Wrong Account</h1>
+      <p class="detail">You're invited to become the admin for <strong>${escapeHtml(invite.church_name)}</strong>, but this invite is for a different email address.</p>
+      <p class="email-tag">${escapeHtml(invite.email)}</p>
+      <div class="actions" style="margin-top:24px;">
+        <button class="btn btn-primary" id="switch-account-btn">Sign In With ${escapeHtml(invite.email)}</button>
+      </div>
+    `);
+    document.getElementById('switch-account-btn').addEventListener('click', () => signIn());
+    return;
+  }
+
+  renderContent(`
+    <h1>You're Invited</h1>
+    <p class="detail">You've been invited to become the admin for <strong>${escapeHtml(invite.church_name)}</strong> on the new Following Jesus course platform. Sign in with Google using this email to continue:</p>
+    <p class="email-tag">${escapeHtml(invite.email)}</p>
+    <div class="actions" style="margin-top:24px;">
+      <button class="btn btn-primary" id="sign-in-btn">Sign In With Google</button>
+    </div>
+  `);
+  document.getElementById('sign-in-btn').addEventListener('click', () => signIn());
+}
+
+async function signIn(){
+  await supabaseClient.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.href,
+      // Always show the picker -- this page needs a specific email, not
+      // whichever Google account happens to be cached in the browser.
+      queryParams: { prompt: 'select_account' }
+    }
+  });
+}
+
+async function claimInvite(token, invite){
+  renderContent(`<p class="loading">Setting up your access…</p>`);
+
+  const { data: result, error } = await supabaseClient.rpc('claim_admin_invite', { lookup_token: token });
+
+  if(error || !result || result.status !== 'success'){
+    const reason = result?.status === 'expired' ? 'This invite has expired. Reach out directly and a new one can be sent.'
+      : result?.status === 'email_mismatch' ? `This invite is for ${escapeHtml(result.expected_email || invite.email)}, not the account you're signed in with.`
+      : 'Something went wrong. Please try again, or reach out directly if this keeps happening.';
+    renderContent(`<h1>Couldn't Grant Access</h1><p class="detail">${reason}</p>`);
+    return;
+  }
+
+  renderContent(`
+    <div class="status-icon">✓</div>
+    <h1>You're All Set</h1>
+    <p class="detail">You now have admin access for <strong>${escapeHtml(result.church_name || invite.church_name)}</strong>.</p>
+    <div class="actions">
+      <a class="btn btn-primary" href="/dashboard">Go to Your Dashboard →</a>
+    </div>
+  `);
+}
+
+init();
+</script>
+</body>
+</html>
