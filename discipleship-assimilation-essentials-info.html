@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Discipleship &amp; Assimilation Essentials — A Course by Samuel Deuth</title>
+<meta name="description" content="Learn the best practices of discipleship and assimilation from Samuel Deuth and guest Alex Klott. A 4-session video course for church leaders.">
+<meta property="og:title" content="Discipleship & Assimilation Essentials — A Course by Samuel Deuth">
+<meta property="og:description" content="Learn the best practices of discipleship and assimilation from Samuel Deuth and guest Alex Klott.">
+<meta property="og:image" content="/assets/discipleship-assimilation-hero.jpg">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=Lora:ital@1&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#17191D;
+    --ink-soft:#6B7280;
+    --bg:#FFFFFF;
+    --bg-soft:#F4F4F2;
+    --line:#E4E3DD;
+    --white:#FFFFFF;
+    --accent:#FFFFFF; /* text-on-dark accent, plain white -- no custom brand color for this course */
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;
+    line-height:1.6;
+  }
+  a{color:inherit;}
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px;}
+
+  /* ---------- Top bar ---------- */
+  .topbar{background:var(--ink);padding:16px 0;}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;}
+  .topbar .wordmark{
+    font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;color:var(--white);text-decoration:none;
+  }
+  .topbar a.enroll-link{
+    font-family:'Inter',sans-serif;font-weight:600;font-size:12px;letter-spacing:0.06em;
+    text-transform:uppercase;color:var(--white);text-decoration:none;
+    border:1px solid var(--white);padding:8px 16px;border-radius:100px;
+  }
+
+  /* ---------- Hero (default dark treatment -- no custom brand color for this course) ---------- */
+  .hero{background:var(--ink);padding:64px 0 56px;text-align:center;}
+  .eyebrow{
+    font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;letter-spacing:0.1em;
+    text-transform:uppercase;color:var(--white);opacity:0.7;margin:0 0 18px;
+  }
+  .hero h1{
+    font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--white);
+    font-size:clamp(30px,5vw,46px);line-height:1.12;margin:0 0 20px;
+  }
+  .hero p.sub{
+    font-family:'Inter',sans-serif;font-size:16.5px;color:var(--white);opacity:0.75;
+    max-width:52ch;margin:0 auto;
+  }
+  .hero-cta-row{margin-top:36px;}
+  .hero-cta{
+    display:inline-block;background:var(--white);color:var(--ink);text-decoration:none;
+    font-family:'Inter',sans-serif;font-weight:600;font-size:14px;letter-spacing:0.02em;
+    padding:16px 30px;border-radius:100px;
+  }
+  .hero-cta:hover{opacity:0.88;}
+  .hero-price{font-family:'Inter',sans-serif;font-size:13px;color:var(--white);opacity:0.6;margin-top:14px;}
+
+  /* ---------- Intro ---------- */
+  .intro{padding:56px 0 8px;}
+  .intro p{font-size:17.5px;max-width:60ch;color:var(--ink);opacity:0.85;}
+
+  /* ---------- Sessions ---------- */
+  .ways{padding:40px 0 24px;}
+  .ways h2{
+    font-family:'Inter',sans-serif;font-weight:600;font-size:13px;letter-spacing:0.1em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 28px;
+  }
+  .way{
+    display:grid;grid-template-columns:56px 1fr;gap:20px;align-items:start;
+    padding:22px 0;border-top:1px solid var(--line);
+  }
+  .way:last-child{border-bottom:1px solid var(--line);}
+  .way-num{
+    width:40px;height:40px;border-radius:50%;background:var(--ink);color:var(--white);
+    font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .way-title{font-family:'Lora',serif;font-style:italic;font-weight:500;font-size:21px;margin:2px 0 6px;}
+  .way-desc{font-size:15px;color:var(--ink);opacity:0.72;margin:0;}
+
+  /* ---------- Testimonial ---------- */
+  .testimonial{background:var(--bg-soft);padding:48px 0;text-align:center;}
+  .testimonial p.eyebrow{color:var(--ink-soft);opacity:1;}
+  .testimonial-video{
+    max-width:560px;margin:0 auto;border-radius:12px;overflow:hidden;
+    box-shadow:0 12px 32px rgba(23,25,29,0.12);
+  }
+  .testimonial-video iframe{width:100%;aspect-ratio:16/9;display:block;border:0;}
+
+  /* ---------- Resources cross-sell ---------- */
+  .books{padding:56px 0;}
+  .books h2{
+    font-family:'Inter',sans-serif;font-weight:600;font-size:13px;letter-spacing:0.1em;
+    text-transform:uppercase;color:var(--ink-soft);margin:0 0 24px;
+  }
+  .books-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;}
+  .book-card{
+    background:var(--white);border:1px solid var(--line);border-radius:14px;padding:26px;
+    text-decoration:none;color:var(--ink);
+  }
+  .book-card .kicker{font-family:'Inter',sans-serif;font-size:11.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-soft);}
+  .book-card h3{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:600;margin:8px 0 10px;}
+  .book-card p{font-size:14px;color:var(--ink);opacity:0.7;margin:0 0 14px;}
+  .book-card .link{font-family:'Inter',sans-serif;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.02em;}
+
+  /* ---------- CTA block ---------- */
+  .cta-block{background:var(--ink);padding:64px 0;text-align:center;}
+  .cta-block .eyebrow{color:var(--white);opacity:0.7;}
+  .cta-block h2{
+    font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--white);
+    font-size:clamp(28px,4.5vw,42px);line-height:1.15;margin:0 0 28px;
+  }
+
+  /* ---------- Footer ---------- */
+  footer{padding:36px 0;text-align:center;}
+  footer p{font-size:12.5px;color:var(--ink);opacity:0.55;margin:0 0 10px;}
+  footer .social a{color:var(--ink);opacity:0.6;text-decoration:none;font-size:12.5px;margin:0 8px;}
+
+  @media (max-width:600px){
+    .hero{padding:48px 0 48px;}
+    .books-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="wrap">
+      <a class="wordmark" href="/">Following Jesus</a>
+      <a class="enroll-link" href="#start">Start the Course</a>
+    </div>
+  </div>
+
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow">4-Session Video Course &middot; $95</p>
+      <h1>Discipleship &amp; Assimilation Essentials</h1>
+      <p class="sub">Learn the best practices of discipleship and assimilation from Samuel Deuth and guest Alex Klott, including a step-by-step interview with one of the nation's largest churches on how they actually do assimilation.</p>
+      <div class="hero-cta-row">
+        <a class="hero-cta" href="/discipleship-assimilation-essentials" id="start">Start the Course</a>
+      </div>
+      <p class="hero-price">One-time purchase &middot; $95</p>
+    </div>
+  </section>
+
+  <section class="intro">
+    <div class="wrap">
+      <p>Discipleship doesn't happen in a classroom — it happens in a culture. This course walks through the fundamentals of building that culture in your church: how to reach new people, connect them the moment they walk in, disciple them once they respond to Jesus, and empower them into leadership and multiplication of their own. Each session pairs a teaching video from Samuel with real, practical steps you can put to work right away.</p>
+    </div>
+  </section>
+
+  <section class="ways">
+    <div class="wrap">
+      <h2>What's Inside</h2>
+
+      <div class="way">
+        <div class="way-num">01</div>
+        <div>
+          <div class="way-title">The Call To Discipleship</div>
+          <p class="way-desc">Why discipleship is a culture, not a class — and where to start building one.</p>
+        </div>
+      </div>
+
+      <div class="way">
+        <div class="way-num">02</div>
+        <div>
+          <div class="way-title">Creating a Culture of Discipleship</div>
+          <p class="way-desc">Practical, church-tested ways to make discipleship happen naturally, not just programmatically.</p>
+        </div>
+      </div>
+
+      <div class="way">
+        <div class="way-num">03</div>
+        <div>
+          <div class="way-title">Discipleship Strategies &amp; Best Practices</div>
+          <p class="way-desc">Concrete strategies for reaching, connecting, and discipling new believers step by step.</p>
+        </div>
+      </div>
+
+      <div class="way">
+        <div class="way-num">04</div>
+        <div>
+          <div class="way-title">Assimilation Essentials &amp; Interview</div>
+          <p class="way-desc">A detailed, step-by-step interview with a leading church's assimilation director — guest teacher Alex Klott.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="testimonial">
+    <div class="wrap">
+      <p class="eyebrow">What Church Leaders Are Saying</p>
+      <div class="testimonial-video">
+        <iframe src="https://fast.wistia.net/embed/iframe/8x0x4bnsav" title="What Church Leaders Are Saying" allow="autoplay; fullscreen" allowfullscreen></iframe>
+      </div>
+    </div>
+  </section>
+
+  <section class="books">
+    <div class="wrap">
+      <h2>Additional Church Leader Resources</h2>
+      <div class="books-grid">
+        <a class="book-card" href="https://followingjesusbook.com" target="_blank" rel="noopener">
+          <div class="kicker">The Book</div>
+          <h3>Following Jesus</h3>
+          <p>A next-steps guide to give new believers, walking them through the 7 essentials.</p>
+          <span class="link">Learn More &rarr;</span>
+        </a>
+        <a class="book-card" href="https://www.samueldeuth.com/store/p/preaching-with-authority" target="_blank" rel="noopener">
+          <div class="kicker">The Book</div>
+          <h3>Preaching with Authority</h3>
+          <p>Clarify your calling, strengthen your character, and develop your craft as a preacher.</p>
+          <span class="link">Learn More &rarr;</span>
+        </a>
+        <a class="book-card" href="/theprocessofpromotion" target="_blank" rel="noopener">
+          <div class="kicker">The Course</div>
+          <h3>The Process of Promotion</h3>
+          <p>Nine ways God uses obscurity to prepare you for your purpose.</p>
+          <span class="link">Learn More &rarr;</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-block">
+    <div class="wrap">
+      <p class="eyebrow">Ready When You Are</p>
+      <h2>Build a discipleship culture<br>your whole church can carry.</h2>
+      <a class="hero-cta" href="/discipleship-assimilation-essentials">Start the Course</a>
+    </div>
+  </section>
+
+  <footer>
+    <p>&copy; Samuel Deuth &middot; Discipleship &amp; Assimilation Essentials</p>
+    <div class="social">
+      <a href="https://www.instagram.com/followingjesusbook" target="_blank" rel="noopener">Instagram</a>
+      <a href="https://www.facebook.com/followingjesusbook" target="_blank" rel="noopener">Facebook</a>
+      <a href="https://www.youtube.com/channel/UCWmDAkrHx81dxWfi92dP-Eg" target="_blank" rel="noopener">YouTube</a>
+    </div>
+  </footer>
+
+</body>
+</html>
