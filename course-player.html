@@ -420,7 +420,8 @@ function getChurchSlug(){
 // pointing at /course-player.html.
 const COURSE_SLUG_MAP = {
   'theprocessofpromotion': '9fd36fd4-8c3d-4305-a7dd-d2a1d7f3abcc',
-  'discipleship-assimilation-essentials': '3008af0c-67b6-4191-a6f0-f6b68010486f'
+  'discipleship-assimilation-essentials': '3008af0c-67b6-4191-a6f0-f6b68010486f',
+  'preaching-essentials-course': 'b02cb26a-b4d2-4cf2-b993-90bc1a1ad08c'
 };
 // The header/sidebar logo badge is course-specific branding, not one
 // fixed platform mark -- a course with its own logo here shows its own
@@ -455,7 +456,8 @@ const COURSE_CUSTOM_HERO_MAP = {
 // default hero (no COURSE_CUSTOM_HERO_MAP entry) still need this to be
 // set here, or renderPurchaseRequired() has no link to show at all.
 const COURSE_PURCHASE_URL_MAP = {
-  '3008af0c-67b6-4191-a6f0-f6b68010486f': 'https://followingjesusbook.com/products/discipleship-assimilation-essentials'
+  '3008af0c-67b6-4191-a6f0-f6b68010486f': 'https://followingjesusbook.com/products/discipleship-assimilation-essentials',
+  'b02cb26a-b4d2-4cf2-b993-90bc1a1ad08c': 'https://followingjesusbook.com/products/2175720'
 };
 // Optional "Additional Church Leader Resources" cards shown on a
 // course's hero/landing page, below the course overview. Opt-in per
@@ -465,6 +467,11 @@ const COURSE_RESOURCES_MAP = {
   '3008af0c-67b6-4191-a6f0-f6b68010486f': [
     { kicker: 'The Book', title: 'Following Jesus', desc: 'A next-steps guide to give new believers, walking them through the 7 essentials.', url: 'https://followingjesusbook.com', linkText: 'Learn More' },
     { kicker: 'The Book', title: 'Preaching with Authority', desc: 'Clarify your calling, strengthen your character, and develop your craft as a preacher.', url: 'https://www.samueldeuth.com/store/p/preaching-with-authority', linkText: 'Learn More' },
+    { kicker: 'The Course', title: 'The Process of Promotion', desc: 'Nine ways God uses obscurity to prepare you for your purpose.', url: '/theprocessofpromotion', linkText: 'Learn More' }
+  ],
+  'b02cb26a-b4d2-4cf2-b993-90bc1a1ad08c': [
+    { kicker: 'The Book', title: 'Following Jesus', desc: 'A next-steps guide to give new believers, walking them through the 7 essentials.', url: 'https://followingjesusbook.com', linkText: 'Learn More' },
+    { kicker: 'Preaching Resources', title: 'Preaching Forward', desc: 'Preaching pro-tips and other resources to help you study and communicate the Gospel well.', url: 'https://preachingforward.com', linkText: 'Visit Site' },
     { kicker: 'The Course', title: 'The Process of Promotion', desc: 'Nine ways God uses obscurity to prepare you for your purpose.', url: '/theprocessofpromotion', linkText: 'Learn More' }
   ]
 };
