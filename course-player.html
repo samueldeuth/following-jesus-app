@@ -436,6 +436,14 @@ const COURSE_CUSTOM_HERO_MAP = {
     shopifyProductUrl: 'https://followingjesusbook.com/products/1824415'
   }
 };
+// A course's Shopify buy link, kept separate from COURSE_CUSTOM_HERO_MAP
+// so a course doesn't need custom hero branding just to have a working
+// "Purchase" button on the requires_purchase screen -- courses using the
+// default hero (no COURSE_CUSTOM_HERO_MAP entry) still need this to be
+// set here, or renderPurchaseRequired() has no link to show at all.
+const COURSE_PURCHASE_URL_MAP = {
+  '3008af0c-67b6-4191-a6f0-f6b68010486f': 'https://followingjesusbook.com/products/discipleship-assimilation-essentials'
+};
 function logoBadgeHtml(extraClass){
   const logoUrl = course?.id ? COURSE_LOGO_MAP[course.id] : null;
   if(logoUrl) return `<img class="logo-badge-img${extraClass ? ' ' + extraClass : ''}" src="${logoUrl}" alt="${course.title}">`;
@@ -1049,7 +1057,7 @@ function goToFirstLesson(){
 // needing a completed purchase, not about signing in again.
 function renderPurchaseRequired(){
   const customHero = course?.id ? COURSE_CUSTOM_HERO_MAP[course.id] : null;
-  const buyUrl = customHero?.shopifyProductUrl;
+  const buyUrl = customHero?.shopifyProductUrl || (course?.id ? COURSE_PURCHASE_URL_MAP[course.id] : null);
   document.getElementById('app').innerHTML = `
     <div class="purchase-required">
       <div class="topbar">
