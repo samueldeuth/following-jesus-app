@@ -58,6 +58,7 @@ async function sendReminderEmail({ resendApiKey, toEmail, studentName, courseTit
     body: JSON.stringify({
       from: FROM_EMAIL,
       to: toEmail,
+      reply_to: 'info@followingjesusbook.com',
       subject: `Keep going — ${courseTitle}`,
       html
     })

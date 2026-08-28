@@ -73,6 +73,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         from: FROM_EMAIL,
         to: pastorEmail,
+        reply_to: 'info@followingjesusbook.com',
         subject: `${applicantName} wants to become a leader on Following Jesus`,
         html
       })

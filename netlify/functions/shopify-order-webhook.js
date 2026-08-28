@@ -209,6 +209,7 @@ async function sendAccessEmail(toEmail, firstName, courseTitle, apiKey) {
       body: JSON.stringify({
         from: FROM_EMAIL,
         to: toEmail,
+        reply_to: 'info@followingjesusbook.com',
         subject: `Your access to ${courseTitle} is ready`,
         html
       })
