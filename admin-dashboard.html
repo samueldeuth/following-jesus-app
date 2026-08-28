@@ -1409,12 +1409,16 @@ async function renderChurchStudents(churchId){
       <div id="promote-admin-results"></div>
       <span id="promote-status" style="font-size:12.5px;color:var(--ink-soft);"></span>
 
-      <h4 class="field-section-title">Church Contact <span style="font-weight:400;text-transform:none;letter-spacing:normal;color:var(--ink-soft);">(optional — for reference only, doesn't grant any access)</span></h4>
+      <h4 class="field-section-title">Church Contact <span style="font-weight:400;text-transform:none;letter-spacing:normal;color:var(--ink-soft);">(optional)</span></h4>
       <p class="field-hint" style="margin-bottom:8px;">Who to reach out to about this church — doesn't have to be the same person as the Church Admin above.</p>
       <label class="field-label">Contact Name</label>
       <input type="text" class="field-input" id="edit-contact-name" value="${(church?.contact_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Pastor John Smith" />
       <label class="field-label">Contact Email</label>
       <input type="text" class="field-input" id="edit-contact-email" value="${(church?.contact_email||'').replace(/"/g,'&quot;')}" placeholder="pastor@example.com" />
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:var(--ink-soft);cursor:pointer;">
+        <input type="checkbox" id="edit-contact-also-admin" checked style="width:auto;margin:0;" />
+        Also give them admin access (emails them an invite to sign in and manage this church)
+      </label>
 
       <label class="field-label">Accent Color</label>
       <div class="color-field-row">
@@ -1591,8 +1595,26 @@ async function renderChurchStudents(churchId){
 
     const idx = allChurches.findIndex(c => c.id === churchId);
     if(idx !== -1) allChurches[idx] = updated;
-    statusEl.textContent = 'Saved ✓';
-    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+
+    // Checked by default -- most of the time the contact and the admin
+    // are the same person, so this saves a second, separate step. Still
+    // a real, visible checkbox rather than silent, so it's easy to
+    // notice and turn off for the cases where they're not the same
+    // person (e.g. a church office contact who shouldn't see student data).
+    const alsoAdmin = document.getElementById('edit-contact-also-admin').checked;
+    const contactEmail = document.getElementById('edit-contact-email').value.trim();
+    if(alsoAdmin && contactEmail){
+      const contactName = document.getElementById('edit-contact-name').value.trim();
+      const { error: inviteError } = await supabaseClient.rpc('create_admin_invite_for_contact', {
+        p_church_id: churchId,
+        p_email: contactEmail,
+        p_contact_name: contactName || null
+      });
+      statusEl.textContent = inviteError ? 'Saved ✓ (admin invite failed — try Church Admin invites separately)' : 'Saved ✓ Admin invite created — trigger a send when ready';
+    } else {
+      statusEl.textContent = 'Saved ✓';
+    }
+    setTimeout(() => { statusEl.textContent = ''; }, 3000);
   });
 
   document.querySelectorAll('td.clickable-cell').forEach(td => {
