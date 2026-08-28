@@ -79,7 +79,8 @@ const APP_URL = 'https://followingjesus.com';
 // admin-dashboard.html. Add future paid courses' entries to all three.
 const COURSE_URL_MAP = {
   '9fd36fd4-8c3d-4305-a7dd-d2a1d7f3abcc': '/theprocessofpromotion',
-  '3008af0c-67b6-4191-a6f0-f6b68010486f': '/discipleship-assimilation-essentials'
+  '3008af0c-67b6-4191-a6f0-f6b68010486f': '/discipleship-assimilation-essentials',
+  'b02cb26a-b4d2-4cf2-b993-90bc1a1ad08c': '/preaching-essentials-course'
 };
 
 exports.handler = async (event) => {
