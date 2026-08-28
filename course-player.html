@@ -450,6 +450,21 @@ const COURSE_CUSTOM_HERO_MAP = {
     title: 'The Process of Promotion',
     subtitle: "This course engages God's 9 ways He uses obscurity to prepare you for your purpose!",
     shopifyProductUrl: 'https://followingjesusbook.com/products/1824415'
+  },
+  '3008af0c-67b6-4191-a6f0-f6b68010486f': {
+    bgImage: 'https://onflrmiifjjjboeimnva.supabase.co/storage/v1/object/public/church-photos/Sam%20Deuth_E%20Course_Session%204-1.jpeg',
+    title: 'Discipleship & Assimilation Essentials',
+    subtitle: 'Learn the best practices of discipleship and assimilation from Samuel Deuth and guest Alex Klott.'
+  },
+  'b02cb26a-b4d2-4cf2-b993-90bc1a1ad08c': {
+    bgImage: 'https://onflrmiifjjjboeimnva.supabase.co/storage/v1/object/public/church-photos/screenshot-www.youtube.com-2020.04.27-11_01_35.png',
+    title: 'Preaching Essentials',
+    subtitle: 'Developing the Call, Character & Craft of the Preacher'
+  },
+  '25401cf3-fe3a-48d1-a2e9-ccd65a9e20eb': {
+    bgImage: 'https://onflrmiifjjjboeimnva.supabase.co/storage/v1/object/public/church-photos/jimmy-dean-Qngdf0kgGB4-unsplash%20(1).jpg',
+    title: '7 Biblical Principles on Parenting',
+    subtitle: 'Raising Godly kids that are healthy, happy and successful'
   }
 };
 // A course's Shopify buy link, kept separate from COURSE_CUSTOM_HERO_MAP
@@ -1056,7 +1071,25 @@ function renderHero(skipHistoryPush){
     ? `<p class="draft-notice" style="opacity:0.75; font-size:14px; margin-top:8px;">This course isn't currently open for enrollment. Please check back later or reach out to your church.</p>`
     : `<button class="btn-blue" id="start-btn">Start Course Today!</button>`;
   const customHero = course?.id ? COURSE_CUSTOM_HERO_MAP[course.id] : null;
-  const heroHtml = customHero ? `
+  // Three hero variants: a photo background (dark overlay, same treatment
+  // as the shared default pattern, just a different image), a solid
+  // brand color (light wash, dark text -- for a course whose own art
+  // clashes with a dark overlay, like Process of Promotion's yellow), or
+  // the shared default pattern image when a course has no custom hero
+  // entry at all.
+  const heroHtml = customHero?.bgImage ? `
+    <div class="hero" style="background:linear-gradient(180deg, rgba(10,12,16,0.78), rgba(10,12,16,0.84)), url('${customHero.bgImage}') center/cover;">
+      <div class="topbar on-hero">
+        ${logoBadgeHtml()}
+        <nav><a href="https://qrco.de/fjapp">App</a>${authStatusHtml()}</nav>
+      </div>
+      <div>
+        <h1>${customHero.title || course.title}</h1>
+        <p>${customHero.subtitle || course.subtitle || ''}</p>
+        ${startButtonHtml}
+      </div>
+    </div>
+  ` : customHero?.bgColor ? `
     <div class="hero hero-light" style="--hero-bg-color:${customHero.bgColor};">
       <div class="topbar on-hero">
         ${logoBadgeHtml()}
