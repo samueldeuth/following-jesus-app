@@ -6558,6 +6558,23 @@ async function renderDiscipleshipApp() {
   // state cases; anything else falls through to the normal tab restore.
   async function restoreTabFromUrl() {
     const hash = window.location.hash.replace('#', '');
+
+    // A hash like access_token=...&refresh_token=... is Supabase's own
+    // OAuth callback data (both Google and Apple land here this way),
+    // not a navigation hash this router owns. Supabase's client detects
+    // and consumes this asynchronously on its own, and completeOAuthIfPending
+    // (elsewhere on this page) is what actually finishes signing the
+    // person in and reopens the disciple modal once that's done. If this
+    // function ran its normal close-everything-then-fall-through-to-home
+    // logic on this same hash, it would race with Supabase's own
+    // processing and reset the visible screen to home before sign-in
+    // even finishes -- exactly the bug where Apple/Google sign-in
+    // appeared to work but silently dropped the person on the home tab
+    // with no session actually established. Leaving the hash completely
+    // untouched here is what lets Supabase and completeOAuthIfPending do
+    // their job undisturbed.
+    if (hash.startsWith('access_token=')) return;
+
     closeAllModals();
     hideMainScreens(); // paired with closeAllModals — whichever branch below actually applies re-activates the one screen it needs
 
