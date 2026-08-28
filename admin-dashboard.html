@@ -819,6 +819,37 @@ let selectedEnrollmentIds = new Set();
 // Shared by all three student tables (All Students, a church's
 // students, a course's students) so the date formatting and layout
 // stay identical everywhere rather than drifting between copies.
+// The Church Contact section's three states: nobody invited yet (plain
+// editable fields), invited but not yet claimed (pending), or claimed
+// (an actual admin). Wiring for each state's buttons lives in
+// wireChurchContactSection, called right after this HTML is inserted.
+function churchContactSectionHtml(status){
+  if(!status){
+    return `
+      <label class="field-label">Contact Name</label>
+      <input type="text" class="field-input" id="edit-contact-name" placeholder="e.g. Pastor John Smith" />
+      <label class="field-label">Contact Email</label>
+      <input type="text" class="field-input" id="edit-contact-email" placeholder="pastor@example.com" />
+      <button type="button" class="mini-btn" id="send-contact-invite-btn" style="margin-top:8px;">Save &amp; Send Admin Invite</button>
+      <span id="contact-invite-status" style="font-size:12.5px;color:var(--ink-soft);margin-left:8px;"></span>
+    `;
+  }
+  const name = status.contact_name || 'Unnamed contact';
+  const isClaimed = status.status === 'claimed';
+  return `
+    <div class="group-row">
+      <span>${isClaimed ? '✓ ' : ''}${name} (${status.email})${isClaimed ? ' is the admin' : ' — invite sent, waiting for them to accept'}</span>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:6px;">
+      ${isClaimed
+        ? `<button type="button" class="mini-btn danger" id="remove-contact-admin-btn">Remove Admin Access</button>`
+        : `<button type="button" class="mini-btn" id="resend-contact-invite-btn">Resend Invite</button>`}
+      <button type="button" class="mini-btn" id="change-contact-btn">Change</button>
+    </div>
+    <span id="contact-invite-status" style="font-size:12.5px;color:var(--ink-soft);"></span>
+  `;
+}
+
 function startedCompletedCellHtml(r){
   const fmt = d => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   const started = r.enrolled_at ? `<div class="date-started">Started ${fmt(r.enrolled_at)}</div>` : '';
@@ -1298,6 +1329,7 @@ async function renderChurchStudents(churchId){
   const groups = churchId ? await fetchGroups(churchId) : [];
   const currentAdmins = churchId ? await fetchChurchAdmins(churchId) : [];
   const pendingStudents = churchId ? await fetchPendingStudents(churchId) : [];
+  const contactInviteStatus = churchId ? await fetchContactInviteStatus(churchId) : null;
 
   const leaderIds = groups.map(g => g.leader_id).filter(Boolean);
   let leaderNameById = {};
@@ -1411,14 +1443,7 @@ async function renderChurchStudents(churchId){
 
       <h4 class="field-section-title">Church Contact <span style="font-weight:400;text-transform:none;letter-spacing:normal;color:var(--ink-soft);">(optional)</span></h4>
       <p class="field-hint" style="margin-bottom:8px;">Who to reach out to about this church — doesn't have to be the same person as the Church Admin above.</p>
-      <label class="field-label">Contact Name</label>
-      <input type="text" class="field-input" id="edit-contact-name" value="${(church?.contact_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Pastor John Smith" />
-      <label class="field-label">Contact Email</label>
-      <input type="text" class="field-input" id="edit-contact-email" value="${(church?.contact_email||'').replace(/"/g,'&quot;')}" placeholder="pastor@example.com" />
-      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:var(--ink-soft);cursor:pointer;">
-        <input type="checkbox" id="edit-contact-also-admin" checked style="width:auto;margin:0;" />
-        Also give them admin access (emails them an invite to sign in and manage this church)
-      </label>
+      <div id="church-contact-section">${churchContactSectionHtml(contactInviteStatus)}</div>
 
       <label class="field-label">Accent Color</label>
       <div class="color-field-row">
@@ -1573,8 +1598,6 @@ async function renderChurchStudents(churchId){
       slug: newSlug,
       primary_color: document.getElementById('edit-church-color').value.trim() || null,
       course_status: document.getElementById('edit-course-status').value,
-      contact_name: document.getElementById('edit-contact-name').value.trim() || null,
-      contact_email: document.getElementById('edit-contact-email').value.trim() || null,
       letter_title: document.getElementById('edit-letter-title').value.trim() || null,
       letter_subtitle: document.getElementById('edit-letter-subtitle').value.trim() || null,
       letter_body: document.getElementById('edit-letter-body').value.trim() || null,
@@ -1595,27 +1618,11 @@ async function renderChurchStudents(churchId){
 
     const idx = allChurches.findIndex(c => c.id === churchId);
     if(idx !== -1) allChurches[idx] = updated;
-
-    // Checked by default -- most of the time the contact and the admin
-    // are the same person, so this saves a second, separate step. Still
-    // a real, visible checkbox rather than silent, so it's easy to
-    // notice and turn off for the cases where they're not the same
-    // person (e.g. a church office contact who shouldn't see student data).
-    const alsoAdmin = document.getElementById('edit-contact-also-admin').checked;
-    const contactEmail = document.getElementById('edit-contact-email').value.trim();
-    if(alsoAdmin && contactEmail){
-      const contactName = document.getElementById('edit-contact-name').value.trim();
-      const { error: inviteError } = await supabaseClient.rpc('create_admin_invite_for_contact', {
-        p_church_id: churchId,
-        p_email: contactEmail,
-        p_contact_name: contactName || null
-      });
-      statusEl.textContent = inviteError ? 'Saved ✓ (admin invite failed — try Church Admin invites separately)' : 'Saved ✓ Admin invite created — trigger a send when ready';
-    } else {
-      statusEl.textContent = 'Saved ✓';
-    }
-    setTimeout(() => { statusEl.textContent = ''; }, 3000);
+    statusEl.textContent = 'Saved ✓';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
   });
+
+  wireChurchContactSection(churchId, contactInviteStatus);
 
   document.querySelectorAll('td.clickable-cell').forEach(td => {
     td.style.cursor = 'pointer';
@@ -2003,6 +2010,88 @@ async function fetchPendingStudents(churchId){
 async function fetchChurchAdmins(churchId){
   const { data } = await supabaseClient.from('profiles').select('id, full_name').eq('church_id', churchId).eq('role', 'church_admin');
   return data || [];
+}
+
+async function fetchContactInviteStatus(churchId){
+  const { data } = await supabaseClient.rpc('get_admin_invite_status_for_church', { p_church_id: churchId });
+  return (data && data[0]) || null;
+}
+
+// Calls send-admin-invites.js using the CURRENT user's own Supabase
+// session token, not a static secret -- the function itself verifies
+// this token belongs to an actual super admin before doing anything.
+// Sends whatever's currently pending, which in practice means whatever
+// invite was just created or refreshed by the caller, plus anything
+// else backlogged.
+async function triggerAdminInviteSend(){
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if(!session?.access_token) return { ok: false };
+  try {
+    const res = await fetch('/.netlify/functions/send-admin-invites', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}` }
+    });
+    return { ok: res.ok };
+  } catch (e) {
+    return { ok: false };
+  }
+}
+
+function wireChurchContactSection(churchId, status){
+  const section = document.getElementById('church-contact-section');
+  if(!section) return;
+
+  const showEditableFields = () => {
+    section.innerHTML = churchContactSectionHtml(null);
+    wireSendButton();
+  };
+
+  const wireSendButton = () => {
+    const btn = document.getElementById('send-contact-invite-btn');
+    if(!btn) return;
+    btn.addEventListener('click', async () => {
+      const email = document.getElementById('edit-contact-email').value.trim();
+      const name = document.getElementById('edit-contact-name').value.trim();
+      const statusEl = document.getElementById('contact-invite-status');
+      if(!email){ statusEl.textContent = 'Enter an email first.'; return; }
+      statusEl.textContent = 'Sending invite...';
+      const { error } = await supabaseClient.rpc('create_admin_invite_for_contact', {
+        p_church_id: churchId, p_email: email, p_contact_name: name || null
+      });
+      if(error){ statusEl.textContent = 'Something went wrong creating the invite.'; return; }
+      const sendResult = await triggerAdminInviteSend();
+      statusEl.textContent = sendResult.ok ? 'Invite sent ✓' : 'Invite created, but the email failed to send — try Resend.';
+      const freshStatus = await fetchContactInviteStatus(churchId);
+      section.innerHTML = churchContactSectionHtml(freshStatus);
+      wireStateButtons(freshStatus);
+    });
+  };
+
+  const wireStateButtons = (currentStatus) => {
+    document.getElementById('resend-contact-invite-btn')?.addEventListener('click', async () => {
+      const statusEl = document.getElementById('contact-invite-status');
+      statusEl.textContent = 'Resending...';
+      await supabaseClient.rpc('create_admin_invite_for_contact', {
+        p_church_id: churchId, p_email: currentStatus.email, p_contact_name: currentStatus.contact_name
+      });
+      const sendResult = await triggerAdminInviteSend();
+      statusEl.textContent = sendResult.ok ? 'Invite resent ✓' : 'Resend failed — try again in a moment.';
+    });
+    document.getElementById('remove-contact-admin-btn')?.addEventListener('click', async () => {
+      if(!confirm(`Remove ${currentStatus.contact_name || currentStatus.email} as church admin? They'll go back to being a regular student.`)) return;
+      await supabaseClient.rpc('revoke_admin_for_church_contact', {
+        p_church_id: churchId, p_profile_id: currentStatus.profile_id
+      });
+      showEditableFields();
+    });
+    document.getElementById('change-contact-btn')?.addEventListener('click', showEditableFields);
+  };
+
+  if(status){
+    wireStateButtons(status);
+  } else {
+    wireSendButton();
+  }
 }
 
 /* ---------- Level 3: student detail — Q&A + reply ---------- */
