@@ -73,6 +73,15 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const FROM_EMAIL = 'Following Jesus <approvals@mail.followingjesus.com>';
 const APP_URL = 'https://followingjesus.com';
 
+// Each non-white-labeled paid course needs its real live URL here so the
+// purchase-confirmation email links to the right place -- this mirrors
+// COURSE_SLUG_MAP in course-player.html and NON_WHITE_LABEL_COURSES in
+// admin-dashboard.html. Add future paid courses' entries to all three.
+const COURSE_URL_MAP = {
+  '9fd36fd4-8c3d-4305-a7dd-d2a1d7f3abcc': '/theprocessofpromotion',
+  '3008af0c-67b6-4191-a6f0-f6b68010486f': '/discipleship-assimilation-essentials'
+};
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
@@ -182,7 +191,7 @@ exports.handler = async (event) => {
     // granted this same course+email for this order (or a prior
     // delivery attempt), skip the email rather than sending a second
     // one for the same purchase.
-    const emailSent = course.is_new ? await sendAccessEmail(customerEmail, firstName, course.title, resendApiKey) : false;
+    const emailSent = course.is_new ? await sendAccessEmail(customerEmail, firstName, course.title, resendApiKey, course.id) : false;
     results.push({ course: course.title, isNew: course.is_new, emailSent });
   }
   console.log(`shopify-order-webhook: granted access + email results: ${JSON.stringify(results)}`);
@@ -190,8 +199,12 @@ exports.handler = async (event) => {
   return { statusCode: 200, body: JSON.stringify({ processed: results }) };
 };
 
-async function sendAccessEmail(toEmail, firstName, courseTitle, apiKey) {
-  const courseUrl = `${APP_URL}/theprocessofpromotion`;
+async function sendAccessEmail(toEmail, firstName, courseTitle, apiKey, courseId) {
+  // Falls back to a generic ?course= link if a future course is ever
+  // matched here before someone remembers to add it to COURSE_URL_MAP --
+  // still a working link, just not the pretty slug.
+  const coursePath = COURSE_URL_MAP[courseId] || `/course?course=${courseId}`;
+  const courseUrl = `${APP_URL}${coursePath}`;
   const html = `
     <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
       <p>Hi${firstName ? ' ' + escapeHtml(firstName) : ''},</p>
