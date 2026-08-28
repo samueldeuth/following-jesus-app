@@ -81,7 +81,8 @@ const COURSE_URL_MAP = {
   '9fd36fd4-8c3d-4305-a7dd-d2a1d7f3abcc': '/theprocessofpromotion',
   '3008af0c-67b6-4191-a6f0-f6b68010486f': '/discipleship-assimilation-essentials',
   'b02cb26a-b4d2-4cf2-b993-90bc1a1ad08c': '/preaching-essentials-course',
-  '25401cf3-fe3a-48d1-a2e9-ccd65a9e20eb': '/biblical-parenting-course'
+  '25401cf3-fe3a-48d1-a2e9-ccd65a9e20eb': '/biblical-parenting-course',
+  'b0ed6c2f-64bb-491e-9ab9-22b309b87ae2': '/how-to-write-publish-book-course'
 };
 
 exports.handler = async (event) => {
