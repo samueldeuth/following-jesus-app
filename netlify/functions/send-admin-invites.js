@@ -45,9 +45,41 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: `Missing environment variables: ${missing.join(', ')}` };
   }
 
+  // Two ways in, both ending up equally trusted:
+  //   1. The secret query param -- for manually triggering a bulk send
+  //      by visiting the URL, same as the original batch workflow.
+  //   2. A logged-in super admin's own Supabase session token, sent as
+  //      a Bearer header -- this is what the admin dashboard uses to
+  //      trigger a send immediately after creating a single invite,
+  //      right from a church's settings. This is deliberately NOT the
+  //      static secret baked into a client-side call (that would leak
+  //      it to anyone viewing the page source) -- instead this function
+  //      verifies the token is a real, currently-valid session
+  //      belonging to an actual super admin, the same way any other
+  //      authenticated action in this project is checked.
   const providedSecret = event.queryStringParameters?.secret;
-  if (providedSecret !== functionSecret) {
-    return { statusCode: 401, body: 'Missing or incorrect secret query parameter.' };
+  const authHeader = event.headers.authorization || event.headers.Authorization;
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  let authorized = providedSecret === functionSecret;
+
+  if (!authorized && bearerToken) {
+    const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${bearerToken}` }
+    });
+    if (userRes.ok) {
+      const user = await userRes.json();
+      const adminCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/is_super_admin`, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: user.id })
+      });
+      authorized = adminCheckRes.ok && (await adminCheckRes.json()) === true;
+    }
+  }
+
+  if (!authorized) {
+    return { statusCode: 401, body: 'Not authorized -- provide either the secret query parameter or a valid super admin session token.' };
   }
 
   const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_pending_admin_invites_to_email`, {
