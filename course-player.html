@@ -52,7 +52,7 @@
   .hero{
     position:relative;
     min-height:520px;
-    background:linear-gradient(180deg, rgba(10,12,16,0.78), rgba(10,12,16,0.84)), url('/assets/fj-hero-pattern.jpg') center/cover;
+    background:linear-gradient(180deg, rgba(10,12,16,0.66), rgba(10,12,16,0.71)), url('/assets/fj-hero-pattern.jpg') center/cover;
     display:flex;align-items:center;justify-content:center;
     text-align:center;color:#fff;padding:100px 20px 60px;
   }
@@ -462,7 +462,7 @@ const COURSE_CUSTOM_HERO_MAP = {
     subtitle: 'Developing the Call, Character & Craft of the Preacher'
   },
   '25401cf3-fe3a-48d1-a2e9-ccd65a9e20eb': {
-    bgImage: 'https://onflrmiifjjjboeimnva.supabase.co/storage/v1/object/public/church-photos/jimmy-dean-Qngdf0kgGB4-unsplash%20(1).jpg',
+    bgImage: 'https://onflrmiifjjjboeimnva.supabase.co/storage/v1/object/public/church-photos/thom-milkovic-FTNGfpYCpGM-unsplash.jpg',
     title: '7 Biblical Principles on Parenting',
     subtitle: 'Raising Godly kids that are healthy, happy and successful'
   }
@@ -1078,7 +1078,7 @@ function renderHero(skipHistoryPush){
   // the shared default pattern image when a course has no custom hero
   // entry at all.
   const heroHtml = customHero?.bgImage ? `
-    <div class="hero" style="background:linear-gradient(180deg, rgba(10,12,16,0.78), rgba(10,12,16,0.84)), url('${customHero.bgImage}') center/cover;">
+    <div class="hero" style="background:linear-gradient(180deg, rgba(10,12,16,0.66), rgba(10,12,16,0.71)), url('${customHero.bgImage}') center/cover;">
       <div class="topbar on-hero">
         ${logoBadgeHtml()}
         <nav><a href="https://qrco.de/fjapp">App</a>${authStatusHtml()}</nav>
