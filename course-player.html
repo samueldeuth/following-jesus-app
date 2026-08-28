@@ -153,6 +153,19 @@
   .site-footer p:last-child{margin-bottom:0;}
   .site-footer a{color:var(--ink-soft);font-weight:600;text-decoration:underline;}
 
+  /* ---------- Additional resources section (opt-in per course via
+     COURSE_RESOURCES_MAP -- most courses won't set this and the section
+     just won't render) ---------- */
+  .resources-section{max-width:900px;margin:0 auto;padding:0 20px 60px;}
+  .resources-section h2{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:clamp(24px,4vw,32px);margin-bottom:26px;text-align:center;}
+  .resources-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;}
+  .resource-card{background:var(--bg-soft);border-radius:var(--radius);padding:24px;text-decoration:none;color:inherit;display:block;}
+  .resource-card .resource-kicker{font-size:11.5px;letter-spacing:0.06em;text-transform:uppercase;opacity:0.6;}
+  .resource-card h3{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:600;margin:8px 0 8px;}
+  .resource-card p{font-size:14px;opacity:0.75;margin:0 0 12px;}
+  .resource-card .resource-link{font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.02em;}
+  @media(max-width:720px){ .resources-grid{grid-template-columns:1fr;} }
+
   /* ---------- Player layout ---------- */
   .player-shell{display:flex;min-height:100vh;}
   .sidebar{
@@ -443,6 +456,17 @@ const COURSE_CUSTOM_HERO_MAP = {
 // set here, or renderPurchaseRequired() has no link to show at all.
 const COURSE_PURCHASE_URL_MAP = {
   '3008af0c-67b6-4191-a6f0-f6b68010486f': 'https://followingjesusbook.com/products/discipleship-assimilation-essentials'
+};
+// Optional "Additional Church Leader Resources" cards shown on a
+// course's hero/landing page, below the course overview. Opt-in per
+// course -- most courses won't have an entry here and
+// resourcesSectionHtml() just returns '' for them.
+const COURSE_RESOURCES_MAP = {
+  '3008af0c-67b6-4191-a6f0-f6b68010486f': [
+    { kicker: 'The Book', title: 'Following Jesus', desc: 'A next-steps guide to give new believers, walking them through the 7 essentials.', url: 'https://followingjesusbook.com', linkText: 'Learn More' },
+    { kicker: 'The Book', title: 'Preaching with Authority', desc: 'Clarify your calling, strengthen your character, and develop your craft as a preacher.', url: 'https://www.samueldeuth.com/store/p/preaching-with-authority', linkText: 'Learn More' },
+    { kicker: 'The Course', title: 'The Process of Promotion', desc: 'Nine ways God uses obscurity to prepare you for your purpose.', url: '/theprocessofpromotion', linkText: 'Learn More' }
+  ]
 };
 function logoBadgeHtml(extraClass){
   const logoUrl = course?.id ? COURSE_LOGO_MAP[course.id] : null;
@@ -950,6 +974,23 @@ function footerHtml(){
     </footer>`;
 }
 
+function resourcesSectionHtml(courseObj){
+  const resources = courseObj?.id ? COURSE_RESOURCES_MAP[courseObj.id] : null;
+  if(!resources || !resources.length) return '';
+  const cardsHtml = resources.map(r => `
+    <a class="resource-card" href="${r.url}" target="_blank" rel="noopener">
+      <div class="resource-kicker">${r.kicker}</div>
+      <h3>${r.title}</h3>
+      <p>${r.desc}</p>
+      <span class="resource-link">${r.linkText} &rarr;</span>
+    </a>`).join('');
+  return `
+    <div class="resources-section">
+      <h2>Additional Church Leader Resources</h2>
+      <div class="resources-grid">${cardsHtml}</div>
+    </div>`;
+}
+
 function wireCourseOverviewWidget(){
   document.querySelectorAll('.overview-row').forEach(row => {
     row.addEventListener('click', () => {
@@ -1025,6 +1066,7 @@ function renderHero(skipHistoryPush){
     ${checklistSectionHtml(course)}
     ${previewSectionHtml(course)}
     ${courseOverviewWidgetHtml(sessions)}
+    ${resourcesSectionHtml(course)}
     ${footerHtml()}
   `;
   bindAuthStatusLinks();
