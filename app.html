@@ -2295,7 +2295,17 @@
       return true;
     }
 
-    const name = (googleUser.user_metadata && googleUser.user_metadata.full_name) || email.split('@')[0];
+    // Apple's OAuth flow never hands over a real name at all (a known
+    // limitation, unlike Google), so this already had to fall back to
+    // the email's own prefix -- but when someone chooses Apple's "Hide
+    // My Email" privacy option, that email is a random string like
+    // fhhvfghsbv@privaterelay.appleid.com, and the prefix is equally
+    // random. "New Disciple" is a plain, sensible default for exactly
+    // that case; a real Google name or a normal email's prefix (like
+    // "john.smith") still gets used as before.
+    const isPrivateRelayEmail = email.endsWith('@privaterelay.appleid.com');
+    const name = (googleUser.user_metadata && googleUser.user_metadata.full_name)
+      || (isPrivateRelayEmail ? 'New Disciple' : email.split('@')[0]);
     const photoUrl = (googleUser.user_metadata && googleUser.user_metadata.avatar_url) || null;
     // Use the real Supabase auth user id here, not a throwaway local
     // uid() — this profiles row's id needs to match what
