@@ -2300,7 +2300,7 @@ async function renderStudentDetail(studentId, courseId){
             const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
             const isCurrent = r.enrollment_id === row?.enrollment_id;
             return `
-              <tr data-enrollment-row="${r.enrollment_id}" data-course-id-row="${r.course_id}" ${isCurrent ? 'style="background:var(--bg-soft);"' : ''}>
+              <tr class="clickable" data-switch-course="${r.course_id}" ${isCurrent ? 'style="background:var(--bg-soft);"' : ''}>
                 <td>${r.course_title || '—'}${isCurrent ? ' <span style="color:var(--ink-soft);font-size:11.5px;">(viewing below)</span>' : ''}</td>
                 <td>${r.church_name || '—'}</td>
                 <td style="text-transform:capitalize;">${r.status || 'active'}</td>
@@ -2340,7 +2340,8 @@ async function renderStudentDetail(studentId, courseId){
   // often enough for the minor inefficiency of re-fetching discussion
   // data to matter.
   content.querySelectorAll('[data-detail-archive]').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
       const enrollmentId = btn.dataset.detailArchive;
       const targetRow = allRows.find(r => r.enrollment_id === enrollmentId);
       if(!confirm(`Archive this enrollment in ${targetRow?.course_title || 'this course'}? Nothing is deleted -- it can be restored anytime.`)) return;
@@ -2357,7 +2358,8 @@ async function renderStudentDetail(studentId, courseId){
   });
 
   content.querySelectorAll('[data-detail-restore]').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
       const enrollmentId = btn.dataset.detailRestore;
       try {
         const { data, error } = await supabaseClient.from('enrollments').update({ status: 'active', archived_at: null }).eq('id', enrollmentId).select();
@@ -2369,6 +2371,17 @@ async function renderStudentDetail(studentId, courseId){
       } catch (err) {
         alert('Could not restore (unexpected error): ' + err.message);
       }
+    });
+  });
+
+  // Clicking anywhere on a row (other than the action button, which
+  // stops propagation above) switches the discussion Q&A section below
+  // to that course instead -- reuses renderStudentDetail itself with
+  // the row's own course_id, since that function already handles
+  // fetching and rendering everything correctly for any given course.
+  content.querySelectorAll('[data-switch-course]').forEach(tr => {
+    tr.addEventListener('click', () => {
+      renderStudentDetail(studentId, tr.dataset.switchCourse);
     });
   });
 
