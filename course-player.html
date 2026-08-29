@@ -332,6 +332,10 @@
     width:100%;background:#fff;border:1.5px solid var(--line);border-radius:8px;padding:11px;
     font-weight:600;font-size:13.5px;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;
   }
+  .auth-apple{
+    width:100%;background:#000;color:#fff;border:1.5px solid #000;border-radius:8px;padding:11px;
+    font-weight:600;font-size:13.5px;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px;
+  }
   .auth-error{background:#FDECEC;color:#B3261E;font-size:13px;padding:9px 12px;border-radius:8px;margin-bottom:12px;}
   .auth-note{font-size:12px;color:var(--ink-soft);margin-top:10px;text-align:center;}
 
@@ -764,6 +768,10 @@ function renderAuthModal(mode){
       <div class="auth-title">${mode === 'signup' ? 'Create your account' : 'Sign in'}</div>
       <div class="auth-subtitle">${mode === 'signup' ? 'Start tracking your progress through the course.' : 'Welcome back — pick up where you left off.'}</div>
       <div id="auth-error"></div>
+      <button class="auth-apple" id="apple-btn">
+        <svg width="15" height="18" viewBox="0 0 17 20" fill="#fff"><path d="M13.94 10.6c-.02-2.06 1.68-3.05 1.76-3.1-.96-1.4-2.45-1.6-2.98-1.62-1.27-.13-2.48.75-3.12.75-.64 0-1.63-.73-2.68-.71-1.38.02-2.65.8-3.36 2.03-1.43 2.48-.37 6.15 1.03 8.16.68.98 1.5 2.08 2.57 2.04 1.03-.04 1.42-.66 2.67-.66 1.24 0 1.6.66 2.68.64 1.11-.02 1.81-1 2.48-1.99.78-1.13 1.1-2.24 1.12-2.3-.02-.01-2.15-.83-2.17-3.24zM11.86 4.3c.56-.68.94-1.62.83-2.56-.81.03-1.78.54-2.36 1.21-.52.6-.98 1.56-.86 2.48.9.07 1.82-.46 2.39-1.13z"/></svg>
+        Continue with Apple
+      </button>
       <button class="auth-google" id="google-btn">Continue with Google</button>
       <p style="text-align:center;font-size:12px;color:var(--ink-soft);margin-top:14px;">Works with any email address you already use — Yahoo, Outlook, iCloud, anything — not just Gmail.</p>
       <p style="text-align:center;font-size:11.5px;color:var(--ink-soft);margin-top:10px;">By continuing, you agree to our <a href="/terms" target="_blank" style="color:var(--ink-soft);text-decoration:underline;">Terms</a> and <a href="/privacy" target="_blank" style="color:var(--ink-soft);text-decoration:underline;">Privacy Policy</a>.</p>
@@ -773,6 +781,7 @@ function renderAuthModal(mode){
 
   document.getElementById('auth-close').addEventListener('click', closeAuthModal);
   overlay.addEventListener('click', (e) => { if(e.target === overlay) closeAuthModal(); });
+  document.getElementById('apple-btn').addEventListener('click', handleAppleAuth);
   document.getElementById('google-btn').addEventListener('click', handleGoogleAuth);
 }
 
@@ -802,6 +811,23 @@ async function handleGoogleAuth(){
   });
   // Page redirects to Google, then back here — init() below picks up the
   // logged-in session and the pending-start flag (if any) after reload.
+}
+
+// Same shape as handleGoogleAuth above, minus the Google-specific
+// account-picker query param -- Apple doesn't have an equivalent
+// "always show the picker" option in the same sense, since it's tied
+// to whichever Apple ID the device is signed into rather than a list
+// of cached browser accounts. No hash-router collision risk to worry
+// about here either (unlike app.html), since this page has no
+// hash-based routing -- redirectTo: window.location.href is already
+// safe and correct, same as Google above.
+async function handleAppleAuth(){
+  await supabaseClient.auth.signInWithOAuth({
+    provider: 'apple',
+    options: {
+      redirectTo: window.location.href
+    }
+  });
 }
 
 async function handleSignOut(){
