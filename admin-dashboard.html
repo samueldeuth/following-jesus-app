@@ -917,18 +917,32 @@ function wireStudentRowActions(tbodySelector, selectAllSelector, batchBarSelecto
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       if(!confirm(`Archive ${btn.dataset.name}? They'll be hidden from the active student list, but nothing is deleted -- you can restore them anytime from the Archived view.`)) return;
-      const { error } = await supabaseClient.from('enrollments').update({ status: 'archived', archived_at: new Date().toISOString() }).eq('id', btn.dataset.archive);
-      if(error){ alert('Could not archive: ' + error.message); return; }
-      onChange(btn.dataset.archive, 'archived');
+      try {
+        const { data, error } = await supabaseClient.from('enrollments').update({ status: 'archived', archived_at: new Date().toISOString() }).eq('id', btn.dataset.archive).select();
+        console.log('archive result:', { data, error, targetId: btn.dataset.archive });
+        if(error){ alert('Could not archive: ' + error.message); return; }
+        if(!data || data.length === 0){ alert('Archive did not affect any row -- this usually means a permissions (RLS) issue is silently blocking the update. Check the browser console for details.'); return; }
+        onChange(btn.dataset.archive, 'archived');
+      } catch (err) {
+        console.error('archive threw an exception:', err);
+        alert('Could not archive (unexpected error): ' + err.message);
+      }
     });
   });
 
   tbody.querySelectorAll('[data-restore]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      const { error } = await supabaseClient.from('enrollments').update({ status: 'active', archived_at: null }).eq('id', btn.dataset.restore);
-      if(error){ alert('Could not restore: ' + error.message); return; }
-      onChange(btn.dataset.restore, 'active');
+      try {
+        const { data, error } = await supabaseClient.from('enrollments').update({ status: 'active', archived_at: null }).eq('id', btn.dataset.restore).select();
+        console.log('restore result:', { data, error, targetId: btn.dataset.restore });
+        if(error){ alert('Could not restore: ' + error.message); return; }
+        if(!data || data.length === 0){ alert('Restore did not affect any row -- this usually means a permissions (RLS) issue is silently blocking the update. Check the browser console for details.'); return; }
+        onChange(btn.dataset.restore, 'active');
+      } catch (err) {
+        console.error('restore threw an exception:', err);
+        alert('Could not restore (unexpected error): ' + err.message);
+      }
     });
   });
 
@@ -968,20 +982,34 @@ function wireBatchActionBar(onChange){
     archiveBtn.addEventListener('click', async () => {
       const ids = [...selectedEnrollmentIds];
       if(!confirm(`Archive ${ids.length} student${ids.length===1?'':'s'}? Nothing is deleted -- you can restore them anytime from the Archived view.`)) return;
-      const { error } = await supabaseClient.from('enrollments').update({ status: 'archived', archived_at: new Date().toISOString() }).in('id', ids);
-      if(error){ alert('Could not archive: ' + error.message); return; }
-      selectedEnrollmentIds.clear();
-      onChange(ids, 'archived');
+      try {
+        const { data, error } = await supabaseClient.from('enrollments').update({ status: 'archived', archived_at: new Date().toISOString() }).in('id', ids).select();
+        console.log('batch archive result:', { data, error, targetIds: ids });
+        if(error){ alert('Could not archive: ' + error.message); return; }
+        if(!data || data.length === 0){ alert('Archive did not affect any rows -- this usually means a permissions (RLS) issue is silently blocking the update. Check the browser console for details.'); return; }
+        selectedEnrollmentIds.clear();
+        onChange(ids, 'archived');
+      } catch (err) {
+        console.error('batch archive threw an exception:', err);
+        alert('Could not archive (unexpected error): ' + err.message);
+      }
     });
   }
   const restoreBtn = document.getElementById('batch-restore-btn');
   if(restoreBtn){
     restoreBtn.addEventListener('click', async () => {
       const ids = [...selectedEnrollmentIds];
-      const { error } = await supabaseClient.from('enrollments').update({ status: 'active', archived_at: null }).in('id', ids);
-      if(error){ alert('Could not restore: ' + error.message); return; }
-      selectedEnrollmentIds.clear();
-      onChange(ids, 'active');
+      try {
+        const { data, error } = await supabaseClient.from('enrollments').update({ status: 'active', archived_at: null }).in('id', ids).select();
+        console.log('batch restore result:', { data, error, targetIds: ids });
+        if(error){ alert('Could not restore: ' + error.message); return; }
+        if(!data || data.length === 0){ alert('Restore did not affect any rows -- this usually means a permissions (RLS) issue is silently blocking the update. Check the browser console for details.'); return; }
+        selectedEnrollmentIds.clear();
+        onChange(ids, 'active');
+      } catch (err) {
+        console.error('batch restore threw an exception:', err);
+        alert('Could not restore (unexpected error): ' + err.message);
+      }
     });
   }
   const deleteBtn = document.getElementById('batch-delete-btn');
