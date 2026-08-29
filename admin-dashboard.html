@@ -96,6 +96,7 @@
   .sidebar-church-item .status-dot.live{background:#22c55e;}
   .sidebar-church-item .status-dot.draft{background:#f59e0b;}
   .sidebar-church-item .status-dot.archived{background:#9ca3af;}
+  .sidebar-church-item .status-dot.pending_approval{background:#8b5cf6;}
 
   @media(max-width:820px){
     main{padding-left:64px !important;padding-top:70px;}
@@ -280,6 +281,7 @@
     <div class="sidebar-section-title">Churches (<span id="sidebar-church-count">0</span>)</div>
     <div class="sidebar-status-filters" id="sidebar-status-filters">
       <button class="status-filter-btn active" data-status-filter="all">All</button>
+      <button class="status-filter-btn" data-status-filter="pending_approval">Pending</button>
       <button class="status-filter-btn" data-status-filter="live">Live</button>
       <button class="status-filter-btn" data-status-filter="draft">Draft</button>
       <button class="status-filter-btn" data-status-filter="archived">Archived</button>
@@ -1413,6 +1415,12 @@ async function renderChurchStudents(churchId){
 
     ${churchId ? `
     <div class="church-tab-panel" data-tab-panel="settings">
+      ${church?.course_status === 'pending_approval' ? `
+      <div style="background:#f5f3ff;border:1px solid #8b5cf6;border-radius:8px;padding:14px;margin-bottom:20px;">
+        <p style="margin:0 0 4px;font-weight:700;color:#5b21b6;">New signup — pending your approval</p>
+        <p style="margin:0 0 12px;font-size:13px;color:var(--ink-soft);">This church was auto-created from a purchase. Review and fix the details below (the name and URL slug especially — they started from checkout data, which isn't always accurate), then approve to make it live.</p>
+        <button type="button" class="mini-btn" id="approve-pending-church-btn" style="background:#5b21b6;color:#fff;border-color:#5b21b6;">Approve &amp; Go Live</button>
+      </div>` : ''}
       <label class="field-label">Church Name</label>
       <input type="text" class="field-input" id="edit-church-name" value="${(church?.name||'').replace(/"/g,'&quot;')}" />
 
@@ -1423,6 +1431,7 @@ async function renderChurchStudents(churchId){
       <label class="field-label">Course Status</label>
       <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
         <select class="field-input" id="edit-course-status" style="width:auto; flex:1;">
+          <option value="pending_approval" ${church?.course_status==='pending_approval'?'selected':''}>Pending Approval — new signup, not reviewed yet</option>
           <option value="live" ${(church?.course_status||'live')==='live'?'selected':''}>Live — page works, enrollment open</option>
           <option value="draft" ${church?.course_status==='draft'?'selected':''}>Draft — page shows, enrollment closed</option>
           <option value="archived" ${church?.course_status==='archived'?'selected':''}>Archived — page not shown at all</option>
@@ -1566,6 +1575,7 @@ async function renderChurchStudents(churchId){
     const statusSelect = document.getElementById('edit-course-status');
     const statusBadge = document.getElementById('course-status-badge');
     const STATUS_STYLES = {
+      pending_approval: { bg: '#f5f3ff', color: '#5b21b6', label: 'Pending Approval' },
       live: { bg: '#dcf5e3', color: '#166534', label: 'Live' },
       draft: { bg: '#fef3c7', color: '#92400e', label: 'Draft' },
       archived: { bg: '#e5e7eb', color: '#4b5563', label: 'Archived' }
@@ -1581,6 +1591,22 @@ async function renderChurchStudents(churchId){
       statusSelect.addEventListener('change', updateStatusBadge);
     }
   }
+
+  // Reuses the exact same save logic (slug validation, uniqueness
+  // check, all the other fields) rather than duplicating it -- this
+  // just sets the status to live first, then clicks the real Save
+  // button programmatically, so anything Samuel already edited in the
+  // name/slug fields gets saved along with the approval in one action.
+  const approveBtn = document.getElementById('approve-pending-church-btn');
+  if(approveBtn) approveBtn.addEventListener('click', () => {
+    const statusSelect = document.getElementById('edit-course-status');
+    if(statusSelect){
+      statusSelect.value = 'live';
+      statusSelect.dispatchEvent(new Event('change'));
+    }
+    document.getElementById('save-church-settings-btn')?.click();
+  });
+
   if(saveSettingsBtn) saveSettingsBtn.addEventListener('click', async () => {
     const newSlug = document.getElementById('edit-church-slug').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
     const statusEl = document.getElementById('save-status');
