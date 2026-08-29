@@ -663,14 +663,14 @@ function renderSidebar(){
 
   const courseListEl = document.getElementById('sidebar-course-list');
   courseListEl.innerHTML = NON_WHITE_LABEL_COURSES.map(c => {
-    const count = allRows.filter(r => r.course_id === c.id).length;
+    const count = allRows.filter(r => r.course_id === c.id && r.status !== 'archived').length;
     return `<div class="sidebar-church-item ${c.id === activeCourseId ? 'active' : ''}" data-course-id="${c.id}" data-course-title="${c.title.replace(/"/g,'&quot;')}"><span>${c.title}</span><span class="count">${count}</span></div>`;
   }).join('');
   courseListEl.querySelectorAll('.sidebar-church-item[data-course-id]').forEach(el => {
     el.addEventListener('click', () => renderCourseStudents(el.dataset.courseId, el.dataset.courseTitle));
   });
 
-  const noChurchCount = allRows.filter(r => !r.church_id).length;
+  const noChurchCount = allRows.filter(r => !r.church_id && r.status !== 'archived').length;
   const noChurchItemHtml = `<div class="sidebar-church-item ${viewingNoChurch ? 'active' : ''}" id="sidebar-no-church-item" style="border-bottom:1px solid var(--line);margin-bottom:6px;padding-bottom:10px;"><span>Following Jesus <span style="color:var(--ink-soft);font-weight:400;">(Primary)</span></span><span class="count">${noChurchCount}</span></div>`;
 
   let filtered = query ? allChurches.filter(c => c.name.toLowerCase().includes(query)) : allChurches;
@@ -678,7 +678,7 @@ function renderSidebar(){
     filtered = filtered.filter(c => (c.course_status || 'live') === sidebarStatusFilter);
   }
   listEl.innerHTML = noChurchItemHtml + (filtered.map(ch => {
-    const count = allRows.filter(r => r.church_id === ch.id).length;
+    const count = allRows.filter(r => r.church_id === ch.id && r.status !== 'archived').length;
     const status = ch.course_status || 'live';
     return `<div class="sidebar-church-item ${ch.id === activeChurchId ? 'active' : ''}" data-church-id="${ch.id}"><span><span class="status-dot ${status}" title="${status}"></span>${ch.name}</span><span class="count">${count}</span></div>`;
   }).join('') || '<p style="font-size:12px;color:var(--ink-soft);padding:8px 10px;">No matches.</p>');
@@ -757,10 +757,11 @@ function renderChurchesOverview(){
   renderSidebar();
   const totalChurches = allChurches.length;
   const totalStudents = allRows.length;
+  const totalActive = allRows.filter(r => r.status !== 'archived').length;
   const totalCompleted = allRows.filter(r => r.total_items > 0 && r.items_completed === r.total_items).length;
 
   const churchRowsHtml = allChurches.map(ch => {
-    const churchRows = allRows.filter(r => r.church_id === ch.id);
+    const churchRows = allRows.filter(r => r.church_id === ch.id && r.status !== 'archived');
     const pct = churchRows.length
       ? Math.round(churchRows.reduce((sum,r) => sum + (r.total_items ? r.items_completed/r.total_items : 0), 0) / churchRows.length * 100)
       : 0;
@@ -780,6 +781,7 @@ function renderChurchesOverview(){
     <div class="summary-row">
       <div class="summary-card"><div class="num">${totalChurches}</div><div class="label">Churches</div></div>
       <div class="summary-card"><div class="num">${totalStudents}</div><div class="label">Total students</div></div>
+      <div class="summary-card"><div class="num">${totalActive}</div><div class="label">Active students</div></div>
       <div class="summary-card"><div class="num">${totalCompleted}</div><div class="label">Finished a course</div></div>
     </div>
     <div style="display:flex;gap:6px;margin:18px 0 10px;flex-wrap:wrap;">
