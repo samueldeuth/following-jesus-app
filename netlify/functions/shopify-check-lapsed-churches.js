@@ -7,21 +7,21 @@
 // enrollment pauses. This is the actual grace-period enforcement; the
 // webhook function only ever records WHEN a lapse started.
 //
-// Uses Netlify's built-in schedule() wrapper so the cron timing lives
-// in this file itself rather than external config. If scheduled
-// functions in this project are actually configured via the Netlify
-// dashboard UI instead (worth checking after upload), set this to run
-// once daily there and this in-file schedule can be left as a
-// documented fallback.
+// Scheduled via netlify.toml (same pattern as keep-alive-ping,
+// send-daily-notifications, send-weekly-course-reminders in this
+// project), not the @netlify/functions package's schedule() wrapper --
+// that package isn't a project dependency, and requiring it broke the
+// whole site's build. Add this to netlify.toml:
+//
+//   [functions."shopify-check-lapsed-churches"]
+//     schedule = "0 9 * * *"
 //
 // No Supabase service-role key -- same pattern as everything else.
-
-const { schedule } = require('@netlify/functions');
 
 const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
 
-const runDailyCheck = async () => {
+exports.handler = async () => {
   const functionSecret = process.env.SHOPIFY_CHURCH_SIGNUP_SECRET;
   if (!functionSecret) {
     console.error('shopify-check-lapsed-churches: missing SHOPIFY_CHURCH_SIGNUP_SECRET');
@@ -44,6 +44,3 @@ const runDailyCheck = async () => {
   console.log(`shopify-check-lapsed-churches: reverted ${affected.length} church(es) to draft: ${JSON.stringify(affected)}`);
   return { statusCode: 200, body: JSON.stringify({ revertedCount: affected.length, churches: affected }) };
 };
-
-// Once daily, early morning UTC.
-exports.handler = schedule('0 9 * * *', runDailyCheck);
