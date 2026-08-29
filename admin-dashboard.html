@@ -917,7 +917,8 @@ function wireStudentRowActions(tbodySelector, selectAllSelector, batchBarSelecto
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       if(!confirm(`Archive ${btn.dataset.name}? They'll be hidden from the active student list, but nothing is deleted -- you can restore them anytime from the Archived view.`)) return;
-      await supabaseClient.from('enrollments').update({ status: 'archived', archived_at: new Date().toISOString() }).eq('id', btn.dataset.archive);
+      const { error } = await supabaseClient.from('enrollments').update({ status: 'archived', archived_at: new Date().toISOString() }).eq('id', btn.dataset.archive);
+      if(error){ alert('Could not archive: ' + error.message); return; }
       onChange(btn.dataset.archive, 'archived');
     });
   });
@@ -925,7 +926,8 @@ function wireStudentRowActions(tbodySelector, selectAllSelector, batchBarSelecto
   tbody.querySelectorAll('[data-restore]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      await supabaseClient.from('enrollments').update({ status: 'active', archived_at: null }).eq('id', btn.dataset.restore);
+      const { error } = await supabaseClient.from('enrollments').update({ status: 'active', archived_at: null }).eq('id', btn.dataset.restore);
+      if(error){ alert('Could not restore: ' + error.message); return; }
       onChange(btn.dataset.restore, 'active');
     });
   });
@@ -966,7 +968,8 @@ function wireBatchActionBar(onChange){
     archiveBtn.addEventListener('click', async () => {
       const ids = [...selectedEnrollmentIds];
       if(!confirm(`Archive ${ids.length} student${ids.length===1?'':'s'}? Nothing is deleted -- you can restore them anytime from the Archived view.`)) return;
-      await supabaseClient.from('enrollments').update({ status: 'archived', archived_at: new Date().toISOString() }).in('id', ids);
+      const { error } = await supabaseClient.from('enrollments').update({ status: 'archived', archived_at: new Date().toISOString() }).in('id', ids);
+      if(error){ alert('Could not archive: ' + error.message); return; }
       selectedEnrollmentIds.clear();
       onChange(ids, 'archived');
     });
@@ -975,7 +978,8 @@ function wireBatchActionBar(onChange){
   if(restoreBtn){
     restoreBtn.addEventListener('click', async () => {
       const ids = [...selectedEnrollmentIds];
-      await supabaseClient.from('enrollments').update({ status: 'active', archived_at: null }).in('id', ids);
+      const { error } = await supabaseClient.from('enrollments').update({ status: 'active', archived_at: null }).in('id', ids);
+      if(error){ alert('Could not restore: ' + error.message); return; }
       selectedEnrollmentIds.clear();
       onChange(ids, 'active');
     });
