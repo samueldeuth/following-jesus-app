@@ -3,6 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- touch-action: manipulation on the whole page removes iOS's native
+       double-tap-to-zoom gesture, which reads as a bug (a stray "zoom"
+       on a second tap) rather than a feature in a native-feeling app like
+       this one. Safari no longer reliably respects user-scalable=no in
+       the viewport meta tag on its own, so this CSS property is the
+       modern, actually-effective way to disable it. Applied broadly to
+       body rather than scoped to just the tab bar, since any button or
+       interactive element anywhere in the app (modals, forms, cards) is
+       equally likely to get double-tapped by someone moving quickly.
+       This does not disable legitimate pinch-zoom on things like a full
+       image viewer, since pinch-zoom is a different gesture from
+       double-tap-zoom and manipulation only removes double-tap/panning
+       delays, not multi-touch pinch. -->
+  <style>
+    html, body { touch-action: manipulation; }
+  </style>
 <title>Following Jesus App — Bible Reading and Discipleship Groups</title>
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
@@ -2071,12 +2087,26 @@
 
   // If someone just came back from the Google sign-in redirect, finish
   // that up and reopen the modal to wherever they land — checked cheaply
-  // (a sessionStorage flag) before doing anything async, so this costs
+  // (a localStorage flag) before doing anything async, so this costs
   // nothing on every normal page load. Deferred with setTimeout so this
   // runs only after the whole script (including supabaseClient, declared
   // further down) has finished its initial pass — calling this directly
   // here would hit supabaseClient before it exists.
-  if (sessionStorage.getItem('fj_oauth_pending') === '1') {
+  //
+  // localStorage rather than sessionStorage: inside Median's native app
+  // wrapper, Google/Apple sign-in opens in the system browser sheet
+  // (ASWebAuthenticationSession on iOS), a separate browsing context from
+  // the app's own WebView. sessionStorage is tied to that specific
+  // tab/window instance and does not reliably survive the round trip
+  // back into the app — the flag set right before redirecting was
+  // getting lost, so the app never knew to reopen the Make Disciples
+  // modal and just landed on the home tab instead, even though the
+  // sign-in itself succeeded (this only affected where the user landed,
+  // not whether their account got created — see
+  // syncAccountFromActiveSession's own fallback for the same class of
+  // problem). localStorage is tied to the origin rather than the
+  // browsing context, so it survives this hop reliably.
+  if (localStorage.getItem('fj_oauth_pending') === '1') {
     setTimeout(async () => {
       const completed = await completeOAuthIfPending();
       if (completed) {
@@ -2203,7 +2233,7 @@
       await showAppAlert("Google Sign-In isn't available right now — try creating an account with your name and email instead.");
       return;
     }
-    sessionStorage.setItem('fj_oauth_pending', '1');
+    localStorage.setItem('fj_oauth_pending', '1');
     await supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -2243,7 +2273,7 @@
       await showAppAlert("Sign in with Apple isn't available right now — try creating an account with your name and email instead.");
       return;
     }
-    sessionStorage.setItem('fj_oauth_pending', '1');
+    localStorage.setItem('fj_oauth_pending', '1');
     await supabaseClient.auth.signInWithOAuth({
       provider: 'apple',
       options: {
@@ -2261,8 +2291,8 @@
   // the cheap, fast-path check (has the flag actually been set?) so this
   // doesn't do a Supabase round trip on every normal page load.
   async function completeOAuthIfPending() {
-    if (sessionStorage.getItem('fj_oauth_pending') !== '1') return false;
-    sessionStorage.removeItem('fj_oauth_pending');
+    if (localStorage.getItem('fj_oauth_pending') !== '1') return false;
+    localStorage.removeItem('fj_oauth_pending');
     return await syncAccountFromActiveSession();
   }
 
