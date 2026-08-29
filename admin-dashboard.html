@@ -20,22 +20,37 @@
   body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
   .admin-shell{display:flex;min-height:100vh;position:relative;}
 
-  /* Default (sidebar expanded): a normal flex child of .logo-badge below,
-     sitting at its right edge via that badge's own justify-content —
-     never position:fixed here, since fixed elements are pulled out of
-     flex layout entirely and wouldn't follow the badge's actual width.
-     Smaller and tinted to read as part of the dark badge bar rather than
-     its own separate control. */
+  /* Deliberately NOT inside .admin-sidebar in the HTML (see the markup
+     below) -- it used to live inside .logo-badge, inside the sidebar
+     itself, which caused a real, confirmed bug: applying `transform`
+     to an element (as .admin-sidebar has, for its mobile slide
+     animation) makes that element the positioning anchor for any
+     position:fixed descendants, not the actual browser viewport. That
+     silently pulled this button along with the sidebar's own slide
+     transform, landing it anywhere from near the left edge (triggering
+     iOS's swipe-back-to-close-tab gesture) to fully off-screen
+     (landscape), depending on the sidebar's transform state at that
+     moment -- not from a positioning value being wrong, but from the
+     wrong containing block entirely. Living outside the sidebar avoids
+     this class of bug altogether, which is the standard, established
+     pattern for a slide-out mobile menu's own toggle button.
+
+     Desktop (sidebar expanded, most common state): absolutely
+     positioned against .admin-shell to land in the same visual spot
+     the old in-badge version did -- top-right corner of the sidebar's
+     dark header bar. 224px/18px are the sidebar's own width and
+     padding, not arbitrary numbers, so this tracks correctly if either
+     ever changes.
+  */
   .sidebar-toggle-btn{
     background:rgba(255,255,255,0.14);color:#fff;border:none;border-radius:7px;
-    width:28px;height:28px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    position:absolute;top:34px;left:224px;z-index:10;
   }
   .sidebar-toggle-btn svg{width:16px;height:16px;}
-  /* Collapsed: the sidebar (and the badge inside it) is width:0 and
-     hidden, so the button needs to escape that entirely — fixed
-     positioning takes it out of the hidden layout and back to floating
-     over the page itself, restored to its original standalone size and
-     solid dark background since it's no longer sitting on the badge. */
+  /* Desktop, collapsed: sidebar is width:0, so this floats independently
+     over the page instead, restored to a solid dark background since
+     it's no longer sitting on the badge bar. */
   .admin-shell.sidebar-collapsed .sidebar-toggle-btn{
     position:fixed;top:16px;left:16px;z-index:50;
     background:var(--ink);width:38px;height:38px;border-radius:8px;
@@ -98,8 +113,32 @@
   .sidebar-church-item .status-dot.archived{background:#9ca3af;}
   .sidebar-church-item .status-dot.pending_approval{background:#8b5cf6;}
 
-  @media(max-width:820px){
-    main{padding-left:64px !important;padding-top:70px;}
+  @media(max-width:950px){
+    main{padding-top:70px;}
+    /* The desktop rule .admin-shell.sidebar-collapsed main{padding-left:64px}
+       (further up) exists to clear space for the floating toggle button
+       when the sidebar's collapsed -- not relevant on mobile at all now,
+       since the button below is always fixed regardless of that class. */
+    .admin-shell.sidebar-collapsed main{padding-left:0;}
+    /* Always fixed, in the exact same spot, regardless of whether the
+       menu is open or closed -- this is what actually fixes things, not
+       just the right-edge placement on its own. A button that only gets
+       position:fixed conditionally (via .sidebar-collapsed) was still a
+       normal, absolutely-positioned element the rest of the time,
+       sitting inside the sidebar -- and since the sidebar itself is what
+       has the slide transform on mobile, that would trigger the exact
+       containing-block bug this whole rule exists to avoid, just in the
+       "menu open" state instead of "closed". One unconditional rule
+       means the button is fixed to the true viewport in every state.
+       Right edge (not left) specifically to stay out of iOS Safari's
+       edge-swipe-to-go-back gesture zone -- a tap too close to the left
+       edge gets read as a swipe-back gesture instead of a tap, and with
+       nowhere to go back to, iOS closes the tab entirely instead. */
+    .sidebar-toggle-btn{
+      position:fixed !important; top:16px !important; right:16px !important; left:auto !important;
+      z-index:50; background:var(--ink); width:38px; height:38px; border-radius:8px;
+    }
+    .sidebar-toggle-btn svg{width:18px;height:18px;}
     .admin-sidebar{
       position:fixed;inset:0;z-index:45;width:85%;max-width:320px;
       transform:translateX(-100%);transition:transform 0.2s ease;
@@ -268,12 +307,12 @@
 <body>
 
 <div class="admin-shell" id="admin-shell">
+  <button type="button" class="sidebar-toggle-btn" id="sidebar-toggle-btn" aria-label="Toggle menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
   <div class="admin-sidebar">
     <div class="logo-badge">
       <span>Following Jesus</span>
-      <button type="button" class="sidebar-toggle-btn" id="sidebar-toggle-btn" aria-label="Toggle menu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-      </button>
     </div>
     <div id="admin-account-info"></div>
     <a class="sidebar-link" id="sidebar-overview-link">Overview</a>
@@ -314,7 +353,13 @@ let currentAdminId = null;
 // (desktop) — matching the original behavior there. Works the same way
 // via the toggle button either way.
 const adminShell = document.getElementById('admin-shell');
-if (window.innerWidth <= 820) adminShell.classList.add('sidebar-collapsed');
+// 950px, not a narrower phone-portrait-only threshold, deliberately --
+// most modern iPhones are 844-932px wide in landscape, and without
+// this wider threshold, a phone rotated to landscape falls through to
+// full desktop treatment (fixed 270px sidebar shown inline, sitting
+// right there in the document) instead of the mobile slide-out overlay
+// this whole block of CSS exists for.
+if (window.innerWidth <= 950) adminShell.classList.add('sidebar-collapsed');
 
 function toggleSidebar(){ adminShell.classList.toggle('sidebar-collapsed'); }
 document.getElementById('sidebar-toggle-btn').addEventListener('click', toggleSidebar);
