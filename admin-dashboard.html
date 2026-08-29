@@ -1029,7 +1029,17 @@ function wireBatchActionBar(onChange){
   if(archiveBtn){
     archiveBtn.addEventListener('click', async () => {
       const ids = [...selectedEnrollmentIds];
-      if(!confirm(`Archive ${ids.length} student${ids.length===1?'':'s'}? Nothing is deleted -- you can restore them anytime from the Archived view.`)) return;
+      // ids are enrollment IDs, not student IDs -- the same person can
+      // have multiple rows selected if they're enrolled in more than
+      // one course, which "Archive N students" wording obscures. This
+      // surfaces that distinction explicitly, since it's exactly the
+      // mix-up that caused a real accidental multi-course archive.
+      const selectedRows = allRows.filter(r => ids.includes(r.enrollment_id));
+      const uniqueStudentCount = new Set(selectedRows.map(r => r.student_id)).size;
+      const overlapWarning = uniqueStudentCount < ids.length
+        ? ` This is ${uniqueStudentCount} distinct student${uniqueStudentCount===1?'':'s'} across ${ids.length} course enrollments -- if that's not what you meant to select, check the Course column before continuing.`
+        : '';
+      if(!confirm(`Archive ${ids.length} enrollment${ids.length===1?'':'s'}?${overlapWarning} Nothing is deleted -- you can restore them anytime from the Archived view.`)) return;
       try {
         const { data, error } = await supabaseClient.from('enrollments').update({ status: 'archived', archived_at: new Date().toISOString() }).in('id', ids).select();
         console.log('batch archive result:', { data, error, targetIds: ids });
@@ -1100,7 +1110,7 @@ function renderAllStudents(){
     </div>
     <div id="all-students-batch-bar"></div>
     <table>
-      <thead><tr><th style="width:34px;"><input type="checkbox" id="all-students-select-all" /></th><th>Student</th><th>Church</th><th>Progress</th><th>Dates</th><th>Actions</th></tr></thead>
+      <thead><tr><th style="width:34px;"><input type="checkbox" id="all-students-select-all" /></th><th>Student</th><th>Church</th><th>Course</th><th>Progress</th><th>Dates</th><th>Actions</th></tr></thead>
       <tbody id="all-students-tbody"></tbody>
     </table>
   `;
@@ -1155,6 +1165,7 @@ function renderAllStudentsRows(){
             </select>
           `}
         </td>
+        <td style="font-size:13px;">${r.course_title || '—'}</td>
         <td class="clickable-cell" data-open="true">
           <div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${r.items_completed}/${r.total_items}</span></div>
         </td>
@@ -1167,7 +1178,7 @@ function renderAllStudentsRows(){
       </tr>`;
   }).join('');
 
-  document.getElementById('all-students-tbody').innerHTML = rowsHtml || `<tr><td colspan="6" style="color:var(--ink-soft);">${query ? 'No students match.' : (studentViewMode==='archived' ? 'No archived students.' : 'No students yet.')}</td></tr>`;
+  document.getElementById('all-students-tbody').innerHTML = rowsHtml || `<tr><td colspan="7" style="color:var(--ink-soft);">${query ? 'No students match.' : (studentViewMode==='archived' ? 'No archived students.' : 'No students yet.')}</td></tr>`;
   document.getElementById('all-students-batch-bar').innerHTML = batchActionBarHtml();
 
   document.querySelectorAll('#all-students-tbody td.clickable-cell').forEach(td => {
@@ -1439,6 +1450,7 @@ async function renderChurchStudents(churchId){
           <div class="student-name">${r.full_name || 'Unnamed student'}</div>
           <div class="student-email">${r.student_email || ''}</div>
         </td>
+        <td style="font-size:13px;">${r.course_title || '—'}</td>
         <td class="clickable-cell" data-open="true">
           <div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${r.items_completed}/${r.total_items}</span></div>
         </td>
@@ -1478,8 +1490,8 @@ async function renderChurchStudents(churchId){
     <div class="church-tab-panel active" data-tab-panel="students">
       <div id="church-students-batch-bar">${batchActionBarHtml()}</div>
       <table>
-        <thead><tr><th style="width:34px;"><input type="checkbox" id="church-students-select-all" /></th><th>Student</th><th>Progress</th><th>Dates</th><th>Group</th><th>Actions</th></tr></thead>
-        <tbody id="church-students-tbody">${rowsHtml || '<tr><td colspan="6" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : 'No students here yet.') + '</td></tr>'}</tbody>
+        <thead><tr><th style="width:34px;"><input type="checkbox" id="church-students-select-all" /></th><th>Student</th><th>Course</th><th>Progress</th><th>Dates</th><th>Group</th><th>Actions</th></tr></thead>
+        <tbody id="church-students-tbody">${rowsHtml || '<tr><td colspan="7" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : 'No students here yet.') + '</td></tr>'}</tbody>
       </table>
     </div>
 
