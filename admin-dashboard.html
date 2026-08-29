@@ -922,6 +922,20 @@ function studentActionButtonsHtml(r, isComplete){
     <button class="mini-btn danger" data-archive="${r.enrollment_id}" data-name="${(r.full_name||'this student').replace(/"/g,'')}">Archive</button>`;
 }
 
+// Used only by the "All Enrollments" panel on the student detail page
+// below -- that panel intentionally shows every enrollment a person
+// has at once, active and archived side by side, so unlike
+// studentActionButtonsHtml above (which reads the single shared
+// studentViewMode toggle) this has to decide Archive vs Restore from
+// each ROW'S OWN status instead. Deliberately no hard-delete option
+// here -- that stays a list-view-only action, not something to expose
+// from a quick per-row button on someone's profile.
+function enrollmentRowActionHtml(r){
+  return r.status === 'archived'
+    ? `<button class="mini-btn" data-detail-restore="${r.enrollment_id}">Restore</button>`
+    : `<button class="mini-btn danger" data-detail-archive="${r.enrollment_id}">Archive</button>`;
+}
+
 // Wires the checkbox column, select-all header checkbox, batch action
 // bar, and the archive/restore/delete buttons for a given table body.
 // Called after any (re)render of either student list. removeFromLocal is
@@ -1029,17 +1043,7 @@ function wireBatchActionBar(onChange){
   if(archiveBtn){
     archiveBtn.addEventListener('click', async () => {
       const ids = [...selectedEnrollmentIds];
-      // ids are enrollment IDs, not student IDs -- the same person can
-      // have multiple rows selected if they're enrolled in more than
-      // one course, which "Archive N students" wording obscures. This
-      // surfaces that distinction explicitly, since it's exactly the
-      // mix-up that caused a real accidental multi-course archive.
-      const selectedRows = allRows.filter(r => ids.includes(r.enrollment_id));
-      const uniqueStudentCount = new Set(selectedRows.map(r => r.student_id)).size;
-      const overlapWarning = uniqueStudentCount < ids.length
-        ? ` This is ${uniqueStudentCount} distinct student${uniqueStudentCount===1?'':'s'} across ${ids.length} course enrollments -- if that's not what you meant to select, check the Course column before continuing.`
-        : '';
-      if(!confirm(`Archive ${ids.length} enrollment${ids.length===1?'':'s'}?${overlapWarning} Nothing is deleted -- you can restore them anytime from the Archived view.`)) return;
+      if(!confirm(`Archive ${ids.length} student${ids.length===1?'':'s'}? Nothing is deleted -- you can restore them anytime from the Archived view.`)) return;
       try {
         const { data, error } = await supabaseClient.from('enrollments').update({ status: 'archived', archived_at: new Date().toISOString() }).in('id', ids).select();
         console.log('batch archive result:', { data, error, targetIds: ids });
@@ -1110,7 +1114,7 @@ function renderAllStudents(){
     </div>
     <div id="all-students-batch-bar"></div>
     <table>
-      <thead><tr><th style="width:34px;"><input type="checkbox" id="all-students-select-all" /></th><th>Student</th><th>Church</th><th>Course</th><th>Progress</th><th>Dates</th><th>Actions</th></tr></thead>
+      <thead><tr><th style="width:34px;"><input type="checkbox" id="all-students-select-all" /></th><th>Student</th><th>Church</th><th>Progress</th><th>Dates</th><th>Actions</th></tr></thead>
       <tbody id="all-students-tbody"></tbody>
     </table>
   `;
@@ -1165,7 +1169,6 @@ function renderAllStudentsRows(){
             </select>
           `}
         </td>
-        <td style="font-size:13px;">${r.course_title || '—'}</td>
         <td class="clickable-cell" data-open="true">
           <div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${r.items_completed}/${r.total_items}</span></div>
         </td>
@@ -1178,7 +1181,7 @@ function renderAllStudentsRows(){
       </tr>`;
   }).join('');
 
-  document.getElementById('all-students-tbody').innerHTML = rowsHtml || `<tr><td colspan="7" style="color:var(--ink-soft);">${query ? 'No students match.' : (studentViewMode==='archived' ? 'No archived students.' : 'No students yet.')}</td></tr>`;
+  document.getElementById('all-students-tbody').innerHTML = rowsHtml || `<tr><td colspan="6" style="color:var(--ink-soft);">${query ? 'No students match.' : (studentViewMode==='archived' ? 'No archived students.' : 'No students yet.')}</td></tr>`;
   document.getElementById('all-students-batch-bar').innerHTML = batchActionBarHtml();
 
   document.querySelectorAll('#all-students-tbody td.clickable-cell').forEach(td => {
@@ -1450,7 +1453,6 @@ async function renderChurchStudents(churchId){
           <div class="student-name">${r.full_name || 'Unnamed student'}</div>
           <div class="student-email">${r.student_email || ''}</div>
         </td>
-        <td style="font-size:13px;">${r.course_title || '—'}</td>
         <td class="clickable-cell" data-open="true">
           <div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${r.items_completed}/${r.total_items}</span></div>
         </td>
@@ -1490,8 +1492,8 @@ async function renderChurchStudents(churchId){
     <div class="church-tab-panel active" data-tab-panel="students">
       <div id="church-students-batch-bar">${batchActionBarHtml()}</div>
       <table>
-        <thead><tr><th style="width:34px;"><input type="checkbox" id="church-students-select-all" /></th><th>Student</th><th>Course</th><th>Progress</th><th>Dates</th><th>Group</th><th>Actions</th></tr></thead>
-        <tbody id="church-students-tbody">${rowsHtml || '<tr><td colspan="7" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : 'No students here yet.') + '</td></tr>'}</tbody>
+        <thead><tr><th style="width:34px;"><input type="checkbox" id="church-students-select-all" /></th><th>Student</th><th>Progress</th><th>Dates</th><th>Group</th><th>Actions</th></tr></thead>
+        <tbody id="church-students-tbody">${rowsHtml || '<tr><td colspan="6" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : 'No students here yet.') + '</td></tr>'}</tbody>
       </table>
     </div>
 
@@ -2282,10 +2284,40 @@ async function renderStudentDetail(studentId, courseId){
       </details>`;
   }).join('');
 
+  // Every enrollment this person has, across every church and course --
+  // not just the one they were clicked in from. This is what lets an
+  // admin see and act on a person's full enrollment picture from one
+  // screen, instead of needing to remember which of several courses
+  // still needs attention while cross-referencing separate list views.
+  const studentEnrollments = allRows.filter(r => r.student_id === studentId);
+  const enrollmentsTableHtml = `
+    <div class="panel" style="margin-bottom:20px;">
+      <h3>All Enrollments</h3>
+      <table style="margin-bottom:0;">
+        <thead><tr><th>Course</th><th>Church</th><th>Status</th><th>Progress</th><th>Actions</th></tr></thead>
+        <tbody id="enrollments-panel-tbody">
+          ${studentEnrollments.map(r => {
+            const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
+            const isCurrent = r.enrollment_id === row?.enrollment_id;
+            return `
+              <tr data-enrollment-row="${r.enrollment_id}" data-course-id-row="${r.course_id}" ${isCurrent ? 'style="background:var(--bg-soft);"' : ''}>
+                <td>${r.course_title || '—'}${isCurrent ? ' <span style="color:var(--ink-soft);font-size:11.5px;">(viewing below)</span>' : ''}</td>
+                <td>${r.church_name || '—'}</td>
+                <td style="text-transform:capitalize;">${r.status || 'active'}</td>
+                <td><div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${r.items_completed}/${r.total_items}</span></div></td>
+                <td>${enrollmentRowActionHtml(r)}</td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
   content.innerHTML = `
     <div class="back-link" id="back-to-list">&larr; Back to ${viewingAllStudents ? 'All Students' : (activeCourseId ? (NON_WHITE_LABEL_COURSES.find(c => c.id === activeCourseId)?.title || 'course') : (row?.church_name || 'students'))}</div>
     <h2 style="font-family:'Space Grotesk',sans-serif;margin-bottom:4px;">${row?.full_name || 'Student'}</h2>
-    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:16px;">${row?.course_title || ''} · ${row?.student_email || ''}</p>
+    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:16px;">${row?.student_email || ''}</p>
+    ${enrollmentsTableHtml}
+    <h3 style="font-family:'Space Grotesk',sans-serif;font-size:15px;margin:0 0 12px;">${row?.course_title || 'This course'} — Discussion Answers</h3>
     ${sessionGroups.length ? `<div style="margin-bottom:14px;"><button class="mini-btn" id="expand-all-btn">Expand All</button> <button class="mini-btn" id="collapse-all-btn">Collapse All</button></div>` : ''}
     ${sessionsHtml || '<p style="color:var(--ink-soft);">No discussion questions found for this course.</p>'}
   `;
@@ -2297,6 +2329,47 @@ async function renderStudentDetail(studentId, courseId){
       renderCourseStudents(activeCourseId, course ? course.title : '');
     }
     else renderChurchStudents(activeChurchId);
+  });
+
+  // Archive/restore from the All Enrollments panel above -- same
+  // update-and-verify pattern as every other archive/restore action in
+  // this dashboard (check for both an error AND zero affected rows,
+  // since an RLS block returns neither an error nor any updated rows).
+  // Re-renders this whole page afterward rather than patching just the
+  // one row in place, since that's simplest and this page isn't visited
+  // often enough for the minor inefficiency of re-fetching discussion
+  // data to matter.
+  content.querySelectorAll('[data-detail-archive]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const enrollmentId = btn.dataset.detailArchive;
+      const targetRow = allRows.find(r => r.enrollment_id === enrollmentId);
+      if(!confirm(`Archive this enrollment in ${targetRow?.course_title || 'this course'}? Nothing is deleted -- it can be restored anytime.`)) return;
+      try {
+        const { data, error } = await supabaseClient.from('enrollments').update({ status: 'archived', archived_at: new Date().toISOString() }).eq('id', enrollmentId).select();
+        if(error){ alert('Could not archive: ' + error.message); return; }
+        if(!data || data.length === 0){ alert('Archive did not affect any row -- this usually means a permissions (RLS) issue is silently blocking the update.'); return; }
+        if(targetRow){ targetRow.status = 'archived'; targetRow.archived_at = new Date().toISOString(); }
+        renderStudentDetail(studentId, courseId);
+      } catch (err) {
+        alert('Could not archive (unexpected error): ' + err.message);
+      }
+    });
+  });
+
+  content.querySelectorAll('[data-detail-restore]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const enrollmentId = btn.dataset.detailRestore;
+      try {
+        const { data, error } = await supabaseClient.from('enrollments').update({ status: 'active', archived_at: null }).eq('id', enrollmentId).select();
+        if(error){ alert('Could not restore: ' + error.message); return; }
+        if(!data || data.length === 0){ alert('Restore did not affect any row -- this usually means a permissions (RLS) issue is silently blocking the update.'); return; }
+        const targetRow = allRows.find(r => r.enrollment_id === enrollmentId);
+        if(targetRow){ targetRow.status = 'active'; targetRow.archived_at = null; }
+        renderStudentDetail(studentId, courseId);
+      } catch (err) {
+        alert('Could not restore (unexpected error): ' + err.message);
+      }
+    });
   });
 
   document.getElementById('expand-all-btn')?.addEventListener('click', () => {
