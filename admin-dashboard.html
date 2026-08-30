@@ -178,6 +178,18 @@
     padding:2px 4px;margin-left:4px;border-radius:4px;
   }
   .church-edit-btn:hover{background:var(--bg-soft);color:var(--ink);}
+  /* Without a cap, a <select> renders as wide as its longest <option> --
+     with 88 churches in the list, one long name was forcing this dropdown
+     (and the whole table) past the page edge with no way to scroll to see
+     the Actions column. Capped and truncated instead. */
+  .church-assign-select{max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  /* Safety net: if any table content ever again forces a row wider than
+     main's own box (a long select, a long name, etc.), scroll horizontally
+     within the table itself instead of silently clipping off the right
+     edge of the page with no way to reach it. */
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .table-scroll table{margin-bottom:0;}
 
   .merge-col{flex:1;min-width:280px;}
   .merge-col-label{font-weight:600;font-size:14px;margin-bottom:2px;}
@@ -1149,10 +1161,12 @@ function renderAllStudents(){
       <button class="mini-btn" id="merge-accounts-btn">Merge Accounts</button>
     </div>
     <div id="all-students-batch-bar"></div>
-    <table>
-      <thead><tr><th style="width:34px;"><input type="checkbox" id="all-students-select-all" /></th><th>Student</th><th>Church</th><th>Progress</th><th>Dates</th><th>Actions</th></tr></thead>
-      <tbody id="all-students-tbody"></tbody>
-    </table>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th style="width:34px;"><input type="checkbox" id="all-students-select-all" /></th><th>Student</th><th>Church</th><th>Progress</th><th>Dates</th><th>Actions</th></tr></thead>
+        <tbody id="all-students-tbody"></tbody>
+      </table>
+    </div>
   `;
 
   renderAllStudentsRows();
@@ -1535,10 +1549,12 @@ async function renderChurchStudents(churchId){
 
     <div class="church-tab-panel active" data-tab-panel="students">
       <div id="church-students-batch-bar">${batchActionBarHtml()}</div>
-      <table>
-        <thead><tr><th style="width:34px;"><input type="checkbox" id="church-students-select-all" /></th><th>Student</th><th>Progress</th><th>Dates</th><th>Group</th><th>Actions</th></tr></thead>
-        <tbody id="church-students-tbody">${rowsHtml || '<tr><td colspan="6" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : 'No students here yet.') + '</td></tr>'}</tbody>
-      </table>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th style="width:34px;"><input type="checkbox" id="church-students-select-all" /></th><th>Student</th><th>Progress</th><th>Dates</th><th>Group</th><th>Actions</th></tr></thead>
+          <tbody id="church-students-tbody">${rowsHtml || '<tr><td colspan="6" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : 'No students here yet.') + '</td></tr>'}</tbody>
+        </table>
+      </div>
     </div>
 
     ${churchId && pendingStudents.length ? `
@@ -2083,10 +2099,12 @@ async function renderCourseStudents(courseId, courseTitle){
     </div>` : ''}
 
     <div id="course-students-batch-bar">${batchActionBarHtml()}</div>
-    <table>
-      <thead><tr><th style="width:34px;"><input type="checkbox" id="course-students-select-all" /></th><th>Student</th><th>Church</th><th>Progress</th><th>Dates</th><th>Actions</th></tr></thead>
-      <tbody id="course-students-tbody">${rowsHtml || '<tr><td colspan="6" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : 'No students enrolled yet.') + '</td></tr>'}</tbody>
-    </table>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th style="width:34px;"><input type="checkbox" id="course-students-select-all" /></th><th>Student</th><th>Church</th><th>Progress</th><th>Dates</th><th>Actions</th></tr></thead>
+        <tbody id="course-students-tbody">${rowsHtml || '<tr><td colspan="6" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : 'No students enrolled yet.') + '</td></tr>'}</tbody>
+      </table>
+    </div>
   `;
 
   document.getElementById('back-to-churches').addEventListener('click', renderChurchesOverview);
