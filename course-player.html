@@ -518,6 +518,28 @@ function logoBadgeHtml(extraClass){
   if(logoUrl) return `<img class="logo-badge-img${extraClass ? ' ' + extraClass : ''}" src="${logoUrl}" alt="${course.title}">`;
   return `<div class="logo-badge${extraClass ? ' ' + extraClass : ''}">Following Jesus</div>`;
 }
+// Officially-recommended Median.co detection: every request the native app
+// makes appends "median" to the device's normal user agent string, so this
+// is safe and reliable both on first load and after client-side navigation
+// (unlike checking for a bridge object, which can be a race condition if
+// read before the bridge finishes injecting). Reference:
+// https://docs.median.co/docs/detecting-app-usage
+const isMedianApp = navigator.userAgent.indexOf('median') > -1;
+// The header's top-right link needs two different jobs depending on where
+// the person is: on a normal website visit it should sell the native app
+// (send them to the download page), but inside the native app itself the
+// course platform is a separate page navigation from app.html (Median's
+// tab bar in app.html is just JS show/hide, but this is a real page load),
+// so without this the person gets stranded here with no way back -- see
+// the "Free Course -> no way back" bug report this fixed. Kept as one
+// shared helper (rather than editing all four header call sites
+// individually) so the label/link/behavior only has to be right in one
+// place.
+function appHeaderLinkHtml(){
+  return isMedianApp
+    ? `<a href="/app">Home</a>`
+    : `<a href="https://qrco.de/fjapp">App</a>`;
+}
 function getCourseIdParam(){
   const params = new URLSearchParams(window.location.search);
   const explicit = params.get('course');
@@ -1124,7 +1146,7 @@ function renderHero(skipHistoryPush){
     <div class="hero" style="background:linear-gradient(180deg, rgba(10,12,16,0.66), rgba(10,12,16,0.71)), url('${customHero.bgImage}') center/cover;">
       <div class="topbar on-hero">
         ${logoBadgeHtml()}
-        <nav><a href="https://qrco.de/fjapp">App</a>${authStatusHtml()}</nav>
+        <nav>${appHeaderLinkHtml()}${authStatusHtml()}</nav>
       </div>
       <div>
         <h1>${customHero.title || course.title}</h1>
@@ -1136,7 +1158,7 @@ function renderHero(skipHistoryPush){
     <div class="hero hero-light" style="--hero-bg-color:${customHero.bgColor};">
       <div class="topbar on-hero">
         ${logoBadgeHtml()}
-        <nav><a href="https://qrco.de/fjapp">App</a>${authStatusHtml()}</nav>
+        <nav>${appHeaderLinkHtml()}${authStatusHtml()}</nav>
       </div>
       <div>
         <h1>${customHero.title}</h1>
@@ -1148,7 +1170,7 @@ function renderHero(skipHistoryPush){
     <div class="hero">
       <div class="topbar on-hero">
         ${logoBadgeHtml()}
-        <nav><a href="https://qrco.de/fjapp">App</a>${authStatusHtml()}</nav>
+        <nav>${appHeaderLinkHtml()}${authStatusHtml()}</nav>
       </div>
       <div>
         <h1>${course.title}</h1>
@@ -1201,7 +1223,7 @@ function renderPurchaseRequired(){
     <div class="purchase-required">
       <div class="topbar">
         ${logoBadgeHtml()}
-        <nav><a href="https://qrco.de/fjapp">App</a>${authStatusHtml()}</nav>
+        <nav>${appHeaderLinkHtml()}${authStatusHtml()}</nav>
       </div>
       <div class="purchase-required-body">
         <h1>This course requires purchase</h1>
