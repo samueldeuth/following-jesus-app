@@ -763,6 +763,12 @@ let overviewRangeKey = '30d';
 // allRows) so those two counts are a simple filter -- no new query.
 // Completions needs one, since when a course was actually finished
 // (certificates.issued_at) isn't part of the cached progress data.
+// Rows behind the "New Students" count for the currently selected
+// range, kept around so the export button always exports exactly what's
+// on screen rather than recomputing (and risking drift from a click
+// landing between renders).
+let overviewRangeNewStudentRows = [];
+
 async function renderOverviewRangeMetrics(){
   const container = document.getElementById('overview-range-metrics');
   if(!container) return;
@@ -772,16 +778,46 @@ async function renderOverviewRangeMetrics(){
   const startIso = startDate.toISOString();
 
   const newChurches = allChurches.filter(c => c.created_at && c.created_at >= startIso).length;
-  const newStudents = allRows.filter(r => r.enrolled_at && r.enrolled_at >= startIso).length;
+  const newStudentRows = allRows
+    .filter(r => r.enrolled_at && r.enrolled_at >= startIso)
+    .slice()
+    .sort((a, b) => new Date(b.enrolled_at).getTime() - new Date(a.enrolled_at).getTime());
+  overviewRangeNewStudentRows = newStudentRows;
   const { count: newCompletions } = await supabaseClient
     .from('certificates').select('id', { count: 'exact', head: true }).gte('issued_at', startIso);
+
+  const rangeLabel = rangeLabels[overviewRangeKey] || '';
+  const studentRowsHtml = newStudentRows.map(r => `
+    <tr>
+      <td>
+        <div class="student-name">${r.full_name || 'Unnamed student'}</div>
+        <div class="student-email">${r.student_email || ''}</div>
+      </td>
+      <td>${r.church_name || '<span style="color:var(--ink-soft);">No church</span>'}</td>
+      <td>${new Date(r.enrolled_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+    </tr>`).join('');
 
   container.innerHTML = `
     <div class="summary-row">
       <div class="summary-card"><div class="num">${newChurches}</div><div class="label">New Churches</div></div>
-      <div class="summary-card"><div class="num">${newStudents}</div><div class="label">New Students</div></div>
+      <div class="summary-card"><div class="num">${newStudentRows.length}</div><div class="label">New Students</div></div>
       <div class="summary-card"><div class="num">${newCompletions || 0}</div><div class="label">Completions</div></div>
+    </div>
+    <div style="margin-top:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <h3 style="font-family:'Space Grotesk',sans-serif;font-size:15px;margin:0;">New Students &mdash; ${rangeLabel}</h3>
+        <button class="mini-btn" id="export-overview-range-btn" ${newStudentRows.length ? '' : 'disabled'}>Export (CSV)</button>
+      </div>
+      <table>
+        <thead><tr><th>Student</th><th>Church</th><th>Started</th></tr></thead>
+        <tbody>${studentRowsHtml || `<tr><td colspan="3" style="color:var(--ink-soft);">No new students in this period.</td></tr>`}</tbody>
+      </table>
     </div>`;
+
+  const exportBtn = document.getElementById('export-overview-range-btn');
+  if(exportBtn) exportBtn.addEventListener('click', () => {
+    exportStudentsCSV(overviewRangeNewStudentRows, `new-students-${overviewRangeKey}-${new Date().toISOString().slice(0,10)}.csv`, true);
+  });
 }
 
 function wireOverviewRangeSelector(){
@@ -1140,12 +1176,20 @@ function renderAllStudents(){
 function renderAllStudentsRows(){
   const query = (document.getElementById('all-students-search')?.value || '').trim().toLowerCase();
   const modeRows = allRows.filter(r => studentViewMode === 'archived' ? r.status === 'archived' : r.status !== 'archived');
-  allStudentsFilteredRows = query
+  const searchedRows = query
     ? modeRows.filter(r =>
         (r.full_name || '').toLowerCase().includes(query) ||
         (r.student_email || '').toLowerCase().includes(query) ||
         (r.church_name || '').toLowerCase().includes(query))
     : modeRows;
+  // Default sort: most recently started first. Rows without an
+  // enrolled_at (shouldn't normally happen, but be defensive) sort to
+  // the bottom rather than throwing off the newest-first ordering.
+  allStudentsFilteredRows = searchedRows.slice().sort((a, b) => {
+    const aTime = a.enrolled_at ? new Date(a.enrolled_at).getTime() : 0;
+    const bTime = b.enrolled_at ? new Date(b.enrolled_at).getTime() : 0;
+    return bTime - aTime;
+  });
 
   const rowsHtml = allStudentsFilteredRows.map(r => {
     const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
