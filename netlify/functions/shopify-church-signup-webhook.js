@@ -34,9 +34,9 @@
 //      SHOPIFY_WEBHOOK_SECRET           -- Shopify's signing secret (shared store-wide)
 //      SHOPIFY_CHURCH_SIGNUP_SECRET     -- the value embedded in
 //                                          shopify-church-signup-schema.sql
-//      SAMUEL_NOTIFY_EMAIL              -- the email address that
-//                                          should get "new church
-//                                          waiting for review" emails
+//      CHURCH_SIGNUP_NOTIFY_EMAIL        -- the email address that
+//                                           should get "new church
+//                                           waiting for review" emails
 //    RESEND_API_KEY should already be set.
 //
 // 4. IMPORTANT -- the subscription_contract_id extraction below is a
@@ -67,8 +67,8 @@ exports.handler = async (event) => {
   const shopifySecret = process.env.SHOPIFY_WEBHOOK_SECRET;
   const functionSecret = process.env.SHOPIFY_CHURCH_SIGNUP_SECRET;
   const resendApiKey = process.env.RESEND_API_KEY;
-  const notifyEmail = process.env.SAMUEL_NOTIFY_EMAIL;
-  const missing = ['SHOPIFY_WEBHOOK_SECRET', 'SHOPIFY_CHURCH_SIGNUP_SECRET', 'RESEND_API_KEY', 'SAMUEL_NOTIFY_EMAIL'].filter(name => !process.env[name]);
+  const notifyEmail = process.env.CHURCH_SIGNUP_NOTIFY_EMAIL;
+  const missing = ['SHOPIFY_WEBHOOK_SECRET', 'SHOPIFY_CHURCH_SIGNUP_SECRET', 'RESEND_API_KEY', 'CHURCH_SIGNUP_NOTIFY_EMAIL'].filter(name => !process.env[name]);
   if (missing.length) {
     return { statusCode: 500, body: `Missing environment variables: ${missing.join(', ')}` };
   }
