@@ -2,24 +2,35 @@
 //
 // ONE-OFF DIAGNOSTIC -- run once, then delete.
 //
-// Lists every webhook topic Bold Subscriptions supports for this shop,
-// along with the real numeric ID assigned to each -- needed before we
-// can register a webhook subscription, since Create Webhook Subscription
-// requires a webhook_topic_id, not a topic name.
+// Bold's docs page confirms a "List Webhook Topics" endpoint exists but
+// the exact URL path kept getting cut off when reading the docs. Rather
+// than guess once and fail, this tries several plausible REST paths
+// (based on the confirmed pattern from other endpoints, e.g.
+// .../webhooks/subscriptions for creating a webhook) and reports which
+// one actually returns real topic data.
 //
 // ---------------------------------------------------------------------
 // HOW TO USE:
 // ---------------------------------------------------------------------
-// 1. Upload this file to netlify/functions/.
+// 1. Upload this file to netlify/functions/ (overwriting the previous
+//    version).
 // 2. Visit: https://followingjesus.com/.netlify/functions/bold-list-webhook-topics
-// 3. It returns every topic Bold supports, with its id. We specifically
-//    need the ids for: subscription_cancelled,
-//    subscription_order_transaction_failed, subscription_payment_failed,
-//    and subscription_reactivated.
-// 4. Once we've confirmed those ids, delete this file -- it has no
-//    ongoing purpose.
+// 3. It tries each candidate path and returns a summary of which
+//    succeeded (status 200 with topic data) vs failed, so we can lock
+//    in the right one.
+// 4. Once we've confirmed the working path and the real topic ids for
+//    subscription_cancelled, subscription_order_transaction_failed,
+//    subscription_payment_failed, and subscription_reactivated, delete
+//    this file -- it has no ongoing purpose.
 
 const BOLD_SHOP_IDENTIFIER = '8809381984';
+
+const CANDIDATE_PATHS = [
+  `/subscriptions/v1/shops/${BOLD_SHOP_IDENTIFIER}/webhooks/topics`,
+  `/subscriptions/v1/shops/${BOLD_SHOP_IDENTIFIER}/webhook_topics`,
+  `/subscriptions/v1/shops/${BOLD_SHOP_IDENTIFIER}/webhooks/subscriptions/topics`,
+  `/subscriptions/v1/shops/${BOLD_SHOP_IDENTIFIER}/webhook_subscriptions/topics`,
+];
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'GET') {
@@ -31,44 +42,46 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: 'Missing BOLD_API_TOKEN environment variable.' };
   }
 
-  try {
-    const res = await fetch(
-      `https://api.boldcommerce.com/subscriptions/v1/shops/${BOLD_SHOP_IDENTIFIER}/webhook_topics`,
-      {
+  const results = [];
+
+  for (const path of CANDIDATE_PATHS) {
+    try {
+      const res = await fetch(`https://api.boldcommerce.com${path}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${apiToken}`,
           'Content-Type': 'application/json',
         },
+      });
+
+      const contentType = res.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+      const text = await res.text();
+
+      let parsed = null;
+      if (isJson) {
+        try {
+          parsed = JSON.parse(text);
+        } catch (e) {
+          // leave parsed as null
+        }
       }
-    );
 
-    const text = await res.text();
-    let json;
-    try {
-      json = JSON.parse(text);
+      results.push({
+        path,
+        status: res.status,
+        looksLikeJson: isJson,
+        body: parsed || text.slice(0, 300), // truncate any HTML error pages
+      });
     } catch (e) {
-      json = { raw: text };
+      results.push({ path, error: e.message });
     }
-
-    if (!res.ok) {
-      return {
-        statusCode: res.status,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: `Bold API returned ${res.status}`, details: json }, null, 2),
-      };
-    }
-
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(json, null, 2),
-    };
-  } catch (e) {
-    return {
-      statusCode: 502,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: e.message }),
-    };
   }
+
+  return {
+    statusCode: 200,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ results }, null, 2),
+  };
 };
+
