@@ -229,8 +229,39 @@ async function fulfillOrderWithTracking(order, { trackingNumber, trackingCompany
   });
 }
 
+/**
+ * Look up the tags on a set of Shopify products by their REST numeric IDs.
+ * Used to figure out which line items in an order are actually fulfilled
+ * by Outreach (tagged "outreach-fulfilled" on the product), as opposed to
+ * physical items you fulfill some other way.
+ */
+async function getProductTags(productIds) {
+  if (productIds.length === 0) return {};
+
+  const gids = productIds.map((id) => `gid://shopify/Product/${id}`);
+  const query = `
+    query GetProductTags($ids: [ID!]!) {
+      nodes(ids: $ids) {
+        ... on Product {
+          id
+          tags
+        }
+      }
+    }
+  `;
+  const data = await shopifyGraphQL(query, { ids: gids });
+
+  const tagsByNumericId = {};
+  data.nodes.filter(Boolean).forEach((node) => {
+    const numericId = node.id.split('/').pop();
+    tagsByNumericId[numericId] = node.tags;
+  });
+  return tagsByNumericId;
+}
+
 module.exports = {
   shopifyGraphQL,
+  getProductTags,
   tagOrderAwaitingOutreach,
   findAwaitingOutreachOrders,
   markOrderMatchedToOutreach,
