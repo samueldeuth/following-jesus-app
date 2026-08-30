@@ -55,11 +55,9 @@ const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
 const FROM_EMAIL = 'Following Jesus <approvals@mail.followingjesus.com>';
 const APP_URL = 'https://followingjesus.com';
-// This product's ID -- the URL slug isn't reliably the same as the
-// internal ID, same lesson as Process of Promotion. Confirm the real
-// one from Shopify Admin (open the product to edit it, check the URL)
-// and replace this placeholder before relying on this in production.
-const CHURCH_SIGNUP_PRODUCT_ID = 'REPLACE_WITH_REAL_SHOPIFY_PRODUCT_ID';
+// This product's ID -- confirmed from Shopify Admin (product edit page
+// URL), not the storefront slug, same lesson as Process of Promotion.
+const CHURCH_SIGNUP_PRODUCT_ID = '4546123071584';
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
