@@ -678,10 +678,22 @@ async function ensureProfileAndEnrollment(){
     .from('profiles').select('id').eq('id', currentUser.id).maybeSingle();
 
   if(!existingProfile){
+    // Same private-relay-aware fallback as app.html's syncAccountFromActiveSession().
+    // Apple's OAuth flow never hands over a real name, and when someone
+    // chooses "Hide My Email" the email itself is a random string like
+    // fhhvfghsbv@privaterelay.appleid.com -- using the raw email (or even
+    // just its prefix) as the display name in that case produces
+    // gibberish. "New Disciple" is the sensible default there; a real
+    // name from user_metadata, or a normal email's prefix, is still used
+    // as before for every other sign-in.
+    const signupEmail = currentUser.email || '';
+    const isPrivateRelayEmail = signupEmail.endsWith('@privaterelay.appleid.com');
+    const fallbackName = currentUser.user_metadata?.full_name
+      || (isPrivateRelayEmail ? 'New Disciple' : signupEmail.split('@')[0]);
     await supabaseClient.from('profiles').insert({
       id: currentUser.id,
       church_id: resolvedChurchId,
-      full_name: currentUser.user_metadata?.full_name || currentUser.email,
+      full_name: fallbackName,
       role: 'student'
     });
   }
