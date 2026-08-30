@@ -18,6 +18,8 @@
 
 const { verifyShopifyWebhook } = require('./lib/verify');
 const { tagOrderAwaitingOutreach, getProductTags } = require('./lib/shopify');
+const { sendOutreachOrderEmail } = require('./lib/send-outreach-order-email');
+const { sendAlertEmail } = require('./lib/alert');
 
 const OUTREACH_FULFILLED_TAG = 'outreach-fulfilled';
 
@@ -78,11 +80,23 @@ exports.handler = async (event) => {
   try {
     await tagOrderAwaitingOutreach(`gid://shopify/Order/${order.id}`, matchData);
     console.log(`Tagged order ${order.name} as awaiting-outreach-confirm`);
-    return { statusCode: 200, body: 'OK' };
   } catch (err) {
     console.error('Failed to tag order for Outreach matching:', err);
-    // Return 200 anyway so Shopify doesn't retry-storm us; this order will
-    // just need to be matched manually if it fails here.
-    return { statusCode: 200, body: 'Logged error, not retrying' };
+    // Still try to send the email below — being untagged just means the
+    // later confirmation-matching step won't find it automatically, but
+    // Outreach still needs to hear about the order regardless.
   }
+
+  try {
+    await sendOutreachOrderEmail(order, outreachLineItems);
+    console.log(`Sent order email to Outreach for ${order.name}`);
+  } catch (err) {
+    console.error(`Failed to send order email to Outreach for ${order.name}:`, err);
+    await sendAlertEmail(
+      `Failed to email Outreach for order ${order.name}`,
+      `Order ${order.name} needs to be manually emailed to Outreach — the automatic email failed.\n\nError: ${err.message}`
+    );
+  }
+
+  return { statusCode: 200, body: 'OK' };
 };
