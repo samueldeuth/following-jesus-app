@@ -9,7 +9,7 @@
 // at order-creation time rather than at fulfillment time.
 
 const OUTREACH_ORDER_EMAIL = 'CustomerService@outreach.com';
-const FROM_ADDRESS = 'Following Jesus Books <no-reply@mail.followingjesus.com>';
+const FROM_ADDRESS = 'Following Jesus Books <no-reply@mail.followingjesusbook.com>';
 const CC_ADDRESS = 'info@followingjesusbook.com'; // Samuel keeps a visible copy, same as before
 
 function escapeHtml(str) {
