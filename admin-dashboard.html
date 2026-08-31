@@ -993,13 +993,15 @@ function wireSortableHeaders(scopeSelector, sortState, onSort){
 // editable fields), invited but not yet claimed (pending), or claimed
 // (an actual admin). Wiring for each state's buttons lives in
 // wireChurchContactSection, called right after this HTML is inserted.
-function churchContactSectionHtml(status){
+function churchContactSectionHtml(status, church){
   if(!status){
+    const prefillName = (church?.contact_name || '').replace(/"/g,'&quot;');
+    const prefillEmail = (church?.contact_email || '').replace(/"/g,'&quot;');
     return `
       <label class="field-label">Contact Name</label>
-      <input type="text" class="field-input" id="edit-contact-name" placeholder="e.g. Pastor John Smith" />
+      <input type="text" class="field-input" id="edit-contact-name" placeholder="e.g. Pastor John Smith" value="${prefillName}" />
       <label class="field-label">Contact Email</label>
-      <input type="text" class="field-input" id="edit-contact-email" placeholder="pastor@example.com" />
+      <input type="text" class="field-input" id="edit-contact-email" placeholder="pastor@example.com" value="${prefillEmail}" />
       <button type="button" class="mini-btn" id="send-contact-invite-btn" style="margin-top:8px;">Save &amp; Send Admin Invite</button>
       <span id="contact-invite-status" style="font-size:12.5px;color:var(--ink-soft);margin-left:8px;"></span>
     `;
@@ -1679,7 +1681,7 @@ async function renderChurchStudents(churchId){
 
       <h4 class="field-section-title">Church Contact <span style="font-weight:400;text-transform:none;letter-spacing:normal;color:var(--ink-soft);">(optional)</span></h4>
       <p class="field-hint" style="margin-bottom:8px;">Who to reach out to about this church — doesn't have to be the same person as the Church Admin above.</p>
-      <div id="church-contact-section">${churchContactSectionHtml(contactInviteStatus)}</div>
+      <div id="church-contact-section">${churchContactSectionHtml(contactInviteStatus, church)}</div>
 
       <label class="field-label">Accent Color</label>
       <div class="color-field-row">
@@ -1875,7 +1877,7 @@ async function renderChurchStudents(churchId){
     setTimeout(() => { statusEl.textContent = ''; }, 2000);
   });
 
-  wireChurchContactSection(churchId, contactInviteStatus);
+  wireChurchContactSection(churchId, contactInviteStatus, church);
 
   document.querySelectorAll('td.clickable-cell').forEach(td => {
     td.style.cursor = 'pointer';
@@ -2296,12 +2298,12 @@ async function triggerAdminInviteSend(){
   }
 }
 
-function wireChurchContactSection(churchId, status){
+function wireChurchContactSection(churchId, status, church){
   const section = document.getElementById('church-contact-section');
   if(!section) return;
 
   const showEditableFields = () => {
-    section.innerHTML = churchContactSectionHtml(null);
+    section.innerHTML = churchContactSectionHtml(null, church);
     wireSendButton();
   };
 
