@@ -301,6 +301,8 @@
   .profile-input{width:100%;border:1.5px solid var(--line);border-radius:8px;padding:12px 14px;font-family:'Inter',sans-serif;font-size:15px;margin-bottom:18px;}
   .profile-save-btn{background:var(--ink);color:#fff;border:none;border-radius:999px;padding:11px 26px;font-size:14px;font-weight:600;cursor:pointer;}
   .profile-signout-btn{background:none;border:none;color:var(--ink-soft);font-size:13.5px;cursor:pointer;margin-left:16px;}
+  .profile-delete-btn{display:block;margin-top:18px;background:none;border:1.5px solid rgba(185,28,28,0.35);color:#b91c1c;font-size:13.5px;font-weight:600;cursor:pointer;padding:10px 16px;border-radius:8px;}
+  .profile-delete-note{font-size:12.5px;color:var(--ink-soft);margin-top:8px;max-width:480px;line-height:1.5;}
   .profile-admin-link{
     display:block;margin-top:18px;padding:12px 16px;background:var(--bg-soft);border-radius:8px;
     font-size:13.5px;font-weight:600;color:var(--ink);text-decoration:none;
@@ -926,6 +928,9 @@ async function renderProfile(){
       <button class="profile-signout-btn" id="profile-signout-btn">Sign Out</button>
       ${adminLinkHtml}
 
+      <button class="profile-delete-btn" id="profile-delete-btn">Delete Account</button>
+      <p class="profile-delete-note">This permanently deletes your account and everything tied to it — enrollments, course progress, discussion answers, and certificates — on both the course site and the app. This can't be undone.</p>
+
       <div class="profile-courses-title">Your Courses</div>
       ${coursesHtml || '<p style="color:var(--ink-soft);font-size:14px;">No courses available yet.</p>'}
     </div>
@@ -946,6 +951,25 @@ async function renderProfile(){
     renderProfile();
   });
   document.getElementById('profile-signout-btn').addEventListener('click', handleSignOut);
+  document.getElementById('profile-delete-btn').addEventListener('click', async () => {
+    const sure = confirm(
+      "Delete your account?\n\nThis permanently removes your enrollments, course progress, discussion answers, and certificates — on both the course site and the app. This cannot be undone."
+    );
+    if (!sure) return;
+    const typed = prompt('Type DELETE to confirm you want to permanently delete your account.');
+    if (!typed || typed.trim().toUpperCase() !== 'DELETE') {
+      if (typed !== null) alert("That didn't match — your account was not deleted.");
+      return;
+    }
+    const { error } = await supabaseClient.rpc('delete_my_account');
+    if (error) {
+      alert(`Your account couldn't be deleted.\n\nDetails: ${error.message || 'unknown error'}`);
+      return;
+    }
+    try { await supabaseClient.auth.signOut(); } catch (e) { /* best effort — account is already gone either way */ }
+    alert('Your account has been permanently deleted.');
+    window.location.href = '/course';
+  });
 
   // Certificate buttons are their own click target — stop the click from
   // also bubbling to the row's own "go to this course" handler below.
