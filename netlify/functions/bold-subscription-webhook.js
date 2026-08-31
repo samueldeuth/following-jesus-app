@@ -11,21 +11,20 @@
 //
 // Handles events for the four Bold webhook topics this project
 // registered (subscription_cancelled, subscription_order_transaction_failed,
-// subscription_payment_failed, subscription_reactivated) -- but Bold's
-// actual webhook payload (confirmed via real delivery) does NOT include
-// a webhook_topic_id or any other field naming which topic fired. It's
-// simply the raw Subscription entity itself. Since this endpoint is
-// ONLY registered for those four topics, any request that arrives here
-// is guaranteed to be one of them -- so instead of trying to identify
-// the specific topic, this reads the subscription's actual state
-// directly and derives the right action from that:
+// subscription_payment_failed, subscription_reactivated). Bold's payload
+// body does NOT include a topic field -- but a real live delivery
+// revealed Bold DOES send the topic name via an `event-identifier`
+// request header (e.g. "subscription_reactivated"), confirmed from
+// actual production traffic, not documentation. That header is the
+// primary signal used below. As a defensive fallback (in case a future
+// Bold payload arrives without that header for any reason), this also
+// derives an action from the subscription's actual state:
 //   subscription_status === 'inactive'  -> lapsed (covers cancellation;
 //     Bold's own docs confirm a cancelled subscription shows as inactive)
 //   subscription_status === 'active' AND last_failure_code present
 //     -> lapsed (a recurring or initial transaction failed, but the
 //     subscription is still within its retry window)
 //   subscription_status === 'active' AND no failure present -> renewed
-//     (covers reactivation)
 //
 // Signature verification: Bold signs every webhook payload with a
 // SHA-256 HMAC in the `x-bold-signature` header, computed from the raw
@@ -64,17 +63,15 @@ const crypto = require('crypto');
 const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
 
-// Confirmed real topic ids for this shop via Bold's List Webhook Topics
-// endpoint, kept here for reference only -- these registered the four
-// webhook subscriptions, but Bold's delivered payload does NOT include
-// this id, so it's not used for runtime routing (see status-based logic
-// below instead).
-const TOPIC_IDS_FOR_REFERENCE = {
-  SUBSCRIPTION_CANCELLED: 12,
-  SUBSCRIPTION_ORDER_TRANSACTION_FAILED: 6,
-  SUBSCRIPTION_PAYMENT_FAILED: 20,
-  SUBSCRIPTION_REACTIVATED: 15,
-};
+// Real Bold event-identifier header values for the four topics this
+// project registered -- confirmed from a live delivery's actual
+// request headers, not guessed from documentation.
+const LAPSE_EVENT_IDENTIFIERS = [
+  'subscription_cancelled',
+  'subscription_order_transaction_failed',
+  'subscription_payment_failed',
+];
+const RENEW_EVENT_IDENTIFIERS = ['subscription_reactivated'];
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -121,27 +118,41 @@ exports.handler = async (event) => {
   console.log(`bold-subscription-webhook: payload keys: ${JSON.stringify(Object.keys(payload))}`);
 
   // Bold's payload is the raw Subscription entity itself -- no wrapper,
-  // no topic field. subscription_status, last_failure_code, and
-  // current_retries are the real fields confirmed present on a live
-  // delivery, used here to derive the action directly.
+  // no topic field in the body. subscription_status, last_failure_code,
+  // and current_retries are used only as a defensive fallback below.
   const subscription = payload.subscription || payload;
-  const status = subscription.subscription_status;
-  const hasRecentFailure = !!subscription.last_failure_code;
+
+  // Primary signal: the real event-identifier header, confirmed from a
+  // live delivery.
+  const eventIdentifier = event.headers['event-identifier'] || event.headers['Event-Identifier'];
+  console.log(`bold-subscription-webhook: event-identifier header: ${eventIdentifier}`);
 
   let action = null;
-  if (status === 'inactive') {
+  if (eventIdentifier && LAPSE_EVENT_IDENTIFIERS.includes(eventIdentifier)) {
     action = 'lapsed';
-  } else if (status === 'active' && hasRecentFailure) {
-    action = 'lapsed';
-  } else if (status === 'active' && !hasRecentFailure) {
+  } else if (eventIdentifier && RENEW_EVENT_IDENTIFIERS.includes(eventIdentifier)) {
     action = 'renewed';
+  } else {
+    // Fallback -- only reached if the header is missing or holds an
+    // unrecognized value, which shouldn't normally happen given this
+    // endpoint is only registered for the four topics above.
+    const status = subscription.subscription_status;
+    const hasRecentFailure = !!subscription.last_failure_code;
+    console.log(`bold-subscription-webhook: event-identifier missing/unrecognized ("${eventIdentifier}") -- falling back to status-based detection. subscription_status: ${status}, last_failure_code: ${subscription.last_failure_code}, current_retries: ${subscription.current_retries}`);
+    if (status === 'inactive') {
+      action = 'lapsed';
+    } else if (status === 'active' && hasRecentFailure) {
+      action = 'lapsed';
+    } else if (status === 'active' && !hasRecentFailure) {
+      action = 'renewed';
+    }
   }
 
-  console.log(`bold-subscription-webhook: subscription_status: ${status}, last_failure_code: ${subscription.last_failure_code}, current_retries: ${subscription.current_retries} -- derived action: ${action}`);
+  console.log(`bold-subscription-webhook: derived action: ${action}`);
 
   if (!action) {
-    console.log(`bold-subscription-webhook: skipped -- could not derive an action from subscription_status "${status}"`);
-    return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: `unhandled subscription_status: ${status}` }) };
+    console.log(`bold-subscription-webhook: skipped -- could not derive an action (event-identifier: ${eventIdentifier}, subscription_status: ${subscription.subscription_status})`);
+    return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'could not derive action', eventIdentifier }) };
   }
 
   // Looking for the underlying Shopify customer id, which Bold syncs
@@ -176,5 +187,5 @@ exports.handler = async (event) => {
   }
 
   console.log(`bold-subscription-webhook: applied ${action} for shopify_customer_id ${shopifyCustomerId}`);
-  return { statusCode: 200, body: JSON.stringify({ action, shopifyCustomerId, subscriptionStatus: status }) };
+  return { statusCode: 200, body: JSON.stringify({ action, shopifyCustomerId, eventIdentifier }) };
 };
