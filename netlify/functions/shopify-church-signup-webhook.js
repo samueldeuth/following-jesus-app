@@ -3,8 +3,11 @@
 // Handles the initial purchase of "The Following Jesus Course" --
 // creates a new church (status: pending_approval) on a genuinely new
 // customer's first order, does nothing on a renewal (same customer,
-// recurring subscription charge), and emails Samuel when a new one is
-// waiting for review.
+// recurring subscription charge). On a genuinely new signup, sends
+// TWO emails: one to Samuel (a new church is waiting for review) and
+// one to the purchaser themselves, with a secure link to fill in their
+// church's real name, contact info, pastor info, and optional custom
+// welcome message before Samuel reviews and approves it.
 //
 // Subscribed to both "Order payment" (orders/paid) and "Order
 // creation" (orders/create), same reasoning as the Process of
@@ -154,8 +157,44 @@ exports.handler = async (event) => {
   }
 
   const emailSent = await notifySamuel(result.name, customerEmail, notifyEmail, resendApiKey);
-  return { statusCode: 200, body: JSON.stringify({ created: true, churchId: result.church_id, name: result.name, notifyEmailSent: emailSent }) };
+  const purchaserEmailSent = result.signup_token
+    ? await notifyPurchaser(customerEmail, result.name, result.signup_token, resendApiKey)
+    : false;
+  if (!result.signup_token) {
+    console.error('shopify-church-signup-webhook: no signup_token returned from process_church_signup_order -- purchaser was NOT emailed a completion link. Run add-church-signup-completion-flow.sql if this is unexpected.');
+  }
+  return { statusCode: 200, body: JSON.stringify({ created: true, churchId: result.church_id, name: result.name, notifyEmailSent: emailSent, purchaserEmailSent }) };
 };
+
+async function notifyPurchaser(purchaserEmail, churchName, signupToken, apiKey) {
+  const completionUrl = `${APP_URL}/church-signup-complete.html?token=${signupToken}`;
+  const html = `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+      <p>Thanks for getting your church started with the Following Jesus course!</p>
+      <p>Before your church's page goes live, we need a few details from you -- your church name, contact info, and (optionally) a custom welcome message for your students.</p>
+      <p style="margin: 28px 0;">
+        <a href="${completionUrl}" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Complete Your Church Setup →</a>
+      </p>
+      <p style="color:#666;font-size:13px;">Takes about 2 minutes. Once submitted, our team will review it and get your page live.</p>
+    </div>
+  `;
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: FROM_EMAIL,
+        to: purchaserEmail,
+        reply_to: 'info@followingjesusbook.com',
+        subject: `Finish setting up your church's Following Jesus page`,
+        html,
+      }),
+    });
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
+}
 
 async function notifySamuel(churchName, purchaserEmail, notifyEmail, apiKey) {
   const html = `
