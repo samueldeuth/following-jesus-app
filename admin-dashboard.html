@@ -851,7 +851,7 @@ function renderChurchesOverview(){
   viewingAllStudents = false;
   renderSidebar();
   const totalChurches = allChurches.length;
-  const activeChurches = allChurches.filter(ch => (ch.course_status || 'live') !== 'archived').length;
+  const activeChurches = allChurches.filter(ch => !['draft', 'archived'].includes(ch.course_status || 'live')).length;
   const totalStudents = allRows.length;
   const totalActive = allRows.filter(r => r.status !== 'archived').length;
   const totalCompleted = allRows.filter(r => r.total_items > 0 && r.items_completed === r.total_items).length;
