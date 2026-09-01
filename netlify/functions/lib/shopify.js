@@ -116,6 +116,9 @@ async function findAwaitingOutreachOrders(sinceISODate) {
             name
             createdAt
             matchData: metafield(namespace: "outreach", key: "match_data") { value }
+            fulfillmentOrders(first: 5) {
+              edges { node { id status } }
+            }
           }
         }
       }
@@ -259,6 +262,56 @@ async function getProductTags(productIds) {
   return tagsByNumericId;
 }
 
+/**
+ * Move an order's open fulfillment order(s) into Shopify's "In Progress"
+ * display status, via fulfillmentOrderSubmitFulfillmentRequest. Called right
+ * after a confirmation email is matched, so the order visibly reflects
+ * "Outreach has it and is working on it" instead of sitting as a flat
+ * Unfulfilled the whole time.
+ *
+ * NOTE: this mutation is designed for fulfillment orders assigned to a
+ * fulfillment-service-type location. "Following Jesus HQ" was deliberately
+ * set up as a plain (non-fulfillment-service) location to avoid Shopify's
+ * built-in fulfillment-service email side effects — so this call may come
+ * back with a userError instead of actually changing anything, until
+ * confirmed against a real order. Failure here is intentionally non-fatal
+ * (logged, not thrown) so a failed status nudge never blocks the real
+ * match/tag logic that already succeeded.
+ */
+async function markOrderInProgress(order) {
+  const openFulfillmentOrders = (order.fulfillmentOrders?.edges || [])
+    .map((e) => e.node)
+    .filter((fo) => fo.status === 'OPEN');
+
+  if (openFulfillmentOrders.length === 0) {
+    console.warn(`markOrderInProgress: no OPEN fulfillment orders on ${order.name}, skipping`);
+    return;
+  }
+
+  const mutation = `
+    mutation SubmitFulfillmentRequest($id: ID!) {
+      fulfillmentOrderSubmitFulfillmentRequest(id: $id) {
+        submittedFulfillmentOrder { id status requestStatus }
+        userErrors { field message }
+      }
+    }
+  `;
+
+  for (const fo of openFulfillmentOrders) {
+    try {
+      const data = await shopifyGraphQL(mutation, { id: fo.id });
+      const errors = data.fulfillmentOrderSubmitFulfillmentRequest.userErrors;
+      if (errors && errors.length > 0) {
+        console.warn(`markOrderInProgress: Shopify userErrors on ${order.name}:`, errors);
+      } else {
+        console.log(`markOrderInProgress: ${order.name} fulfillment order ${fo.id} now in progress`);
+      }
+    } catch (err) {
+      console.error(`markOrderInProgress: failed for ${order.name}:`, err.message);
+    }
+  }
+}
+
 module.exports = {
   shopifyGraphQL,
   getProductTags,
@@ -267,4 +320,5 @@ module.exports = {
   markOrderMatchedToOutreach,
   findOrderByOutreachNumber,
   fulfillOrderWithTracking,
+  markOrderInProgress,
 };
