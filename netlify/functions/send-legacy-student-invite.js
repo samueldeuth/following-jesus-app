@@ -5,10 +5,16 @@
 // (verified server-side against profiles.role), not a shared secret --
 // same pattern as send-admin-invites.js, since this is a direct
 // browser-triggered action rather than a server-to-server webhook.
-
-const { createClient } = require('@supabase/supabase-js');
+//
+// Uses plain fetch against Supabase's Auth (GoTrue) and REST
+// (PostgREST) endpoints directly -- deliberately NOT @supabase/supabase-js,
+// since that package isn't in this site's top-level package.json and
+// isn't used by any other function in this project (same class of
+// "missing dependency breaks the whole site's build" issue already
+// hit once with lib/verify.js).
 
 const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const FROM_ADDRESS = 'Following Jesus <no-reply@mail.followingjesus.com>';
 
 function escapeHtml(str) {
@@ -41,30 +47,34 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Missing email, churchId, or churchSlug' }) };
   }
 
-  // Verify the token is a real, current session, then re-check
-  // authorization server-side (super_admin, or church_admin of THIS
-  // church) rather than trusting the client -- the RPC also enforces
-  // this, but the email send itself shouldn't fire on a forged request
-  // even if the RPC call afterward would have been blocked anyway.
-  const supabase = createClient(SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
+  // Verify the token is a real, current session via Supabase's Auth
+  // (GoTrue) REST endpoint.
+  const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
   });
-
-  const { data: userData, error: userError } = await supabase.auth.getUser(token);
-  if (userError || !userData?.user) {
+  if (!userRes.ok) {
+    return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session' }) };
+  }
+  const user = await userRes.json();
+  if (!user?.id) {
     return { statusCode: 401, body: JSON.stringify({ error: 'Invalid session' }) };
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('role, church_id')
-    .eq('id', userData.user.id)
-    .single();
+  // Re-check authorization server-side (super_admin, or church_admin of
+  // THIS church) rather than trusting the client. Uses the caller's own
+  // token against PostgREST, so this only ever sees what RLS already
+  // allows that user to read (their own profile row).
+  const profileRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=role,church_id`,
+    { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } }
+  );
+  const profiles = profileRes.ok ? await profileRes.json() : [];
+  const profile = profiles[0];
 
   const isAuthorized =
     profile && (profile.role === 'super_admin' || (profile.role === 'church_admin' && profile.church_id === churchId));
 
-  if (profileError || !isAuthorized) {
+  if (!isAuthorized) {
     return { statusCode: 403, body: JSON.stringify({ error: 'Not authorized for this church' }) };
   }
 
