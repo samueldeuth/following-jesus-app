@@ -14,7 +14,12 @@
 // hit once with lib/verify.js).
 
 const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+// Public anon key -- safe to hardcode, same value already embedded
+// client-side in admin-dashboard.html. Not read from a Netlify env var
+// because SUPABASE_ANON_KEY was never actually set as one in this
+// project (confirmed from the build log's env var list) -- that gap
+// was the real cause of the 401s on the first deploy of this function.
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
 const FROM_ADDRESS = 'Following Jesus <no-reply@mail.followingjesus.com>';
 
 function escapeHtml(str) {
