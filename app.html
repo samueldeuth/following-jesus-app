@@ -1341,6 +1341,11 @@
     padding: 4px 5px; border-radius: 50%;
   }
   .disciple-app-scope .quick-reaction-btn.mine { background: rgba(200,155,60,0.3); }
+  .disciple-app-scope .report-msg-btn {
+    background: none; border: none; font-size: 11px; line-height: 1; cursor: pointer;
+    padding: 4px 8px; border-radius: 10px; color: rgba(255,255,255,0.55); white-space: nowrap;
+  }
+  .disciple-app-scope .chat-pane .report-msg-btn, .disciple-app-scope .chat-panel-light .report-msg-btn { color: rgba(10,10,10,0.45); }
   /* Match the reaction pills/row to whichever side the message bubble
      itself sits on — otherwise they default to the left regardless of
      whether the message is yours (right-aligned) or theirs. */
@@ -4002,9 +4007,15 @@ function renderMessageHtml(m, isMe, senderLabel, extraTagHtml, extraClass) {
         `<span class="reaction-pill${mine.has(emoji) ? ' mine' : ''}" data-emoji="${emoji}" data-msg-id="${m.id}">${emoji}${count > 1 ? ' ' + count : ''}</span>`
       ).join('')}</div>`
     : '';
+  // Report is only offered on someone else's message, never your own —
+  // matches the Google Play UGC policy requirement that closed/known-user
+  // chat features (like this group chat) provide in-app reporting.
+  const reportBtnHtml = (m.id && !isMe)
+    ? `<button type="button" class="report-msg-btn" data-msg-id="${m.id}" title="Report this message">🚩 Report</button>`
+    : '';
   const addRowHtml = m.id
     ? `<div class="reaction-add-row" data-picker-for="${m.id}">
-        ${QUICK_REACTION_EMOJIS.map(e => `<button type="button" class="quick-reaction-btn${mine.has(e) ? ' mine' : ''}" data-emoji="${e}" data-msg-id="${m.id}">${e}</button>`).join('')}
+        ${QUICK_REACTION_EMOJIS.map(e => `<button type="button" class="quick-reaction-btn${mine.has(e) ? ' mine' : ''}" data-emoji="${e}" data-msg-id="${m.id}">${e}</button>`).join('')}${reportBtnHtml}
       </div>`
     : '';
   const labelHtml = senderLabel ? `<strong style="display:block;font-size:10px;opacity:0.7;margin-bottom:2px;">${escapeHtml(senderLabel)}</strong>` : '';
@@ -4050,6 +4061,26 @@ function wireMessageReactions() {
       await reactAndRerender(btn.dataset.msgId, btn.dataset.emoji);
     };
   });
+
+  // Reporting a message — optional short reason, then submits via the
+  // report_chat_message security-definer function (see SQL migration).
+  // Deliberately doesn't remove the message from view or reveal to the
+  // sender that they were reported; that's left to the group leader to
+  // act on from their side.
+  document.querySelectorAll('.report-msg-btn').forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      if (!(await showAppConfirm('Report this message to the group leader?'))) return;
+      const reason = await showAppPrompt('Anything you want to add? (optional)', '');
+      const result = await reportChatMessage(btn.dataset.msgId, reason ? reason.trim() : null);
+      if (result.ok) {
+        await showAppAlert('Thanks — this has been reported to the group leader.');
+        document.querySelectorAll('.reaction-add-row.open').forEach(r => r.classList.remove('open'));
+      } else {
+        await showAppAlert('Could not submit the report. Please try again.');
+      }
+    };
+  });
 }
 
 async function renderGroupDetail(code) {
@@ -4075,6 +4106,22 @@ async function renderGroupDetail(code) {
       groupChatHtml += renderMessageHtml(m, m.senderId === myId, m.senderName, actionTag, m.isAction ? ' msg-action' : '');
     });
   }
+
+  const openReports = await getOpenReportsForGroup(code);
+  const reportsHtml = openReports.length ? `
+    <div class="card" id="openReportsCard" style="margin:16px 20px;border:1px solid var(--ember);">
+      <h2 style="margin-top:0;">⚠️ ${openReports.length} Open ${openReports.length === 1 ? 'Report' : 'Reports'}</h2>
+      ${openReports.map(r => `
+        <div class="report-row" data-report-id="${r.id}" style="padding:10px 0;border-top:1px solid rgba(0,0,0,0.08);">
+          <div class="sub"><strong>${escapeHtml(r.reportedName)}</strong>'s message, reported by ${escapeHtml(r.reporterName)}</div>
+          ${r.reason ? `<div class="sub" style="margin-top:4px;">"${escapeHtml(r.reason)}"</div>` : ''}
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="secondary report-dismiss-btn" data-report-id="${r.id}">Dismiss</button>
+            <button type="button" class="del-btn report-remove-btn" data-report-id="${r.id}" data-userid="${r.reportedUserId}" style="width:auto;padding:0 12px;">Remove from group</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>` : '';
 
   // Each member's progress is shown against whichever course this group
   // is currently focused on — everyone still checks off their own
@@ -4145,6 +4192,8 @@ async function renderGroupDetail(code) {
       </div>
       <button class="secondary" id="reshareBtn">Share Invite</button>
     </div>
+
+    ${reportsHtml}
 
     <div class="card invite-toggle-body" id="peopleToggleBody" style="margin:0 20px;border-radius:0 0 10px 10px;">
       <p class="dm-p" style="margin-bottom:14px;">Everyone here can see each other's progress on the group's course.</p>
@@ -4247,6 +4296,24 @@ async function renderGroupDetail(code) {
       const disc = members.find(m => m.id === discipleId);
       if (!(await showAppConfirm(`Remove ${disc ? disc.name : 'this person'} from "${group ? group.label : 'this group'}"? They'll keep their other progress with you, just not this group.`))) return;
       await removeFromGroupByCode(code, discipleId);
+      renderPreservingScroll(() => render(true));
+    };
+  });
+  [...document.querySelectorAll('.report-dismiss-btn')].forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      if (!(await showAppConfirm('Dismiss this report? No action will be taken against this person.'))) return;
+      await resolveMessageReport(btn.dataset.reportId, 'dismissed');
+      renderPreservingScroll(() => render(true));
+    };
+  });
+  [...document.querySelectorAll('.report-remove-btn')].forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const disc = members.find(m => m.id === btn.dataset.userid);
+      if (!(await showAppConfirm(`Remove ${disc ? disc.name : 'this person'} from "${group ? group.label : 'this group'}"? This also marks the report reviewed.`))) return;
+      await resolveMessageReport(btn.dataset.reportId, 'reviewed');
+      await removeFromGroupByCode(code, btn.dataset.userid);
       renderPreservingScroll(() => render(true));
     };
   });
@@ -4406,6 +4473,7 @@ async function renderDisciple() {
   else { messages.forEach(m => { msgHtml += renderMessageHtml(m, m.from === 'disciple', null); }); }
 
   let groupPeersHtml = '';
+  const myBlockedIds = await getBlockedUserIds(myId);
   for (const g of myGroups) {
     const memberIds = await getGroupMemberIds(g.code);
     const allDisciples = await getLeaderDisciples(g.leaderId);
@@ -4417,7 +4485,14 @@ async function renderDisciple() {
       for (const p of peers) {
         const { progress: pProgress } = await getCourseProgressData(p.id, 'essentials');
         const doneCount = Object.values(pProgress).filter(s => s === 'done').length;
-        peerRows += `<div class="row"><div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="sub">${doneCount} of ${STEPS.length} steps complete</div></div></div>`;
+        const isBlocked = myBlockedIds.has(p.id);
+        // Member-initiated block — separate from the leader's group-removal
+        // control. This only hides this person's messages from your own
+        // view; doesn't remove them from the group or notify anyone.
+        peerRows += `<div class="row">
+          <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="sub">${doneCount} of ${STEPS.length} steps complete</div></div>
+          <button type="button" class="secondary block-peer-btn" data-peer-id="${p.id}" data-blocked="${isBlocked}" style="width:auto;padding:4px 12px;font-size:12px;">${isBlocked ? 'Unblock' : 'Block'}</button>
+        </div>`;
       }
     }
 
@@ -4585,6 +4660,18 @@ async function renderDisciple() {
     const gCode = btn.dataset.code;
     const groupInput = document.querySelector(`.groupChatInput[data-code="${gCode}"]`);
     wireEnterToSend(groupInput, () => btn.click());
+  });
+  [...document.querySelectorAll('.block-peer-btn')].forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const isBlocked = btn.dataset.blocked === 'true';
+      const confirmText = isBlocked
+        ? 'Unblock this person? You\'ll see their messages again.'
+        : 'Block this person? You won\'t see their messages in group chat anymore. They won\'t be notified.';
+      if (!(await showAppConfirm(confirmText))) return;
+      await toggleBlockUser(btn.dataset.peerId, isBlocked);
+      renderPreservingScroll(() => render(true));
+    };
   });
   scrollChatThreadsToBottom();
   wireMessageReactions();
@@ -5322,8 +5409,14 @@ async function getReactionsForMessages(messageIds) {
 async function getGroupMessages(code) {
   const { data: group } = await supabaseClient.from('discipleship_groups').select('id').eq('invite_code', code).maybeSingle();
   if (!group) return [];
-  const { data: messages } = await supabaseClient.from('discipleship_messages')
-    .select('id, sender_id, body, sent_at, is_action').eq('group_id', group.id).order('sent_at');
+  const [{ data: rawMessages }, blockedIds] = await Promise.all([
+    supabaseClient.from('discipleship_messages')
+      .select('id, sender_id, body, sent_at, is_action').eq('group_id', group.id).order('sent_at'),
+    getBlockedUserIds(myId)
+  ]);
+  // Filtered per-viewer, not deleted — this only changes what the current
+  // user sees, never what the sender or anyone else in the group sees.
+  const messages = (rawMessages || []).filter(m => !blockedIds.has(m.sender_id));
   if (!messages || !messages.length) return [];
   const senderIds = [...new Set(messages.map(m => m.sender_id))];
   const { data: profiles } = await supabaseClient.from('profiles').select('id, full_name').in('id', senderIds);
@@ -5335,6 +5428,76 @@ async function getGroupMessages(code) {
     body: m.body, isAction: m.is_action, at: new Date(m.sent_at).getTime(),
     reactions: reactionsByMessage[m.id] || []
   }));
+}
+
+// ---------- Message reporting & user blocking ----------
+// Reporting: submits via a security-definer function rather than a direct
+// insert, so reporter_id/reported_user_id/group_id are all resolved
+// server-side from the real message row instead of trusted from the
+// client — same reasoning as every other security-definer function in
+// this project. See add-chat-report-block-feature.sql.
+async function reportChatMessage(messageId, reason) {
+  if (!supabaseClient || !messageId) return { ok: false };
+  const { error } = await supabaseClient.rpc('report_chat_message', {
+    p_message_id: messageId, p_reason: reason || null
+  });
+  if (error) { console.error('reportChatMessage failed:', error); return { ok: false, error: error.message }; }
+  return { ok: true };
+}
+
+// Open (unreviewed) reports for one group, by invite code — used on the
+// leader's group detail page. Joined against the group's already-loaded
+// messages by the caller, rather than re-fetching message bodies here.
+async function getOpenReportsForGroup(code) {
+  const { data: group } = await supabaseClient.from('discipleship_groups').select('id').eq('invite_code', code).maybeSingle();
+  if (!group) return [];
+  const { data: reports } = await supabaseClient.from('discipleship_message_reports')
+    .select('id, message_id, reporter_id, reported_user_id, reason, created_at')
+    .eq('group_id', group.id).eq('status', 'open').order('created_at');
+  if (!reports || !reports.length) return [];
+  const profileIds = [...new Set(reports.flatMap(r => [r.reporter_id, r.reported_user_id]))];
+  const { data: profiles } = await supabaseClient.from('profiles').select('id, full_name').in('id', profileIds);
+  const nameById = {};
+  (profiles || []).forEach(p => { nameById[p.id] = p.full_name || 'Friend'; });
+  return reports.map(r => ({
+    id: r.id, messageId: r.message_id, reason: r.reason,
+    reporterName: nameById[r.reporter_id] || 'Friend',
+    reportedUserId: r.reported_user_id,
+    reportedName: nameById[r.reported_user_id] || 'Friend',
+    at: new Date(r.created_at).getTime()
+  }));
+}
+
+// Leader marks a report reviewed or dismissed — the security-definer
+// function itself checks the caller is actually this group's leader,
+// same pattern as other leader-only actions in this file.
+async function resolveMessageReport(reportId, status) {
+  if (!supabaseClient || !reportId) return { ok: false };
+  const { error } = await supabaseClient.rpc('resolve_message_report', {
+    p_report_id: reportId, p_status: status
+  });
+  if (error) { console.error('resolveMessageReport failed:', error); return { ok: false, error: error.message }; }
+  return { ok: true };
+}
+
+// Blocking: a plain user-owned table (RLS: blocker_id = auth.uid()), no
+// security-definer function needed since a user is only ever managing
+// their own rows. This hides a blocked person's messages from the
+// blocker's own view only — doesn't notify anyone, doesn't affect what
+// anyone else in the group sees.
+async function getBlockedUserIds(viewerId) {
+  if (!supabaseClient || !viewerId) return new Set();
+  const { data } = await supabaseClient.from('discipleship_blocked_users').select('blocked_id').eq('blocker_id', viewerId);
+  return new Set((data || []).map(r => r.blocked_id));
+}
+
+async function toggleBlockUser(blockedId, isCurrentlyBlocked) {
+  if (!supabaseClient || !blockedId) return;
+  if (isCurrentlyBlocked) {
+    await supabaseClient.from('discipleship_blocked_users').delete().eq('blocker_id', myId).eq('blocked_id', blockedId);
+  } else {
+    await supabaseClient.from('discipleship_blocked_users').insert({ blocker_id: myId, blocked_id: blockedId });
+  }
 }
 
 async function sendGroupMessage(code, body, isAction = false) {
