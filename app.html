@@ -4075,7 +4075,12 @@ function wireMessageReactions() {
       const result = await reportChatMessage(btn.dataset.msgId, reason ? reason.trim() : null);
       if (result.ok) {
         await showAppAlert('Thanks — this has been reported to the group leader.');
-        document.querySelectorAll('.reaction-add-row.open').forEach(r => r.classList.remove('open'));
+        // Re-render so a leader viewing their own group sees the new
+        // report immediately, instead of only after navigating away and
+        // back. Confirmed necessary by live testing — the report itself
+        // saved fine without this, but the page had no way to know to
+        // refresh itself.
+        renderPreservingScroll(() => render(true));
       } else {
         await showAppAlert('Could not submit the report. Please try again.');
       }
