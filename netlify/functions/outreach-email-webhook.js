@@ -97,10 +97,11 @@ async function handleConfirmationEmail(outreachOrderNumber, html) {
   console.log(`Matched Outreach order ${outreachOrderNumber} to Shopify order ${best.order.name}`);
 
   // Nudge the order's display status to "In Progress" now that Outreach has
-  // confirmed they have it. Deliberately non-fatal — see markOrderInProgress's
-  // own comment in lib/shopify.js for why this might no-op on this store's
-  // current location setup, and why that shouldn't block anything above.
-  await markOrderInProgress(best.order);
+  // confirmed they have it. Fully isolated and non-fatal — see
+  // markOrderInProgress's own comment in lib/shopify.js for why this
+  // deliberately can't affect the match/tag/note logic above, even if it
+  // fails due to a missing scope or an unsupported location type.
+  await markOrderInProgress(best.order.id, best.order.name);
 }
 
 async function handleShippingEmail(outreachOrderNumber, html) {
