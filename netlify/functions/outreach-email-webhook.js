@@ -2,7 +2,9 @@
 // types that matter for fulfillment:
 //   1. "Outreach Order #M1556390 Confirmation" — matches back to a Shopify
 //      order by shipping name/address (Outreach never echoes the Shopify
-//      order number), then tags that order outreach:M1556390.
+//      order number), then tags that order outreach:M1556390 and moves its
+//      fulfillment status to "In Progress" so it no longer sits as a flat
+//      Unfulfilled while Outreach is actually working on it.
 //   2. "Shipping Notification from Outreach Inc." — looks up the order by
 //      that outreach:<number> tag and fulfills it with tracking.
 //
@@ -22,6 +24,7 @@ const { verifyResendWebhook } = require('./lib/verify');
 const {
   findAwaitingOutreachOrders,
   markOrderMatchedToOutreach,
+  markOrderInProgress,
   findOrderByOutreachNumber,
   fulfillOrderWithTracking,
 } = require('./lib/shopify');
@@ -90,8 +93,14 @@ async function handleConfirmationEmail(outreachOrderNumber, html) {
   }
 
   const best = scored[0];
-  await markOrderMatchedToOutreach(best.order.id, outreachOrderNumber);
+  await markOrderMatchedToOutreach(best.order.id, outreachOrderNumber, best.order.note);
   console.log(`Matched Outreach order ${outreachOrderNumber} to Shopify order ${best.order.name}`);
+
+  // Nudge the order's display status to "In Progress" now that Outreach has
+  // confirmed they have it. Deliberately non-fatal — see markOrderInProgress's
+  // own comment in lib/shopify.js for why this might no-op on this store's
+  // current location setup, and why that shouldn't block anything above.
+  await markOrderInProgress(best.order);
 }
 
 async function handleShippingEmail(outreachOrderNumber, html) {
