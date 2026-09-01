@@ -183,6 +183,16 @@ async function markOrderMatchedToOutreach(orderGid, outreachOrderNumber, current
 
 /**
  * Find the single Shopify order tagged with a given Outreach order number.
+ *
+ * Deliberately does NOT request fulfillmentOrders here -- this query's only
+ * job is locating the order by tag, and requesting fulfillmentOrders (which
+ * needs a scope this app didn't have) failed the ENTIRE call with
+ * ACCESS_DENIED, taking the lookup down with it (real orders affected:
+ * M1556605's shipping email on Sep 1, plus retries). Same failure mode
+ * markOrderInProgress was already isolated against, just a second call site
+ * that needed the same treatment. Callers that need fulfillment-order data
+ * should call getOrderFulfillmentOrders() separately, as its own isolated
+ * step, after this lookup succeeds.
  */
 async function findOrderByOutreachNumber(outreachOrderNumber) {
   const query = `
@@ -192,9 +202,6 @@ async function findOrderByOutreachNumber(outreachOrderNumber) {
           node {
             id
             name
-            fulfillmentOrders(first: 5) {
-              edges { node { id status } }
-            }
           }
         }
       }
@@ -207,14 +214,38 @@ async function findOrderByOutreachNumber(outreachOrderNumber) {
 }
 
 /**
+ * Fetch just the fulfillment orders (id + status) for a single order, as
+ * its own isolated query -- shared by markOrderInProgress and
+ * fulfillOrderWithTracking so there's one place, not two copies, of the
+ * "this needs a scope that might be missing" query. Callers decide for
+ * themselves whether a failure here is fatal (fulfillOrderWithTracking) or
+ * safe to skip (markOrderInProgress) -- this helper just throws on failure
+ * and lets the caller choose.
+ */
+async function getOrderFulfillmentOrders(orderGid) {
+  const query = `
+    query GetFulfillmentOrders($id: ID!) {
+      order(id: $id) {
+        fulfillmentOrders(first: 5) {
+          edges { node { id status } }
+        }
+      }
+    }
+  `;
+  const data = await shopifyGraphQL(query, { id: orderGid });
+  return (data.order?.fulfillmentOrders?.edges || []).map((e) => e.node);
+}
+
+/**
  * Create a fulfillment with tracking info for every open fulfillment order
  * on the given order (normally there's just one for these simple book
  * orders). Notifies the customer, same as Shopify's own default behavior.
  */
 async function fulfillOrderWithTracking(order, { trackingNumber, trackingCompany, trackingUrl }) {
-  const openFulfillmentOrders = order.fulfillmentOrders.edges
-    .map((e) => e.node)
-    .filter((fo) => fo.status === 'OPEN' || fo.status === 'IN_PROGRESS');
+  const fulfillmentOrderNodes = await getOrderFulfillmentOrders(order.id);
+  const openFulfillmentOrders = fulfillmentOrderNodes.filter(
+    (fo) => fo.status === 'OPEN' || fo.status === 'IN_PROGRESS'
+  );
 
   if (openFulfillmentOrders.length === 0) {
     throw new Error(`No open fulfillment orders on ${order.name} — may already be fulfilled`);
@@ -301,22 +332,10 @@ async function getProductTags(productIds) {
  * order.
  */
 async function markOrderInProgress(orderGid, orderName) {
-  const query = `
-    query GetFulfillmentOrders($id: ID!) {
-      order(id: $id) {
-        fulfillmentOrders(first: 5) {
-          edges { node { id status } }
-        }
-      }
-    }
-  `;
-
   let openFulfillmentOrders;
   try {
-    const data = await shopifyGraphQL(query, { id: orderGid });
-    openFulfillmentOrders = (data.order?.fulfillmentOrders?.edges || [])
-      .map((e) => e.node)
-      .filter((fo) => fo.status === 'OPEN');
+    const nodes = await getOrderFulfillmentOrders(orderGid);
+    openFulfillmentOrders = nodes.filter((fo) => fo.status === 'OPEN');
   } catch (err) {
     console.error(`markOrderInProgress: could not fetch fulfillmentOrders for ${orderName}:`, err.message);
     return;
@@ -358,6 +377,7 @@ module.exports = {
   findAwaitingOutreachOrders,
   markOrderMatchedToOutreach,
   findOrderByOutreachNumber,
+  getOrderFulfillmentOrders,
   fulfillOrderWithTracking,
   markOrderInProgress,
 };
