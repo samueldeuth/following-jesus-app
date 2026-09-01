@@ -1161,7 +1161,19 @@ function wireBatchActionBar(onChange){
   if(archiveBtn){
     archiveBtn.addEventListener('click', async () => {
       const ids = [...selectedEnrollmentIds];
-      if(!confirm(`Archive ${ids.length} student${ids.length===1?'':'s'}? Nothing is deleted -- you can restore them anytime from the Archived view.`)) return;
+      // Same enrollment id can appear once per course a student's in, so a
+      // selection that looks like "5 students" might really be 1 person
+      // across 5 courses -- surface that distinction before archiving,
+      // since selecting by name alone (without the Course column) is
+      // exactly what caused the original mix-up incident.
+      const distinctStudentIds = new Set(
+        ids.map(id => allRows.find(r => r.enrollment_id === id)?.student_id).filter(Boolean)
+      );
+      const spansFewerStudents = distinctStudentIds.size > 0 && distinctStudentIds.size < ids.length;
+      const warning = spansFewerStudents
+        ? ` This is ${distinctStudentIds.size} distinct student${distinctStudentIds.size===1?'':'s'} across ${ids.length} course enrollments -- if that's not what you meant to select, check the Course column before continuing.`
+        : '';
+      if(!confirm(`Archive ${ids.length} student${ids.length===1?'':'s'}? Nothing is deleted -- you can restore them anytime from the Archived view.${warning}`)) return;
       try {
         const { data, error } = await supabaseClient.from('enrollments').update({ status: 'archived', archived_at: new Date().toISOString() }).in('id', ids).select();
         console.log('batch archive result:', { data, error, targetIds: ids });
@@ -1233,7 +1245,7 @@ function renderAllStudents(){
     <div id="all-students-batch-bar"></div>
     <div class="table-scroll" id="all-students-table-wrap">
       <table>
-        <thead><tr><th style="width:34px;"><input type="checkbox" id="all-students-select-all" /></th><th>Student</th><th>Church</th>${sortableHeaderHtml('Progress', 'progress', studentSortState.all)}${sortableHeaderHtml('Dates', 'started', studentSortState.all)}<th>Actions</th></tr></thead>
+        <thead><tr><th style="width:34px;"><input type="checkbox" id="all-students-select-all" /></th><th>Student</th><th>Church</th><th>Course</th>${sortableHeaderHtml('Progress', 'progress', studentSortState.all)}${sortableHeaderHtml('Dates', 'started', studentSortState.all)}<th>Actions</th></tr></thead>
         <tbody id="all-students-tbody"></tbody>
       </table>
     </div>
@@ -1293,6 +1305,7 @@ function renderAllStudentsRows(){
             </select>
           `}
         </td>
+        <td class="clickable-cell" data-open="true" style="color:var(--ink-soft);font-size:12.5px;">${r.course_title || '—'}</td>
         <td class="clickable-cell" data-open="true">
           <div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${pct}%</span></div>
         </td>
@@ -1305,7 +1318,7 @@ function renderAllStudentsRows(){
       </tr>`;
   }).join('');
 
-  document.getElementById('all-students-tbody').innerHTML = rowsHtml || `<tr><td colspan="6" style="color:var(--ink-soft);">${query ? 'No students match.' : (studentViewMode==='archived' ? 'No archived students.' : 'No students yet.')}</td></tr>`;
+  document.getElementById('all-students-tbody').innerHTML = rowsHtml || `<tr><td colspan="7" style="color:var(--ink-soft);">${query ? 'No students match.' : (studentViewMode==='archived' ? 'No archived students.' : 'No students yet.')}</td></tr>`;
   document.getElementById('all-students-batch-bar').innerHTML = batchActionBarHtml();
 
   document.querySelectorAll('#all-students-tbody td.clickable-cell').forEach(td => {
@@ -1582,6 +1595,7 @@ async function renderChurchStudents(churchId){
           <div class="student-name">${r.full_name || 'Unnamed student'}</div>
           <div class="student-email">${r.student_email || ''}</div>
         </td>
+        <td class="clickable-cell" data-open="true" style="color:var(--ink-soft);font-size:12.5px;">${r.course_title || '—'}</td>
         <td class="clickable-cell" data-open="true">
           <div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${pct}%</span></div>
         </td>
@@ -1622,8 +1636,8 @@ async function renderChurchStudents(churchId){
       <div id="church-students-batch-bar">${batchActionBarHtml()}</div>
       <div class="table-scroll" id="church-students-table-wrap">
         <table>
-          <thead><tr><th style="width:34px;"><input type="checkbox" id="church-students-select-all" /></th><th>Student</th>${sortableHeaderHtml('Progress', 'progress', studentSortState.church)}${sortableHeaderHtml('Dates', 'started', studentSortState.church)}<th>Group</th><th>Actions</th></tr></thead>
-          <tbody id="church-students-tbody">${rowsHtml || '<tr><td colspan="6" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : 'No students here yet.') + '</td></tr>'}</tbody>
+          <thead><tr><th style="width:34px;"><input type="checkbox" id="church-students-select-all" /></th><th>Student</th><th>Course</th>${sortableHeaderHtml('Progress', 'progress', studentSortState.church)}${sortableHeaderHtml('Dates', 'started', studentSortState.church)}<th>Group</th><th>Actions</th></tr></thead>
+          <tbody id="church-students-tbody">${rowsHtml || '<tr><td colspan="7" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : 'No students here yet.') + '</td></tr>'}</tbody>
         </table>
       </div>
     </div>
