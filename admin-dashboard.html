@@ -1550,6 +1550,46 @@ function renderMergeAccounts(){
   });
 }
 
+/* ---------- Legacy student invite (Not Yet Signed Up tab) ---------- */
+function pendingRowHtml(p){
+  const name = `${p.first_name||''} ${p.last_name||''}`.trim() || 'Unnamed';
+  const invitedLabel = p.invited_at
+    ? `Invited ${new Date(p.invited_at).toLocaleDateString('en-US', { month:'short', day:'numeric' })}${p.invite_count>1 ? ` (${p.invite_count}x)` : ''}`
+    : '';
+  return `
+    <div class="group-row" data-pending-email="${p.email}">
+      <span>${name}</span>
+      <span style="color:var(--ink-soft);font-size:12px;">${p.email}</span>
+      <span style="display:flex;align-items:center;gap:8px;">
+        ${invitedLabel ? `<span style="font-size:11.5px;color:var(--ink-soft);white-space:nowrap;">${invitedLabel}</span>` : ''}
+        <button class="mini-btn pending-invite-btn" data-email="${p.email}">${p.invited_at ? 'Resend' : 'Invite'}</button>
+      </span>
+    </div>`;
+}
+
+// Calls send-legacy-student-invite.js using the admin's own Supabase
+// session token (same pattern as triggerAdminInviteSend) -- the
+// function itself re-verifies super_admin/church_admin server-side.
+// Only marks the directory row as invited (via the RPC) after a real
+// send succeeds, never before -- same "record on confirmed success"
+// pattern used for every other invite flow in this project.
+async function doSendLegacyInvite({ email, firstName, churchId, churchName, churchSlug }){
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if(!session?.access_token) return { ok: false };
+  try {
+    const res = await fetch('/.netlify/functions/send-legacy-student-invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ email, firstName, churchId, churchName, churchSlug })
+    });
+    if(!res.ok) return { ok: false };
+    await supabaseClient.rpc('mark_legacy_student_invited', { target_email: email, target_church_id: churchId });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false };
+  }
+}
+
 /* ---------- Level 2: students within a church ---------- */
 async function renderChurchStudents(churchId){
   activeChurchId = churchId;
@@ -1646,10 +1686,14 @@ async function renderChurchStudents(churchId){
     <div class="church-tab-panel" data-tab-panel="pending">
       <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">People who took this church's course on the old platform but haven't created an account here yet. Once they sign up with the same email, they'll move into the Students tab automatically.</p>
       <div id="pending-list" style="max-height:320px;overflow-y:auto;">
-        ${pendingStudents.map(p => `<div class="group-row"><span>${(p.first_name||'')} ${(p.last_name||'')}</span><span style="color:var(--ink-soft);font-size:12px;">${p.email}</span></div>`).join('')}
+        ${pendingStudents.map(p => pendingRowHtml(p)).join('')}
       </div>
-      <button class="mini-btn" id="copy-pending-emails-btn" style="margin-top:12px;">Copy All Emails</button>
-      <span id="copy-status" style="font-size:12.5px;color:var(--ink-soft);margin-left:8px;"></span>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;">
+        <button class="mini-btn" id="copy-pending-emails-btn">Copy All Emails</button>
+        <button class="mini-btn gold" id="invite-all-pending-btn">Invite All (${pendingStudents.length})</button>
+        <span id="copy-status" style="font-size:12.5px;color:var(--ink-soft);"></span>
+        <span id="invite-all-status" style="font-size:12.5px;color:var(--ink-soft);"></span>
+      </div>
     </div>` : ''}
 
     ${churchId ? `
@@ -2018,6 +2062,54 @@ async function renderChurchStudents(churchId){
     } catch (e) {
       document.getElementById('copy-status').textContent = 'Could not copy — check clipboard permissions.';
     }
+  });
+
+  // Delegated (not per-button) so it keeps working after a row's
+  // outerHTML gets swapped out post-invite -- see pendingRowHtml().
+  const pendingListEl = document.getElementById('pending-list');
+  if(pendingListEl) pendingListEl.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.pending-invite-btn');
+    if(!btn || btn.disabled) return;
+    const email = btn.dataset.email;
+    const p = pendingStudents.find(x => x.email === email);
+    if(!p) return;
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    const result = await doSendLegacyInvite({ email: p.email, firstName: p.first_name, churchId, churchName: church?.name, churchSlug: church?.slug });
+    if(result.ok){
+      p.invited_at = new Date().toISOString();
+      p.invite_count = (p.invite_count || 0) + 1;
+      const row = document.querySelector(`[data-pending-email="${email}"]`);
+      if(row) row.outerHTML = pendingRowHtml(p);
+    } else {
+      btn.disabled = false;
+      btn.textContent = p.invited_at ? 'Resend' : 'Invite';
+      alert('Something went wrong sending that invite. Please try again.');
+    }
+  });
+
+  const inviteAllBtn = document.getElementById('invite-all-pending-btn');
+  if(inviteAllBtn) inviteAllBtn.addEventListener('click', async () => {
+    if(!confirm(`Send an invite email to all ${pendingStudents.length} people on this list?`)) return;
+    inviteAllBtn.disabled = true;
+    const statusEl = document.getElementById('invite-all-status');
+    let sent = 0, failed = 0;
+    for(const p of pendingStudents){
+      statusEl.textContent = `Sending ${sent + failed + 1} of ${pendingStudents.length}...`;
+      const result = await doSendLegacyInvite({ email: p.email, firstName: p.first_name, churchId, churchName: church?.name, churchSlug: church?.slug });
+      if(result.ok){
+        sent++;
+        p.invited_at = new Date().toISOString();
+        p.invite_count = (p.invite_count || 0) + 1;
+        const row = document.querySelector(`[data-pending-email="${p.email}"]`);
+        if(row) row.outerHTML = pendingRowHtml(p);
+      } else {
+        failed++;
+      }
+      await new Promise(r => setTimeout(r, 300)); // pace sends so we don't burst Resend
+    }
+    statusEl.textContent = `Done — ${sent} sent${failed ? `, ${failed} failed` : ''}.`;
+    inviteAllBtn.disabled = false;
   });
 
   // The actual promote-plus-notify action, extracted so it can be
