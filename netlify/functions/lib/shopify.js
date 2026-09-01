@@ -115,6 +115,7 @@ async function findAwaitingOutreachOrders(sinceISODate) {
             id
             name
             createdAt
+            note
             matchData: metafield(namespace: "outreach", key: "match_data") { value }
             fulfillmentOrders(first: 5) {
               edges { node { id status } }
@@ -132,13 +133,23 @@ async function findAwaitingOutreachOrders(sinceISODate) {
 
 /**
  * Once an Outreach order number is matched to a Shopify order, swap the
- * "awaiting" tag for a specific "outreach:<number>" tag and store the
- * Outreach order number as its own metafield, so the later shipping
- * notification email can look the order straight back up by that tag.
+ * "awaiting" tag for a specific "outreach:<number>" tag, store the Outreach
+ * order number as its own metafield (so the later shipping notification
+ * email can look the order straight back up by tag), and append the
+ * Outreach order number to the order's Notes field so it's visible directly
+ * on the order too, not just in the tag list.
+ *
+ * currentNote is read first by the caller (from the same query that found
+ * this order) and merged here — read-merge-write, not a blind overwrite,
+ * so any note Samuel or a customer already left on the order is preserved.
  */
-async function markOrderMatchedToOutreach(orderGid, outreachOrderNumber) {
+async function markOrderMatchedToOutreach(orderGid, outreachOrderNumber, currentNote) {
+  const noteLine = `Outreach order: ${outreachOrderNumber}`;
+  const existingNote = (currentNote || '').trim();
+  const newNote = existingNote ? `${existingNote}\n${noteLine}` : noteLine;
+
   const mutation = `
-    mutation MarkMatched($orderId: ID!, $metafields: [MetafieldsSetInput!]!) {
+    mutation MarkMatched($orderId: ID!, $metafields: [MetafieldsSetInput!]!, $note: String) {
       tagsAdd(id: $orderId, tags: [$outreachTag]) {
         userErrors { field message }
       }
@@ -146,6 +157,9 @@ async function markOrderMatchedToOutreach(orderGid, outreachOrderNumber) {
         userErrors { field message }
       }
       metafieldsSet(metafields: $metafields) {
+        userErrors { field message }
+      }
+      orderUpdate(input: { id: $orderId, note: $note }) {
         userErrors { field message }
       }
     }
@@ -157,6 +171,7 @@ async function markOrderMatchedToOutreach(orderGid, outreachOrderNumber) {
   const safeMutation = mutation.replace('[$outreachTag]', `["${outreachTag}"]`);
   return shopifyGraphQL(safeMutation, {
     orderId: orderGid,
+    note: newNote,
     metafields: [
       {
         ownerId: orderGid,
