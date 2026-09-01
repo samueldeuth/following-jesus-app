@@ -117,9 +117,6 @@ async function findAwaitingOutreachOrders(sinceISODate) {
             createdAt
             note
             matchData: metafield(namespace: "outreach", key: "match_data") { value }
-            fulfillmentOrders(first: 5) {
-              edges { node { id status } }
-            }
           }
         }
       }
@@ -284,22 +281,49 @@ async function getProductTags(productIds) {
  * "Outreach has it and is working on it" instead of sitting as a flat
  * Unfulfilled the whole time.
  *
- * NOTE: this mutation is designed for fulfillment orders assigned to a
- * fulfillment-service-type location. "Following Jesus HQ" was deliberately
- * set up as a plain (non-fulfillment-service) location to avoid Shopify's
- * built-in fulfillment-service email side effects — so this call may come
- * back with a userError instead of actually changing anything, until
- * confirmed against a real order. Failure here is intentionally non-fatal
- * (logged, not thrown) so a failed status nudge never blocks the real
- * match/tag logic that already succeeded.
+ * Deliberately fetches fulfillmentOrders itself, in its own isolated query,
+ * rather than requiring the caller to have already fetched it as part of a
+ * bigger batch query. Reading the fulfillmentOrders field requires a scope
+ * (read_merchant_managed_fulfillment_orders) this app didn't originally
+ * have — and Shopify fails an ENTIRE GraphQL call if any requested field is
+ * access-denied, not just that field. Requesting it as part of the main
+ * order-matching query broke matching for every candidate order the first
+ * time this shipped (real orders M1556712/M1556713 went unmatched because
+ * of this). Keeping it isolated here means a missing scope only skips the
+ * "in progress" nudge — it can never again take down the match/tag/note
+ * logic that already succeeded before this function is even called.
+ *
+ * NOTE: separately from the scope issue, this mutation is also designed for
+ * fulfillment orders assigned to a fulfillment-service-type location.
+ * "Following Jesus HQ" was deliberately set up as a plain location — so
+ * even once the scope is granted, this may still come back with a
+ * userError instead of changing anything, until confirmed against a real
+ * order.
  */
-async function markOrderInProgress(order) {
-  const openFulfillmentOrders = (order.fulfillmentOrders?.edges || [])
-    .map((e) => e.node)
-    .filter((fo) => fo.status === 'OPEN');
+async function markOrderInProgress(orderGid, orderName) {
+  const query = `
+    query GetFulfillmentOrders($id: ID!) {
+      order(id: $id) {
+        fulfillmentOrders(first: 5) {
+          edges { node { id status } }
+        }
+      }
+    }
+  `;
+
+  let openFulfillmentOrders;
+  try {
+    const data = await shopifyGraphQL(query, { id: orderGid });
+    openFulfillmentOrders = (data.order?.fulfillmentOrders?.edges || [])
+      .map((e) => e.node)
+      .filter((fo) => fo.status === 'OPEN');
+  } catch (err) {
+    console.error(`markOrderInProgress: could not fetch fulfillmentOrders for ${orderName}:`, err.message);
+    return;
+  }
 
   if (openFulfillmentOrders.length === 0) {
-    console.warn(`markOrderInProgress: no OPEN fulfillment orders on ${order.name}, skipping`);
+    console.warn(`markOrderInProgress: no OPEN fulfillment orders on ${orderName}, skipping`);
     return;
   }
 
@@ -317,12 +341,12 @@ async function markOrderInProgress(order) {
       const data = await shopifyGraphQL(mutation, { id: fo.id });
       const errors = data.fulfillmentOrderSubmitFulfillmentRequest.userErrors;
       if (errors && errors.length > 0) {
-        console.warn(`markOrderInProgress: Shopify userErrors on ${order.name}:`, errors);
+        console.warn(`markOrderInProgress: Shopify userErrors on ${orderName}:`, errors);
       } else {
-        console.log(`markOrderInProgress: ${order.name} fulfillment order ${fo.id} now in progress`);
+        console.log(`markOrderInProgress: ${orderName} fulfillment order ${fo.id} now in progress`);
       }
     } catch (err) {
-      console.error(`markOrderInProgress: failed for ${order.name}:`, err.message);
+      console.error(`markOrderInProgress: failed for ${orderName}:`, err.message);
     }
   }
 }
