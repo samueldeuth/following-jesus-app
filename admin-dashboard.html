@@ -626,7 +626,7 @@ function buildDonutSegments(segments, radius = 70){
     });
 }
 
-function renderStudentReport(rows, church, courseTitle){
+function renderStudentReport(rows, church, courseTitle, showAggregateSections){
   // courseTitle only matters when church is null (a non-white-labeled
   // course's report, via renderCourseStudents) -- defaults to Following
   // Jesus so the existing per-church report caller (which always passes
@@ -671,6 +671,52 @@ function renderStudentReport(rows, church, courseTitle){
       </div>`;
   }).join('') || '<p style="color:var(--ink-soft);font-size:13px;">No students enrolled yet.</p>';
 
+  // Only built for the aggregate ("All Students") report -- a per-church
+  // or per-course report doesn't need a "top courses" breakdown (it's
+  // already scoped to one course, or the church's own small set) or a
+  // "top students" shortlist (the full list below is already short
+  // enough to scan). Kept as its own opt-in flag rather than inferring
+  // it from rows/church so a future caller can't accidentally trigger
+  // it by having many rows.
+  let topCoursesHtml = '';
+  let topStudentsHtml = '';
+  if(showAggregateSections){
+    const countsByCourse = {};
+    rows.forEach(r => {
+      const title = r.course_title || 'Untitled course';
+      countsByCourse[title] = (countsByCourse[title] || 0) + 1;
+    });
+    const topCourses = Object.entries(countsByCourse)
+      .sort((a,b) => b[1] - a[1])
+      .slice(0, 10);
+    const maxCourseCount = topCourses.length ? topCourses[0][1] : 1;
+    topCoursesHtml = topCourses.length ? `
+      <div class="report-students-block">
+        <div class="report-section-title">Top 10 Courses by Enrollment</div>
+        ${topCourses.map(([title, count]) => `
+          <div class="report-student-row">
+            <span class="report-student-name">${escapeHtmlReport(title)}</span>
+            <div class="report-student-bar-track"><div class="report-student-bar-fill" style="width:${Math.round((count/maxCourseCount)*100)}%;background:${accent};"></div></div>
+            <span class="report-student-pct">${count}</span>
+          </div>`).join('')}
+      </div>` : '';
+
+    const topStudents = sortedRows.slice(0, 10);
+    topStudentsHtml = topStudents.length ? `
+      <div class="report-students-block">
+        <div class="report-section-title">Top 10 Students by Progress</div>
+        ${topStudents.map(r => {
+          const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
+          return `
+            <div class="report-student-row">
+              <span class="report-student-name">${escapeHtmlReport(r.full_name || 'Unnamed student')}${r.church_name ? ` <span style="color:var(--ink-soft);font-weight:400;">(${escapeHtmlReport(r.church_name)})</span>` : ''}</span>
+              <div class="report-student-bar-track"><div class="report-student-bar-fill" style="width:${pct}%;background:${accent};"></div></div>
+              <span class="report-student-pct">${pct}%</span>
+            </div>`;
+        }).join('')}
+      </div>` : '';
+  }
+
   const overlay = document.createElement('div');
   overlay.id = 'report-overlay';
   overlay.innerHTML = `
@@ -700,6 +746,9 @@ function renderStudentReport(rows, church, courseTitle){
         <div class="report-ring">${ringSvg}</div>
         <div class="report-legend">${legendHtml}</div>
       </div>
+
+      ${topCoursesHtml}
+      ${topStudentsHtml}
 
       <div class="report-students-block">
         <div class="report-section-title">Student Progress</div>
@@ -741,7 +790,7 @@ function renderSidebar(){
   });
 
   const noChurchCount = allRows.filter(r => !r.church_id && r.status !== 'archived').length;
-  const noChurchItemHtml = `<div class="sidebar-church-item ${viewingNoChurch ? 'active' : ''}" id="sidebar-no-church-item" style="border-bottom:1px solid var(--line);margin-bottom:6px;padding-bottom:10px;"><span>No Church Assigned</span><span class="count">${noChurchCount}</span></div>`;
+  const noChurchItemHtml = `<div class="sidebar-church-item ${viewingNoChurch ? 'active' : ''}" id="sidebar-no-church-item" style="border-bottom:1px solid var(--line);margin-bottom:6px;padding-bottom:10px;"><span>Following Jesus <span style="color:var(--ink-soft);font-weight:400;">(Primary)</span></span><span class="count">${noChurchCount}</span></div>`;
 
   let filtered = query ? allChurches.filter(c => c.name.toLowerCase().includes(query)) : allChurches;
   if(sidebarStatusFilter !== 'all'){
@@ -1275,7 +1324,7 @@ function renderAllStudents(){
     // search box) -- reuses renderStudentReport unchanged, just like
     // renderCourseStudents already does for a non-white-labeled course.
     const modeRows = allRows.filter(r => studentViewMode === 'archived' ? r.status === 'archived' : r.status !== 'archived');
-    renderStudentReport(modeRows, null, 'All Churches');
+    renderStudentReport(modeRows, null, 'All Churches', true);
   });
   document.getElementById('merge-accounts-btn').addEventListener('click', renderMergeAccounts);
   document.getElementById('student-mode-active-btn').addEventListener('click', () => {
