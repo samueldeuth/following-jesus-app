@@ -1469,6 +1469,8 @@ function renderContent(item, skipHistoryPush){
       <button class="btn-dark" id="continue-btn">Continue &rarr;</button>
     </div>
   `;
+  window.scrollTo(0, 0);
+  pane.scrollTop = 0;
 
   if(prevItem) document.getElementById('prev-btn').addEventListener('click', () => renderContent(prevItem));
   document.getElementById('toggle-complete').addEventListener('click', () => toggleComplete(item));
@@ -1546,7 +1548,23 @@ function renderSurvey(){
     <div class="content-title">End of Course Survey</div>
     <div class="survey-intro">This is completely optional — but it helps your church leaders know how to support you next, and helps us improve the course.</div>
     ${questionsHtml}
+    <div class="action-row">
+      <button class="btn-outline" id="skip-survey-btn">Skip Survey</button>
+      <button class="btn-dark" id="submit-survey-btn">Submit &rarr;</button>
+    </div>
   `;
+  window.scrollTo(0, 0);
+  pane.scrollTop = 0;
+
+  // Neither button saves anything new -- every answer already auto-saves
+  // the moment it's entered (rating/choice clicks, or the debounced
+  // textarea save) -- they just give a clear way to actually leave this
+  // screen, which nothing here did before. The survey was already
+  // excluded from the real course-completion calculation (only real
+  // session_items count toward that), so "skip" doesn't need to touch
+  // any progress state either -- it's purely a navigation affordance.
+  document.getElementById('skip-survey-btn').addEventListener('click', () => renderHero());
+  document.getElementById('submit-survey-btn').addEventListener('click', () => renderHero());
 
   pane.querySelectorAll('.rating-opt').forEach(el => {
     el.addEventListener('click', () => {
