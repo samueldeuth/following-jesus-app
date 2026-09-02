@@ -616,14 +616,14 @@ function exportStudentsCSV(rows, filename, includeChurchColumn){
 
 function computeReportStats(rows){
   const totalStudents = rows.length;
-  const completedCount = rows.filter(r => r.total_items > 0 && r.items_completed === r.total_items).length;
+  const completedCount = rows.filter(r => !!r.completed_at).length;
   const avgPct = totalStudents
     ? Math.round(rows.reduce((sum, r) => sum + (r.total_items ? r.items_completed / r.total_items : 0), 0) / totalStudents * 100)
     : 0;
 
   const buckets = { completed: 0, wellUnderway: 0, justStarted: 0, notStarted: 0 };
   rows.forEach(r => {
-    if(r.total_items > 0 && r.items_completed === r.total_items) buckets.completed++;
+    if(r.completed_at) buckets.completed++;
     else if(r.total_items > 0 && r.items_completed / r.total_items >= 0.5) buckets.wellUnderway++;
     else if(r.items_completed > 0) buckets.justStarted++;
     else buckets.notStarted++;
@@ -953,7 +953,7 @@ function renderChurchesOverview(){
   const activeChurches = allChurches.filter(ch => !['draft', 'archived'].includes(ch.course_status || 'live')).length;
   const totalStudents = allRows.length;
   const totalActive = allRows.filter(r => r.status !== 'archived').length;
-  const totalCompleted = allRows.filter(r => r.total_items > 0 && r.items_completed === r.total_items).length;
+  const totalCompleted = allRows.filter(r => !!r.completed_at).length;
 
   const churchRowsHtml = allChurches.map(ch => {
     const churchRows = allRows.filter(r => r.church_id === ch.id && r.status !== 'archived');
@@ -1384,7 +1384,7 @@ function renderAllStudentsRows(){
 
   const rowsHtml = allStudentsFilteredRows.map(r => {
     const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
-    const isComplete = r.total_items > 0 && r.items_completed === r.total_items;
+    const isComplete = !!r.completed_at;
     const churchOptions = allChurches.map(c => `<option value="${c.id}" ${r.church_id===c.id?'selected':''}>${c.name}</option>`).join('');
     return `
       <tr data-student-id="${r.student_id}" data-course-id="${r.course_id}" data-enrollment-id="${r.enrollment_id}">
@@ -1721,7 +1721,7 @@ async function renderChurchStudents(churchId){
 
   const rowsHtml = sortedRows.map(r => {
     const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
-    const isComplete = r.total_items > 0 && r.items_completed === r.total_items;
+    const isComplete = !!r.completed_at;
     const groupOptions = groups.map(g => `<option value="${g.id}" ${r.group_id===g.id?'selected':''}>${g.name}</option>`).join('');
     const churchOptions = allChurches.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
     const assignmentCell = churchId
@@ -2332,7 +2332,7 @@ async function renderCourseStudents(courseId, courseTitle){
 
   const rowsHtml = sortedRows.map(r => {
     const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
-    const isComplete = r.total_items > 0 && r.items_completed === r.total_items;
+    const isComplete = !!r.completed_at;
     return `
       <tr data-student-id="${r.student_id}" data-course-id="${r.course_id}" data-enrollment-id="${r.enrollment_id}">
         <td><input type="checkbox" data-row-select="${r.enrollment_id}" ${selectedEnrollmentIds.has(r.enrollment_id)?'checked':''} /></td>
