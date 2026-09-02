@@ -395,6 +395,14 @@ function extractYoutubeId(input){
 }
 let allRows = [];
 let allChurches = [];
+// The free/default ("is_free = true") Following Jesus course's id.
+// Derived from allRows once loaded (any row's course_id where
+// course_title === 'Following Jesus') rather than hardcoded, since it
+// isn't in NON_WHITE_LABEL_COURSES and its real UUID was never
+// confirmed for this file. Used to give it the same course-wide
+// dashboard (renderCourseStudents) the 5 paid courses already get,
+// instead of it only being reachable via the "no church assigned" view.
+let followingJesusCourseId = null;
 let activeChurchId = null; // null = "all churches" overview
 // Both the overview and the "no church assigned" view share
 // activeChurchId === null, so this separate flag is what actually
@@ -486,6 +494,7 @@ async function init(){
   if(rowsErr || !rows){ content.textContent = 'Could not load student data.'; return; }
   allRows = rows;
   allChurches = churches || [];
+  followingJesusCourseId = (allRows.find(r => r.course_title === 'Following Jesus') || {}).course_id || null;
   renderSidebar();
   document.getElementById('sidebar-overview-link').addEventListener('click', renderChurchesOverview);
   document.getElementById('sidebar-all-students-link').addEventListener('click', renderAllStudents);
@@ -721,7 +730,9 @@ function renderSidebar(){
   document.getElementById('sidebar-church-count').textContent = allChurches.length;
 
   const courseListEl = document.getElementById('sidebar-course-list');
-  courseListEl.innerHTML = NON_WHITE_LABEL_COURSES.map(c => {
+  const followingJesusCount = followingJesusCourseId ? allRows.filter(r => r.course_id === followingJesusCourseId && r.status !== 'archived').length : 0;
+  const followingJesusItemHtml = followingJesusCourseId ? `<div class="sidebar-church-item ${followingJesusCourseId === activeCourseId ? 'active' : ''}" data-course-id="${followingJesusCourseId}" data-course-title="Following Jesus" style="border-bottom:1px solid var(--line);margin-bottom:6px;padding-bottom:10px;"><span>Following Jesus <span style="color:var(--ink-soft);font-weight:400;">(General Course)</span></span><span class="count">${followingJesusCount}</span></div>` : '';
+  courseListEl.innerHTML = followingJesusItemHtml + NON_WHITE_LABEL_COURSES.map(c => {
     const count = allRows.filter(r => r.course_id === c.id && r.status !== 'archived').length;
     return `<div class="sidebar-church-item ${c.id === activeCourseId ? 'active' : ''}" data-course-id="${c.id}" data-course-title="${c.title.replace(/"/g,'&quot;')}"><span>${c.title}</span><span class="count">${count}</span></div>`;
   }).join('');
@@ -730,7 +741,7 @@ function renderSidebar(){
   });
 
   const noChurchCount = allRows.filter(r => !r.church_id && r.status !== 'archived').length;
-  const noChurchItemHtml = `<div class="sidebar-church-item ${viewingNoChurch ? 'active' : ''}" id="sidebar-no-church-item" style="border-bottom:1px solid var(--line);margin-bottom:6px;padding-bottom:10px;"><span>Following Jesus <span style="color:var(--ink-soft);font-weight:400;">(Primary)</span></span><span class="count">${noChurchCount}</span></div>`;
+  const noChurchItemHtml = `<div class="sidebar-church-item ${viewingNoChurch ? 'active' : ''}" id="sidebar-no-church-item" style="border-bottom:1px solid var(--line);margin-bottom:6px;padding-bottom:10px;"><span>No Church Assigned</span><span class="count">${noChurchCount}</span></div>`;
 
   let filtered = query ? allChurches.filter(c => c.name.toLowerCase().includes(query)) : allChurches;
   if(sidebarStatusFilter !== 'all'){
@@ -1240,6 +1251,7 @@ function renderAllStudents(){
     <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;">
       <input type="text" class="sidebar-search" id="all-students-search" placeholder="Search by name, email, or church…" style="max-width:280px;margin-bottom:0;" />
       <button class="mini-btn" id="export-all-students-btn">Export Students (CSV)</button>
+      <button class="mini-btn gold" id="view-all-report-btn">View Progress Report</button>
       <button class="mini-btn" id="merge-accounts-btn">Merge Accounts</button>
     </div>
     <div id="all-students-batch-bar"></div>
@@ -1256,6 +1268,14 @@ function renderAllStudents(){
   document.getElementById('all-students-search').addEventListener('input', renderAllStudentsRows);
   document.getElementById('export-all-students-btn').addEventListener('click', () => {
     exportStudentsCSV(allStudentsFilteredRows, `all-students-${new Date().toISOString().slice(0,10)}.csv`, true);
+  });
+  document.getElementById('view-all-report-btn').addEventListener('click', () => {
+    // Same mode-filter convention as renderChurchStudents' own report
+    // button (Active vs Archived, not whatever's currently typed in the
+    // search box) -- reuses renderStudentReport unchanged, just like
+    // renderCourseStudents already does for a non-white-labeled course.
+    const modeRows = allRows.filter(r => studentViewMode === 'archived' ? r.status === 'archived' : r.status !== 'archived');
+    renderStudentReport(modeRows, null, 'All Churches');
   });
   document.getElementById('merge-accounts-btn').addEventListener('click', renderMergeAccounts);
   document.getElementById('student-mode-active-btn').addEventListener('click', () => {
