@@ -4600,13 +4600,10 @@ async function renderMemberDetail(memberId) {
       <p>Tap an item to mark it covered.</p>
       ${milestonesChecklistHtml(milestonesData, true)}
     </div>
-    <div class="section-label">Courses</div>
-    ${courseCardHtml('essentials', 'Following Jesus Essentials', '7 essentials for every follower of Jesus', stepsHtml, walkoutProgress, progress)}
     ${renderResourcesHtml()}
   `;
 
   document.getElementById('backBtn').onclick = () => { view = 'home'; activeMemberId = null; render(); };
-  wireCourseToggle('essentials', () => renderMemberDetail(memberId));
   wireWalkoutToggles(main, 'Leader');
   wireMilestoneToggles(document.getElementById('milestonesCard'), memberId, () => renderMemberDetail(memberId));
   document.getElementById('sendMsgBtn').onclick = async () => {
@@ -4779,11 +4776,9 @@ async function renderDisciple() {
       </div>
     </div>` : ''}
     ${renderResourcesHtml()}
-    ${courseCardHtml('essentials', 'Following Jesus Essentials', '7 essentials for every follower of Jesus', stepsHtml, walkoutProgress, progress)}
     ${await fjCourseCardHtml()}
   `;
   document.getElementById('backToHubBtn').onclick = () => { topView = 'hub'; render(); };
-  wireCourseToggle('essentials', render);
   wireMilestoneToggles(document.getElementById('milestonesCard'), myId, () => render(true));
   document.getElementById('joinAnotherBtn').onclick = async () => {
     const codeInput = (await showAppPrompt("Enter the invite code", "e.g. AB12CD"))?.trim().toUpperCase();
@@ -5106,7 +5101,6 @@ async function renderDiscipleshipHub() {
   });
 
   const nestedCoursesHtml =
-    courseCardHtml('essentials', COURSES.essentials.title, COURSES.essentials.subtitle, stepsHtml, walkoutProgress, progress) +
     courseCardHtml('waterBaptism', COURSES.waterBaptism.title, COURSES.waterBaptism.subtitle, wbStepsHtml, wbWalkoutProgress, wbProgress, WB_STEPS, WB_WALK_IT_OUT) +
     await fjCourseCardHtml();
 
@@ -5325,17 +5319,9 @@ async function renderDiscipleshipHub() {
   }
 
   wireJourneyToggle(renderDiscipleshipHub);
-  wireCourseToggle('essentials', renderDiscipleshipHub);
   wireCourseToggle('waterBaptism', renderDiscipleshipHub);
 
-  const essentialsBody = document.getElementById('courseCardBody-essentials');
   const wbBody = document.getElementById('courseCardBody-waterBaptism');
-
-  wireWalkoutToggles(essentialsBody, 'HubEssentials');
-  // Essentials steps are now real course links, not manual toggles, so
-  // no onStepStatusChange callback is needed — Walk It Out stays a
-  // purely separate reflection layer for this course.
-  wireWalkoutItemToggles(essentialsBody, myId, null, WALK_IT_OUT, 'essentials');
 
   wireWalkoutToggles(wbBody, 'HubWaterBaptism');
   wireWalkoutItemToggles(
