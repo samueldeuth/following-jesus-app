@@ -3347,6 +3347,20 @@ async function hasCompletedFreeCourse(discipleId) {
   return !!cert;
 }
 
+// Real, live progress through the free course (not tied to certificate
+// existence) -- used to show an actual percentage on the milestone
+// checklist instead of a plain checkbox, since completion itself is
+// already auto-detected the moment a certificate exists.
+async function getFreeCourseProgress(discipleId) {
+  const courseId = await getFreeCourseId();
+  if (!courseId) return { pct: 0 };
+  const { data: sessionsData } = await supabaseClient.from('sessions').select('id, session_items(id)').eq('course_id', courseId);
+  const itemIds = (sessionsData || []).flatMap(s => (s.session_items || []).map(i => i.id));
+  if (itemIds.length === 0) return { pct: 0 };
+  const { count } = await supabaseClient.from('item_progress').select('id', { count: 'exact', head: true }).eq('student_id', discipleId).in('item_id', itemIds).not('completed_at', 'is', null);
+  return { pct: Math.round(((count || 0) / itemIds.length) * 100) };
+}
+
 // "Applying to Make Disciples" checks for any leader application on
 // file for this person, regardless of its approval status -- the
 // milestone is about having applied, not (yet) being approved.
@@ -3367,9 +3381,10 @@ async function isAutoMilestoneDone(autoSource, discipleId) {
 async function getDiscipleshipMilestonesData(discipleId) {
   const defs = await getMilestoneDefinitions();
   const autoSources = [...new Set(defs.filter(m => m.auto_source).map(m => m.auto_source))];
-  const [stages, completionsRes, ...autoResults] = await Promise.all([
+  const [stages, completionsRes, courseProgress, ...autoResults] = await Promise.all([
     getStageDefinitions(),
     supabaseClient.from('discipleship_milestone_completions').select('milestone_id, completed_at').eq('disciple_id', discipleId),
+    getFreeCourseProgress(discipleId),
     ...autoSources.map(source => isAutoMilestoneDone(source, discipleId))
   ]);
   const autoDoneBySource = {};
@@ -3385,6 +3400,7 @@ async function getDiscipleshipMilestonesData(discipleId) {
       id: m.id,
       label: m.label,
       isAuto: !!m.auto_source,
+      autoSource: m.auto_source || null,
       allowsOverride: !!m.allow_manual_override,
       stageKey: m.stage_key,
       // An override-eligible auto item counts as done from either
@@ -3395,7 +3411,11 @@ async function getDiscipleshipMilestonesData(discipleId) {
       // Clickable if it's a plain manual item, or it's override-eligible
       // and not already genuinely auto-verified -- once the real,
       // automatic detection is true, there's nothing left to toggle.
-      canToggle: !m.auto_source || (m.allow_manual_override && !autoResult)
+      canToggle: !m.auto_source || (m.allow_manual_override && !autoResult),
+      // Only meaningful for the course-completion item -- real, live
+      // progress (not certificate-based) shown as a progress bar
+      // instead of asking someone to manually track this one.
+      courseProgressPct: m.auto_source === 'course_completion' ? courseProgress.pct : null
     };
   });
   const allDone = items.length > 0 && items.every(i => i.done);
@@ -3414,6 +3434,21 @@ async function getDiscipleshipMilestonesData(discipleId) {
 }
 
 async function toggleMilestone(discipleId, milestoneId, done) {
+  // The course-completion milestone is special: confirming it manually
+  // should produce a REAL certificate, not a separate flag that only
+  // this one checklist knows about -- that certificate then satisfies
+  // hasCompletedFreeCourse() automatically on the next fetch, which is
+  // what everything else (the live disciple counter, admin dashboard
+  // completion counts, this milestone's own auto-detection) already
+  // reads. Never fires on uncheck -- once a real certificate exists,
+  // there's nothing to take back through this screen.
+  const defs = await getMilestoneDefinitions();
+  const def = defs.find(d => d.id === milestoneId);
+  if (def && def.auto_source === 'course_completion' && done) {
+    const courseId = await getFreeCourseId();
+    if (courseId) await supabaseClient.rpc('issue_certificate_if_needed', { p_student_id: discipleId, p_course_id: courseId });
+    return;
+  }
   if (done) {
     await supabaseClient.from('discipleship_milestone_completions').upsert({
       disciple_id: discipleId, milestone_id: milestoneId, completed_by: myId
@@ -3460,6 +3495,29 @@ function milestonesChecklistHtml(data, interactive) {
     // why an otherwise-automatic item can be tapped.
     const showAutoTag = item.isAuto && !canToggle;
     const showOverrideHint = item.isAuto && canToggle;
+
+    // The course-completion item gets a real, live progress bar instead
+    // of a plain checkbox -- there's nothing to manually track here
+    // day-to-day, since completion is already auto-detected the moment
+    // a certificate exists. The "finished it elsewhere" fallback is a
+    // small button inside the row, not the whole row, so it's clearly
+    // separate from the automatic progress display above it.
+    if (item.autoSource === 'course_completion' && !item.done) {
+      const pct = item.courseProgressPct || 0;
+      return `
+      <div class="walkout-item">
+        <div class="walkout-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></div>
+        <div class="walkout-item-text" style="flex:1;">
+          ${escapeHtml(item.label)}
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+            <div class="walkout-progress-bar" style="flex:1;height:5px;"><div class="walkout-progress-fill" style="width:${pct}%;"></div></div>
+            <span style="font-size:11.5px;color:var(--ink-soft);flex-shrink:0;">${pct}%</span>
+          </div>
+          ${canToggle ? `<button type="button" class="milestone-override-link" data-milestone-id="${item.id}" style="background:none;border:none;padding:0;margin-top:6px;font-size:11.5px;color:var(--ink-soft);text-decoration:underline;cursor:pointer;">Finished it elsewhere? Mark as complete</button>` : ''}
+        </div>
+      </div>`;
+    }
+
     return `
     <div class="walkout-item${canToggle ? ' interactive' : ''}"${canToggle ? ` data-milestone-id="${item.id}"` : ''}>
       <div class="walkout-check ${item.done ? 'done' : ''}">
@@ -3492,12 +3550,27 @@ function milestonesChecklistHtml(data, interactive) {
 // excluded here). onToggled is called after each toggle completes so
 // the caller can re-render and re-check for celebration.
 function wireMilestoneToggles(container, discipleId, onToggled) {
-  container.querySelectorAll('[data-milestone-id]').forEach(el => {
+  container.querySelectorAll('.walkout-item[data-milestone-id]').forEach(el => {
     el.addEventListener('click', async () => {
       const milestoneId = el.dataset.milestoneId;
       const nowDone = !el.querySelector('.walkout-check').classList.contains('done');
       el.style.pointerEvents = 'none';
       await toggleMilestone(discipleId, milestoneId, nowDone);
+      onToggled();
+    });
+  });
+  // The course-completion item's "finished it elsewhere" fallback is a
+  // small button INSIDE the row, not the whole row -- handled
+  // separately since it always marks complete (there's no unchecking a
+  // real certificate from this screen) and shouldn't also trigger the
+  // whole-row handler above if it were ever nested inside one.
+  container.querySelectorAll('button.milestone-override-link[data-milestone-id]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const milestoneId = btn.dataset.milestoneId;
+      btn.disabled = true;
+      btn.textContent = 'Marking complete...';
+      await toggleMilestone(discipleId, milestoneId, true);
       onToggled();
     });
   });

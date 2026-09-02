@@ -379,6 +379,34 @@ function toggleSidebar(){ adminShell.classList.toggle('sidebar-collapsed'); }
 document.getElementById('sidebar-toggle-btn').addEventListener('click', toggleSidebar);
 document.getElementById('sidebar-overlay').addEventListener('click', toggleSidebar);
 
+// Builds the OAuth redirect target WITHOUT any hash or query string --
+// deliberately not window.location.href, which captures whatever's
+// currently in the address bar, including a leftover empty '#' from a
+// previous sign-in's own token-cleanup step. If that stray '#' ever
+// gets used as the redirectTo, Supabase's OAuth response appends its
+// OWN '#access_token=...' fragment on top of it, producing a malformed
+// '##access_token=...' URL -- and since the browser treats everything
+// after the FIRST '#' as one fragment, Supabase's own parsing code ends
+// up looking for a key literally named '#access_token' instead of
+// 'access_token', never finds it, and silently fails to create a
+// session. This was the real cause of "signing back in doesn't work"
+// after a sign-out, confirmed from a real reported URL showing exactly
+// this double-hash pattern.
+function cleanRedirectUrl(){
+  return window.location.origin + window.location.pathname;
+}
+
+// Defensive cleanup on every load: only strips the hash if it's clearly
+// NOT a legitimate, still-unprocessed OAuth response (i.e. it doesn't
+// contain 'access_token') -- a real token response needs to stay put so
+// Supabase's own client library can actually read and process it.
+// This only ever cleans up genuine leftovers, like a bare '#' with
+// nothing in it, so that kind of stray artifact can never survive into
+// a LATER, unrelated sign-in attempt as described above.
+if(window.location.hash && !window.location.hash.includes('access_token')){
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+}
+
 // Pulls the video ID out of any common YouTube URL shape (watch?v=,
 // youtu.be/, embed/, or a bare 11-character ID typed directly).
 function extractYoutubeId(input){
@@ -472,7 +500,7 @@ async function init(){
     document.getElementById('admin-google-btn').addEventListener('click', async () => {
       await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.href, queryParams: { prompt: 'select_account' } }
+        options: { redirectTo: cleanRedirectUrl(), queryParams: { prompt: 'select_account' } }
       });
     });
     return;
