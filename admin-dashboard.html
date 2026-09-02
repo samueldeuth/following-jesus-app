@@ -709,7 +709,10 @@ function renderStudentReport(rows, church, courseTitle, showAggregateSections){
           const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
           return `
             <div class="report-student-row">
-              <span class="report-student-name">${escapeHtmlReport(r.full_name || 'Unnamed student')}${r.church_name ? ` <span style="color:var(--ink-soft);font-weight:400;">(${escapeHtmlReport(r.church_name)})</span>` : ''}</span>
+              <span class="report-student-name" style="display:block;white-space:normal;overflow:visible;line-height:1.35;">
+                <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtmlReport(r.full_name || 'Unnamed student')}</span>
+                ${r.church_name ? `<span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;color:var(--ink-soft);font-weight:400;">${escapeHtmlReport(r.church_name)}</span>` : ''}
+              </span>
               <div class="report-student-bar-track"><div class="report-student-bar-fill" style="width:${pct}%;background:${accent};"></div></div>
               <span class="report-student-pct">${pct}%</span>
             </div>`;

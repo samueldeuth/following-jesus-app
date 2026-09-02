@@ -257,6 +257,31 @@
   }
   .notif-toggle-dark .notif-toggle-state { color: rgba(255,255,255,0.5); }
 
+  .notif-settings-row {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .notif-settings-row.show { display: flex; }
+  .notif-settings-select {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 6px 10px;
+    border-radius: 14px;
+    border: 1px solid rgba(0,0,0,0.12);
+    background: rgba(0,0,0,0.03);
+    color: var(--black);
+  }
+  .notif-settings-row-dark .notif-settings-select {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.18);
+    color: var(--white);
+  }
+
   .today-rule { height: 1px; background: var(--rule); margin: 18px 0; }
 
   .today-note {
@@ -1674,6 +1699,13 @@
           <span>Daily Verse Alert</span>
           <span class="notif-toggle-state">Off</span>
         </button>
+        <div class="notif-settings-row" id="verseOfDaySettingsRow">
+          <select class="notif-settings-select" id="verseOfDayFreqSelect">
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly (Mon)</option>
+          </select>
+          <select class="notif-settings-select" id="verseOfDayTimeSelect"></select>
+        </div>
       </div>
 
       <button type="button" class="disciple-banner" id="discipleBannerBtn">
@@ -1770,6 +1802,13 @@
           <span>Daily Reading Reminder</span>
           <span class="notif-toggle-state">Off</span>
         </button>
+        <div class="notif-settings-row notif-settings-row-dark" id="readingReminderSettingsRow">
+          <select class="notif-settings-select" id="readingReminderFreqSelect">
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly (Mon)</option>
+          </select>
+          <select class="notif-settings-select" id="readingReminderTimeSelect"></select>
+        </div>
       </div>
 
       <div id="bibleReader" class="bible-reader" style="margin-top:18px;">
@@ -6146,13 +6185,13 @@ async function renderDiscipleshipApp() {
     return typeof median !== 'undefined' && median && median.onesignal;
   }
 
-  async function setNotificationTag(tagName, enabled) {
+  async function setOneSignalTag(tagName, value) {
     if (!medianBridgeAvailable()) {
-      console.log('[notifications] Median bridge not available yet — tag not sent:', tagName, enabled);
+      console.log('[notifications] Median bridge not available yet — tag not sent:', tagName, value);
       return false;
     }
     try {
-      const result = await median.onesignal.tags.setTags({ tags: { [tagName]: enabled ? 'true' : 'false' } });
+      const result = await median.onesignal.tags.setTags({ tags: { [tagName]: String(value) } });
       return !!(result && result.success);
     } catch (e) {
       console.log('[notifications] failed to set tag', tagName, e);
@@ -6160,36 +6199,101 @@ async function renderDiscipleshipApp() {
     }
   }
 
+  // Hour options for the time picker, 6AM-9PM local (whatever "local" is
+  // on the device) -- send-daily-notifications.js loops this same range
+  // server-side, so a new hour added here needs adding there too.
+  const NOTIF_HOURS = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21];
+  function notifHourLabel(h) {
+    const period = h < 12 ? 'AM' : 'PM';
+    let h12 = h % 12; if (h12 === 0) h12 = 12;
+    return `${h12}:00 ${period}`;
+  }
+  function notifHourOptionsHtml(selectedHour) {
+    return NOTIF_HOURS.map(h => {
+      const val = String(h).padStart(2, '0');
+      return `<option value="${val}" ${val === selectedHour ? 'selected' : ''}>${notifHourLabel(h)}</option>`;
+    }).join('');
+  }
+
+  const NOTIF_DEFAULTS = {
+    readingReminder: false, readingReminderFreq: 'daily', readingReminderHour: '07',
+    verseOfDay: false, verseOfDayFreq: 'daily', verseOfDayHour: '07'
+  };
   async function getNotifPrefs() {
-    return (await dSafeGet('notifPrefs')) || { readingReminder: false, verseOfDay: false };
+    const stored = await dSafeGet('notifPrefs');
+    return Object.assign({}, NOTIF_DEFAULTS, stored || {});
   }
   async function saveNotifPrefs(prefs) {
     await dSafeSet('notifPrefs', prefs);
   }
 
-  async function toggleNotifPref(key, tagName, btnEl, labelOnEl) {
+  // Pushes all three OneSignal tags for one notification type at once
+  // (enabled bool, frequency, hour) -- called both on every toggle/select
+  // change AND unconditionally on every app load (see initNotifToggles),
+  // so anyone who already had a reminder on before this feature shipped
+  // gets backfilled with the daily/7AM defaults the next time they open
+  // the app, without needing any server-side migration.
+  async function applyNotifTags(prefKey, tagKey, prefs) {
+    await setOneSignalTag(tagKey, prefs[prefKey] ? 'true' : 'false');
+    await setOneSignalTag(`${tagKey}_freq`, prefs[`${prefKey}Freq`]);
+    await setOneSignalTag(`${tagKey}_hour`, prefs[`${prefKey}Hour`]);
+  }
+
+  async function toggleNotifPref(prefKey, tagKey, btnEl, labelOnEl, settingsRowEl) {
     const prefs = await getNotifPrefs();
-    const next = !prefs[key];
-    prefs[key] = next;
+    const next = !prefs[prefKey];
+    prefs[prefKey] = next;
     await saveNotifPrefs(prefs);
-    await setNotificationTag(tagName, next);
+    await applyNotifTags(prefKey, tagKey, prefs);
     if (btnEl) btnEl.classList.toggle('on', next);
     if (labelOnEl) labelOnEl.textContent = next ? 'On' : 'Off';
+    if (settingsRowEl) settingsRowEl.classList.toggle('show', next);
+  }
+
+  async function updateNotifSetting(prefKey, tagKey, field, value) {
+    const prefs = await getNotifPrefs();
+    prefs[`${prefKey}${field}`] = value; // field is 'Freq' or 'Hour'
+    await saveNotifPrefs(prefs);
+    await applyNotifTags(prefKey, tagKey, prefs);
   }
 
   async function initNotifToggles() {
     const prefs = await getNotifPrefs();
+
     const readingBtn = document.getElementById('readingReminderToggle');
-    const verseBtn = document.getElementById('verseOfDayToggle');
+    const readingRow = document.getElementById('readingReminderSettingsRow');
+    const readingFreqSelect = document.getElementById('readingReminderFreqSelect');
+    const readingHourSelect = document.getElementById('readingReminderTimeSelect');
     if (readingBtn) {
       readingBtn.classList.toggle('on', prefs.readingReminder);
       readingBtn.querySelector('.notif-toggle-state').textContent = prefs.readingReminder ? 'On' : 'Off';
-      readingBtn.addEventListener('click', () => toggleNotifPref('readingReminder', 'reading_reminder', readingBtn, readingBtn.querySelector('.notif-toggle-state')));
+      if (readingRow) readingRow.classList.toggle('show', prefs.readingReminder);
+      if (readingHourSelect) readingHourSelect.innerHTML = notifHourOptionsHtml(prefs.readingReminderHour);
+      if (readingFreqSelect) readingFreqSelect.value = prefs.readingReminderFreq;
+      readingBtn.addEventListener('click', () => toggleNotifPref('readingReminder', 'reading_reminder', readingBtn, readingBtn.querySelector('.notif-toggle-state'), readingRow));
+      if (readingFreqSelect) readingFreqSelect.addEventListener('change', () => updateNotifSetting('readingReminder', 'reading_reminder', 'Freq', readingFreqSelect.value));
+      if (readingHourSelect) readingHourSelect.addEventListener('change', () => updateNotifSetting('readingReminder', 'reading_reminder', 'Hour', readingHourSelect.value));
+      // Backfill tags every load, not just on click, so anyone with this
+      // already on from before this feature shipped gets freq/hour tags
+      // set to the defaults automatically. Harmless no-op for anyone
+      // whose tags are already current.
+      applyNotifTags('readingReminder', 'reading_reminder', prefs);
     }
+
+    const verseBtn = document.getElementById('verseOfDayToggle');
+    const verseRow = document.getElementById('verseOfDaySettingsRow');
+    const verseFreqSelect = document.getElementById('verseOfDayFreqSelect');
+    const verseHourSelect = document.getElementById('verseOfDayTimeSelect');
     if (verseBtn) {
       verseBtn.classList.toggle('on', prefs.verseOfDay);
       verseBtn.querySelector('.notif-toggle-state').textContent = prefs.verseOfDay ? 'On' : 'Off';
-      verseBtn.addEventListener('click', () => toggleNotifPref('verseOfDay', 'verse_of_day', verseBtn, verseBtn.querySelector('.notif-toggle-state')));
+      if (verseRow) verseRow.classList.toggle('show', prefs.verseOfDay);
+      if (verseHourSelect) verseHourSelect.innerHTML = notifHourOptionsHtml(prefs.verseOfDayHour);
+      if (verseFreqSelect) verseFreqSelect.value = prefs.verseOfDayFreq;
+      verseBtn.addEventListener('click', () => toggleNotifPref('verseOfDay', 'verse_of_day', verseBtn, verseBtn.querySelector('.notif-toggle-state'), verseRow));
+      if (verseFreqSelect) verseFreqSelect.addEventListener('change', () => updateNotifSetting('verseOfDay', 'verse_of_day', 'Freq', verseFreqSelect.value));
+      if (verseHourSelect) verseHourSelect.addEventListener('change', () => updateNotifSetting('verseOfDay', 'verse_of_day', 'Hour', verseHourSelect.value));
+      applyNotifTags('verseOfDay', 'verse_of_day', prefs);
     }
   }
   initNotifToggles();
