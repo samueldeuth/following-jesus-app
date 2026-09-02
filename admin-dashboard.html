@@ -626,7 +626,7 @@ function buildDonutSegments(segments, radius = 70){
     });
 }
 
-function renderStudentReport(rows, church, courseTitle, showAggregateSections){
+function renderStudentReport(rows, church, courseTitle, showAggregateSections, capStudentListTo10){
   // courseTitle only matters when church is null (a non-white-labeled
   // course's report, via renderCourseStudents) -- defaults to Following
   // Jesus so the existing per-church report caller (which always passes
@@ -660,8 +660,16 @@ function renderStudentReport(rows, church, courseTitle, showAggregateSections){
       <span class="report-legend-count">${s.count}</span>
     </div>`).join('');
 
+  // Metrics/donut above are always computed from the FULL rows regardless
+  // of capStudentListTo10 -- capping only affects the itemized list below,
+  // never the summary stats, so "all the data" still shows up in the
+  // visual chart even when the sheet only lists the top 10 names.
   const sortedRows = [...rows].sort((a,b) => (b.items_completed/Math.max(b.total_items,1)) - (a.items_completed/Math.max(a.total_items,1)));
-  const studentRowsHtml = sortedRows.map(r => {
+  const rowsForList = capStudentListTo10 ? sortedRows.slice(0, 10) : sortedRows;
+  const studentListTitle = (capStudentListTo10 && sortedRows.length > 10)
+    ? `Top 10 Students by Progress <span style="font-weight:400;color:var(--ink-soft);font-size:12px;">(of ${sortedRows.length} total)</span>`
+    : 'Student Progress';
+  const studentRowsHtml = rowsForList.map(r => {
     const pct = r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
     return `
       <div class="report-student-row">
@@ -754,7 +762,7 @@ function renderStudentReport(rows, church, courseTitle, showAggregateSections){
       ${topStudentsHtml}
 
       <div class="report-students-block">
-        <div class="report-section-title">Student Progress</div>
+        <div class="report-section-title">${studentListTitle}</div>
         ${studentRowsHtml}
       </div>
 
@@ -1303,7 +1311,6 @@ function renderAllStudents(){
     <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;">
       <input type="text" class="sidebar-search" id="all-students-search" placeholder="Search by name, email, or church…" style="max-width:280px;margin-bottom:0;" />
       <button class="mini-btn" id="export-all-students-btn">Export Students (CSV)</button>
-      <button class="mini-btn gold" id="view-all-report-btn">View Progress Report</button>
       <button class="mini-btn" id="merge-accounts-btn">Merge Accounts</button>
     </div>
     <div id="all-students-batch-bar"></div>
@@ -1320,14 +1327,6 @@ function renderAllStudents(){
   document.getElementById('all-students-search').addEventListener('input', renderAllStudentsRows);
   document.getElementById('export-all-students-btn').addEventListener('click', () => {
     exportStudentsCSV(allStudentsFilteredRows, `all-students-${new Date().toISOString().slice(0,10)}.csv`, true);
-  });
-  document.getElementById('view-all-report-btn').addEventListener('click', () => {
-    // Same mode-filter convention as renderChurchStudents' own report
-    // button (Active vs Archived, not whatever's currently typed in the
-    // search box) -- reuses renderStudentReport unchanged, just like
-    // renderCourseStudents already does for a non-white-labeled course.
-    const modeRows = allRows.filter(r => studentViewMode === 'archived' ? r.status === 'archived' : r.status !== 'archived');
-    renderStudentReport(modeRows, null, 'All Churches', true);
   });
   document.getElementById('merge-accounts-btn').addEventListener('click', renderMergeAccounts);
   document.getElementById('student-mode-active-btn').addEventListener('click', () => {
@@ -1893,7 +1892,7 @@ async function renderChurchStudents(churchId){
   });
 
   const viewReportBtn = document.getElementById('view-report-btn');
-  if(viewReportBtn) viewReportBtn.addEventListener('click', () => renderStudentReport(rows, church));
+  if(viewReportBtn) viewReportBtn.addEventListener('click', () => renderStudentReport(rows, church, null, false, true));
 
 
   const colorPicker = document.getElementById('edit-church-color-picker');
