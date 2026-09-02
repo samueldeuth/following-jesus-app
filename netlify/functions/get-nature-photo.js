@@ -33,17 +33,19 @@ const SEARCH_TERMS = [
   'mountain landscape', 'mountain peak sky'
 ];
 
-// Turns a seed string into a stable number. The seed is normally a
-// gospel card's id combined with the current week (see the "week" query
-// param below) -- same card + same week always gets the same
-// search/photo, but a new week produces a genuinely different one,
-// since the resulting URL itself changes (see the Cache-Control note in
-// the handler for why the URL needs to change, not just the internal
-// pick, for weekly rotation to actually work).
-function hashSeed(seed) {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  return hash;
+// FNV-1a hash -- the previous simple multiply-and-add hash was
+// clustering several of this app's real card ids onto the exact same
+// search term AND result page, producing byte-for-byte identical
+// photos for different verses (confirmed: 'hope', 'newlife', and 'life'
+// all collided, as did 'calling' and 'forgiven'). FNV-1a distributes
+// much better across short, similar-length strings like these card ids.
+function hashString(str) {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
 }
 
 exports.handler = async (event) => {
@@ -54,19 +56,30 @@ exports.handler = async (event) => {
 
   const seed = (event.queryStringParameters && event.queryStringParameters.seed) || 'default';
   const week = (event.queryStringParameters && event.queryStringParameters.week) || '';
-  const hash = hashSeed(week ? `${seed}|${week}` : seed);
-  const query = SEARCH_TERMS[hash % SEARCH_TERMS.length];
-  const page = (hash % 15) + 1; // spreads results across Pexels' result pages for variety
+  const baseSeed = week ? `${seed}|${week}` : seed;
+  // Three independent hashes (different sub-seeds) rather than reusing
+  // one hash's %10 and %15 remainders for term and page -- with a weak
+  // hash and only ~10 real card ids, those two remainders ended up
+  // correlated often enough to produce real collisions (see note above).
+  // Hashing three distinct strings decorrelates them completely.
+  const query = SEARCH_TERMS[hashString(`${baseSeed}#term`) % SEARCH_TERMS.length];
+  const page = (hashString(`${baseSeed}#page`) % 15) + 1; // spreads results across Pexels' result pages
+  const RESULTS_PER_PAGE = 5;
+  const pickIndex = hashString(`${baseSeed}#pick`) % RESULTS_PER_PAGE; // which of that page's results to use
 
   try {
     const searchRes = await fetch(
-      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=1&page=${page}&orientation=square`,
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${RESULTS_PER_PAGE}&page=${page}&orientation=square`,
       { headers: { Authorization: apiKey } }
     );
     if (!searchRes.ok) throw new Error(`Pexels search failed: ${searchRes.status}`);
     const searchData = await searchRes.json();
-    const photo = searchData.photos && searchData.photos[0];
-    if (!photo) throw new Error('No photo found for this query.');
+    const photos = searchData.photos || [];
+    if (photos.length === 0) throw new Error('No photo found for this query.');
+    // Pexels may return fewer than RESULTS_PER_PAGE near the end of its
+    // result set -- fall back to modulo the actual count rather than
+    // failing outright.
+    const photo = photos[pickIndex % photos.length];
 
     const imageRes = await fetch(photo.src.large);
     if (!imageRes.ok) throw new Error(`Image fetch failed: ${imageRes.status}`);
