@@ -2675,14 +2675,27 @@
     return lines;
   }
 
+  // Same-week key for everyone (not per-user) -- doesn't need to be a
+  // strictly correct ISO week number, just needs to change once a week,
+  // on the same day, for every visitor, so a given card's photo rotates
+  // in sync rather than on a rolling per-visitor basis.
+  function currentWeekKey() {
+    const now = new Date();
+    const jan1 = new Date(now.getFullYear(), 0, 1);
+    const days = Math.floor((now - jan1) / 86400000);
+    const week = Math.ceil((days + jan1.getDay() + 1) / 7);
+    return `${now.getFullYear()}-W${week}`;
+  }
+
   // Fetches a real nature photo from the get-nature-photo function, which
   // proxies Pexels' free API server-side — see that file's comments for
   // why this needs to be a backend function rather than loading directly
-  // from Pexels in the browser. Same seed (a card's id) always gets a
-  // similar photo, so a given verse doesn't change its background every
-  // time it's reopened.
+  // from Pexels in the browser. Same seed (a card's id) + same week
+  // always gets the same photo, so a given verse's background stays put
+  // within a week but rotates to something new each week -- matches the
+  // same weekly cadence as the Verse of the Day notification setting.
   function natureBackgroundUrlForCard(cardId) {
-    return `/.netlify/functions/get-nature-photo?seed=${encodeURIComponent(cardId)}`;
+    return `/.netlify/functions/get-nature-photo?seed=${encodeURIComponent(cardId)}&week=${encodeURIComponent(currentWeekKey())}`;
   }
 
   function loadImage(src) {
