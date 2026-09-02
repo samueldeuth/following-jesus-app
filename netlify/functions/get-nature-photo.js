@@ -22,14 +22,24 @@
 // once deployed, it's reachable at:
 //   https://<your-site>.netlify.app/.netlify/functions/get-nature-photo
 
+// Two per requested category (beach, ocean, trees, sky, mountains) for
+// real variety within each -- swap/add terms here to adjust the mix,
+// nothing else needs to change.
 const SEARCH_TERMS = [
-  'sunrise sky', 'mountain landscape', 'forest path', 'ocean horizon',
-  'peaceful field', 'golden hour nature', 'calm lake', 'desert sky'
+  'tropical beach', 'sandy beach shoreline',
+  'ocean horizon', 'ocean waves',
+  'forest path', 'tall pine trees',
+  'sunrise sky', 'sunset sky clouds',
+  'mountain landscape', 'mountain peak sky'
 ];
 
-// Turns a seed string (a gospel card's id) into a stable number, so the
-// same verse consistently gets a similar search/photo rather than a new
-// random one every single time it's opened.
+// Turns a seed string into a stable number. The seed is normally a
+// gospel card's id combined with the current week (see the "week" query
+// param below) -- same card + same week always gets the same
+// search/photo, but a new week produces a genuinely different one,
+// since the resulting URL itself changes (see the Cache-Control note in
+// the handler for why the URL needs to change, not just the internal
+// pick, for weekly rotation to actually work).
 function hashSeed(seed) {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
@@ -43,7 +53,8 @@ exports.handler = async (event) => {
   }
 
   const seed = (event.queryStringParameters && event.queryStringParameters.seed) || 'default';
-  const hash = hashSeed(seed);
+  const week = (event.queryStringParameters && event.queryStringParameters.week) || '';
+  const hash = hashSeed(week ? `${seed}|${week}` : seed);
   const query = SEARCH_TERMS[hash % SEARCH_TERMS.length];
   const page = (hash % 15) + 1; // spreads results across Pexels' result pages for variety
 
@@ -66,9 +77,16 @@ exports.handler = async (event) => {
       headers: {
         'Content-Type': 'image/jpeg',
         'Access-Control-Allow-Origin': '*',
-        // Cached for a week — a given verse's photo doesn't need to
-        // change often, and this keeps well within Pexels' free rate
-        // limit even with regular use.
+        // Cached for a week. This only produces real weekly rotation
+        // because the CLIENT includes a week identifier in the request
+        // URL (see natureBackgroundUrlForCard in app.html) -- a browser
+        // or CDN cache keys purely off the URL, so if the URL never
+        // changed, caching it for 7 days would just freeze whatever
+        // photo was first fetched, no matter how the internal query
+        // logic changes. Since the URL DOES change every week, each
+        // week's specific URL can safely be cached for the whole week
+        // it's actually in use, then naturally stops being requested
+        // once the week rolls over.
         'Cache-Control': 'public, max-age=604800'
       },
       body: Buffer.from(imageBuffer).toString('base64'),
