@@ -23,6 +23,20 @@
 // in one timezone and someone in another both get "7AM" at their actual
 // 7AM, from a single daily trigger of this function.
 //
+// REAL VERSE TEXT (added): the "Verse of the Day" push now shows actual
+// verse words in the body, not just a citation + "open the app" prompt.
+// Pulled from bible-api.com — the same public API app.html already uses
+// for its Bible reader — using the same default translation ('web', the
+// first/default option in app.html's translationSelect) for consistency.
+// Only the FIRST VERSE of the day's first reading-plan passage is fetched
+// (e.g. just John 15:1, not the whole 15:1-8 range) since a full passage
+// is far too long for a notification body. This is a pragmatic stand-in
+// for a true single curated "verse of the day" — this project doesn't
+// have a separate 365-day single-verse list, only the reading plan's
+// passage references. If bible-api.com is unreachable or the passage
+// can't be parsed, falls back to the old citation-only body rather than
+// failing the whole send.
+//
 // KNOWN TRADEOFF (not a bug): OneSignal's timezone delivery skips a
 // recipient to the next day if their chosen local hour has already
 // passed by the time this function's daily trigger actually runs. For a
@@ -47,6 +61,36 @@ function bookName(id) {
 function refLabel(ref) {
   const [id, ...rest] = ref.split(' ');
   return `${bookName(id)} ${rest.join(' ')}`;
+}
+
+// Pulls just the first verse's text for a reading-plan ref like
+// 'jhn 15:1-8' or 'jhn 15' (no verse given, defaults to verse 1). Returns
+// null (not a throw) on any failure, so the caller can cleanly fall back
+// to the citation-only body instead of the whole send failing.
+async function fetchFirstVerseText(ref, translation) {
+  const [id, ...rest] = ref.split(' ');
+  const chapterVersePart = rest.join(' ');
+  const match = chapterVersePart.match(/^(\d+)(?::(\d+))?/);
+  if (!match) return null;
+  const chapter = match[1];
+  const verse = match[2] || '1';
+  try {
+    const res = await fetch(`https://bible-api.com/${id}+${chapter}:${verse}?translation=${translation}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const text = (data.text || '').trim().replace(/\s+/g, ' ');
+    return text || null;
+  } catch (err) {
+    return null;
+  }
+}
+
+// Push notification bodies get cut off by the OS anyway, but truncating
+// ourselves keeps it clean (cuts on a word boundary, adds an ellipsis)
+// rather than leaving that entirely up to however each platform clips it.
+function truncateForPush(text, maxLen) {
+  if (!text || text.length <= maxLen) return text;
+  return text.slice(0, maxLen).replace(/\s+\S*$/, '') + '…';
 }
 
 function todayISODate() {
@@ -120,6 +164,14 @@ exports.handler = async function () {
   const readingText = refs.map(refLabel).join(', ');
   const firstRef = refs[0] ? refLabel(refs[0]) : '';
 
+  // 'web' matches app.html's translationSelect default (first/no explicit
+  // "selected" option) so the verse text matches what someone would see
+  // in-app if they opened today's passage themselves.
+  const verseText = refs[0] ? await fetchFirstVerseText(refs[0], 'web') : null;
+  const verseBody = verseText
+    ? truncateForPush(verseText, 150)
+    : (firstRef ? `Open today's verse from ${firstRef} →` : 'Open today\u2019s verse →');
+
   // Weekly-cadence users only get included on the day their weekly send
   // is due. Fixed to Monday (UTC calendar day) for now — no per-user
   // day-of-week choice yet, just daily vs weekly.
@@ -143,7 +195,7 @@ exports.handler = async function () {
         sendTimedPush({
           appId, apiKey, tagKey: 'verse_of_day', hourValue: h, freqValue: freq,
           title: 'Verse of the Day',
-          body: firstRef ? `Open today's verse from ${firstRef} →` : 'Open today\u2019s verse →'
+          body: verseBody
         }).catch(err => ({ ok: false, error: err.message, hour: h, freq }))
       );
     }
@@ -162,6 +214,8 @@ exports.handler = async function () {
     body: JSON.stringify({
       day,
       readingText,
+      verseTextUsed: !!verseText,
+      verseBody,
       isWeeklySendDay,
       readingReminder: { sent: readingResults.length, failed: failedReading.length, failures: failedReading },
       verseOfDay: { sent: verseResults.length, failed: failedVerse.length, failures: failedVerse }
