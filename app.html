@@ -2065,7 +2065,17 @@
     updateSyncStatusBadge();
     renderDiscipleStep();
   });
-  (async () => {
+  // Deferred via setTimeout(...,0) rather than calling getGlobalDiscipleCount
+  // directly here -- this code runs during initial page setup, BEFORE the
+  // 'const supabaseClient = ...' declaration further down in this same
+  // script has actually executed. Referencing supabaseClient before that
+  // point throws (JS temporal dead zone), which the try/catch below was
+  // silently swallowing -- exactly why this badge showed the no-number
+  // fallback text while the same counter on the disciple/leader page
+  // (loaded later, after full script execution, via user navigation)
+  // displayed correctly. Deferring to the next tick guarantees the rest
+  // of this script has finished running first.
+  setTimeout(async () => {
     try {
       const count = await getGlobalDiscipleCount();
       const el = document.getElementById('todayDiscipleCounterText');
@@ -2077,7 +2087,7 @@
       const el = document.getElementById('todayDiscipleCounterText');
       if (el) el.textContent = '📣 Disciples made through this app';
     }
-  })();
+  }, 0);
   // No dedicated close/Home button on this or the other 3 page-style
   // views anymore — the bottom tab bar (always visible now, since these
   // live inside .screens rather than covering it) is how someone leaves
