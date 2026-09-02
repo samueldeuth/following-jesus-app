@@ -2707,7 +2707,7 @@
     });
   }
 
-  async function drawGospelCard(canvas, card, format, backgroundStyle = 'simple') {
+  async function drawGospelCard(canvas, card, format, backgroundStyle = 'nature') {
     const width = 1080;
     const height = format === 'story' ? 1920 : 1080;
     canvas.width = width;
@@ -2842,7 +2842,7 @@
     const card = GOSPEL_CARDS_POOL.find(c => c.id === cardId);
     if (!card) return;
     let currentFormat = 'square';
-    let currentBackground = 'simple';
+    let currentBackground = 'nature';
     const body = document.getElementById('gospelModalBody');
     body.innerHTML = `
       <a class="back-link" id="gospelBackBtn">← All Cards</a>
@@ -2851,8 +2851,8 @@
         <button type="button" class="gospel-format-btn" data-format="story">Story</button>
       </div>
       <div class="gospel-format-toggle" style="margin-top:8px;">
-        <button type="button" class="gospel-format-btn active" data-background="simple">Simple</button>
-        <button type="button" class="gospel-format-btn" data-background="nature">Nature Photo</button>
+        <button type="button" class="gospel-format-btn" data-background="simple">Simple</button>
+        <button type="button" class="gospel-format-btn active" data-background="nature">Nature Photo</button>
       </div>
       <canvas id="gospelPreviewCanvas" class="gospel-preview-canvas gospel-preview-square"></canvas>
       <button class="primary-btn" id="gospelShareBtn" style="margin-top:16px;">Share This Image</button>
