@@ -307,29 +307,39 @@ async function getProductTags(productIds) {
 
 /**
  * Move an order's open fulfillment order(s) into Shopify's "In Progress"
- * display status, via fulfillmentOrderSubmitFulfillmentRequest. Called right
+ * display status, via fulfillmentOrderReportProgress. Called right
  * after a confirmation email is matched, so the order visibly reflects
  * "Outreach has it and is working on it" instead of sitting as a flat
  * Unfulfilled the whole time.
  *
- * Deliberately fetches fulfillmentOrders itself, in its own isolated query,
- * rather than requiring the caller to have already fetched it as part of a
- * bigger batch query. Reading the fulfillmentOrders field requires a scope
- * (read_merchant_managed_fulfillment_orders) this app didn't originally
- * have — and Shopify fails an ENTIRE GraphQL call if any requested field is
- * access-denied, not just that field. Requesting it as part of the main
- * order-matching query broke matching for every candidate order the first
- * time this shipped (real orders M1556712/M1556713 went unmatched because
- * of this). Keeping it isolated here means a missing scope only skips the
- * "in progress" nudge — it can never again take down the match/tag/note
- * logic that already succeeded before this function is even called.
+ * NOTE ON MUTATION CHOICE: this used to call
+ * fulfillmentOrderSubmitFulfillmentRequest, which is built for a
+ * completely different scenario -- requesting fulfillment from a
+ * formally registered Shopify "fulfillment service" app (like ShipHero).
+ * "Following Jesus HQ" is a plain, merchant-managed location; Outreach
+ * isn't a Shopify-integrated fulfillment service, just a real-world
+ * vendor coordinated with by email. That mutation always failed here
+ * with ACCESS_DENIED (confirmed on real order #FJ8806/M1556893, Sep 2)
+ * requesting write_third_party_fulfillment_orders -- a scope that
+ * wouldn't have helped anyway, since it governs OTHER apps' registered
+ * fulfillment-service locations, not this one.
  *
- * NOTE: separately from the scope issue, this mutation is also designed for
- * fulfillment orders assigned to a fulfillment-service-type location.
- * "Following Jesus HQ" was deliberately set up as a plain location — so
- * even once the scope is granted, this may still come back with a
- * userError instead of changing anything, until confirmed against a real
- * order.
+ * fulfillmentOrderReportProgress (Shopify API 2026-04+, this project
+ * already uses 2026-07) is the actually-correct mutation: added
+ * specifically for 3PLs/fulfillment vendors to report progress on
+ * merchant-managed fulfillment orders, using the
+ * write_merchant_managed_fulfillment_orders scope this app already has
+ * -- no further scope changes needed. Confirmed via Shopify's own
+ * current docs before making this change, not guessed.
+ *
+ * Deliberately fetches fulfillmentOrders itself, in its own isolated
+ * query, rather than requiring the caller to have already fetched it as
+ * part of a bigger batch query -- see getOrderFulfillmentOrders' own
+ * history for why (a missing scope on a shared query once broke order
+ * matching entirely for real orders M1556712/M1556713). Keeping it
+ * isolated here means any failure only skips the "in progress" nudge --
+ * it can never again take down the match/tag/note logic that already
+ * succeeded before this function is even called.
  */
 async function markOrderInProgress(orderGid, orderName) {
   let openFulfillmentOrders;
@@ -347,9 +357,9 @@ async function markOrderInProgress(orderGid, orderName) {
   }
 
   const mutation = `
-    mutation SubmitFulfillmentRequest($id: ID!) {
-      fulfillmentOrderSubmitFulfillmentRequest(id: $id) {
-        submittedFulfillmentOrder { id status requestStatus }
+    mutation ReportProgress($id: ID!, $progressReport: FulfillmentOrderReportProgressInput) {
+      fulfillmentOrderReportProgress(id: $id, progressReport: $progressReport) {
+        fulfillmentOrder { id status }
         userErrors { field message }
       }
     }
@@ -357,8 +367,11 @@ async function markOrderInProgress(orderGid, orderName) {
 
   for (const fo of openFulfillmentOrders) {
     try {
-      const data = await shopifyGraphQL(mutation, { id: fo.id });
-      const errors = data.fulfillmentOrderSubmitFulfillmentRequest.userErrors;
+      const data = await shopifyGraphQL(mutation, {
+        id: fo.id,
+        progressReport: { reasonNotes: 'Outreach confirmed this order and is preparing it for shipment.' }
+      });
+      const errors = data.fulfillmentOrderReportProgress.userErrors;
       if (errors && errors.length > 0) {
         console.warn(`markOrderInProgress: Shopify userErrors on ${orderName}:`, errors);
       } else {
