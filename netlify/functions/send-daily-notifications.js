@@ -120,7 +120,7 @@ function hourTo12Label(h) {
   return `${h12}:00${period}`;
 }
 
-async function sendTimedPush({ appId, apiKey, tagKey, hourValue, freqValue, title, body }) {
+async function sendTimedPush({ appId, apiKey, tagKey, hourValue, freqValue, title, body, targetUrl }) {
   const hourStr = String(hourValue).padStart(2, '0');
   const res = await fetch('https://onesignal.com/api/v1/notifications', {
     method: 'POST',
@@ -138,7 +138,14 @@ async function sendTimedPush({ appId, apiKey, tagKey, hourValue, freqValue, titl
       delayed_option: 'timezone',
       delivery_time_of_day: hourTo12Label(hourValue),
       headings: { en: title },
-      contents: { en: body }
+      contents: { en: body },
+      // Median reads this from the notification's "Additional Data" to
+      // fully navigate the app (not a popup browser) when tapped -- see
+      // https://docs.median.co/docs/open-url-from-notification. The
+      // Bible tab URL relies on app.html's existing hash router
+      // (TAB_HASH_MAP/restoreTabFromUrl), which already runs on a fresh
+      // cold-start load, so no client-side changes were needed for this.
+      data: targetUrl ? { targetUrl } : undefined
     })
   });
   const data = await res.json().catch(() => ({}));
@@ -178,6 +185,13 @@ exports.handler = async function () {
   const isWeeklySendDay = new Date().getUTCDay() === 1; // 1 = Monday
   const freqsToSend = isWeeklySendDay ? ['daily', 'weekly'] : ['daily'];
 
+  // Deep-link destinations for each notification type, via the app's
+  // existing hash router -- reading reminder opens straight to the
+  // Bible tab (where the reading plan lives), verse notification opens
+  // to the base app URL (Today tab, the app's default landing screen).
+  const READING_TARGET_URL = 'https://followingjesus.com/app#bible';
+  const VERSE_TARGET_URL = 'https://followingjesus.com/app';
+
   const readingTasks = [];
   const verseTasks = [];
 
@@ -187,7 +201,8 @@ exports.handler = async function () {
         sendTimedPush({
           appId, apiKey, tagKey: 'reading_reminder', hourValue: h, freqValue: freq,
           title: `Day ${day} of 365`,
-          body: `Today's reading: ${readingText}`
+          body: `Today's reading: ${readingText}`,
+          targetUrl: READING_TARGET_URL
         }).catch(err => ({ ok: false, error: err.message, hour: h, freq }))
       );
 
@@ -195,7 +210,8 @@ exports.handler = async function () {
         sendTimedPush({
           appId, apiKey, tagKey: 'verse_of_day', hourValue: h, freqValue: freq,
           title: 'Verse of the Day',
-          body: verseBody
+          body: verseBody,
+          targetUrl: VERSE_TARGET_URL
         }).catch(err => ({ ok: false, error: err.message, hour: h, freq }))
       );
     }
