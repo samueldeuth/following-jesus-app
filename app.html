@@ -3261,13 +3261,37 @@ async function computeDiscipledCount(leaderId) {
 // the very unlikely case of two people finishing at the exact same
 // instant, one increment could be lost. Fine at real-world usage scale;
 // worth knowing if this ever needs to be exact.
-async function getGlobalDiscipleCount() {
-  const val = await safeGet('global-disciple-count', true);
-  return typeof val === 'number' ? val : 0;
+// Cached lookup of the Following Jesus (is_free = true) course's own id
+// -- there's only one such course row, shared by every church (a
+// church's own branding on it is just its welcome-letter content, not a
+// separate course row), plus the "no church assigned" case. Shared by
+// getGlobalDiscipleCount and hasCompletedFreeCourse below so there's one
+// lookup, not two.
+let freeCourseIdCache = null;
+async function getFreeCourseId() {
+  if (freeCourseIdCache) return freeCourseIdCache;
+  const { data } = await supabaseClient.from('courses').select('id').eq('is_free', true).limit(1).maybeSingle();
+  freeCourseIdCache = (data && data.id) || null;
+  return freeCourseIdCache;
 }
-async function incrementGlobalDiscipleCount() {
-  const current = await getGlobalDiscipleCount();
-  await safeSet('global-disciple-count', current + 1, true);
+
+// "Disciples made through this app" is a live count of real Following
+// Jesus course completions (certificates), not an incrementally-
+// maintained tally. This used to increment on two different, narrower
+// events instead -- finishing the app's own internal Essentials flow, or
+// completing a leader-checked milestone checklist -- neither of which is
+// "finished the actual course." A live count against the shared
+// certificates table naturally covers every path to finishing the real
+// course: through the app's guided flow, or just going through the
+// course directly on the website, for any church (or no church), since
+// certificates is one table both surfaces write to. No church_id filter
+// here on purpose -- every completion of this course counts, regardless
+// of which church (or none) the student belongs to.
+async function getGlobalDiscipleCount() {
+  const courseId = await getFreeCourseId();
+  if (!courseId) return 0;
+  const { count } = await supabaseClient.from('certificates').select('id', { count: 'exact', head: true }).eq('course_id', courseId);
+  return count || 0;
 }
 
 // ---------- Discipleship milestone checklist ----------
@@ -3307,9 +3331,9 @@ async function getStageDefinitions() {
 }
 
 async function hasCompletedFreeCourse(discipleId) {
-  const { data: freeCourse } = await supabaseClient.from('courses').select('id').eq('is_free', true).limit(1).maybeSingle();
-  if (!freeCourse) return false;
-  const { data: cert } = await supabaseClient.from('certificates').select('id').eq('student_id', discipleId).eq('course_id', freeCourse.id).maybeSingle();
+  const courseId = await getFreeCourseId();
+  if (!courseId) return false;
+  const { data: cert } = await supabaseClient.from('certificates').select('id').eq('student_id', discipleId).eq('course_id', courseId).maybeSingle();
   return !!cert;
 }
 
@@ -3389,18 +3413,19 @@ async function toggleMilestone(discipleId, milestoneId, done) {
   }
 }
 
-// Fires the one-time celebration + global counter increment the moment
-// all milestones are done for someone — same guarded, at-most-once
-// pattern as checkAndCelebrateEssentialsCompletion, just tracked via its
-// own profiles column (milestones_celebrated_at) since this is a
-// separate completion definition from the older Essentials-flow one.
+// Fires the one-time celebration the moment all milestones are done for
+// someone — same guarded, at-most-once pattern as
+// checkAndCelebrateEssentialsCompletion, just tracked via its own
+// profiles column (milestones_celebrated_at) since this is a separate
+// completion definition from the older Essentials-flow one. No longer
+// feeds the global disciple counter -- that's a live course-completion
+// count now (see getGlobalDiscipleCount), not tied to this checklist.
 async function checkAndCelebrateMilestones(discipleId, allDone) {
   if (!allDone || !supabaseClient) return;
   const { data: profileRow } = await supabaseClient.from('profiles').select('milestones_celebrated_at').eq('id', discipleId).maybeSingle();
   if (profileRow && profileRow.milestones_celebrated_at) return; // already celebrated, never again
   await supabaseClient.from('profiles').update({ milestones_celebrated_at: new Date().toISOString() }).eq('id', discipleId);
   if (discipleId === myId) triggerConfetti();
-  incrementGlobalDiscipleCount();
 }
 
 // Reuses the existing walk-it-out checkbox/progress-bar styling so this
@@ -3473,7 +3498,10 @@ function wireMilestoneToggles(container, discipleId, onToggled) {
 // inside a single click handler — so without this flag, the celebration
 // would risk firing again on every subsequent visit once all 8 steps
 // are done. Checks and sets profiles.essentials_celebrated_at, so it's
-// guaranteed to fire at most once per person, ever.
+// guaranteed to fire at most once per person, ever. No longer feeds the
+// global disciple counter -- that's a live course-completion count now
+// (see getGlobalDiscipleCount), and Essentials is a separate, app-only
+// step flow rather than the actual Following Jesus course.
 async function checkAndCelebrateEssentialsCompletion(studentId, progress) {
   const allDone = STEPS.every((_, i) => (progress[i] || 'not_started') === 'done');
   if (!allDone || !supabaseClient) return;
@@ -3481,7 +3509,6 @@ async function checkAndCelebrateEssentialsCompletion(studentId, progress) {
   if (profileRow && profileRow.essentials_celebrated_at) return; // already celebrated, never again
   await supabaseClient.from('profiles').update({ essentials_celebrated_at: new Date().toISOString() }).eq('id', studentId);
   triggerConfetti();
-  incrementGlobalDiscipleCount();
 }
 
 function triggerConfetti() {
