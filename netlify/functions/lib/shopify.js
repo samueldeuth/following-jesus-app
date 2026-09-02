@@ -252,7 +252,7 @@ async function fulfillOrderWithTracking(order, { trackingNumber, trackingCompany
   }
 
   const mutation = `
-    mutation Fulfill($fulfillment: FulfillmentInput!) {
+    mutation Fulfill($fulfillment: FulfillmentV2Input!) {
       fulfillmentCreateV2(fulfillment: $fulfillment) {
         fulfillment { id status }
         userErrors { field message }
