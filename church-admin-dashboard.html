@@ -162,6 +162,22 @@ let currentAdminId = null;
 let allRows = [];
 let myChurch = null;
 
+// Builds the OAuth redirect target WITHOUT any hash or query string --
+// same fix as admin-dashboard.html. window.location.href can carry a
+// leftover hash from a previous sign-in's own cleanup step, which then
+// gets a second '#access_token=...' appended on top by Supabase's OAuth
+// response, producing a malformed '##...' fragment that silently fails
+// to parse into a real session.
+function cleanRedirectUrl(){
+  return window.location.origin + window.location.pathname;
+}
+
+// Defensive cleanup on every load: only strips a hash that's clearly
+// NOT a real, still-pending OAuth response.
+if(window.location.hash && !window.location.hash.includes('access_token')){
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+}
+
 // Pulls the video ID out of any common YouTube URL shape.
 function extractYoutubeId(input){
   if(!input) return null;
@@ -367,6 +383,249 @@ function escapeHtmlReport(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+/* ---------- Send Email to My Students ---------- */
+// Mirrors send-broadcast-email.js's formatting rules exactly (**bold**,
+// [text](url), ![](image url), "# " heading lines) so the preview is
+// byte-identical to what actually sends.
+function applyInlineFormattingPreview(escapedLine){
+  return escapedLine
+    .replace(/!\[\]\((https?:\/\/[^\s)]+)\)/g, '<img src="$1" alt="" style="width:100%;display:block;border-radius:8px;margin:8px 0;" />')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" style="color:#17191D;text-decoration:underline;">$1</a>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+}
+
+function buildBroadcastPreviewHtml(bodyText, imageUrl, linkText, linkUrl){
+  const source = bodyText || '(your message will appear here)';
+  const paragraphs = source
+    .split(/\n\s*\n/)
+    .map(block => {
+      if(/^#\s+/.test(block)){
+        const headingText = applyInlineFormattingPreview(escapeHtmlReport(block.replace(/^#\s+/, '')));
+        return `<p style="margin:0 0 16px;font-size:19px;font-weight:700;">${headingText}</p>`;
+      }
+      return `<p style="margin:0 0 16px;">${applyInlineFormattingPreview(escapeHtmlReport(block)).replace(/\n/g, '<br>')}</p>`;
+    })
+    .join('');
+  const imageBlock = imageUrl ? `<img src="${imageUrl}" alt="" style="width:100%;display:block;" />` : '';
+  const buttonBlock = (linkUrl && linkText)
+    ? `<p style="text-align:center;margin:8px 0 24px;"><a href="${linkUrl}" style="background:#17191D;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">${escapeHtmlReport(linkText)}</a></p>`
+    : '';
+  return `
+    <div style="background:#F4F4F2;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+      <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;">
+        <div style="background:#17191D;padding:22px 24px;text-align:center;">
+          <span style="color:#ffffff;font-weight:700;letter-spacing:0.14em;font-size:13px;text-transform:uppercase;">Following Jesus</span>
+        </div>
+        ${imageBlock}
+        <div style="padding:32px 28px 8px;color:#17191D;font-size:15px;line-height:1.65;">
+          ${paragraphs}
+        </div>
+        ${buttonBlock}
+        <div style="padding:0 28px 28px;">
+          <p style="color:#9CA3AF;font-size:11.5px;margin:0;border-top:1px solid #E4E3DD;padding-top:16px;">
+            Don't want occasional emails like this? <a href="#">Unsubscribe</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Only one possible audience here (this admin's own church, enforced
+// server-side by get_my_church_broadcast_recipients deriving the church
+// from the caller's own profile) -- no scope options needed, unlike the
+// super admin's version.
+async function renderBroadcastComposer(){
+  const overlay = document.createElement('div');
+  overlay.id = 'broadcast-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(10,10,10,0.5);display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:var(--radius);padding:26px 28px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:17px;margin:0 0 4px;">Send Email to Your Students</h3>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 16px;" id="broadcast-recipient-count">Checking who this will reach…</p>
+      <p id="broadcast-draft-notice" style="display:none;font-size:12.5px;background:var(--bg-soft);border-radius:6px;padding:8px 10px;margin:0 0 14px;">Loaded your saved draft. <button type="button" id="broadcast-discard-draft-btn" style="background:none;border:none;padding:0;text-decoration:underline;cursor:pointer;font-size:12.5px;color:var(--ink-soft);">Discard it</button></p>
+
+      <label class="field-label">Subject</label>
+      <input type="text" class="field-input" id="broadcast-subject" placeholder="e.g. A quick update from us" />
+
+      <label class="field-label">Message</label>
+      <textarea class="field-input field-textarea" id="broadcast-message" style="min-height:140px;" placeholder="Write your message here — separate paragraphs with a blank line, plain text is fine."></textarea>
+      <p class="field-hint" style="margin-bottom:8px;">Simple formatting: <code>**bold**</code>, a line starting with <code># </code> for a bigger heading, <code>[link text](https://...)</code> for a link, <code>![](https://image-url)</code> to drop an image right there in the message.</p>
+
+      <label class="field-label">Image (optional)</label>
+      <div id="broadcast-image-dropzone" style="border:1.5px dashed var(--line);border-radius:8px;padding:14px;text-align:center;margin-bottom:6px;">
+        <input type="file" accept="image/*" id="broadcast-image-file" style="font-size:12.5px;" />
+        <p style="font-size:11.5px;color:var(--ink-soft);margin:6px 0 0;">or drag and drop an image here</p>
+        <span id="broadcast-image-status" style="font-size:12px;color:var(--ink-soft);display:block;margin-top:4px;"></span>
+      </div>
+      <p class="field-hint" style="margin-bottom:8px;">Shows full-width right under the header, above your message.</p>
+
+      <label class="field-label">Link (optional)</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="field-input" id="broadcast-link-text" placeholder="Button text, e.g. View the schedule" />
+        <input type="text" class="field-input" id="broadcast-link-url" placeholder="https://..." />
+      </div>
+      <p class="field-hint" style="margin-bottom:8px;">Both fields are needed together — shows as a button below your message.</p>
+
+      <p class="field-hint" style="margin-bottom:8px;">An unsubscribe link is added automatically at the bottom — anyone who's already opted out won't receive this.</p>
+
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+        <button class="mini-btn" id="broadcast-cancel-btn">Cancel</button>
+        <button class="mini-btn" id="broadcast-save-draft-btn">Save Draft</button>
+        <button class="mini-btn" id="broadcast-preview-btn">Preview</button>
+        <button class="mini-btn" id="broadcast-test-btn">Send Test to Myself</button>
+        <button class="mini-btn gold" id="broadcast-send-btn">Send</button>
+      </div>
+      <p id="broadcast-status" style="font-size:12.5px;color:var(--ink-soft);margin-top:10px;"></p>
+      <div id="broadcast-preview-area" style="display:none;margin-top:14px;border:1px solid var(--line);border-radius:8px;overflow:hidden;"></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.getElementById('broadcast-cancel-btn').addEventListener('click', () => overlay.remove());
+
+  const { data: { session } } = await supabaseClient.auth.getSession();
+
+  if(session?.access_token){
+    const { data: recipients } = await supabaseClient.rpc('get_my_church_broadcast_recipients');
+    const countEl = document.getElementById('broadcast-recipient-count');
+    if(countEl) countEl.textContent = `This will go to ${recipients?.length || 0} people who haven't opted out.`;
+  }
+
+  let uploadedImageUrl = null;
+
+  async function handleImageFile(file){
+    if(!file) return;
+    const statusEl = document.getElementById('broadcast-image-status');
+    statusEl.textContent = 'Uploading...';
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `broadcast/${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabaseClient.storage.from('church-photos').upload(path, file);
+    if(uploadError){
+      statusEl.textContent = '';
+      alert('Could not upload the image: ' + uploadError.message);
+      return;
+    }
+    const { data: urlData } = supabaseClient.storage.from('church-photos').getPublicUrl(path);
+    uploadedImageUrl = urlData.publicUrl;
+    statusEl.textContent = 'Uploaded ✓';
+  }
+
+  const imageFileInput = document.getElementById('broadcast-image-file');
+  imageFileInput.addEventListener('change', () => handleImageFile(imageFileInput.files[0]));
+
+  const dropzone = document.getElementById('broadcast-image-dropzone');
+  ['dragenter', 'dragover'].forEach(evt => dropzone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    dropzone.style.borderColor = 'var(--ink)';
+  }));
+  ['dragleave', 'drop'].forEach(evt => dropzone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    dropzone.style.borderColor = 'var(--line)';
+  }));
+  dropzone.addEventListener('drop', (e) => {
+    const file = e.dataTransfer?.files?.[0];
+    if(file && file.type.startsWith('image/')) handleImageFile(file);
+  });
+
+  const getFormValues = () => ({
+    subject: document.getElementById('broadcast-subject').value.trim(),
+    message: document.getElementById('broadcast-message').value.trim(),
+    linkText: document.getElementById('broadcast-link-text').value.trim(),
+    linkUrl: document.getElementById('broadcast-link-url').value.trim(),
+  });
+
+  if(session?.access_token){
+    const { data: draftRows } = await supabaseClient.rpc('get_my_broadcast_draft');
+    const draft = draftRows?.[0];
+    if(draft && (draft.subject || draft.message)){
+      document.getElementById('broadcast-subject').value = draft.subject || '';
+      document.getElementById('broadcast-message').value = draft.message || '';
+      document.getElementById('broadcast-link-text').value = draft.link_text || '';
+      document.getElementById('broadcast-link-url').value = draft.link_url || '';
+      if(draft.image_url){
+        uploadedImageUrl = draft.image_url;
+        document.getElementById('broadcast-image-status').textContent = 'Image from draft ✓';
+      }
+      document.getElementById('broadcast-draft-notice').style.display = 'block';
+    }
+  }
+
+  document.getElementById('broadcast-discard-draft-btn').addEventListener('click', async () => {
+    await supabaseClient.rpc('delete_my_broadcast_draft');
+    document.getElementById('broadcast-subject').value = '';
+    document.getElementById('broadcast-message').value = '';
+    document.getElementById('broadcast-link-text').value = '';
+    document.getElementById('broadcast-link-url').value = '';
+    document.getElementById('broadcast-image-status').textContent = '';
+    uploadedImageUrl = null;
+    document.getElementById('broadcast-draft-notice').style.display = 'none';
+  });
+
+  document.getElementById('broadcast-save-draft-btn').addEventListener('click', async () => {
+    const { subject, message, linkText, linkUrl } = getFormValues();
+    const statusEl = document.getElementById('broadcast-status');
+    await supabaseClient.rpc('save_broadcast_draft', {
+      p_subject: subject, p_message: message, p_image_url: uploadedImageUrl, p_link_text: linkText, p_link_url: linkUrl
+    });
+    statusEl.textContent = 'Draft saved — come back anytime, this composer will load it automatically.';
+  });
+
+  document.getElementById('broadcast-preview-btn').addEventListener('click', () => {
+    const { message, linkText, linkUrl } = getFormValues();
+    const previewArea = document.getElementById('broadcast-preview-area');
+    const html = buildBroadcastPreviewHtml(message, uploadedImageUrl, linkText, linkUrl);
+    previewArea.innerHTML = `<iframe srcdoc="${html.replace(/"/g,'&quot;')}" style="width:100%;height:420px;border:none;display:block;"></iframe>`;
+    previewArea.style.display = 'block';
+  });
+
+  document.getElementById('broadcast-test-btn').addEventListener('click', async () => {
+    const { subject, message, linkText, linkUrl } = getFormValues();
+    const statusEl = document.getElementById('broadcast-status');
+    if(!subject || !message){ statusEl.textContent = 'Please fill in both the subject and message first.'; return; }
+    statusEl.textContent = 'Sending a test to your own email...';
+    try {
+      const res = await fetch('/.netlify/functions/send-broadcast-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ subject, message, imageUrl: uploadedImageUrl, linkText, linkUrl, testOnly: true })
+      });
+      const result = await res.json();
+      statusEl.textContent = res.ok ? `Test sent to ${result.to} — check your inbox.` : 'Something went wrong: ' + (result.error || 'unknown error');
+    } catch (err) {
+      statusEl.textContent = 'Something went wrong sending the test.';
+    }
+  });
+
+  document.getElementById('broadcast-send-btn').addEventListener('click', async () => {
+    const { subject, message, linkText, linkUrl } = getFormValues();
+    const statusEl = document.getElementById('broadcast-status');
+    const sendBtn = document.getElementById('broadcast-send-btn');
+    if(!subject || !message){ statusEl.textContent = 'Please fill in both the subject and message.'; return; }
+    if(!confirm(`Send this email to your students? This can't be undone once sent.`)) return;
+
+    sendBtn.disabled = true;
+    statusEl.textContent = 'Sending...';
+    try {
+      const res = await fetch('/.netlify/functions/send-broadcast-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ subject, message, imageUrl: uploadedImageUrl, linkText, linkUrl })
+      });
+      const result = await res.json();
+      if(!res.ok){
+        statusEl.textContent = 'Something went wrong: ' + (result.error || 'unknown error');
+        sendBtn.disabled = false;
+        return;
+      }
+      await supabaseClient.rpc('delete_my_broadcast_draft');
+      statusEl.textContent = `Done — sent to ${result.sent} of ${result.total}${result.failed ? `, ${result.failed} failed` : ''}.`;
+    } catch (err) {
+      statusEl.textContent = 'Something went wrong sending this. Please try again.';
+      sendBtn.disabled = false;
+    }
+  });
+}
+
 async function init(){
   const { data: { user } } = await supabaseClient.auth.getUser();
   if(!user){
@@ -385,7 +644,7 @@ async function init(){
     document.getElementById('admin-google-btn').addEventListener('click', async () => {
       await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.href, queryParams: { prompt: 'select_account' } }
+        options: { redirectTo: cleanRedirectUrl(), queryParams: { prompt: 'select_account' } }
       });
     });
     return;
@@ -482,6 +741,7 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
       <div style="display:flex;gap:8px;margin-bottom:14px;">
         <button class="mini-btn" id="export-students-btn">Export Students (CSV)</button>
         <button class="mini-btn gold" id="view-report-btn">View Progress Report</button>
+        <button class="mini-btn gold" id="church-send-email-btn">Send Email to Your Students</button>
       </div>
       <table>
         <thead><tr><th>Student</th><th>Course</th><th>Progress</th><th>Enrolled</th><th>Actions</th></tr></thead>
@@ -689,6 +949,9 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
 
   const viewReportBtn = document.getElementById('view-report-btn');
   if(viewReportBtn) viewReportBtn.addEventListener('click', () => renderStudentReport(rows));
+
+  const churchSendEmailBtn = document.getElementById('church-send-email-btn');
+  if(churchSendEmailBtn) churchSendEmailBtn.addEventListener('click', renderBroadcastComposer);
 
 
   const createGroupBtn = document.getElementById('create-group-btn');
