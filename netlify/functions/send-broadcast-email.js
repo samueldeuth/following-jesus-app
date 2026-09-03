@@ -87,6 +87,49 @@ function buildEmailHtml(bodyText, unsubscribeToken, imageUrl, linkText, linkUrl)
   `;
 }
 
+const SUPABASE_PAGE_SIZE = 1000; // Supabase's own default per-response row cap
+
+// Supabase caps every API response at 1,000 rows by default -- silently,
+// with no error -- regardless of how many rows actually match. This
+// applies to RPC calls returning a table result too, which is exactly
+// what get_broadcast_recipients/get_subscriber_list_recipients/
+// get_my_church_broadcast_recipients all return. A single unpaginated
+// fetch here was why a real send to ~9,000 people silently stopped at
+// exactly 1,000. This loops using PostgREST's Range header until a page
+// comes back with fewer rows than requested, with a generous safety
+// ceiling in case something ever goes wrong server-side.
+async function fetchAllRpcRows(rpcName, rpcParams, token) {
+  const allRows = [];
+  let offset = 0;
+  const maxPages = 100; // 100,000 rows -- far beyond any realistic list size here
+
+  for (let page = 0; page < maxPages; page++) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${rpcName}`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Range: `${offset}-${offset + SUPABASE_PAGE_SIZE - 1}`,
+      },
+      body: JSON.stringify(rpcParams),
+    });
+
+    if (!res.ok) {
+      throw new Error(`RPC ${rpcName} failed at offset ${offset}: ${res.status}`);
+    }
+
+    const pageRows = await res.json();
+    if (!Array.isArray(pageRows) || pageRows.length === 0) break;
+
+    allRows.push(...pageRows);
+    if (pageRows.length < SUPABASE_PAGE_SIZE) break; // last page reached
+    offset += SUPABASE_PAGE_SIZE;
+  }
+
+  return allRows;
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) };
@@ -178,21 +221,13 @@ exports.handler = async (event) => {
     rpcParams = { p_church_id: churchId || null, p_course_id: courseId || null };
   }
 
-  const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${rpcName}`, {
-    method: 'POST',
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(rpcParams),
-  });
-
-  if (!rpcRes.ok) {
-    return { statusCode: 502, body: JSON.stringify({ error: 'Could not look up recipients' }) };
+  let recipients;
+  try {
+    recipients = await fetchAllRpcRows(rpcName, rpcParams, token);
+  } catch (err) {
+    return { statusCode: 502, body: JSON.stringify({ error: 'Could not look up recipients: ' + err.message }) };
   }
 
-  const recipients = await rpcRes.json();
   if (!Array.isArray(recipients) || recipients.length === 0) {
     return { statusCode: 200, body: JSON.stringify({ sent: 0, failed: 0, total: 0 }) };
   }
