@@ -1913,7 +1913,6 @@ function renderAllStudents(){
       <button class="mini-btn" id="export-all-students-btn">Export Students (CSV)</button>
       <button class="mini-btn" id="merge-accounts-btn">Merge Accounts</button>
       <button class="mini-btn gold" id="broadcast-email-btn">Send Email to Everyone</button>
-      <button class="mini-btn" id="import-subscribers-btn">Import Subscribers</button>
     </div>
     <div id="all-students-batch-bar"></div>
     <div class="table-scroll" id="all-students-table-wrap">
@@ -1932,7 +1931,6 @@ function renderAllStudents(){
   });
   document.getElementById('merge-accounts-btn').addEventListener('click', renderMergeAccounts);
   document.getElementById('broadcast-email-btn').addEventListener('click', () => renderBroadcastComposer({ audience: 'students', audienceLabel: 'all active students' }));
-  document.getElementById('import-subscribers-btn').addEventListener('click', renderSubscriberImporter);
   document.getElementById('student-mode-active-btn').addEventListener('click', () => {
     studentViewMode = 'active';
     selectedEnrollmentIds.clear();
