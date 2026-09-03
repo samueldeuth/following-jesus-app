@@ -1382,6 +1382,7 @@ function renderSubscriberImporter(){
       return;
     }
     statusEl.textContent = `Done — ${importedCount} new subscriber${importedCount===1?'':'s'} added (${rows.length - importedCount} were already in the system and skipped).`;
+    document.getElementById('import-cancel-btn').textContent = 'Done';
     if(viewingSubscriberList && document.getElementById('subscriber-tbody')) loadSubscriberPage();
   });
 }
@@ -1513,6 +1514,44 @@ function buildBroadcastPreviewHtml(bodyText, imageUrl, linkText, linkUrl){
   `;
 }
 
+// Reusable formatting-toolbar helpers -- insert the same markdown-lite
+// syntax the server parses, via a button instead of requiring anyone to
+// type it themselves. Operates on the textarea's current selection: if
+// text is selected, it gets wrapped/used; otherwise a placeholder is
+// inserted and selected so typing immediately replaces it.
+function wrapTextareaSelection(textareaId, before, after, placeholder){
+  const textarea = document.getElementById(textareaId);
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const selected = textarea.value.slice(start, end) || placeholder;
+  textarea.setRangeText(before + selected + after, start, end, 'select');
+  textarea.focus();
+}
+function insertHeadingLine(textareaId){
+  const textarea = document.getElementById(textareaId);
+  const value = textarea.value;
+  const cursor = textarea.selectionStart;
+  const lineStart = value.lastIndexOf('\n', cursor - 1) + 1;
+  if(value.slice(lineStart, lineStart + 2) === '# ') return;
+  textarea.setRangeText('# ', lineStart, lineStart, 'end');
+  textarea.focus();
+}
+function insertLinkFormatting(textareaId){
+  const url = prompt('Link URL:');
+  if(!url) return;
+  const textarea = document.getElementById(textareaId);
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const selected = textarea.value.slice(start, end) || 'link text';
+  textarea.setRangeText(`[${selected}](${url})`, start, end, 'select');
+  textarea.focus();
+}
+function wireFormattingToolbar(textareaId, boldBtnId, headingBtnId, linkBtnId){
+  document.getElementById(boldBtnId).addEventListener('click', () => wrapTextareaSelection(textareaId, '**', '**', 'bold text'));
+  document.getElementById(headingBtnId).addEventListener('click', () => insertHeadingLine(textareaId));
+  document.getElementById(linkBtnId).addEventListener('click', () => insertLinkFormatting(textareaId));
+}
+
 // opts: { audience: 'students' (default) | 'subscribers', churchId,
 // courseId, audienceLabel } -- audienceLabel is a short human phrase
 // describing who this reaches (e.g. "active students at Acacia
@@ -1522,6 +1561,14 @@ async function renderBroadcastComposer(opts){
   opts = opts || {};
   const audience = opts.audience || 'students';
   const audienceLabel = opts.audienceLabel || (audience === 'subscribers' ? 'your samueldeuth.com list' : 'everyone');
+  // Scopes a saved draft to the SPECIFIC audience this composer was
+  // opened for -- a draft started for "All Students" must not appear
+  // when opening the composer for one course or one church, and vice
+  // versa. Each distinct audience gets its own row.
+  const draftKey = audience === 'subscribers' ? 'subscribers'
+    : opts.courseId ? `course:${opts.courseId}`
+    : opts.churchId ? `church:${opts.churchId}`
+    : 'all';
 
   const overlay = document.createElement('div');
   overlay.id = 'broadcast-overlay';
@@ -1536,8 +1583,13 @@ async function renderBroadcastComposer(opts){
       <input type="text" class="field-input" id="broadcast-subject" placeholder="e.g. A quick update from Following Jesus" />
 
       <label class="field-label">Message</label>
+      <div style="display:flex;gap:6px;margin-bottom:6px;">
+        <button type="button" class="mini-btn" id="broadcast-bold-btn" title="Bold" style="font-weight:700;padding:6px 12px;">B</button>
+        <button type="button" class="mini-btn" id="broadcast-heading-btn" title="Bigger heading" style="padding:6px 12px;">Heading</button>
+        <button type="button" class="mini-btn" id="broadcast-link-insert-btn" title="Insert link" style="padding:6px 12px;">Link</button>
+      </div>
       <textarea class="field-input field-textarea" id="broadcast-message" style="min-height:140px;" placeholder="Write your message here — separate paragraphs with a blank line, plain text is fine."></textarea>
-      <p class="field-hint" style="margin-bottom:8px;">Simple formatting: <code>**bold**</code>, a line starting with <code># </code> for a bigger heading, <code>[link text](https://...)</code> for a link, <code>![](https://image-url)</code> to drop an image right there in the message.</p>
+      <p class="field-hint" style="margin-bottom:8px;">Or type it yourself: <code>**bold**</code>, <code># </code> for a heading, <code>[text](url)</code> for a link.</p>
 
       <label class="field-label">Image (optional)</label>
       <div id="broadcast-image-dropzone" style="border:1.5px dashed var(--line);border-radius:8px;padding:14px;text-align:center;margin-bottom:6px;">
@@ -1569,6 +1621,7 @@ async function renderBroadcastComposer(opts){
   `;
   document.body.appendChild(overlay);
   document.getElementById('broadcast-cancel-btn').addEventListener('click', () => overlay.remove());
+  wireFormattingToolbar('broadcast-message', 'broadcast-bold-btn', 'broadcast-heading-btn', 'broadcast-link-insert-btn');
 
   const { data: { session } } = await supabaseClient.auth.getSession();
 
@@ -1634,7 +1687,7 @@ async function renderBroadcastComposer(opts){
   // per-admin scratchpad ("save the email if you can't finish in that
   // moment"), not a whole library of named drafts.
   if(session?.access_token){
-    const { data: draftRows } = await supabaseClient.rpc('get_my_broadcast_draft');
+    const { data: draftRows } = await supabaseClient.rpc('get_my_broadcast_draft', { p_draft_key: draftKey });
     const draft = draftRows?.[0];
     if(draft && (draft.subject || draft.message)){
       document.getElementById('broadcast-subject').value = draft.subject || '';
@@ -1650,7 +1703,7 @@ async function renderBroadcastComposer(opts){
   }
 
   document.getElementById('broadcast-discard-draft-btn').addEventListener('click', async () => {
-    await supabaseClient.rpc('delete_my_broadcast_draft');
+    await supabaseClient.rpc('delete_my_broadcast_draft', { p_draft_key: draftKey });
     document.getElementById('broadcast-subject').value = '';
     document.getElementById('broadcast-message').value = '';
     document.getElementById('broadcast-link-text').value = '';
@@ -1664,7 +1717,7 @@ async function renderBroadcastComposer(opts){
     const { subject, message, linkText, linkUrl } = getFormValues();
     const statusEl = document.getElementById('broadcast-status');
     await supabaseClient.rpc('save_broadcast_draft', {
-      p_subject: subject, p_message: message, p_image_url: uploadedImageUrl, p_link_text: linkText, p_link_url: linkUrl
+      p_draft_key: draftKey, p_subject: subject, p_message: message, p_image_url: uploadedImageUrl, p_link_text: linkText, p_link_url: linkUrl
     });
     statusEl.textContent = 'Draft saved — come back anytime, this composer will load it automatically.';
   });
@@ -1717,8 +1770,9 @@ async function renderBroadcastComposer(opts){
         return;
       }
       // A successful full send clears any saved draft, since it's done.
-      await supabaseClient.rpc('delete_my_broadcast_draft');
+      await supabaseClient.rpc('delete_my_broadcast_draft', { p_draft_key: draftKey });
       statusEl.textContent = `Done — sent to ${result.sent} of ${result.total}${result.failed ? `, ${result.failed} failed` : ''}.`;
+      document.getElementById('broadcast-cancel-btn').textContent = 'Done';
     } catch (err) {
       statusEl.textContent = 'Something went wrong sending this. Please try again.';
       sendBtn.disabled = false;
@@ -2273,11 +2327,12 @@ async function renderChurchStudents(churchId){
       <input type="text" class="field-input" id="edit-letter-video" value="${(church?.letter_video_youtube_id||'').replace(/"/g,'&quot;')}" placeholder="https://youtube.com/watch?v=..." />
       <p class="field-hint" style="margin-bottom:8px;">If set, this shows instead of the welcome photo below — paste the full YouTube link, any format works.</p>
       <label class="field-label">Welcome Photo</label>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
-        <input type="file" accept="image/*" id="edit-letter-image-file" style="font-size:12.5px;flex:1;" />
-        <span id="upload-photo-status" style="font-size:12px;color:var(--ink-soft);"></span>
+      <div id="edit-letter-image-dropzone" style="border:1.5px dashed var(--line);border-radius:8px;padding:14px;text-align:center;margin-bottom:6px;">
+        <input type="file" accept="image/*" id="edit-letter-image-file" style="font-size:12.5px;" />
+        <p style="font-size:11.5px;color:var(--ink-soft);margin:6px 0 0;">or drag and drop an image here</p>
+        <span id="upload-photo-status" style="font-size:12px;color:var(--ink-soft);display:block;margin-top:4px;"></span>
       </div>
-      <input type="text" class="field-input" id="edit-letter-image" value="${(church?.letter_image_url||'').replace(/"/g,'&quot;')}" placeholder="https://... (or upload a file above)" />
+      <input type="text" class="field-input" id="edit-letter-image" value="${(church?.letter_image_url||'').replace(/"/g,'&quot;')}" placeholder="https://... (or upload/drop a file above)" />
       <p class="field-hint" style="margin-bottom:8px;">Upload a photo, or paste a link to one already hosted somewhere.</p>
       <label class="field-label">Pastor's Name</label>
       <input type="text" class="field-input" id="edit-letter-author" value="${(church?.letter_author_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. First & Spouse Last" />
@@ -2351,9 +2406,7 @@ async function renderChurchStudents(churchId){
     });
   }
 
-  const photoFileInput = document.getElementById('edit-letter-image-file');
-  if(photoFileInput) photoFileInput.addEventListener('change', async () => {
-    const file = photoFileInput.files[0];
+  async function handleChurchPhotoFile(file){
     if(!file) return;
     const statusEl = document.getElementById('upload-photo-status');
     statusEl.textContent = 'Uploading...';
@@ -2369,7 +2422,26 @@ async function renderChurchStudents(churchId){
     document.getElementById('edit-letter-image').value = urlData.publicUrl;
     statusEl.textContent = 'Uploaded ✓';
     setTimeout(() => { statusEl.textContent = ''; }, 2000);
-  });
+  }
+
+  const photoFileInput = document.getElementById('edit-letter-image-file');
+  if(photoFileInput) photoFileInput.addEventListener('change', () => handleChurchPhotoFile(photoFileInput.files[0]));
+
+  const photoDropzone = document.getElementById('edit-letter-image-dropzone');
+  if(photoDropzone){
+    ['dragenter', 'dragover'].forEach(evt => photoDropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      photoDropzone.style.borderColor = 'var(--ink)';
+    }));
+    ['dragleave', 'drop'].forEach(evt => photoDropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      photoDropzone.style.borderColor = 'var(--line)';
+    }));
+    photoDropzone.addEventListener('drop', (e) => {
+      const file = e.dataTransfer?.files?.[0];
+      if(file && file.type.startsWith('image/')) handleChurchPhotoFile(file);
+    });
+  }
 
   const saveSettingsBtn = document.getElementById('save-church-settings-btn');
   if(saveSettingsBtn) {
