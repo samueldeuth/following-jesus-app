@@ -70,9 +70,14 @@ function buildEmailHtml(bodyText, unsubscribeToken, imageUrl, linkText, linkUrl)
   `;
 }
 
-// Supabase caps every API response at 1,000 rows by default -- silently,
-// with no error. Loops using PostgREST's Range header until a page
-// comes back with fewer rows than requested.
+// Paginates using real p_limit/p_offset parameters passed INTO the RPC
+// function itself (see broadcast-email-v11-limit-offset-pagination.sql),
+// rather than the Range header. Confirmed via a zero-cost dry-run
+// diagnostic that Range-header-based pagination was NOT reliably
+// advancing offset for POST'd RPC calls on this Supabase/PostgREST
+// setup -- every "page" silently returned the same first 1,000 rows
+// again, which is what caused the duplicate-send incident. Passing
+// limit/offset as real function arguments is the reliable fix.
 async function fetchAllRpcRows(rpcName, rpcParams, token) {
   const allRows = [];
   let offset = 0;
@@ -85,9 +90,8 @@ async function fetchAllRpcRows(rpcName, rpcParams, token) {
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
-        Range: `${offset}-${offset + SUPABASE_PAGE_SIZE - 1}`,
       },
-      body: JSON.stringify(rpcParams),
+      body: JSON.stringify({ ...rpcParams, p_limit: SUPABASE_PAGE_SIZE, p_offset: offset }),
     });
 
     if (!res.ok) {
