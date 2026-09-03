@@ -22,13 +22,36 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// Lightweight markdown-style formatting inside a paragraph, applied
+// AFTER escaping so someone typing "**" or "[" never accidentally
+// injects real HTML -- only these specific, safe patterns turn into
+// tags:
+//   **bold text**        -> <strong>
+//   [link text](url)     -> inline <a>
+//   ![](image url)       -> inline <img>, full width
+function applyInlineFormatting(escapedLine) {
+  return escapedLine
+    .replace(/!\[\]\((https?:\/\/[^\s)]+)\)/g, '<img src="$1" alt="" style="width:100%;display:block;border-radius:8px;margin:8px 0;" />')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" style="color:#17191D;text-decoration:underline;">$1</a>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+}
+
 // Turns plain text into paragraphs, splitting on blank lines -- same
-// simple convention already used for a church's welcome-letter body,
-// so composing an email doesn't require knowing any HTML.
+// simple convention already used for a church's welcome-letter body.
+// A line starting with "# " becomes a larger heading line instead of a
+// normal paragraph -- the simplest way to offer "bigger text" without
+// a real font-size picker.
 function textToParagraphs(text) {
   return text
     .split(/\n\s*\n/)
-    .map(p => `<p style="margin:0 0 16px;">${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
+    .map(block => {
+      const escaped = escapeHtml(block);
+      if (/^#\s+/.test(block)) {
+        const headingText = applyInlineFormatting(escapeHtml(block.replace(/^#\s+/, '')));
+        return `<p style="margin:0 0 16px;font-size:19px;font-weight:700;">${headingText}</p>`;
+      }
+      return `<p style="margin:0 0 16px;">${applyInlineFormatting(escaped).replace(/\n/g, '<br>')}</p>`;
+    })
     .join('');
 }
 
@@ -82,7 +105,7 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Invalid request body' }) };
   }
 
-  const { subject, message, imageUrl, linkText, linkUrl, testOnly } = body;
+  const { subject, message, imageUrl, linkText, linkUrl, testOnly, audience, churchId, courseId } = body;
   if (!subject || !message) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Missing subject or message' }) };
   }
@@ -106,7 +129,8 @@ exports.handler = async (event) => {
     { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } }
   );
   const profiles = profileRes.ok ? await profileRes.json() : [];
-  if (!profiles[0] || profiles[0].role !== 'super_admin') {
+  const callerRole = profiles[0]?.role;
+  if (callerRole !== 'super_admin' && callerRole !== 'church_admin') {
     return { statusCode: 403, body: JSON.stringify({ error: 'Not authorized' }) };
   }
 
@@ -137,17 +161,31 @@ exports.handler = async (event) => {
     return { statusCode: 200, body: JSON.stringify({ testSent: true, to: user.email }) };
   }
 
-  // RPC call uses the ADMIN'S OWN token too (not the anon key alone) --
-  // get_broadcast_recipients() checks is_super_admin(auth.uid()), which
-  // needs auth.uid() to actually resolve to this specific caller.
-  const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_broadcast_recipients`, {
+  // A church admin's audience is never taken from the request body --
+  // it's always their own church, via a function that derives it
+  // server-side from their own profile. This is what actually prevents
+  // a tampered request from reaching another church's students; there's
+  // no churchId parameter in this path for a church admin to manipulate.
+  let rpcName, rpcParams;
+  if (callerRole === 'church_admin') {
+    rpcName = 'get_my_church_broadcast_recipients';
+    rpcParams = {};
+  } else if (audience === 'subscribers') {
+    rpcName = 'get_subscriber_list_recipients';
+    rpcParams = {};
+  } else {
+    rpcName = 'get_broadcast_recipients';
+    rpcParams = { p_church_id: churchId || null, p_course_id: courseId || null };
+  }
+
+  const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${rpcName}`, {
     method: 'POST',
     headers: {
       apikey: SUPABASE_ANON_KEY,
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({}),
+    body: JSON.stringify(rpcParams),
   });
 
   if (!rpcRes.ok) {
