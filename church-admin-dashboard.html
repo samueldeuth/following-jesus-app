@@ -216,6 +216,33 @@ function renderAccountInfo(email){
 // default 1,000-row cap applies to supabase-js RPC calls too, not just
 // raw fetch(). Unlikely to matter at a single church's scale today, but
 // keeps this consistent and correct as a church's list grows.
+// Polls a broadcast_send_jobs row every 2 seconds until the background
+// function marks it done or failed, updating the composer's status line
+// with live progress in the meantime.
+function pollBroadcastJob(jobId, statusEl){
+  const poll = async () => {
+    const { data: rows } = await supabaseClient.rpc('get_broadcast_send_job', { p_job_id: jobId });
+    const job = rows?.[0];
+    if(!job){
+      statusEl.textContent = 'Lost track of this send — check Resend\'s dashboard to confirm what went out.';
+      return;
+    }
+    if(job.status === 'running'){
+      statusEl.textContent = job.total > 0
+        ? `Sending... ${job.sent + job.failed} of ${job.total} processed so far.`
+        : 'Starting...';
+      setTimeout(poll, 2000);
+    } else if(job.status === 'done'){
+      statusEl.textContent = `Done — sent to ${job.sent} of ${job.total}${job.failed ? `, ${job.failed} failed` : ''}.`;
+      const cancelBtn = document.getElementById('broadcast-cancel-btn');
+      if(cancelBtn) cancelBtn.textContent = 'Done';
+    } else {
+      statusEl.textContent = 'Something went wrong: ' + (job.error || 'unknown error');
+    }
+  };
+  poll();
+}
+
 async function fetchAllRpcRowsClient(rpcName, rpcParams){
   const PAGE_SIZE = 1000;
   let allRows = [];
@@ -669,7 +696,7 @@ async function renderBroadcastComposer(){
     if(!confirm(`Send this email to your students? This can't be undone once sent.`)) return;
 
     sendBtn.disabled = true;
-    statusEl.textContent = 'Sending...';
+    statusEl.textContent = 'Starting...';
     try {
       const res = await fetch('/.netlify/functions/send-broadcast-email', {
         method: 'POST',
@@ -677,16 +704,15 @@ async function renderBroadcastComposer(){
         body: JSON.stringify({ subject, message, imageUrl: uploadedImageUrl, linkText, linkUrl })
       });
       const result = await res.json();
-      if(!res.ok){
+      if(!res.ok || !result.jobId){
         statusEl.textContent = 'Something went wrong: ' + (result.error || 'unknown error');
         sendBtn.disabled = false;
         return;
       }
       await supabaseClient.rpc('delete_my_broadcast_draft', { p_draft_key: BROADCAST_DRAFT_KEY });
-      statusEl.textContent = `Done — sent to ${result.sent} of ${result.total}${result.failed ? `, ${result.failed} failed` : ''}.`;
-      document.getElementById('broadcast-cancel-btn').textContent = 'Done';
+      pollBroadcastJob(result.jobId, statusEl);
     } catch (err) {
-      statusEl.textContent = 'Something went wrong sending this. Please try again.';
+      statusEl.textContent = 'Something went wrong starting this. Please try again.';
       sendBtn.disabled = false;
     }
   });

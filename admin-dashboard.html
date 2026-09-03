@@ -583,6 +583,35 @@ function wireAddChurchForm(){
 // could plausibly return more than 1,000 rows (recipient-count
 // previews) needs to page through results the same way the actual send
 // does, or the preview will just be wrong.
+// Polls a broadcast_send_jobs row every 2 seconds until the background
+// function marks it done or failed, updating the composer's status line
+// with live progress in the meantime. The actual send can take several
+// minutes for a large list, so this is what gives real feedback instead
+// of a single blind "sending..." message the whole time.
+function pollBroadcastJob(jobId, statusEl){
+  const poll = async () => {
+    const { data: rows } = await supabaseClient.rpc('get_broadcast_send_job', { p_job_id: jobId });
+    const job = rows?.[0];
+    if(!job){
+      statusEl.textContent = 'Lost track of this send — check Resend\'s dashboard to confirm what went out.';
+      return;
+    }
+    if(job.status === 'running'){
+      statusEl.textContent = job.total > 0
+        ? `Sending... ${job.sent + job.failed} of ${job.total} processed so far.`
+        : 'Starting...';
+      setTimeout(poll, 2000);
+    } else if(job.status === 'done'){
+      statusEl.textContent = `Done — sent to ${job.sent} of ${job.total}${job.failed ? `, ${job.failed} failed` : ''}.`;
+      const cancelBtn = document.getElementById('broadcast-cancel-btn');
+      if(cancelBtn) cancelBtn.textContent = 'Done';
+    } else {
+      statusEl.textContent = 'Something went wrong: ' + (job.error || 'unknown error');
+    }
+  };
+  poll();
+}
+
 async function fetchAllRpcRowsClient(rpcName, rpcParams){
   const PAGE_SIZE = 1000;
   let allRows = [];
@@ -1885,7 +1914,7 @@ async function renderBroadcastComposer(opts){
     if(!confirm(`Send this email to ${audienceLabel}? This can't be undone once sent.`)) return;
 
     sendBtn.disabled = true;
-    statusEl.textContent = 'Sending... this can take a minute for a larger list.';
+    statusEl.textContent = 'Starting...';
     try {
       const res = await fetch('/.netlify/functions/send-broadcast-email', {
         method: 'POST',
@@ -1893,17 +1922,15 @@ async function renderBroadcastComposer(opts){
         body: JSON.stringify({ subject, message, imageUrl: uploadedImageUrl, linkText, linkUrl, audience, churchId: opts.churchId || null, courseId: opts.courseId || null })
       });
       const result = await res.json();
-      if(!res.ok){
+      if(!res.ok || !result.jobId){
         statusEl.textContent = 'Something went wrong: ' + (result.error || 'unknown error');
         sendBtn.disabled = false;
         return;
       }
-      // A successful full send clears any saved draft, since it's done.
       await supabaseClient.rpc('delete_my_broadcast_draft', { p_draft_key: draftKey });
-      statusEl.textContent = `Done — sent to ${result.sent} of ${result.total}${result.failed ? `, ${result.failed} failed` : ''}.`;
-      document.getElementById('broadcast-cancel-btn').textContent = 'Done';
+      pollBroadcastJob(result.jobId, statusEl);
     } catch (err) {
-      statusEl.textContent = 'Something went wrong sending this. Please try again.';
+      statusEl.textContent = 'Something went wrong starting this. Please try again.';
       sendBtn.disabled = false;
     }
   });
