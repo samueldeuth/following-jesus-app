@@ -1390,6 +1390,10 @@ function renderSubscriberImporter(){
 /* ---------- samueldeuth.com subscriber list (browse + send) ---------- */
 const SUBSCRIBER_PAGE_SIZE = 100;
 let subscriberListOffset = 0;
+// Shared with nothing else -- this view's own Active/Archived toggle,
+// same idea as studentViewMode but kept separate since this list isn't
+// students at all.
+let subscriberViewMode = 'active';
 
 async function renderSubscriberList(){
   activeChurchId = null;
@@ -1403,6 +1407,10 @@ async function renderSubscriberList(){
   document.getElementById('content').innerHTML = `
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">samueldeuth.com</h2>
     <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:14px;" id="subscriber-count-line">Loading…</p>
+    <div style="display:flex;gap:6px;margin-bottom:14px;">
+      <button class="mini-btn ${subscriberViewMode==='active'?'active':''}" id="subscriber-mode-active-btn">Active</button>
+      <button class="mini-btn ${subscriberViewMode==='archived'?'active':''}" id="subscriber-mode-archived-btn">Unsubscribed / Archived</button>
+    </div>
     <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;">
       <input type="text" class="sidebar-search" id="subscriber-search" placeholder="Search by email or name…" style="max-width:280px;margin-bottom:0;" />
       <button class="mini-btn" id="subscriber-import-more-btn">Import More</button>
@@ -1410,7 +1418,7 @@ async function renderSubscriberList(){
     </div>
     <div class="table-scroll">
       <table>
-        <thead><tr><th>Email</th><th>Name</th><th>Source</th><th>Imported</th></tr></thead>
+        <thead><tr><th>Email</th><th>Name</th><th>Source</th><th>Imported</th><th>Actions</th></tr></thead>
         <tbody id="subscriber-tbody"></tbody>
       </table>
     </div>
@@ -1419,6 +1427,14 @@ async function renderSubscriberList(){
 
   document.getElementById('subscriber-import-more-btn').addEventListener('click', renderSubscriberImporter);
   document.getElementById('subscriber-send-email-btn').addEventListener('click', () => renderBroadcastComposer({ audience: 'subscribers', audienceLabel: 'your samueldeuth.com list' }));
+  document.getElementById('subscriber-mode-active-btn').addEventListener('click', () => {
+    subscriberViewMode = 'active';
+    renderSubscriberList();
+  });
+  document.getElementById('subscriber-mode-archived-btn').addEventListener('click', () => {
+    subscriberViewMode = 'archived';
+    renderSubscriberList();
+  });
 
   let searchTimer = null;
   document.getElementById('subscriber-search').addEventListener('input', (e) => {
@@ -1431,12 +1447,13 @@ async function renderSubscriberList(){
 
 async function loadSubscriberPage(){
   const query = document.getElementById('subscriber-search')?.value.trim() || null;
+  const isArchived = subscriberViewMode === 'archived';
   const [{ data: rows }, { data: totalCount }] = await Promise.all([
-    supabaseClient.rpc('search_general_subscribers', { p_query: query, p_limit: SUBSCRIBER_PAGE_SIZE, p_offset: subscriberListOffset }),
-    supabaseClient.rpc('count_general_subscribers')
+    supabaseClient.rpc('search_general_subscribers', { p_query: query, p_unsubscribed: isArchived, p_limit: SUBSCRIBER_PAGE_SIZE, p_offset: subscriberListOffset }),
+    supabaseClient.rpc('count_general_subscribers', { p_unsubscribed: isArchived })
   ]);
 
-  document.getElementById('subscriber-count-line').textContent = `${totalCount || 0} people on this list`;
+  document.getElementById('subscriber-count-line').textContent = `${totalCount || 0} ${isArchived ? 'unsubscribed / archived' : 'active'} people on this list`;
 
   document.getElementById('subscriber-tbody').innerHTML = (rows || []).map(r => `
     <tr>
@@ -1444,7 +1461,35 @@ async function loadSubscriberPage(){
       <td>${escapeHtmlReport(r.full_name || '—')}</td>
       <td style="color:var(--ink-soft);font-size:12.5px;">${escapeHtmlReport(r.source || '—')}</td>
       <td style="color:var(--ink-soft);font-size:12.5px;">${new Date(r.created_at).toLocaleDateString()}</td>
-    </tr>`).join('') || `<tr><td colspan="4" style="color:var(--ink-soft);">${query ? 'No matches.' : 'No subscribers yet.'}</td></tr>`;
+      <td>
+        <div class="row-actions">
+          ${isArchived
+            ? `<button class="mini-btn" data-restore-sub="${r.id}">Restore</button>
+               <button class="mini-btn danger" data-delete-sub="${r.id}" data-email="${escapeHtmlReport(r.email)}">Delete Permanently</button>`
+            : `<button class="mini-btn danger" data-archive-sub="${r.id}">Archive</button>`}
+        </div>
+      </td>
+    </tr>`).join('') || `<tr><td colspan="5" style="color:var(--ink-soft);">${query ? 'No matches.' : (isArchived ? 'No archived subscribers.' : 'No subscribers yet.')}</td></tr>`;
+
+  document.querySelectorAll('[data-archive-sub]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await supabaseClient.rpc('set_general_subscriber_archived', { p_id: btn.dataset.archiveSub, p_archived: true });
+      loadSubscriberPage();
+    });
+  });
+  document.querySelectorAll('[data-restore-sub]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await supabaseClient.rpc('set_general_subscriber_archived', { p_id: btn.dataset.restoreSub, p_archived: false });
+      loadSubscriberPage();
+    });
+  });
+  document.querySelectorAll('[data-delete-sub]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!confirm(`Permanently delete ${btn.dataset.email}? This can't be undone.`)) return;
+      await supabaseClient.rpc('delete_general_subscriber', { p_id: btn.dataset.deleteSub });
+      loadSubscriberPage();
+    });
+  });
 
   const paginationEl = document.getElementById('subscriber-pagination');
   const hasMore = (rows || []).length === SUBSCRIBER_PAGE_SIZE;
