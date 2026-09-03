@@ -879,7 +879,7 @@ function rangeStartDate(rangeKey){
   return new Date(now.getTime() - 30*24*60*60*1000);
 }
 const rangeLabels = { 'today': 'Today', '7d': 'Last 7 Days', '30d': 'Last 30 Days', '90d': 'Last 90 Days', 'mtd': 'Month to Date', 'ytd': 'Year to Date' };
-let overviewRangeKey = '30d';
+let overviewRangeKey = 'today';
 
 // Churches and students are already cached client-side (allChurches,
 // allRows) so those two counts are a simple filter -- no new query.
