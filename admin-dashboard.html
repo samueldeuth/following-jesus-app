@@ -1543,14 +1543,64 @@ function renderSubscriberExportPicker(){
   document.getElementById('export-pick-archived').addEventListener('click', () => runExport('archived'));
 }
 
+function parseEmailListOnly(text){
+  // Simpler than parseSubscriberCsv -- this tool only ever needs the
+  // email itself (from a plain list or a one-column CSV export), never
+  // a name.
+  return text.split(/\r?\n/)
+    .map(line => line.trim().replace(/^"|"$/g, ''))
+    .map(line => line.split(',')[0].trim()) // tolerates "email,anything" per line too
+    .filter(line => line.includes('@'));
+}
+
+function renderSubscriberBulkStatusTool(){
+  const overlay = document.createElement('div');
+  overlay.id = 'bulk-status-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(10,10,10,0.5);display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:var(--radius);padding:26px 28px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:17px;margin:0 0 4px;">Bulk Archive / Restore by List</h3>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 16px;">Paste a list of email addresses — one per line, or a one-column CSV export works too. Use this to temporarily exclude a specific group from a send (Archive), then bring them back afterward (Restore).</p>
+
+      <textarea class="field-input field-textarea" id="bulk-status-text" style="min-height:200px;font-family:monospace;font-size:12.5px;" placeholder="jane@example.com&#10;john@example.com"></textarea>
+
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+        <button class="mini-btn" id="bulk-status-cancel-btn">Cancel</button>
+        <button class="mini-btn danger" id="bulk-status-archive-btn">Archive These</button>
+        <button class="mini-btn" id="bulk-status-restore-btn">Restore These</button>
+      </div>
+      <p id="bulk-status-status" style="font-size:12.5px;color:var(--ink-soft);margin-top:10px;"></p>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.getElementById('bulk-status-cancel-btn').addEventListener('click', () => overlay.remove());
+
+  async function runBulkStatus(archived){
+    const raw = document.getElementById('bulk-status-text').value;
+    const statusEl = document.getElementById('bulk-status-status');
+    const emails = parseEmailListOnly(raw);
+    if(emails.length === 0){ statusEl.textContent = 'No valid email addresses found in that text.'; return; }
+    const verb = archived ? 'Archive' : 'Restore';
+    if(!confirm(`${verb} ${emails.length} email address${emails.length===1?'':'es'}? Anyone not already on this list is left untouched.`)) return;
+
+    statusEl.textContent = `${verb === 'Archive' ? 'Archiving' : 'Restoring'} ${emails.length} people...`;
+    const { data: affectedCount, error } = await supabaseClient.rpc('bulk_set_subscribers_archived_by_email', { p_emails: emails, p_archived: archived });
+    if(error){
+      statusEl.textContent = 'Something went wrong: ' + error.message;
+      return;
+    }
+    statusEl.textContent = `Done — ${affectedCount} matched and ${archived ? 'archived' : 'restored'} (${emails.length - affectedCount} in the pasted list weren't found, or were already in that state).`;
+    document.getElementById('bulk-status-cancel-btn').textContent = 'Done';
+    if(viewingSubscriberList && document.getElementById('subscriber-tbody')) loadSubscriberPage();
+  }
+
+  document.getElementById('bulk-status-archive-btn').addEventListener('click', () => runBulkStatus(true));
+  document.getElementById('bulk-status-restore-btn').addEventListener('click', () => runBulkStatus(false));
+}
+
+
 async function renderSubscriberList(){
   activeChurchId = null;
-  activeCourseId = null;
-  viewingNoChurch = false;
-  viewingAllStudents = false;
-  viewingSubscriberList = true;
-  subscriberListOffset = 0;
-  renderSidebar();
 
   document.getElementById('content').innerHTML = `
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">samueldeuth.com</h2>
@@ -1563,6 +1613,7 @@ async function renderSubscriberList(){
       <input type="text" class="sidebar-search" id="subscriber-search" placeholder="Search by email or name…" style="max-width:280px;margin-bottom:0;" />
       <button class="mini-btn" id="subscriber-import-more-btn">Import More</button>
       <button class="mini-btn" id="subscriber-export-btn">Export (CSV)</button>
+      <button class="mini-btn" id="subscriber-bulk-status-btn">Bulk Archive / Restore by List</button>
       <button class="mini-btn gold" id="subscriber-send-email-btn">Send Email to This Group</button>
     </div>
     <div class="table-scroll">
@@ -1576,6 +1627,7 @@ async function renderSubscriberList(){
 
   document.getElementById('subscriber-import-more-btn').addEventListener('click', renderSubscriberImporter);
   document.getElementById('subscriber-export-btn').addEventListener('click', renderSubscriberExportPicker);
+  document.getElementById('subscriber-bulk-status-btn').addEventListener('click', renderSubscriberBulkStatusTool);
   document.getElementById('subscriber-send-email-btn').addEventListener('click', () => renderBroadcastComposer({ audience: 'subscribers', audienceLabel: 'your samueldeuth.com list' }));
   document.getElementById('subscriber-mode-active-btn').addEventListener('click', () => {
     subscriberViewMode = 'active';
