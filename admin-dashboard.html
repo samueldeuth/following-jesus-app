@@ -1395,6 +1395,68 @@ let subscriberListOffset = 0;
 // students at all.
 let subscriberViewMode = 'active';
 
+function downloadSubscriberCsv(rows, filenameSuffix){
+  const headers = ['Email', 'Name', 'Status', 'Source', 'Imported'];
+  const lines = [headers.map(csvEscape).join(',')];
+  rows.forEach(r => {
+    lines.push([r.email, r.full_name || '', r.unsubscribed ? 'Unsubscribed/Archived' : 'Active', r.source || '', new Date(r.created_at).toLocaleDateString()].map(csvEscape).join(','));
+  });
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `samueldeuth-${filenameSuffix}-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function renderSubscriberExportPicker(){
+  const overlay = document.createElement('div');
+  overlay.id = 'subscriber-export-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(10,10,10,0.5);display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:var(--radius);padding:26px 28px;max-width:380px;width:100%;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:17px;margin:0 0 4px;">Export Subscribers</h3>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 18px;">Respects your current search, if any.</p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="mini-btn" id="export-pick-all" style="text-align:left;">All (Active + Unsubscribed/Archived)</button>
+        <button class="mini-btn" id="export-pick-active" style="text-align:left;">Active Only</button>
+        <button class="mini-btn" id="export-pick-archived" style="text-align:left;">Unsubscribed/Archived Only</button>
+      </div>
+      <button class="mini-btn" id="export-pick-cancel" style="margin-top:14px;">Cancel</button>
+      <p id="export-pick-status" style="font-size:12.5px;color:var(--ink-soft);margin-top:10px;"></p>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.getElementById('export-pick-cancel').addEventListener('click', () => overlay.remove());
+
+  const query = document.getElementById('subscriber-search')?.value.trim() || null;
+  const statusEl = document.getElementById('export-pick-status');
+
+  async function runExport(scope){
+    statusEl.textContent = 'Exporting...';
+    if(scope === 'all'){
+      // Two calls, one per status -- search_general_subscribers takes a
+      // single boolean, so "both" means fetching each side and merging.
+      const [{ data: activeRows }, { data: archivedRows }] = await Promise.all([
+        supabaseClient.rpc('search_general_subscribers', { p_query: query, p_unsubscribed: false, p_limit: 20000, p_offset: 0 }),
+        supabaseClient.rpc('search_general_subscribers', { p_query: query, p_unsubscribed: true, p_limit: 20000, p_offset: 0 })
+      ]);
+      downloadSubscriberCsv([...(activeRows || []), ...(archivedRows || [])], 'all');
+    } else {
+      const { data: rows } = await supabaseClient.rpc('search_general_subscribers', { p_query: query, p_unsubscribed: scope === 'archived', p_limit: 20000, p_offset: 0 });
+      downloadSubscriberCsv(rows || [], scope === 'archived' ? 'unsubscribed-archived' : 'active');
+    }
+    overlay.remove();
+  }
+
+  document.getElementById('export-pick-all').addEventListener('click', () => runExport('all'));
+  document.getElementById('export-pick-active').addEventListener('click', () => runExport('active'));
+  document.getElementById('export-pick-archived').addEventListener('click', () => runExport('archived'));
+}
+
 async function renderSubscriberList(){
   activeChurchId = null;
   activeCourseId = null;
@@ -1427,35 +1489,7 @@ async function renderSubscriberList(){
   `;
 
   document.getElementById('subscriber-import-more-btn').addEventListener('click', renderSubscriberImporter);
-  document.getElementById('subscriber-export-btn').addEventListener('click', async () => {
-    const btn = document.getElementById('subscriber-export-btn');
-    const originalText = btn.textContent;
-    btn.textContent = 'Exporting...';
-    btn.disabled = true;
-    const query = document.getElementById('subscriber-search')?.value.trim() || null;
-    const isArchived = subscriberViewMode === 'archived';
-    // Pulls the full matching set in one call, independent of the
-    // on-screen pagination -- the same search_general_subscribers RPC
-    // already supports an arbitrary limit, so no separate export-only
-    // RPC is needed at this list size.
-    const { data: rows } = await supabaseClient.rpc('search_general_subscribers', { p_query: query, p_unsubscribed: isArchived, p_limit: 20000, p_offset: 0 });
-    const headers = ['Email', 'Name', 'Source', 'Imported'];
-    const lines = [headers.map(csvEscape).join(',')];
-    (rows || []).forEach(r => {
-      lines.push([r.email, r.full_name || '', r.source || '', new Date(r.created_at).toLocaleDateString()].map(csvEscape).join(','));
-    });
-    const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `samueldeuth-${isArchived ? 'unsubscribed-archived' : 'active'}-${new Date().toISOString().slice(0,10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    btn.textContent = originalText;
-    btn.disabled = false;
-  });
+  document.getElementById('subscriber-export-btn').addEventListener('click', renderSubscriberExportPicker);
   document.getElementById('subscriber-send-email-btn').addEventListener('click', () => renderBroadcastComposer({ audience: 'subscribers', audienceLabel: 'your samueldeuth.com list' }));
   document.getElementById('subscriber-mode-active-btn').addEventListener('click', () => {
     subscriberViewMode = 'active';
