@@ -577,6 +577,26 @@ function wireAddChurchForm(){
 // implementation. Per the CSV standard: any field containing a comma,
 // quote, or newline gets wrapped in quotes, and any quote inside it
 // gets doubled.
+// Same fix as send-broadcast-email.js's fetchAllRpcRows, but for the
+// browser's own supabase-js client -- Supabase's default 1,000-row cap
+// applies here too, not just to raw fetch() calls, so any RPC that
+// could plausibly return more than 1,000 rows (recipient-count
+// previews) needs to page through results the same way the actual send
+// does, or the preview will just be wrong.
+async function fetchAllRpcRowsClient(rpcName, rpcParams){
+  const PAGE_SIZE = 1000;
+  let allRows = [];
+  let offset = 0;
+  for(let page = 0; page < 100; page++){
+    const { data, error } = await supabaseClient.rpc(rpcName, rpcParams).range(offset, offset + PAGE_SIZE - 1);
+    if(error || !data || data.length === 0) break;
+    allRows = allRows.concat(data);
+    if(data.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+  return allRows;
+}
+
 function csvEscape(value){
   const str = (value === null || value === undefined) ? '' : String(value);
   if(/[",\n]/.test(str)){
@@ -1739,11 +1759,11 @@ async function renderBroadcastComposer(opts){
   if(session?.access_token){
     const countEl = document.getElementById('broadcast-recipient-count');
     if(audience === 'subscribers'){
-      const { data: recipients } = await supabaseClient.rpc('get_subscriber_list_recipients');
-      if(countEl) countEl.textContent = `This will go to ${recipients?.length || 0} people who haven't opted out.`;
+      const recipients = await fetchAllRpcRowsClient('get_subscriber_list_recipients', {});
+      if(countEl) countEl.textContent = `This will go to ${recipients.length} people who haven't opted out.`;
     } else {
-      const { data: recipients } = await supabaseClient.rpc('get_broadcast_recipients', { p_church_id: opts.churchId || null, p_course_id: opts.courseId || null });
-      if(countEl) countEl.textContent = `This will go to ${recipients?.length || 0} people who haven't opted out.`;
+      const recipients = await fetchAllRpcRowsClient('get_broadcast_recipients', { p_church_id: opts.churchId || null, p_course_id: opts.courseId || null });
+      if(countEl) countEl.textContent = `This will go to ${recipients.length} people who haven't opted out.`;
     }
   }
 
