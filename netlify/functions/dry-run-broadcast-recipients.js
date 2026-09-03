@@ -96,9 +96,8 @@ exports.handler = async (event) => {
           apikey: SUPABASE_ANON_KEY,
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
-          Range: `${offset}-${offset + SUPABASE_PAGE_SIZE - 1}`,
         },
-        body: JSON.stringify(rpcParams),
+        body: JSON.stringify({ ...rpcParams, p_limit: SUPABASE_PAGE_SIZE, p_offset: offset }),
       });
 
       if (!res.ok) {
