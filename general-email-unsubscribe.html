@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unsubscribe — Following Jesus</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{ --ink:#17191D; --ink-soft:#6B7280; --bg-soft:#F4F4F2; --line:#E4E3DD; --radius:10px; }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg-soft);color:var(--ink);font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+  .card{background:#fff;border-radius:var(--radius);padding:36px 32px;max-width:420px;width:100%;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.08);}
+  .logo{font-family:'Space Grotesk',sans-serif;font-weight:700;letter-spacing:0.1em;font-size:13px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:18px;}
+  h1{font-family:'Space Grotesk',sans-serif;font-size:20px;margin:0 0 10px;}
+  p{font-size:14px;color:var(--ink-soft);line-height:1.5;margin:0;}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">Following Jesus</div>
+    <div id="content">
+      <h1>Working on it…</h1>
+      <p>One moment.</p>
+    </div>
+  </div>
+
+<script>
+const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  const content = document.getElementById('content');
+
+  if (!token) {
+    content.innerHTML = '<h1>Missing link</h1><p>This unsubscribe link looks incomplete. Please use the link directly from the email you received.</p>';
+    return;
+  }
+
+  const { error } = await supabaseClient.rpc('unsubscribe_from_general_email', { p_token: token });
+
+  if (error) {
+    content.innerHTML = '<h1>Something went wrong</h1><p>Please try again in a moment, or just ignore future emails — we\'ll sort it out.</p>';
+    return;
+  }
+
+  content.innerHTML = '<h1>You\'re unsubscribed</h1><p>You won\'t get any more general emails from us. This doesn\'t affect course reminders or other messages you may have separately opted into.</p>';
+})();
+</script>
+</body>
+</html>

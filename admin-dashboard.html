@@ -1318,6 +1318,130 @@ function wireBatchActionBar(onChange){
   }
 }
 
+/* ---------- Import general subscribers (e.g. a Mailchimp export) ---------- */
+function parseSubscriberCsv(text){
+  // Deliberately tolerant: accepts "email", "email,name", or
+  // "email, name" per line -- a real Mailchimp export's exact column
+  // order can vary, so this only actually requires the email itself to
+  // be recognizable (contains an @), rather than assuming a fixed
+  // column layout.
+  return text.split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line && line.includes('@'))
+    .map(line => {
+      const parts = line.split(',').map(p => p.trim().replace(/^"|"$/g, ''));
+      const email = parts.find(p => p.includes('@')) || '';
+      const name = parts.find(p => p && !p.includes('@')) || '';
+      return { email, full_name: name };
+    })
+    .filter(row => row.email);
+}
+
+function renderSubscriberImporter(){
+  const overlay = document.createElement('div');
+  overlay.id = 'import-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(10,10,10,0.5);display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:var(--radius);padding:26px 28px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:17px;margin:0 0 4px;">Import Subscribers</h3>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 16px;">Paste a Mailchimp (or any) export below — one person per line, as "email" or "email, name". These join the broadcast list alongside app/course signups, without duplicating anyone already signed up.</p>
+
+      <textarea class="field-input field-textarea" id="import-csv-text" style="min-height:200px;font-family:monospace;font-size:12.5px;" placeholder="jane@example.com, Jane Smith&#10;john@example.com"></textarea>
+
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button class="mini-btn" id="import-cancel-btn">Cancel</button>
+        <button class="mini-btn gold" id="import-confirm-btn">Import</button>
+      </div>
+      <p id="import-status" style="font-size:12.5px;color:var(--ink-soft);margin-top:10px;"></p>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.getElementById('import-cancel-btn').addEventListener('click', () => overlay.remove());
+
+  document.getElementById('import-confirm-btn').addEventListener('click', async () => {
+    const raw = document.getElementById('import-csv-text').value;
+    const statusEl = document.getElementById('import-status');
+    const rows = parseSubscriberCsv(raw);
+    if(rows.length === 0){ statusEl.textContent = 'No valid email addresses found in that text.'; return; }
+    if(!confirm(`Import ${rows.length} email address${rows.length===1?'':'es'}? Anyone already in the system (by email) is safely skipped, not duplicated.`)) return;
+
+    statusEl.textContent = `Importing ${rows.length} people...`;
+    const { data: importedCount, error } = await supabaseClient.rpc('import_general_subscribers', { p_rows: rows });
+    if(error){
+      statusEl.textContent = 'Something went wrong: ' + error.message;
+      return;
+    }
+    statusEl.textContent = `Done — ${importedCount} new subscriber${importedCount===1?'':'s'} added (${rows.length - importedCount} were already in the system and skipped).`;
+  });
+}
+
+/* ---------- Broadcast email to everyone ---------- */
+async function renderBroadcastComposer(){
+  const overlay = document.createElement('div');
+  overlay.id = 'broadcast-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(10,10,10,0.5);display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:var(--radius);padding:26px 28px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:17px;margin:0 0 4px;">Send Email to Everyone</h3>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 16px;" id="broadcast-recipient-count">Checking who this will reach…</p>
+
+      <label class="field-label">Subject</label>
+      <input type="text" class="field-input" id="broadcast-subject" placeholder="e.g. A quick update from Following Jesus" />
+
+      <label class="field-label">Message</label>
+      <textarea class="field-input field-textarea" id="broadcast-message" style="min-height:160px;" placeholder="Write your message here — separate paragraphs with a blank line, plain text is fine."></textarea>
+      <p class="field-hint" style="margin-bottom:8px;">An unsubscribe link is added automatically at the bottom — anyone who's already opted out of general emails won't receive this.</p>
+
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button class="mini-btn" id="broadcast-cancel-btn">Cancel</button>
+        <button class="mini-btn gold" id="broadcast-send-btn">Send</button>
+      </div>
+      <p id="broadcast-status" style="font-size:12.5px;color:var(--ink-soft);margin-top:10px;"></p>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.getElementById('broadcast-cancel-btn').addEventListener('click', () => overlay.remove());
+
+  // Show a real recipient count up front so Samuel knows the actual
+  // reach before sending, not just after -- same RPC the send function
+  // itself will use, called here read-only via the admin's own session.
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if(session?.access_token){
+    const { data: recipients } = await supabaseClient.rpc('get_broadcast_recipients');
+    const countEl = document.getElementById('broadcast-recipient-count');
+    if(countEl) countEl.textContent = `This will go to ${recipients?.length || 0} people who haven't opted out.`;
+  }
+
+  document.getElementById('broadcast-send-btn').addEventListener('click', async () => {
+    const subject = document.getElementById('broadcast-subject').value.trim();
+    const message = document.getElementById('broadcast-message').value.trim();
+    const statusEl = document.getElementById('broadcast-status');
+    const sendBtn = document.getElementById('broadcast-send-btn');
+    if(!subject || !message){ statusEl.textContent = 'Please fill in both the subject and message.'; return; }
+    if(!confirm(`Send this email to everyone who hasn't opted out? This can't be undone once sent.`)) return;
+
+    sendBtn.disabled = true;
+    statusEl.textContent = 'Sending... this can take a minute for a larger list.';
+    try {
+      const res = await fetch('/.netlify/functions/send-broadcast-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ subject, message })
+      });
+      const result = await res.json();
+      if(!res.ok){
+        statusEl.textContent = 'Something went wrong: ' + (result.error || 'unknown error');
+        sendBtn.disabled = false;
+        return;
+      }
+      statusEl.textContent = `Done — sent to ${result.sent} of ${result.total}${result.failed ? `, ${result.failed} failed` : ''}.`;
+    } catch (err) {
+      statusEl.textContent = 'Something went wrong sending this. Please try again.';
+      sendBtn.disabled = false;
+    }
+  });
+}
+
 function renderAllStudents(){
   activeChurchId = null;
   activeCourseId = null;
@@ -1340,6 +1464,8 @@ function renderAllStudents(){
       <input type="text" class="sidebar-search" id="all-students-search" placeholder="Search by name, email, or church…" style="max-width:280px;margin-bottom:0;" />
       <button class="mini-btn" id="export-all-students-btn">Export Students (CSV)</button>
       <button class="mini-btn" id="merge-accounts-btn">Merge Accounts</button>
+      <button class="mini-btn gold" id="broadcast-email-btn">Send Email to Everyone</button>
+      <button class="mini-btn" id="import-subscribers-btn">Import Subscribers</button>
     </div>
     <div id="all-students-batch-bar"></div>
     <div class="table-scroll" id="all-students-table-wrap">
@@ -1357,6 +1483,8 @@ function renderAllStudents(){
     exportStudentsCSV(allStudentsFilteredRows, `all-students-${new Date().toISOString().slice(0,10)}.csv`, true);
   });
   document.getElementById('merge-accounts-btn').addEventListener('click', renderMergeAccounts);
+  document.getElementById('broadcast-email-btn').addEventListener('click', renderBroadcastComposer);
+  document.getElementById('import-subscribers-btn').addEventListener('click', renderSubscriberImporter);
   document.getElementById('student-mode-active-btn').addEventListener('click', () => {
     studentViewMode = 'active';
     selectedEnrollmentIds.clear();
