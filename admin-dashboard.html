@@ -1376,6 +1376,41 @@ function renderSubscriberImporter(){
 }
 
 /* ---------- Broadcast email to everyone ---------- */
+// Mirrors send-broadcast-email.js's buildEmailHtml() exactly -- same
+// literal HTML/CSS, so what's previewed here is byte-identical to what
+// actually gets sent, not just a close approximation. If that file's
+// template ever changes, this needs the same change or the two will
+// drift apart.
+function buildBroadcastPreviewHtml(bodyText, imageUrl, linkText, linkUrl){
+  const paragraphs = (bodyText || '(your message will appear here)')
+    .split(/\n\s*\n/)
+    .map(p => `<p style="margin:0 0 16px;">${escapeHtmlReport(p).replace(/\n/g, '<br>')}</p>`)
+    .join('');
+  const imageBlock = imageUrl ? `<img src="${imageUrl}" alt="" style="width:100%;display:block;" />` : '';
+  const buttonBlock = (linkUrl && linkText)
+    ? `<p style="text-align:center;margin:8px 0 24px;"><a href="${linkUrl}" style="background:#17191D;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">${escapeHtmlReport(linkText)}</a></p>`
+    : '';
+  return `
+    <div style="background:#F4F4F2;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+      <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;">
+        <div style="background:#17191D;padding:22px 24px;text-align:center;">
+          <span style="color:#ffffff;font-weight:700;letter-spacing:0.14em;font-size:13px;text-transform:uppercase;">Following Jesus</span>
+        </div>
+        ${imageBlock}
+        <div style="padding:32px 28px 8px;color:#17191D;font-size:15px;line-height:1.65;">
+          ${paragraphs}
+        </div>
+        ${buttonBlock}
+        <div style="padding:0 28px 28px;">
+          <p style="color:#9CA3AF;font-size:11.5px;margin:0;border-top:1px solid #E4E3DD;padding-top:16px;">
+            Don't want occasional emails like this? <a href="#">Unsubscribe</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 async function renderBroadcastComposer(){
   const overlay = document.createElement('div');
   overlay.id = 'broadcast-overlay';
@@ -1389,14 +1424,32 @@ async function renderBroadcastComposer(){
       <input type="text" class="field-input" id="broadcast-subject" placeholder="e.g. A quick update from Following Jesus" />
 
       <label class="field-label">Message</label>
-      <textarea class="field-input field-textarea" id="broadcast-message" style="min-height:160px;" placeholder="Write your message here — separate paragraphs with a blank line, plain text is fine."></textarea>
+      <textarea class="field-input field-textarea" id="broadcast-message" style="min-height:140px;" placeholder="Write your message here — separate paragraphs with a blank line, plain text is fine."></textarea>
+
+      <label class="field-label">Image (optional)</label>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+        <input type="file" accept="image/*" id="broadcast-image-file" style="font-size:12.5px;flex:1;" />
+        <span id="broadcast-image-status" style="font-size:12px;color:var(--ink-soft);"></span>
+      </div>
+      <p class="field-hint" style="margin-bottom:8px;">Shows full-width right under the header, above your message.</p>
+
+      <label class="field-label">Link (optional)</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="field-input" id="broadcast-link-text" placeholder="Button text, e.g. View on the App Store" />
+        <input type="text" class="field-input" id="broadcast-link-url" placeholder="https://..." />
+      </div>
+      <p class="field-hint" style="margin-bottom:8px;">Both fields are needed together — shows as a button below your message.</p>
+
       <p class="field-hint" style="margin-bottom:8px;">An unsubscribe link is added automatically at the bottom — anyone who's already opted out of general emails won't receive this.</p>
 
-      <div style="display:flex;gap:8px;margin-top:14px;">
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
         <button class="mini-btn" id="broadcast-cancel-btn">Cancel</button>
-        <button class="mini-btn gold" id="broadcast-send-btn">Send</button>
+        <button class="mini-btn" id="broadcast-preview-btn">Preview</button>
+        <button class="mini-btn" id="broadcast-test-btn">Send Test to Myself</button>
+        <button class="mini-btn gold" id="broadcast-send-btn">Send to Everyone</button>
       </div>
       <p id="broadcast-status" style="font-size:12.5px;color:var(--ink-soft);margin-top:10px;"></p>
+      <div id="broadcast-preview-area" style="display:none;margin-top:14px;border:1px solid var(--line);border-radius:8px;overflow:hidden;"></div>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -1412,9 +1465,63 @@ async function renderBroadcastComposer(){
     if(countEl) countEl.textContent = `This will go to ${recipients?.length || 0} people who haven't opted out.`;
   }
 
+  let uploadedImageUrl = null;
+  const imageFileInput = document.getElementById('broadcast-image-file');
+  imageFileInput.addEventListener('change', async () => {
+    const file = imageFileInput.files[0];
+    if(!file) return;
+    const statusEl = document.getElementById('broadcast-image-status');
+    statusEl.textContent = 'Uploading...';
+    // Reuses the same bucket already used for church welcome-letter
+    // photos -- no new bucket needed for this one-off use.
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `broadcast/${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabaseClient.storage.from('church-photos').upload(path, file);
+    if(uploadError){
+      statusEl.textContent = '';
+      alert('Could not upload the image: ' + uploadError.message);
+      return;
+    }
+    const { data: urlData } = supabaseClient.storage.from('church-photos').getPublicUrl(path);
+    uploadedImageUrl = urlData.publicUrl;
+    statusEl.textContent = 'Uploaded ✓';
+  });
+
+  const getFormValues = () => ({
+    subject: document.getElementById('broadcast-subject').value.trim(),
+    message: document.getElementById('broadcast-message').value.trim(),
+    linkText: document.getElementById('broadcast-link-text').value.trim(),
+    linkUrl: document.getElementById('broadcast-link-url').value.trim(),
+  });
+
+  document.getElementById('broadcast-preview-btn').addEventListener('click', () => {
+    const { message, linkText, linkUrl } = getFormValues();
+    const previewArea = document.getElementById('broadcast-preview-area');
+    const html = buildBroadcastPreviewHtml(message, uploadedImageUrl, linkText, linkUrl);
+    previewArea.innerHTML = `<iframe srcdoc="${html.replace(/"/g,'&quot;')}" style="width:100%;height:420px;border:none;display:block;"></iframe>`;
+    previewArea.style.display = 'block';
+  });
+
+  document.getElementById('broadcast-test-btn').addEventListener('click', async () => {
+    const { subject, message, linkText, linkUrl } = getFormValues();
+    const statusEl = document.getElementById('broadcast-status');
+    if(!subject || !message){ statusEl.textContent = 'Please fill in both the subject and message first.'; return; }
+    statusEl.textContent = 'Sending a test to your own email...';
+    try {
+      const res = await fetch('/.netlify/functions/send-broadcast-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ subject, message, imageUrl: uploadedImageUrl, linkText, linkUrl, testOnly: true })
+      });
+      const result = await res.json();
+      statusEl.textContent = res.ok ? `Test sent to ${result.to} — check your inbox.` : 'Something went wrong: ' + (result.error || 'unknown error');
+    } catch (err) {
+      statusEl.textContent = 'Something went wrong sending the test.';
+    }
+  });
+
   document.getElementById('broadcast-send-btn').addEventListener('click', async () => {
-    const subject = document.getElementById('broadcast-subject').value.trim();
-    const message = document.getElementById('broadcast-message').value.trim();
+    const { subject, message, linkText, linkUrl } = getFormValues();
     const statusEl = document.getElementById('broadcast-status');
     const sendBtn = document.getElementById('broadcast-send-btn');
     if(!subject || !message){ statusEl.textContent = 'Please fill in both the subject and message.'; return; }
@@ -1426,7 +1533,7 @@ async function renderBroadcastComposer(){
       const res = await fetch('/.netlify/functions/send-broadcast-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ subject, message })
+        body: JSON.stringify({ subject, message, imageUrl: uploadedImageUrl, linkText, linkUrl })
       });
       const result = await res.json();
       if(!res.ok){
