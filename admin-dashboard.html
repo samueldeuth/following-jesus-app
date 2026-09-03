@@ -623,7 +623,15 @@ async function fetchAllRpcRowsClient(rpcName, rpcParams){
     if(data.length < PAGE_SIZE) break;
     offset += PAGE_SIZE;
   }
-  return allRows;
+  // Same dedup safety net as the send function's own fetchAllRpcRows --
+  // keeps the preview count accurate even if pagination ever misbehaves.
+  const seen = new Set();
+  return allRows.filter(r => {
+    const key = (r.email || '').toLowerCase().trim();
+    if(!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function csvEscape(value){
@@ -1484,19 +1492,48 @@ function renderSubscriberExportPicker(){
   const query = document.getElementById('subscriber-search')?.value.trim() || null;
   const statusEl = document.getElementById('export-pick-status');
 
+  // search_general_subscribers has its OWN internal p_limit/p_offset
+  // parameters baked into a real SQL LIMIT/OFFSET clause -- unlike the
+  // other three recipient functions, which return everything unfiltered
+  // and rely entirely on PostgREST's outer .range() header. Because of
+  // that difference, this needs its own explicit pagination loop rather
+  // than reusing fetchAllRpcRowsClient -- relying on .range() alone here
+  // would have just kept re-fetching the same first 100 rows forever,
+  // since p_offset would never actually advance.
+  async function fetchAllSubscribers(query, unsubscribed){
+    const PAGE_SIZE = 1000;
+    let allRows = [];
+    let offset = 0;
+    for(let page = 0; page < 100; page++){
+      const { data, error } = await supabaseClient.rpc('search_general_subscribers', { p_query: query, p_unsubscribed: unsubscribed, p_limit: PAGE_SIZE, p_offset: offset });
+      if(error || !data || data.length === 0) break;
+      allRows = allRows.concat(data);
+      if(data.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
+    }
+    // Same dedup safety net as fetchAllRpcRowsClient -- by id here,
+    // since this function's rows don't carry an email-keyed shape.
+    const seen = new Set();
+    return allRows.filter(r => {
+      if(!r.id || seen.has(r.id)) return false;
+      seen.add(r.id);
+      return true;
+    });
+  }
+
   async function runExport(scope){
     statusEl.textContent = 'Exporting...';
     if(scope === 'all'){
       // Two calls, one per status -- search_general_subscribers takes a
       // single boolean, so "both" means fetching each side and merging.
-      const [{ data: activeRows }, { data: archivedRows }] = await Promise.all([
-        supabaseClient.rpc('search_general_subscribers', { p_query: query, p_unsubscribed: false, p_limit: 20000, p_offset: 0 }),
-        supabaseClient.rpc('search_general_subscribers', { p_query: query, p_unsubscribed: true, p_limit: 20000, p_offset: 0 })
+      const [activeRows, archivedRows] = await Promise.all([
+        fetchAllSubscribers(query, false),
+        fetchAllSubscribers(query, true)
       ]);
-      downloadSubscriberCsv([...(activeRows || []), ...(archivedRows || [])], 'all');
+      downloadSubscriberCsv([...activeRows, ...archivedRows], 'all');
     } else {
-      const { data: rows } = await supabaseClient.rpc('search_general_subscribers', { p_query: query, p_unsubscribed: scope === 'archived', p_limit: 20000, p_offset: 0 });
-      downloadSubscriberCsv(rows || [], scope === 'archived' ? 'unsubscribed-archived' : 'active');
+      const rows = await fetchAllSubscribers(query, scope === 'archived');
+      downloadSubscriberCsv(rows, scope === 'archived' ? 'unsubscribed-archived' : 'active');
     }
     overlay.remove();
   }
@@ -1928,6 +1965,16 @@ async function renderBroadcastComposer(opts){
         return;
       }
       await supabaseClient.rpc('delete_my_broadcast_draft', { p_draft_key: draftKey });
+      // Fired directly from the browser, deliberately NOT awaited --
+      // this is what actually fixes the earlier 504, since the browser
+      // has no execution-time limit to run out of the way one Netlify
+      // function calling another does. Polling starts immediately
+      // regardless of how long this request itself takes to resolve.
+      fetch('/.netlify/functions/send-broadcast-email-background', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: result.jobId, token: session.access_token, subject, message, imageUrl: uploadedImageUrl, linkText, linkUrl, audience, churchId: opts.churchId || null, courseId: opts.courseId || null, callerRole: 'super_admin' })
+      }).catch(err => console.error('Background trigger fetch failed:', err));
       pollBroadcastJob(result.jobId, statusEl);
     } catch (err) {
       statusEl.textContent = 'Something went wrong starting this. Please try again.';
