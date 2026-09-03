@@ -32,17 +32,28 @@ function textToParagraphs(text) {
     .join('');
 }
 
-function buildEmailHtml(bodyText, unsubscribeToken) {
+function buildEmailHtml(bodyText, unsubscribeToken, imageUrl, linkText, linkUrl) {
   const unsubscribeUrl = `${APP_URL}/general-email-unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
+  const imageBlock = imageUrl
+    ? `<img src="${escapeHtml(imageUrl)}" alt="" style="width:100%;display:block;" />`
+    : '';
+  // Same styled-button convention as send-weekly-course-reminders.js's
+  // "Continue the Course" button, for visual consistency across every
+  // email this project sends.
+  const buttonBlock = (linkUrl && linkText)
+    ? `<p style="text-align:center;margin:8px 0 24px;"><a href="${escapeHtml(linkUrl)}" style="background:#17191D;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">${escapeHtml(linkText)}</a></p>`
+    : '';
   return `
     <div style="background:#F4F4F2;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
       <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;">
         <div style="background:#17191D;padding:22px 24px;text-align:center;">
           <span style="color:#ffffff;font-weight:700;letter-spacing:0.14em;font-size:13px;text-transform:uppercase;">Following Jesus</span>
         </div>
-        <div style="padding:32px 28px;color:#17191D;font-size:15px;line-height:1.65;">
+        ${imageBlock}
+        <div style="padding:32px 28px 8px;color:#17191D;font-size:15px;line-height:1.65;">
           ${textToParagraphs(bodyText)}
         </div>
+        ${buttonBlock}
         <div style="padding:0 28px 28px;">
           <p style="color:#9CA3AF;font-size:11.5px;margin:0;border-top:1px solid #E4E3DD;padding-top:16px;">
             Don't want occasional emails like this? <a href="${unsubscribeUrl}" style="color:#9CA3AF;">Unsubscribe</a>
@@ -71,7 +82,7 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Invalid request body' }) };
   }
 
-  const { subject, message } = body;
+  const { subject, message, imageUrl, linkText, linkUrl, testOnly } = body;
   if (!subject || !message) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Missing subject or message' }) };
   }
@@ -97,6 +108,33 @@ exports.handler = async (event) => {
   const profiles = profileRes.ok ? await profileRes.json() : [];
   if (!profiles[0] || profiles[0].role !== 'super_admin') {
     return { statusCode: 403, body: JSON.stringify({ error: 'Not authorized' }) };
+  }
+
+  // Test mode: send exactly one real email, to the caller's own address,
+  // using a fake unsubscribe token (harmless -- it doesn't correspond to
+  // any real profile or subscriber row, so clicking it in a test just
+  // silently updates nothing). Skips the recipient RPC and the real
+  // send loop entirely.
+  if (testOnly) {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: FROM_ADDRESS,
+        to: user.email,
+        reply_to: 'info@followingjesusbook.com',
+        subject: `[TEST] ${subject}`,
+        html: buildEmailHtml(message, '00000000-0000-0000-0000-000000000000', imageUrl, linkText, linkUrl),
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      return { statusCode: 502, body: JSON.stringify({ error: `Resend error: ${errText}` }) };
+    }
+    return { statusCode: 200, body: JSON.stringify({ testSent: true, to: user.email }) };
   }
 
   // RPC call uses the ADMIN'S OWN token too (not the anon key alone) --
@@ -137,7 +175,7 @@ exports.handler = async (event) => {
           to: r.email,
           reply_to: 'info@followingjesusbook.com',
           subject,
-          html: buildEmailHtml(message, r.unsubscribe_token),
+          html: buildEmailHtml(message, r.unsubscribe_token, imageUrl, linkText, linkUrl),
         }),
       });
       if (!res.ok) throw new Error(`Resend ${res.status}`);
