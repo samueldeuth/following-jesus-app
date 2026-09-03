@@ -102,7 +102,24 @@ async function fetchAllRpcRows(rpcName, rpcParams, token) {
     offset += SUPABASE_PAGE_SIZE;
   }
 
-  return allRows;
+  // Defense-in-depth: even with a stable ORDER BY now in place on every
+  // recipient function, deduplicate by email before returning. This is
+  // what actually prevents a repeat of the incident where unstable
+  // pagination caused the same people to be fetched (and emailed)
+  // multiple times -- if pagination or sorting ever misbehaves again
+  // for any reason, this is the backstop that keeps it from turning
+  // into duplicate sends.
+  const seen = new Set();
+  const deduped = [];
+  for (const row of allRows) {
+    const key = (row.email || '').toLowerCase().trim();
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      deduped.push(row);
+    }
+  }
+
+  return deduped;
 }
 
 // Calls a Supabase RPC once, as the given user token -- used for the
