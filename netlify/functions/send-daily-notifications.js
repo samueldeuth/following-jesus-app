@@ -175,8 +175,11 @@ exports.handler = async function () {
   // "selected" option) so the verse text matches what someone would see
   // in-app if they opened today's passage themselves.
   const verseText = refs[0] ? await fetchFirstVerseText(refs[0], 'web') : null;
+  // Reference is appended after truncation so it's never itself cut off --
+  // knowing *which verse* this is matters more than a few extra words of
+  // the quote, especially since the full text is one tap away in the app.
   const verseBody = verseText
-    ? truncateForPush(verseText, 150)
+    ? `${truncateForPush(verseText, 130)} \u2014 ${firstRef}`
     : (firstRef ? `Open today's verse from ${firstRef} →` : 'Open today\u2019s verse →');
 
   // Weekly-cadence users only get included on the day their weekly send
