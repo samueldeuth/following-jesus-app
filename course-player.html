@@ -726,7 +726,28 @@ async function ensureProfileAndEnrollment(){
   // entirely for draft/archived churches, as a backstop beyond just
   // disabling the button (e.g. someone already signed in from a
   // previous visit landing here directly).
-  if(course && church?.course_status !== 'draft' && church?.course_status !== 'archived'){
+  //
+  // For a requires_purchase course, ALSO skip enrollment entirely
+  // unless they've actually paid (has_purchased_course -- the same RPC
+  // renderPlayer's own gating logic calls further down). This was
+  // previously missing: simply visiting a paid course's page while
+  // signed in added someone to that course's admin roster as an
+  // "enrolled" student at 0% progress, even though the actual lesson
+  // content was already correctly blocked by renderPlayer's separate
+  // check. Confirmed on a real account (NayLin Htet), showing enrolled
+  // but not purchased -- per course_purchases -- across five paid
+  // courses the same day, Sep 4 2026. This only changes whether the
+  // enrollment ROW gets created; it never affected content access,
+  // which was already safe.
+  let canEnrollInCourse = course && church?.course_status !== 'draft' && church?.course_status !== 'archived';
+
+  if(canEnrollInCourse && course.requires_purchase){
+    const { data: purchased } = await supabaseClient.rpc('has_purchased_course', { p_course_id: course.id });
+    hasPurchaseAccess = !!purchased; // also primes renderPlayer's own cache, see its declaration above
+    canEnrollInCourse = hasPurchaseAccess;
+  }
+
+  if(canEnrollInCourse){
     const { data: existingEnrollment } = await supabaseClient
       .from('enrollments').select('id').eq('student_id', currentUser.id).eq('course_id', course.id).maybeSingle();
 
