@@ -71,11 +71,37 @@ async function shopifyGraphQL(query, variables = {}) {
   return json.data;
 }
 
+// Shopify's GraphQL mutations can return a normal 200 OK — so
+// shopifyGraphQL() above sees nothing wrong and returns cleanly — while
+// the mutation's own per-field `userErrors` array still reports a real
+// failure (e.g. a tagsAdd that didn't actually apply). This is the same
+// class of check markOrderInProgress already did correctly further down
+// in this file; this helper centralizes it so every mutation uses it,
+// rather than each one needing to remember to inline it.
+function assertNoUserErrors(data, mutationNames, context) {
+  const allErrors = [];
+  for (const name of mutationNames) {
+    const errors = data?.[name]?.userErrors;
+    if (errors && errors.length > 0) {
+      allErrors.push(...errors.map((e) => `${name}: ${e.field ? e.field + ' — ' : ''}${e.message}`));
+    }
+  }
+  if (allErrors.length > 0) {
+    throw new Error(`Shopify mutation userErrors for ${context}: ${allErrors.join('; ')}`);
+  }
+}
+
 /**
  * Tag a newly-placed physical order as "awaiting-outreach-confirm" and stash
  * the shipping name/company/address/items on it as a metafield, so the
  * Outreach confirmation email can be matched back to it later (Outreach's
  * confirmation never references the Shopify order number).
+ *
+ * Now checks userErrors on both tagsAdd and metafieldsSet before returning
+ * — previously this returned shopifyGraphQL()'s result directly without
+ * inspecting it, so a silent per-field failure (HTTP 200, but the tag
+ * genuinely never applied) would still log as a success one level up in
+ * tag-book-order.js. Root cause fixed here.
  */
 async function tagOrderAwaitingOutreach(orderGid, matchData) {
   const mutation = `
@@ -88,7 +114,7 @@ async function tagOrderAwaitingOutreach(orderGid, matchData) {
       }
     }
   `;
-  return shopifyGraphQL(mutation, {
+  const data = await shopifyGraphQL(mutation, {
     orderId: orderGid,
     metafields: [
       {
@@ -100,6 +126,8 @@ async function tagOrderAwaitingOutreach(orderGid, matchData) {
       },
     ],
   });
+  assertNoUserErrors(data, ['tagsAdd', 'metafieldsSet'], `tagOrderAwaitingOutreach(${orderGid})`);
+  return data;
 }
 
 /**
@@ -139,6 +167,10 @@ async function findAwaitingOutreachOrders(sinceISODate) {
  * currentNote is read first by the caller (from the same query that found
  * this order) and merged here — read-merge-write, not a blind overwrite,
  * so any note Samuel or a customer already left on the order is preserved.
+ *
+ * Now checks userErrors on all four mutation fields before returning, same
+ * fix as tagOrderAwaitingOutreach above and for the same reason — this
+ * function had the identical silent-failure gap.
  */
 async function markOrderMatchedToOutreach(orderGid, outreachOrderNumber, currentNote) {
   const noteLine = `Outreach order: ${outreachOrderNumber}`;
@@ -166,7 +198,7 @@ async function markOrderMatchedToOutreach(orderGid, outreachOrderNumber, current
   // only, validated by the caller) rather than trying to parameterize it.
   const outreachTag = `outreach:${outreachOrderNumber}`;
   const safeMutation = mutation.replace('[$outreachTag]', `["${outreachTag}"]`);
-  return shopifyGraphQL(safeMutation, {
+  const data = await shopifyGraphQL(safeMutation, {
     orderId: orderGid,
     note: newNote,
     metafields: [
@@ -179,6 +211,12 @@ async function markOrderMatchedToOutreach(orderGid, outreachOrderNumber, current
       },
     ],
   });
+  assertNoUserErrors(
+    data,
+    ['tagsAdd', 'tagsRemove', 'metafieldsSet', 'orderUpdate'],
+    `markOrderMatchedToOutreach(${orderGid}, ${outreachOrderNumber})`
+  );
+  return data;
 }
 
 /**
@@ -260,7 +298,7 @@ async function fulfillOrderWithTracking(order, { trackingNumber, trackingCompany
     }
   `;
 
-  return shopifyGraphQL(mutation, {
+  const data = await shopifyGraphQL(mutation, {
     fulfillment: {
       lineItemsByFulfillmentOrder: openFulfillmentOrders.map((fo) => ({
         fulfillmentOrderId: fo.id,
@@ -273,6 +311,8 @@ async function fulfillOrderWithTracking(order, { trackingNumber, trackingCompany
       notifyCustomer: true,
     },
   });
+  assertNoUserErrors(data, ['fulfillmentCreateV2'], `fulfillOrderWithTracking(${order.name})`);
+  return data;
 }
 
 /**
@@ -340,6 +380,10 @@ async function getProductTags(productIds) {
  * isolated here means any failure only skips the "in progress" nudge --
  * it can never again take down the match/tag/note logic that already
  * succeeded before this function is even called.
+ *
+ * This function already checked userErrors correctly before this fix --
+ * it's the reference pattern the other two mutations above were missing
+ * and have now been brought in line with.
  */
 async function markOrderInProgress(orderGid, orderName) {
   let openFulfillmentOrders;
