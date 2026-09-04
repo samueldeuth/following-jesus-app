@@ -82,6 +82,18 @@ exports.handler = async (event) => {
     console.log(`Tagged order ${order.name} as awaiting-outreach-confirm`);
   } catch (err) {
     console.error('Failed to tag order for Outreach matching:', err);
+    // Now that lib/shopify.js checks userErrors, this catch block actually
+    // fires on a real failure (previously it never would have, since the
+    // old code silently returned success even when Shopify's mutation
+    // rejected the tag — confirmed on real order FJ8817, Sep 4). Alerting
+    // here matters more than the email-failure alert below: a missed tag
+    // means the order will never be auto-matched when Outreach's
+    // confirmation email arrives later, and nothing else will ever
+    // surface that on its own.
+    await sendAlertEmail(
+      `Failed to tag order ${order.name} for Outreach matching`,
+      `Order ${order.name} needs the tag "awaiting-outreach-confirm" added manually in Shopify — the automatic tagging failed.\n\nWithout this tag, the order will not be auto-matched when Outreach's confirmation email arrives.\n\nError: ${err.message}`
+    );
     // Still try to send the email below — being untagged just means the
     // later confirmation-matching step won't find it automatically, but
     // Outreach still needs to hear about the order regardless.
