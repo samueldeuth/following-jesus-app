@@ -2520,6 +2520,16 @@
         }
       } catch (e) { /* columns not added yet, or offline -- streak card just shows 0/0 */ }
     }
+    // Verse of the Day preference -- reuses the SAME notifPrefs/OneSignal
+    // tag system that already powers the toggle on the Today tab
+    // (getNotifPrefs/toggleNotifPref, defined in the other <script>
+    // block further down the page -- both window-scoped function
+    // declarations, so callable here). This is a second, independent
+    // control over the identical underlying preference, not a separate
+    // setting -- toggling either one changes the same verse_of_day
+    // OneSignal tag, they just aren't visually synced with each other
+    // until the page is reloaded.
+    const notifPrefs = await getNotifPrefs();
 
     discipleBody.innerHTML = `
       <a class="back-link" id="profileBackBtn">← My Discipleship</a>
@@ -2536,7 +2546,13 @@
           <div class="profile-view-email">${account ? escapeHtmlMain(account.email) : ''}</div>
         </div>
       </div>
-      <button class="secondary-btn" id="profEditBtn">Edit Profile</button>
+
+      <div class="notif-toggle" style="margin-top:20px; width:100%; justify-content:center; padding:16px; cursor:default;" title="Best streak: ${longestStreak} ${longestStreak === 1 ? 'day' : 'days'}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3c2 2.5 5 6 5 9.5a5 5 0 01-10 0c0-1.6.7-3 1.5-4-.2 1.3.3 2.3 1.3 2.3.9 0 1.5-.8 1.2-1.8C10.5 7.5 12 5 12 3z"/></svg>
+        <span style="font-size:15px;">${currentStreak} ${currentStreak === 1 ? 'day' : 'days'} streak</span>
+      </div>
+
+      <button class="secondary-btn" id="profEditBtn" style="margin-top:16px;">Edit Profile</button>
       ${approvalHtml}
 
       <div style="display:flex; align-items:center; gap:10px; margin-top:20px; flex-wrap:wrap;">
@@ -2545,14 +2561,15 @@
           <span>Chat Notifications</span>
           <span class="notif-toggle-state">${chatNotifsEnabled ? 'On' : 'Off'}</span>
         </button>
-        <div class="notif-toggle" title="Best streak: ${longestStreak} ${longestStreak === 1 ? 'day' : 'days'}" style="margin-top:0; cursor:default;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3c2 2.5 5 6 5 9.5a5 5 0 01-10 0c0-1.6.7-3 1.5-4-.2 1.3.3 2.3 1.3 2.3.9 0 1.5-.8 1.2-1.8C10.5 7.5 12 5 12 3z"/></svg>
-          <span>${currentStreak} ${currentStreak === 1 ? 'day' : 'days'}</span>
-        </div>
+        <button type="button" class="notif-toggle ${notifPrefs.verseOfDay ? 'on' : ''}" id="profileVerseOfDayToggle" style="margin-top:0;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3c2 2.5 5 6 5 9.5a5 5 0 01-10 0c0-1.6.7-3 1.5-4-.2 1.3.3 2.3 1.3 2.3.9 0 1.5-.8 1.2-1.8C10.5 7.5 12 5 12 3z"/></svg>
+          <span>Verse of the Day</span>
+          <span class="notif-toggle-state">${notifPrefs.verseOfDay ? 'On' : 'Off'}</span>
+        </button>
       </div>
-      <p class="dm-note">Get notified when someone messages your group or sends you a direct message. Turn this off anytime if you'd rather not be notified.</p>
+      <p class="dm-note">Get notified when someone messages your group or sends you a direct message, and/or get a daily reminder with that day's verse. Turn either off anytime.</p>
 
-      <button class="secondary-btn" id="profLogoutBtn" style="margin-top:24px;">Log Out of This Profile</button>
+      <button class="secondary-btn" id="profLogoutBtn" style="margin-top:24px;">Log out</button>
       <p class="dm-note">Logging out signs you out on this device entirely — including the course site, since they share the same account. Nothing you've built (groups, disciples, progress) is deleted. Sign back in anytime with the same Google account to pick right back up.</p>
     `;
     document.getElementById('profileBackBtn').onclick = () => { topView = 'hub'; renderDiscipleStep(); };
@@ -2573,6 +2590,16 @@
         return;
       }
       chatNotifsEnabled = next;
+    };
+    document.getElementById('profileVerseOfDayToggle').onclick = async () => {
+      const btn = document.getElementById('profileVerseOfDayToggle');
+      // Reuses the same toggleNotifPref used by the Today tab's own
+      // verse-of-day toggle -- both write to the identical notifPrefs
+      // record and OneSignal tag, so this stays correct no matter which
+      // toggle someone actually uses. toggleNotifPref is a window-scoped
+      // function declaration from the other <script> block, callable
+      // here directly.
+      await toggleNotifPref('verseOfDay', 'verse_of_day', btn, btn.querySelector('.notif-toggle-state'), null);
     };
     document.getElementById('profPhotoInput').onchange = async (e) => {
       const file = e.target.files[0];
