@@ -1741,6 +1741,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="3" width="16" height="18" rx="1"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>
           <span>Free Course</span>
         </a>
+        <button type="button" class="grid-item" onclick="goToTab('screen-blog')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 19V6a2 2 0 012-2h9l5 5v10a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M14 4v5h5"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="16.5" x2="13" y2="16.5"/></svg>
+          <span>Blog</span>
+        </button>
         <button type="button" class="grid-item" onclick="openEmbed('https://open.spotify.com/embed/playlist/4CJLU84OYEK5CCr02l45mF?utm_source=generator&theme=0','Worship Playlist','https://open.spotify.com/playlist/4CJLU84OYEK5CCr02l45mF')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M8 15c2.5-1.2 5.5-1.2 8 0M7.5 12c3-1.5 6-1.5 9 0M7 9c3.5-1.8 6.5-1.8 10 0"/></svg>
           <span>Worship Music</span>
@@ -1983,13 +1987,13 @@
       <svg viewBox="0 0 24 24" stroke-width="1.6"><rect x="4" y="5" width="16" height="15" rx="1"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>
       <span class="label">Plans</span>
     </button>
-    <button class="tab-btn" data-screen="screen-blog">
-      <svg viewBox="0 0 24 24" stroke-width="1.6"><path d="M4 19V6a2 2 0 012-2h9l5 5v10a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M14 4v5h5"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="16.5" x2="13" y2="16.5"/></svg>
-      <span class="label">Blog</span>
-    </button>
     <button class="tab-btn" data-screen="screen-jesus">
       <svg viewBox="0 0 24 24" stroke-width="1.6"><line x1="12" y1="3" x2="12" y2="21"/><line x1="6" y1="9" x2="18" y2="9"/></svg>
       <span class="label">Jesus</span>
+    </button>
+    <button type="button" class="tab-btn" id="profileTabBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="9.5" r="3"/><path d="M6 18.5c1.2-2.6 3.4-4 6-4s4.8 1.4 6 4"/></svg>
+      <span class="label">Profile</span>
     </button>
   </nav>
 
@@ -7192,7 +7196,31 @@ async function renderDiscipleshipApp() {
   restoreTabFromUrl(); // Picks up a bookmarked/refreshed hash on initial load
 
   buttons.forEach(btn => {
+    if (btn.id === 'profileTabBtn') return; // handled separately below — opens the account modal, not a .screen
     btn.addEventListener('click', () => goToTab(btn.dataset.screen));
+  });
+
+  // Profile tab — deliberately reuses the same account/profile view
+  // (photo, name/email, chat notifications, log out, delete account)
+  // that previously only lived one level deep inside the "My Discipleship"
+  // flow (renderProfileSettings, defined in the disciple-modal script
+  // block above). Making it reachable directly from the bottom tab bar,
+  // for anyone signed in, was the whole point of this change — a real
+  // profile shouldn't only exist for people doing the discipleship track.
+  // Calls document.getElementById directly (not the `discipleModal`
+  // variable from the other <script> block) since that binding isn't
+  // visible from this script tag; renderProfileSettings IS callable here
+  // because a top-level `async function` declaration attaches to
+  // `window`, unlike a `const`.
+  document.getElementById('profileTabBtn').addEventListener('click', () => {
+    closeAllModals();
+    hideMainScreens();
+    showPageHeader('Profile');
+    document.getElementById('discipleModal').classList.add('open');
+    renderProfileSettings(false);
+    buttons.forEach(b => b.classList.remove('active'));
+    document.getElementById('profileTabBtn').classList.add('active');
+    pushUrlHash('profile');
   });
 </script>
 
