@@ -2469,9 +2469,22 @@
     // (matches the column's own default) if the row/field isn't there
     // yet for some reason, rather than silently rendering as Off.
     let chatNotifsEnabled = true;
+    let currentStreak = 0;
+    let longestStreak = 0;
     if (account && supabaseClient) {
       const { data: notifProfile } = await supabaseClient.from('profiles').select('chat_notifications_enabled').eq('id', account.id).maybeSingle();
       if (notifProfile && notifProfile.chat_notifications_enabled === false) chatNotifsEnabled = false;
+      // Best-effort, separate query rather than folding into the one
+      // above -- if a Supabase project hasn't run add-daily-streak.sql
+      // yet, this fails quietly and the streak card just shows 0/0
+      // instead of taking down the rest of the profile view with it.
+      try {
+        const { data: streakProfile } = await supabaseClient.from('profiles').select('current_streak, longest_streak').eq('id', account.id).maybeSingle();
+        if (streakProfile) {
+          currentStreak = streakProfile.current_streak || 0;
+          longestStreak = streakProfile.longest_streak || 0;
+        }
+      } catch (e) { /* columns not added yet, or offline -- streak card just shows 0/0 */ }
     }
 
     discipleBody.innerHTML = `
@@ -2492,11 +2505,17 @@
       <button class="secondary-btn" id="profEditBtn">Edit Profile</button>
       ${approvalHtml}
 
-      <button type="button" class="notif-toggle ${chatNotifsEnabled ? 'on' : ''}" id="chatNotifToggle" style="margin-top:20px;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-        <span>Chat Notifications</span>
-        <span class="notif-toggle-state">${chatNotifsEnabled ? 'On' : 'Off'}</span>
-      </button>
+      <div style="display:flex; align-items:center; gap:10px; margin-top:20px; flex-wrap:wrap;">
+        <button type="button" class="notif-toggle ${chatNotifsEnabled ? 'on' : ''}" id="chatNotifToggle" style="margin-top:0;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          <span>Chat Notifications</span>
+          <span class="notif-toggle-state">${chatNotifsEnabled ? 'On' : 'Off'}</span>
+        </button>
+        <div class="notif-toggle" title="Best streak: ${longestStreak} ${longestStreak === 1 ? 'day' : 'days'}" style="margin-top:0; cursor:default;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3c2 2.5 5 6 5 9.5a5 5 0 01-10 0c0-1.6.7-3 1.5-4-.2 1.3.3 2.3 1.3 2.3.9 0 1.5-.8 1.2-1.8C10.5 7.5 12 5 12 3z"/></svg>
+          <span>${currentStreak} ${currentStreak === 1 ? 'day' : 'days'}</span>
+        </div>
+      </div>
       <p class="dm-note">Get notified when someone messages your group or sends you a direct message. Turn this off anytime if you'd rather not be notified.</p>
 
       <button class="secondary-btn" id="profLogoutBtn" style="margin-top:24px;">Log Out of This Profile</button>
@@ -3849,6 +3868,25 @@ function genCode() {
 const supabaseClient = (typeof window !== 'undefined' && window.supabase)
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
+
+// App streak: records that a SIGNED-IN person opened the app today, once
+// per page load, regardless of what (if anything) they do once inside --
+// deliberately this simple, per Samuel's own call. Only checks for an
+// EXISTING session (auth.getSession() never prompts sign-in on its own),
+// so this has zero effect on anyone browsing signed out -- no popup, no
+// nudge, nothing forced. record_daily_app_open() itself is a safe no-op
+// if called more than once on the same calendar day, so there's no need
+// to separately guard against this running on every load.
+(async function recordDailyAppOpenIfSignedIn() {
+  if (!supabaseConfigured || !supabaseClient) return;
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session || !session.user) return;
+    await supabaseClient.rpc('record_daily_app_open');
+  } catch (e) {
+    console.error('Failed to record daily app open for streak:', e);
+  }
+})();
 
 async function safeGet(key, shared) {
   if (shared && supabaseConfigured) {
