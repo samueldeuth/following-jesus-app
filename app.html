@@ -2167,11 +2167,29 @@
     setTimeout(async () => {
       const completed = await completeOAuthIfPending();
       if (completed) {
+        // Land back wherever sign-in was actually requested from --
+        // previously this always reopened Make Disciples regardless of
+        // entry point, so signing in from the Profile tab incorrectly
+        // dropped someone into the discipleship hub instead. Defaults to
+        // 'disciple' if the flag is somehow missing (e.g. an in-flight
+        // sign-in from before this fix shipped), preserving the old
+        // behavior rather than guessing.
+        const returnTo = localStorage.getItem('fj_oauth_return_to') || 'disciple';
+        localStorage.removeItem('fj_oauth_return_to');
         hideMainScreens();
-        showPageHeader('Make Disciples');
-        discipleModal.classList.add('open');
-        updateSyncStatusBadge();
-        renderDiscipleStep();
+        if (returnTo === 'profile') {
+          showPageHeader('Profile');
+          discipleModal.classList.add('open');
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          const profileBtn = document.getElementById('profileTabBtn');
+          if (profileBtn) profileBtn.classList.add('active');
+          renderProfileSettings(false);
+        } else {
+          showPageHeader('Make Disciples');
+          discipleModal.classList.add('open');
+          updateSyncStatusBadge();
+          renderDiscipleStep();
+        }
       }
     }, 0);
   }
@@ -2188,7 +2206,7 @@
       const synced = await syncAccountFromActiveSession();
       if (synced) account = await dSafeGet('account');
     }
-    if (!account) { renderAccountStep(); return; }
+    if (!account) { localStorage.setItem('fj_oauth_return_to', 'disciple'); renderAccountStep(); return; }
     await renderDiscipleshipApp();
   }
 
@@ -2540,7 +2558,6 @@
     const notifPrefs = await getNotifPrefs();
 
     discipleBody.innerHTML = `
-      <a class="back-link" id="profileBackBtn">← My Discipleship</a>
       <div class="profile-view-row">
         <label class="profile-photo-preview profile-photo-preview-lg profile-photo-hover" id="profPhotoPreview">
           ${account && account.photoUrl ? `<img src="${account.photoUrl}" alt="Profile photo" />` : `<span>${account ? escapeHtmlMain(account.name.charAt(0).toUpperCase()) : '?'}</span>`}
@@ -2568,6 +2585,10 @@
       </div>
 
       <div style="display:flex; align-items:center; gap:10px; margin-top:20px; flex-wrap:wrap;">
+        <button type="button" class="notif-toggle" id="goToDiscipleshipBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>Discipleship Dashboard</span>
+        </button>
         <button type="button" class="notif-toggle ${chatNotifsEnabled ? 'on' : ''}" id="chatNotifToggle" style="margin-top:0;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
           <span>Chat Notifications</span>
@@ -2580,11 +2601,12 @@
         </button>
       </div>
       <p class="dm-note">Get notified when someone messages your group or sends you a direct message, and/or get a daily reminder with that day's verse. Turn either off anytime.</p>
+      <p class="dm-note" style="margin-top:8px;">Tap Discipleship Dashboard to see your groups, disciples, and invites.</p>
 
       <button class="secondary-btn" id="profLogoutBtn" style="margin-top:24px;">Log out</button>
       <p class="dm-note">Logging out signs you out on this device entirely — including the course site, since they share the same account. Nothing you've built (groups, disciples, progress) is deleted. Sign back in anytime with the same Google account to pick right back up.</p>
     `;
-    document.getElementById('profileBackBtn').onclick = () => { topView = 'hub'; renderDiscipleStep(); };
+    document.getElementById('goToDiscipleshipBtn').onclick = () => { topView = 'hub'; renderDiscipleStep(); };
     document.getElementById('profEditBtn').onclick = () => renderProfileSettings(true);
     document.getElementById('chatNotifToggle').onclick = async () => {
       const btn = document.getElementById('chatNotifToggle');
@@ -7322,7 +7344,7 @@ async function renderDiscipleshipApp() {
       const synced = await syncAccountFromActiveSession();
       if (synced) account = await dSafeGet('account');
     }
-    if (!account) { renderAccountStep(); return; }
+    if (!account) { localStorage.setItem('fj_oauth_return_to', 'profile'); renderAccountStep(); return; }
     renderProfileSettings(false);
   });
 </script>
