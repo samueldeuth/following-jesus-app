@@ -2432,6 +2432,9 @@
         <input type="text" id="profName" placeholder="Your full name" value="${account ? escapeHtmlMain(account.name) : ''}" />
         <input type="text" id="profEmail" placeholder="Your email" value="${account ? escapeHtmlMain(account.email) : ''}" />
         <button class="primary-btn" id="profSaveBtn">Save Changes</button>
+
+        <button class="secondary-btn" id="profDeleteAccountBtn" style="margin-top:28px; color:#b91c1c; border-color:rgba(185,28,28,0.35);">Delete Account</button>
+        <p class="dm-note">This permanently deletes your account and everything tied to it — your profile, groups, messages, course progress, and certificates — on both the app and the course site. This can't be undone.</p>
       `;
       document.getElementById('profileBackBtn').onclick = () => renderProfileSettings(false);
       document.getElementById('profPhotoInput').onchange = async (e) => {
@@ -2458,6 +2461,37 @@
         await dSafeSet('account', updated);
         syncSharedProfile(updated);
         renderProfileSettings(false);
+      };
+      document.getElementById('profDeleteAccountBtn').onclick = async () => {
+        if (!account || !account.id) return;
+        const sure = await showAppConfirm(
+          "Delete your account?\n\nThis permanently removes your profile, groups, messages, course progress, and certificates — on both the app and the course site. This cannot be undone."
+        );
+        if (!sure) return;
+        const typed = await showAppPrompt(
+          'Type DELETE to confirm you want to permanently delete your account.',
+          'DELETE'
+        );
+        if (!typed || typed.trim().toUpperCase() !== 'DELETE') {
+          if (typed !== null) await showAppAlert("That didn't match — your account was not deleted.");
+          return;
+        }
+        if (!supabaseClient) {
+          await showAppAlert("Couldn't reach the server — check your connection and try again.");
+          return;
+        }
+        const { error } = await supabaseClient.rpc('delete_my_account');
+        if (error) {
+          await showAppAlert(`Your account couldn't be deleted.\n\nDetails: ${error.message || 'unknown error'}`);
+          return;
+        }
+        // The account row (and the auth session tied to it) no longer
+        // exist server-side at this point — clear everything local too,
+        // same as a normal sign-out, then drop back to a clean slate.
+        try { await supabaseClient.auth.signOut(); } catch (e) { /* best effort — account is already gone either way */ }
+        await dSafeSet('account', null);
+        await showAppAlert('Your account has been permanently deleted.');
+        window.location.reload();
       };
       return;
     }
@@ -2520,9 +2554,6 @@
 
       <button class="secondary-btn" id="profLogoutBtn" style="margin-top:24px;">Log Out of This Profile</button>
       <p class="dm-note">Logging out signs you out on this device entirely — including the course site, since they share the same account. Nothing you've built (groups, disciples, progress) is deleted. Sign back in anytime with the same Google account to pick right back up.</p>
-
-      <button class="secondary-btn" id="profDeleteAccountBtn" style="margin-top:14px; color:#b91c1c; border-color:rgba(185,28,28,0.35);">Delete Account</button>
-      <p class="dm-note">This permanently deletes your account and everything tied to it — your profile, groups, messages, course progress, and certificates — on both the app and the course site. This can't be undone.</p>
     `;
     document.getElementById('profileBackBtn').onclick = () => { topView = 'hub'; renderDiscipleStep(); };
     document.getElementById('profEditBtn').onclick = () => renderProfileSettings(true);
@@ -2571,37 +2602,6 @@
       await dSafeSet('account', null);
       topView = 'hub';
       renderDiscipleStep();
-    };
-    document.getElementById('profDeleteAccountBtn').onclick = async () => {
-      if (!account || !account.id) return;
-      const sure = await showAppConfirm(
-        "Delete your account?\n\nThis permanently removes your profile, groups, messages, course progress, and certificates — on both the app and the course site. This cannot be undone."
-      );
-      if (!sure) return;
-      const typed = await showAppPrompt(
-        'Type DELETE to confirm you want to permanently delete your account.',
-        'DELETE'
-      );
-      if (!typed || typed.trim().toUpperCase() !== 'DELETE') {
-        if (typed !== null) await showAppAlert("That didn't match — your account was not deleted.");
-        return;
-      }
-      if (!supabaseClient) {
-        await showAppAlert("Couldn't reach the server — check your connection and try again.");
-        return;
-      }
-      const { error } = await supabaseClient.rpc('delete_my_account');
-      if (error) {
-        await showAppAlert(`Your account couldn't be deleted.\n\nDetails: ${error.message || 'unknown error'}`);
-        return;
-      }
-      // The account row (and the auth session tied to it) no longer
-      // exist server-side at this point — clear everything local too,
-      // same as a normal sign-out, then drop back to a clean slate.
-      try { await supabaseClient.auth.signOut(); } catch (e) { /* best effort — account is already gone either way */ }
-      await dSafeSet('account', null);
-      await showAppAlert('Your account has been permanently deleted.');
-      window.location.reload();
     };
   }
 
