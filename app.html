@@ -2421,17 +2421,20 @@
     if (editMode) {
       discipleBody.innerHTML = `
         <a class="back-link" id="profileBackBtn">← Cancel</a>
-        <div class="profile-photo-row">
-          <div class="profile-photo-preview" id="profPhotoPreview">${account && account.photoUrl ? `<img src="${account.photoUrl}" alt="Profile photo" />` : `<span>${account ? escapeHtmlMain(account.name.charAt(0).toUpperCase()) : '?'}</span>`}</div>
-          <label class="secondary-btn profile-photo-btn" id="profPhotoLabel">
-            Change Photo
+        <div class="profile-view-row" style="align-items:flex-start;">
+          <label class="profile-photo-preview profile-photo-preview-lg profile-photo-hover" id="profPhotoPreview">
+            ${account && account.photoUrl ? `<img src="${account.photoUrl}" alt="Profile photo" />` : `<span>${account ? escapeHtmlMain(account.name.charAt(0).toUpperCase()) : '?'}</span>`}
+            <div class="profile-photo-edit-overlay">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            </div>
             <input type="file" accept="image/*" id="profPhotoInput" style="display:none;" />
           </label>
+          <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
+            <input type="text" id="profName" placeholder="Your full name" value="${account ? escapeHtmlMain(account.name) : ''}" />
+            <input type="text" id="profEmail" placeholder="Your email" value="${account ? escapeHtmlMain(account.email) : ''}" />
+          </div>
         </div>
-        <p class="dm-p">Update your name or email below.</p>
-        <input type="text" id="profName" placeholder="Your full name" value="${account ? escapeHtmlMain(account.name) : ''}" />
-        <input type="text" id="profEmail" placeholder="Your email" value="${account ? escapeHtmlMain(account.email) : ''}" />
-        <button class="primary-btn" id="profSaveBtn">Save Changes</button>
+        <button class="primary-btn" id="profSaveBtn" style="margin-top:16px;">Save Changes</button>
 
         <button class="secondary-btn" id="profDeleteAccountBtn" style="margin-top:28px; color:#b91c1c; border-color:rgba(185,28,28,0.35);">Delete Account</button>
         <p class="dm-note">This permanently deletes your account and everything tied to it — your profile, groups, messages, course progress, and certificates — on both the app and the course site. This can't be undone.</p>
@@ -2440,18 +2443,23 @@
       document.getElementById('profPhotoInput').onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        const preview = document.getElementById('profPhotoPreview');
-        preview.innerHTML = `<span>...</span>`;
+        // Deliberately does NOT manually patch preview.innerHTML the way
+        // this handler used to -- profPhotoPreview is now the same
+        // label-wraps-input element used in the main (view) screen, so
+        // overwriting its innerHTML would delete the very <input> this
+        // handler is attached to, breaking a second photo change without
+        // leaving the screen. Re-rendering fresh (same fix already used
+        // safely by the view-mode version of this handler) avoids that
+        // entirely.
         const url = await uploadProfilePhoto(file, account.id);
         if (!url) {
           await showAppAlert("Couldn't upload that photo — try a different image, or check your connection.");
-          preview.innerHTML = account.photoUrl ? `<img src="${account.photoUrl}" alt="Profile photo" />` : `<span>${escapeHtmlMain(account.name.charAt(0).toUpperCase())}</span>`;
           return;
         }
         account.photoUrl = url;
         await dSafeSet('account', account);
         syncSharedProfile(account);
-        preview.innerHTML = `<img src="${url}" alt="Profile photo" />`;
+        renderProfileSettings(true);
       };
       document.getElementById('profSaveBtn').onclick = async () => {
         const name = document.getElementById('profName').value.trim();
@@ -2541,19 +2549,23 @@
           </div>
           <input type="file" accept="image/*" id="profPhotoInput" style="display:none;" />
         </label>
-        <div>
-          <div class="profile-view-name">${account ? escapeHtmlMain(account.name) : 'Your Profile'}</div>
+        <div style="flex:1;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div class="profile-view-name">${account ? escapeHtmlMain(account.name) : 'Your Profile'}</div>
+            <button type="button" id="profEditBtn" aria-label="Edit Profile" style="background:none; border:none; padding:4px; cursor:pointer; color:inherit; opacity:0.6; display:flex; align-items:center;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px; height:16px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            </button>
+          </div>
           <div class="profile-view-email">${account ? escapeHtmlMain(account.email) : ''}</div>
         </div>
       </div>
+
+      ${approvalHtml}
 
       <div class="notif-toggle" style="margin-top:20px; width:100%; justify-content:center; padding:16px; cursor:default;" title="Best streak: ${longestStreak} ${longestStreak === 1 ? 'day' : 'days'}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3c2 2.5 5 6 5 9.5a5 5 0 01-10 0c0-1.6.7-3 1.5-4-.2 1.3.3 2.3 1.3 2.3.9 0 1.5-.8 1.2-1.8C10.5 7.5 12 5 12 3z"/></svg>
         <span style="font-size:15px;">${currentStreak} ${currentStreak === 1 ? 'day' : 'days'} streak</span>
       </div>
-
-      <button class="secondary-btn" id="profEditBtn" style="margin-top:16px;">Edit Profile</button>
-      ${approvalHtml}
 
       <div style="display:flex; align-items:center; gap:10px; margin-top:20px; flex-wrap:wrap;">
         <button type="button" class="notif-toggle ${chatNotifsEnabled ? 'on' : ''}" id="chatNotifToggle" style="margin-top:0;">
