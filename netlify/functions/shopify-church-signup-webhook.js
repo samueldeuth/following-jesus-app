@@ -156,7 +156,7 @@ exports.handler = async (event) => {
     return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'existing church (renewal), no action needed' }) };
   }
 
-  const emailSent = await notifySamuel(result.name, customerEmail, notifyEmail, resendApiKey);
+  const emailSent = await notifySamuel(result.name, customerEmail, notifyEmail, resendApiKey, result.suggested_merge_church_name);
   const purchaserEmailSent = result.signup_token
     ? await notifyPurchaser(customerEmail, result.name, result.signup_token, resendApiKey)
     : false;
@@ -196,12 +196,24 @@ async function notifyPurchaser(purchaserEmail, churchName, signupToken, apiKey) 
   }
 }
 
-async function notifySamuel(churchName, purchaserEmail, notifyEmail, apiKey) {
+async function notifySamuel(churchName, purchaserEmail, notifyEmail, apiKey, suggestedMergeChurchName) {
+  // This order's email domain matched an already-approved church's own
+  // contact-email domain (skipping generic providers like Gmail/Yahoo
+  // entirely -- see process_church_signup_order for why). Doesn't mean
+  // it definitely IS that church, just that it's worth a look before
+  // approving this as a brand-new one -- the actual merge action lives
+  // in the admin dashboard, this is just a heads-up so it's not missed.
+  const suggestionHtml = suggestedMergeChurchName
+    ? `<p style="background:#fff8e1;border-left:3px solid #f0b429;padding:10px 14px;margin:16px 0;">
+         <strong>Possible match:</strong> this email's domain matches an existing church, <strong>${escapeHtml(suggestedMergeChurchName)}</strong>. If this is the same church paying from a different account, use "Merge" in the dashboard instead of approving it as new.
+       </p>`
+    : '';
   const html = `
     <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
       <p>A new church just purchased The Following Jesus Course and is waiting for you to review.</p>
       <p><strong>Starting name:</strong> ${escapeHtml(churchName)}<br>
       <strong>Purchaser email:</strong> ${escapeHtml(purchaserEmail)}</p>
+      ${suggestionHtml}
       <p style="margin: 20px 0;">
         <a href="${APP_URL}/admin" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Review in Admin Dashboard →</a>
       </p>
