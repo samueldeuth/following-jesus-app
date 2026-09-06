@@ -2525,7 +2525,30 @@ async function renderChurchStudents(churchId){
         <p style="margin:0 0 4px;font-weight:700;color:#5b21b6;">New signup — pending your approval</p>
         <p style="margin:0 0 12px;font-size:13px;color:var(--ink-soft);">This church was auto-created from a purchase. Review and fix the details below (the name and URL slug especially — they started from checkout data, which isn't always accurate), then approve to make it live.</p>
         <button type="button" class="mini-btn" id="approve-pending-church-btn" style="background:#5b21b6;color:#fff;border-color:#5b21b6;">Approve &amp; Go Live</button>
-      </div>` : ''}
+      </div>
+      ${church?.suggested_merge_church_id ? (() => {
+        // Set by process_church_signup_order when this order's email
+        // domain matched an already-approved church's own contact-email
+        // domain (generic providers like Gmail/Yahoo are skipped
+        // entirely there, so a match here is always a real, distinctive
+        // organizational domain -- e.g. a second person at the same
+        // church paying from a different account, exactly like Bethel
+        // Full Gospel Church's second signup). This is a suggestion to
+        // check, not a certainty -- Samuel confirms one way or the
+        // other, and that confirmation is what teaches the system this
+        // payer account permanently, so it's a one-time check per
+        // account, not a recurring one.
+        const suggestedChurch = allChurches.find(c => c.id === church.suggested_merge_church_id);
+        const suggestedName = suggestedChurch ? suggestedChurch.name : 'an existing church';
+        return `
+      <div style="background:#fff8e1;border:1px solid #f0b429;border-radius:8px;padding:14px;margin-bottom:20px;">
+        <p style="margin:0 0 4px;font-weight:700;color:#92660a;">Possible match: ${escapeHtmlReport(suggestedName)}</p>
+        <p style="margin:0 0 12px;font-size:13px;color:var(--ink-soft);">This order's email domain matches an existing, already-approved church. If this is the same church paying from a different account, merge it instead of approving as a new church -- this links the account permanently, so it won't ask again next time this same account pays.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="mini-btn" id="merge-pending-church-btn" data-target-church-id="${church.suggested_merge_church_id}" style="background:#92660a;color:#fff;border-color:#92660a;">Merge into ${escapeHtmlReport(suggestedName)}</button>
+        </div>
+      </div>`;
+      })() : ''}` : ''}
       <label class="field-label">Church Name</label>
       <input type="text" class="field-input" id="edit-church-name" value="${(church?.name||'').replace(/"/g,'&quot;')}" />
 
@@ -2731,6 +2754,37 @@ async function renderChurchStudents(churchId){
       statusSelect.dispatchEvent(new Event('change'));
     }
     document.getElementById('save-church-settings-btn')?.click();
+  });
+
+  // Links this pending signup's payer account onto the suggested
+  // existing church, then deletes the never-approved duplicate entirely
+  // -- merge_pending_church_signup itself re-checks (server-side, not
+  // just trusted from this button existing) that the pending church is
+  // genuinely still pending_approval and has zero enrollments before
+  // doing either. Every future charge from this same account matches
+  // the target church automatically from here on, via the normal
+  // exact-match renewal path -- this is a one-time confirmation per
+  // account, not something Samuel will need to repeat for it.
+  const mergeBtn = document.getElementById('merge-pending-church-btn');
+  if(mergeBtn) mergeBtn.addEventListener('click', async () => {
+    const targetChurchId = mergeBtn.dataset.targetChurchId;
+    const targetChurch = allChurches.find(c => c.id === targetChurchId);
+    const targetName = targetChurch ? targetChurch.name : 'this church';
+    if(!confirm(`Merge this signup into "${targetName}"? This links the payer account to ${targetName} permanently (so it won't flag again next time this same account pays) and removes this pending entry -- it never goes live as its own page.`)) return;
+    mergeBtn.disabled = true;
+    mergeBtn.textContent = 'Merging…';
+    const { error } = await supabaseClient.rpc('merge_pending_church_signup', {
+      p_pending_church_id: churchId,
+      p_target_church_id: targetChurchId
+    });
+    if(error){
+      alert('Could not merge: ' + error.message);
+      mergeBtn.disabled = false;
+      mergeBtn.textContent = `Merge into ${targetName}`;
+      return;
+    }
+    allChurches = allChurches.filter(c => c.id !== churchId);
+    renderChurchStudents(targetChurchId);
   });
 
   if(saveSettingsBtn) saveSettingsBtn.addEventListener('click', async () => {
