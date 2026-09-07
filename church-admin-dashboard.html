@@ -808,7 +808,7 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
         <td>${new Date(r.enrolled_at).toLocaleDateString()}</td>
         <td>
           <div class="row-actions">
-            ${isComplete ? `<button class="mini-btn gold" data-view-cert="${r.student_id}" data-cert-course="${r.course_id}">🏅 Certificate</button>` : ''}
+            ${isComplete ? `<button class="mini-btn gold" data-view-cert="${r.student_id}" data-cert-course="${r.course_id}">🏅 Certificate</button>` : `<button class="mini-btn gold" data-remind="${r.enrollment_id}" data-name="${(r.full_name||'this student').replace(/"/g,'')}">Remind</button>`}
             <button class="mini-btn danger" data-unenroll="${r.enrollment_id}" data-name="${(r.full_name||'this student').replace(/"/g,'')}">Unenroll</button>
           </div>
         </td>
@@ -834,6 +834,7 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
         <button class="mini-btn" id="export-students-btn">Export Students (CSV)</button>
         <button class="mini-btn gold" id="view-report-btn">View Progress Report</button>
         <button class="mini-btn gold" id="church-send-email-btn">Send Email to Your Students</button>
+        <button class="mini-btn gold" id="send-church-reminders-btn">Send Reminders to This Church</button>
         <a class="mini-btn" href="https://www.dropbox.com/scl/fo/m3uqrv12dlju8fspxs6tt/AFDdPdLz7gKrdAiUT15H1e0?rlkey=d8kmvbd5nb9l8lxsdfs3gzjag&st=ybcx2n84&dl=0" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;">Download Course Videos</a>
       </div>
       <table>
@@ -1129,6 +1130,54 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
       if(cert) window.open(`certificate.html?code=${cert.certificate_code}`, '_blank');
       else alert('No certificate found yet for this student.');
     });
+  });
+
+  // Both buttons below call the same church-scoped function, real
+  // emails sent immediately on click -- not a preview. The single
+  // per-student send skips the normal 6-day cooldown (it's a
+  // deliberate one-off nudge, not the automated weekly sweep), but
+  // still respects unsubscribe and "already finished" server-side
+  // regardless of what this button shows.
+  async function sendChurchReminders(enrollmentId){
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const res = await fetch('/.netlify/functions/admin-trigger-church-reminders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+      body: JSON.stringify({ church_id: myChurch.id, enrollment_id: enrollmentId || null })
+    });
+    return res.json().then(result => ({ ok: res.ok, result }));
+  }
+
+  document.querySelectorAll('[data-remind]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if(!confirm(`Send a course reminder email to ${btn.dataset.name} right now?`)) return;
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      const { ok, result } = await sendChurchReminders(btn.dataset.remind);
+      if(!ok || !result.sent){
+        alert(result.error || 'Could not send — they may have unsubscribed or already finished.');
+        btn.disabled = false;
+        btn.textContent = 'Remind';
+      } else {
+        btn.textContent = 'Sent ✓';
+      }
+    });
+  });
+
+  const sendChurchRemindersBtn = document.getElementById('send-church-reminders-btn');
+  if(sendChurchRemindersBtn) sendChurchRemindersBtn.addEventListener('click', async () => {
+    if(!confirm('Send a reminder email right now to everyone in your church who\'s enrolled, hasn\'t finished, hasn\'t been reminded in the last 6 days, and hasn\'t unsubscribed?')) return;
+    sendChurchRemindersBtn.disabled = true;
+    sendChurchRemindersBtn.textContent = 'Sending…';
+    const { ok, result } = await sendChurchReminders(null);
+    if(!ok){
+      alert('Could not send reminders: ' + (result.error || 'unknown error'));
+    } else {
+      alert(`Done. ${result.sent} reminder email(s) sent out of ${result.totalEligible} eligible.${result.failed ? ` ${result.failed} failed.` : ''}`);
+    }
+    sendChurchRemindersBtn.disabled = false;
+    sendChurchRemindersBtn.textContent = 'Send Reminders to This Church';
   });
 }
 
