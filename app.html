@@ -1487,6 +1487,19 @@
   .disciple-app-scope .modal-close button { background:none; border:none; font-size:18px; color:var(--ink-soft); cursor:pointer; padding:4px; }
   .disciple-app-scope .modal-actions { display:flex; flex-direction:column; gap:10px; margin-top:18px; }
   .disciple-app-scope .modal-actions button { display:flex; align-items:center; justify-content:center; gap:8px; }
+  .disciple-app-scope .app-alert-overlay {
+    position: fixed; inset:0; background: rgba(0,0,0,0.6); z-index: 500;
+    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .disciple-app-scope .app-alert-card {
+    width:100%; max-width:300px; background: var(--paper); border-radius: 20px;
+    padding: 28px 24px; text-align:center; animation: alertPop 0.18s ease;
+  }
+  @keyframes alertPop { from { transform: scale(0.92); opacity:0; } to { transform: scale(1); opacity:1; } }
+  .disciple-app-scope .app-alert-icon { margin:0 auto 14px; display:flex; align-items:center; justify-content:center; }
+  .disciple-app-scope .app-alert-label { font-size:11px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--ember); margin-bottom:6px; }
+  .disciple-app-scope .app-alert-title { font-size:17px; font-weight:600; color:var(--ink); margin-bottom:6px; }
+  .disciple-app-scope .app-alert-btn { width:100%; background:var(--ink); color:#fff; padding:12px; border-radius:12px; font-size:14px; font-weight:600; border:none; cursor:pointer; }
   .disciple-app-scope .copied-flash { font-size:11px; color: var(--ember); text-align:center; margin-top:10px; font-family:var(--font-display); font-weight:700; letter-spacing:0.04em; text-transform:uppercase; height:14px; }
   @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   .dm-p { font-size: 14px; line-height: 1.6; color: rgba(255,255,255,0.82); margin-bottom: 18px; }
@@ -2660,8 +2673,6 @@
           <span class="notif-toggle-state">${notifPrefs.verseOfDay ? 'On' : 'Off'}</span>
         </button>
       </div>
-      <p class="dm-note">Get notified when someone messages your group or sends you a direct message, and/or get a daily reminder with that day's verse. Turn either off anytime.</p>
-      <p class="dm-note" style="margin-top:8px;">Tap Discipleship Dashboard to see your groups, disciples, and invites.</p>
 
       <div class="section-label" style="margin-top:28px; margin-bottom:12px;">Badges — ${earnedBadgeKeys.size} of ${BADGE_CATALOG.length}</div>
       <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
@@ -4082,7 +4093,12 @@ async function celebrateNewBadgesIfAny(userId) {
     const badge = BADGE_CATALOG.find(b => b.key === key);
     if (!badge) continue; // catalog entry removed/renamed since this was earned -- skip rather than show a blank alert
     triggerConfetti();
-    await showAppAlert(`🎉 New badge earned!\n\n${badge.title}\n${badge.description}`);
+    await showAppAlert(badge.description, {
+      icon: `<svg viewBox="-58 -58 116 116" width="60" height="60">${badge.svg}</svg>`,
+      label: 'New badge earned',
+      title: badge.title,
+      buttonLabel: 'Nice'
+    });
   }
 }
 
@@ -5182,14 +5198,18 @@ function wireEnterToSend(input, onEnter) {
   });
 }
 
-function showAppAlert(message) {
+function showAppAlert(message, opts = {}) {
+  const { icon, label, title, buttonLabel = 'OK' } = opts;
   return new Promise(resolve => {
     const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
+    overlay.className = 'app-alert-overlay';
     overlay.innerHTML = `
-      <div class="modal-sheet">
-        <p style="font-size:14px; line-height:1.5; margin:0 0 18px;">${escapeHtml(message)}</p>
-        <div class="modal-actions"><button class="primary" id="appAlertOk">OK</button></div>
+      <div class="app-alert-card">
+        ${icon ? `<div class="app-alert-icon">${icon}</div>` : ''}
+        ${label ? `<div class="app-alert-label">${escapeHtml(label)}</div>` : ''}
+        ${title ? `<div class="app-alert-title">${escapeHtml(title)}</div>` : ''}
+        <p style="font-size:14px; line-height:1.5; white-space:pre-line; color:rgba(10,10,10,0.6); margin:0 0 20px;">${escapeHtml(message)}</p>
+        <button class="app-alert-btn" id="appAlertOk">${escapeHtml(buttonLabel)}</button>
       </div>`;
     document.getElementById('modalPortal').appendChild(overlay);
     document.getElementById('appAlertOk').onclick = () => { overlay.remove(); resolve(); };
