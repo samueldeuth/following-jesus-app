@@ -1033,8 +1033,27 @@ God bless you as you begin your new journey of following Jesus!`;
 
 function letterSectionHtml(course, churchObj){
   const hasAnyLetterContent = (obj) => !!(obj && (obj.letter_title || obj.letter_body || obj.letter_image_url || obj.letter_video_youtube_id));
-  const source = hasAnyLetterContent(churchObj) ? churchObj : course;
-  if(!hasAnyLetterContent(source)) return '';
+  // A real church record that simply hasn't configured its own letter
+  // yet must NOT fall back to the shared course's own letter fields --
+  // those are the free course's own real content (Samuel's personal
+  // welcome message and signature), meant specifically for someone
+  // taking the course with no church context at all (the bare /course
+  // page). Reusing that content for every newly-approved church made a
+  // personal letter signed "Samuel Deuth" look like it was coming from
+  // that specific church -- confirmed on a real new church, Light
+  // House, right after approval. Only a genuinely church-less visit
+  // (churchObj itself null/undefined) should ever use the course's own
+  // real content; a real church record with nothing configured gets
+  // the plain, unsigned generic filler instead.
+  if(churchObj){
+    const source = hasAnyLetterContent(churchObj) ? churchObj : { letter_body: DEFAULT_LETTER_BODY };
+    return renderLetterFrom(source);
+  }
+  if(!hasAnyLetterContent(course)) return '';
+  return renderLetterFrom(course);
+}
+
+function renderLetterFrom(source){
   const bodyText = source.letter_body || DEFAULT_LETTER_BODY;
   const paragraphs = bodyText.split(/\n\s*\n/).map(p => `<p>${p.trim()}</p>`).join('');
   const mediaHtml = source.letter_video_youtube_id
