@@ -345,6 +345,7 @@
       <div class="sidebar-section-title" style="margin-top:0;">Add a New Church</div>
       <input type="text" class="sidebar-search" id="new-church-name" placeholder="Church name (e.g. Acacia Church)" />
       <input type="text" class="sidebar-search" id="new-church-slug" placeholder="URL slug (e.g. acaciachurch)" style="margin-top:6px;" />
+      <p id="new-church-slug-status" style="font-size:11px;margin:4px 0 0;min-height:14px;"></p>
       <button id="create-church-btn" class="sidebar-add-church-btn">+ Add Church</button>
       <p class="sidebar-add-church-hint">Becomes: /courses/{slug} — auto-filled from the name, editable.</p>
     </div>
@@ -540,14 +541,39 @@ async function init(){
 // — those get re-run often (every search keystroke, every navigation),
 // and re-wiring this each time would either duplicate event listeners or
 // wipe out whatever someone's already mid-typing in these two fields.
+// Shared by both the sidebar's "Add a New Church" slug field and the
+// Settings tab's "Custom URL" field -- checked entirely against
+// allChurches, already loaded in memory, so this is a free, instant
+// check with no network call at all, safe to run on every keystroke.
+// excludeChurchId lets editing an EXISTING church's own slug not falsely
+// flag itself as "already taken".
+function checkSlugAvailability(rawValue, excludeChurchId, statusEl){
+  if(!statusEl) return;
+  const normalized = rawValue.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  if(!normalized){ statusEl.textContent = ''; return; }
+  const taken = allChurches.some(c => c.slug === normalized && c.id !== excludeChurchId);
+  if(taken){
+    statusEl.textContent = '✗ That URL is already in use by another church';
+    statusEl.style.color = 'var(--red)';
+  } else {
+    statusEl.textContent = '✓ Available';
+    statusEl.style.color = '#166534';
+  }
+}
+
 function wireAddChurchForm(){
   const nameInput = document.getElementById('new-church-name');
   const slugInput = document.getElementById('new-church-slug');
+  const slugStatus = document.getElementById('new-church-slug-status');
   let slugManuallyEdited = false;
-  slugInput.addEventListener('input', () => { slugManuallyEdited = true; });
+  slugInput.addEventListener('input', () => {
+    slugManuallyEdited = true;
+    checkSlugAvailability(slugInput.value, null, slugStatus);
+  });
   nameInput.addEventListener('input', () => {
     if(slugManuallyEdited) return;
     slugInput.value = nameInput.value.toLowerCase().replace(/[^a-z0-9]/g, '');
+    checkSlugAvailability(slugInput.value, null, slugStatus);
   });
 
   document.getElementById('create-church-btn').addEventListener('click', async () => {
@@ -2548,12 +2574,19 @@ async function renderChurchStudents(churchId){
           <button type="button" class="mini-btn" id="merge-pending-church-btn" data-target-church-id="${church.suggested_merge_church_id}" style="background:#92660a;color:#fff;border-color:#92660a;">Merge into ${escapeHtmlReport(suggestedName)}</button>
         </div>
       </div>`;
-      })() : ''}` : ''}
+      })() : ''}
+      <div style="background:var(--bg-soft);border-radius:8px;padding:14px;margin-bottom:20px;">
+        <p style="margin:0 0 4px;font-weight:700;">Recognize this as an existing church?</p>
+        <p style="margin:0 0 10px;font-size:13px;color:var(--ink-soft);">The automatic match above only fires for a distinctive organizational email domain -- a personal address (Gmail, Yahoo, etc.) on this particular order won't trigger it, even for someone who's ordered for years under a different account. Search and merge manually here instead of approving this as a brand-new church.</p>
+        <input type="text" class="sidebar-search" id="manual-merge-search" placeholder="Search churches by name…" style="margin-bottom:0;" />
+        <div id="manual-merge-results"></div>
+      </div>` : ''}
       <label class="field-label">Church Name</label>
       <input type="text" class="field-input" id="edit-church-name" value="${(church?.name||'').replace(/"/g,'&quot;')}" />
 
       <label class="field-label">Custom URL</label>
       <input type="text" class="field-input" id="edit-church-slug" value="${(church?.slug||'').replace(/"/g,'&quot;')}" />
+      <p id="edit-church-slug-status" style="font-size:11.5px;margin:4px 0 8px;min-height:14px;"></p>
       <p class="field-hint">Link: <a href="https://followingjesus.com/courses/${church?.slug || ''}" target="_blank" rel="noopener" id="church-link-preview">followingjesus.com/courses/${church?.slug || '...'}</a></p>
 
       <label class="field-label">Course Status</label>
@@ -2682,6 +2715,16 @@ async function renderChurchStudents(churchId){
     });
   }
 
+  const editSlugInput = document.getElementById('edit-church-slug');
+  const editSlugStatus = document.getElementById('edit-church-slug-status');
+  if(editSlugInput && editSlugStatus){
+    // excludeChurchId is this church's own id -- otherwise its current,
+    // already-saved slug would falsely flag itself as "taken" the
+    // moment this page renders.
+    checkSlugAvailability(editSlugInput.value, churchId, editSlugStatus);
+    editSlugInput.addEventListener('input', () => checkSlugAvailability(editSlugInput.value, churchId, editSlugStatus));
+  }
+
   async function handleChurchPhotoFile(file){
     if(!file) return;
     const statusEl = document.getElementById('upload-photo-status');
@@ -2765,27 +2808,55 @@ async function renderChurchStudents(churchId){
   // the target church automatically from here on, via the normal
   // exact-match renewal path -- this is a one-time confirmation per
   // account, not something Samuel will need to repeat for it.
-  const mergeBtn = document.getElementById('merge-pending-church-btn');
-  if(mergeBtn) mergeBtn.addEventListener('click', async () => {
-    const targetChurchId = mergeBtn.dataset.targetChurchId;
+  // Shared by both the auto-suggested "Merge into X" button above and
+  // the manual search below -- same confirmation, same RPC call, same
+  // outcome, regardless of how the target church was chosen.
+  async function mergePendingChurchInto(targetChurchId, triggerBtn, triggerLabel){
     const targetChurch = allChurches.find(c => c.id === targetChurchId);
     const targetName = targetChurch ? targetChurch.name : 'this church';
     if(!confirm(`Merge this signup into "${targetName}"? This links the payer account to ${targetName} permanently (so it won't flag again next time this same account pays) and removes this pending entry -- it never goes live as its own page.`)) return;
-    mergeBtn.disabled = true;
-    mergeBtn.textContent = 'Merging…';
+    if(triggerBtn){ triggerBtn.disabled = true; triggerBtn.textContent = 'Merging…'; }
     const { error } = await supabaseClient.rpc('merge_pending_church_signup', {
       p_pending_church_id: churchId,
       p_target_church_id: targetChurchId
     });
     if(error){
       alert('Could not merge: ' + error.message);
-      mergeBtn.disabled = false;
-      mergeBtn.textContent = `Merge into ${targetName}`;
+      if(triggerBtn){ triggerBtn.disabled = false; triggerBtn.textContent = triggerLabel; }
       return;
     }
     allChurches = allChurches.filter(c => c.id !== churchId);
     renderChurchStudents(targetChurchId);
+  }
+
+  const mergeBtn = document.getElementById('merge-pending-church-btn');
+  if(mergeBtn) mergeBtn.addEventListener('click', () => {
+    mergePendingChurchInto(mergeBtn.dataset.targetChurchId, mergeBtn, mergeBtn.textContent);
   });
+
+  // Manual merge search -- always available on any pending signup,
+  // regardless of whether the automatic domain-match above found
+  // anything. Searches allChurches already in memory (no network call),
+  // limited to live/draft churches -- same restriction the automatic
+  // suggestion uses, so this can't accidentally offer merging into
+  // another still-pending, unreviewed signup.
+  const manualMergeSearch = document.getElementById('manual-merge-search');
+  const manualMergeResults = document.getElementById('manual-merge-results');
+  if(manualMergeSearch && manualMergeResults){
+    manualMergeSearch.addEventListener('input', () => {
+      const q = manualMergeSearch.value.trim().toLowerCase();
+      if(!q){ manualMergeResults.innerHTML = ''; return; }
+      const matches = allChurches
+        .filter(c => ['live','draft'].includes(c.course_status || 'live') && c.name.toLowerCase().includes(q))
+        .slice(0, 6);
+      manualMergeResults.innerHTML = matches.length
+        ? matches.map(c => `<div class="group-row" data-pick-church="${c.id}" style="cursor:pointer;"><span>${escapeHtmlReport(c.name)}</span></div>`).join('')
+        : `<p style="color:var(--ink-soft);font-size:12.5px;margin:8px 0 0;">No matching churches.</p>`;
+      manualMergeResults.querySelectorAll('[data-pick-church]').forEach(row => {
+        row.addEventListener('click', () => mergePendingChurchInto(row.dataset.pickChurch, null, null));
+      });
+    });
+  }
 
   if(saveSettingsBtn) saveSettingsBtn.addEventListener('click', async () => {
     const newSlug = document.getElementById('edit-church-slug').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
