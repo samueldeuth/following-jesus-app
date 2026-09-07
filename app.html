@@ -2295,10 +2295,16 @@
   async function awardBadgeIfSignedIn(badgeKey) {
     if (!supabaseClient) return;
     try {
-      const account = await dSafeGet('account');
-      if (!account) return;
+      // Checks the real Supabase session directly -- not the locally
+      // cached account copy (dSafeGet('account')), which can drift out
+      // of sync with actual sign-in state. A stale local cache here
+      // would silently skip awarding a badge even while genuinely
+      // signed in, with no visible error -- confirmed as a real gap,
+      // not just a theoretical one.
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session || !session.user) return;
       await supabaseClient.rpc('award_badge', { p_badge_key: badgeKey });
-    } catch (e) { /* best effort -- badges never block the real action */ }
+    } catch (e) { console.error('Failed to award badge', badgeKey, e); }
   }
 
   // Looks up an existing profile by email — used only after a real Google
