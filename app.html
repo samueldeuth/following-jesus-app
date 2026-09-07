@@ -7479,6 +7479,28 @@ async function renderDiscipleshipApp() {
       );
       return;
     }
+    if (hash === 'profile') {
+      // Mirrors profileTabBtn's own click handler exactly (same account
+      // check, same fallback to sign-in) -- this was the actual gap.
+      // The button correctly pushes #profile on click, but this
+      // function had no case for it at all, so a refresh while on
+      // Profile fell through to the generic default below and landed
+      // back on Today, even though every other tab's refresh already
+      // worked correctly.
+      showPageHeader('Profile');
+      document.getElementById('discipleModal').classList.add('open');
+      buttons.forEach(b => b.classList.remove('active'));
+      document.getElementById('profileTabBtn').classList.add('active');
+
+      let account = await dSafeGet('account');
+      if (!account) {
+        const synced = await syncAccountFromActiveSession();
+        if (synced) account = await dSafeGet('account');
+      }
+      if (!account) { localStorage.setItem('fj_oauth_return_to', 'profile'); renderAccountStep(); return; }
+      renderProfileSettings(false);
+      return;
+    }
     applyTab(HASH_TO_SCREEN[hash] || 'screen-today');
   }
 
