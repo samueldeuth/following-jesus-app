@@ -46,8 +46,17 @@ async function getCallerProfile(userAccessToken) {
   return rows[0] || null;
 }
 
-async function sendReminderEmail({ resendApiKey, toEmail, studentName, courseTitle, unsubscribeToken }) {
-  const continueUrl = `${APP_URL}/course`;
+// Same fix as admin-trigger-weekly-reminders.js -- see that file for
+// the real incident this addresses.
+function buildContinueUrl(courseUrlPath, churchSlug) {
+  if (courseUrlPath && courseUrlPath !== 'course') {
+    return `${APP_URL}/${courseUrlPath}`;
+  }
+  return churchSlug ? `${APP_URL}/courses/${churchSlug}` : `${APP_URL}/course`;
+}
+
+async function sendReminderEmail({ resendApiKey, toEmail, studentName, courseTitle, courseUrlPath, churchSlug, unsubscribeToken }) {
+  const continueUrl = buildContinueUrl(courseUrlPath, churchSlug);
   const unsubscribeUrl = `${APP_URL}/course-reminder-unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
 
   const html = `
@@ -137,6 +146,8 @@ exports.handler = async function (event) {
         toEmail: student.student_email,
         studentName: student.student_name,
         courseTitle: student.course_title,
+        courseUrlPath: student.course_url_path,
+        churchSlug: student.church_slug,
         unsubscribeToken: student.unsubscribe_token
       });
       successfulIds.push(student.enrollment_id);

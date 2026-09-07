@@ -32,8 +32,27 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-async function sendReminderEmail({ resendApiKey, toEmail, studentName, courseTitle, unsubscribeToken }) {
-  const continueUrl = `${APP_URL}/course`;
+// Builds the exact right "continue" link for this specific enrollment.
+// Real bug this replaces: every reminder email previously linked to
+// the same hardcoded /course URL (the free Following Jesus course)
+// regardless of which course the person was actually enrolled in --
+// confirmed by Samuel receiving a "Discipleship & Assimilation
+// Essentials" reminder that took him to the free course instead. The
+// free course's own url_path is just 'course' as a placeholder -- its
+// real link depends on which church (if any) this specific student
+// enrolled through, resolved here rather than stored on the course
+// itself. Every other course has a real url_path stored directly on
+// it (see add-course-url-path.sql), so nothing here guesses at a
+// course title.
+function buildContinueUrl(courseUrlPath, churchSlug) {
+  if (courseUrlPath && courseUrlPath !== 'course') {
+    return `${APP_URL}/${courseUrlPath}`;
+  }
+  return churchSlug ? `${APP_URL}/courses/${churchSlug}` : `${APP_URL}/course`;
+}
+
+async function sendReminderEmail({ resendApiKey, toEmail, studentName, courseTitle, courseUrlPath, churchSlug, unsubscribeToken }) {
+  const continueUrl = buildContinueUrl(courseUrlPath, churchSlug);
   const unsubscribeUrl = `${APP_URL}/course-reminder-unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
 
   const html = `
@@ -104,6 +123,14 @@ exports.handler = async function () {
   const successfulIds = [];
   const failures = [];
 
+  // 150ms between sends keeps this comfortably under Resend's rate
+  // limit even for a large batch -- confirmed necessary from a real
+  // run of the admin-triggered version of this same send: sequential
+  // requests with no pause between them got silently rate-limited by
+  // Resend partway through, with zero trace left in Resend's own log
+  // for the ones that failed.
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
   for (const student of students) {
     try {
       await sendReminderEmail({
@@ -111,6 +138,8 @@ exports.handler = async function () {
         toEmail: student.student_email,
         studentName: student.student_name,
         courseTitle: student.course_title,
+        courseUrlPath: student.course_url_path,
+        churchSlug: student.church_slug,
         unsubscribeToken: student.unsubscribe_token
       });
       successfulIds.push(student.enrollment_id);
@@ -120,6 +149,7 @@ exports.handler = async function () {
       // week rather than silently skipped forever.
       failures.push({ enrollment_id: student.enrollment_id, error: e.message });
     }
+    await sleep(150);
   }
 
   // Only mark the ones that actually succeeded — matches the same

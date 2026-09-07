@@ -57,8 +57,21 @@ async function getCallerRole(userAccessToken) {
   return rows[0]?.role || null;
 }
 
-async function sendReminderEmail({ resendApiKey, toEmail, studentName, courseTitle, unsubscribeToken }) {
-  const continueUrl = `${APP_URL}/course`;
+// Builds the exact right "continue" link for this specific enrollment.
+// The free course's url_path is just 'course' as a placeholder --  its
+// real link depends on which church (if any) this particular student
+// enrolled through, so that part is resolved here rather than stored
+// on the course itself. Every other course has a real url_path stored
+// directly on it, so no title-matching or guessing happens here at all.
+function buildContinueUrl(courseUrlPath, churchSlug) {
+  if (courseUrlPath && courseUrlPath !== 'course') {
+    return `${APP_URL}/${courseUrlPath}`;
+  }
+  return churchSlug ? `${APP_URL}/courses/${churchSlug}` : `${APP_URL}/course`;
+}
+
+async function sendReminderEmail({ resendApiKey, toEmail, studentName, courseTitle, courseUrlPath, churchSlug, unsubscribeToken }) {
+  const continueUrl = buildContinueUrl(courseUrlPath, churchSlug);
   const unsubscribeUrl = `${APP_URL}/course-reminder-unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
 
   const html = `
@@ -141,6 +154,8 @@ exports.handler = async function (event) {
         toEmail: student.student_email,
         studentName: student.student_name,
         courseTitle: student.course_title,
+        courseUrlPath: student.course_url_path,
+        churchSlug: student.church_slug,
         unsubscribeToken: student.unsubscribe_token
       });
       successfulIds.push(student.enrollment_id);
