@@ -1078,6 +1078,7 @@ function renderChurchesOverview(){
     </div>
     <div id="overview-range-metrics" style="margin-bottom:16px;"></div>
     <button class="mini-btn" id="export-all-btn" style="margin-bottom:16px;">Export All Students (CSV)</button>
+    <button class="mini-btn gold" id="send-reminders-now-btn" style="margin-bottom:16px;">Send Weekly Reminders Now</button>
     <table>
       <thead><tr><th>Church</th><th>Students</th><th>Avg. Progress</th></tr></thead>
       <tbody>${churchRowsHtml || '<tr><td colspan="3" style="color:var(--ink-soft);">No churches yet.</td></tr>'}</tbody>
@@ -1090,6 +1091,34 @@ function renderChurchesOverview(){
   const exportAllBtn = document.getElementById('export-all-btn');
   if(exportAllBtn) exportAllBtn.addEventListener('click', () => {
     exportStudentsCSV(allRows, `all-students-${new Date().toISOString().slice(0,10)}.csv`, true);
+  });
+
+  // Real emails go out immediately on click -- not a preview, not a
+  // dry run. Confirmed first, and the actual send count is shown back
+  // afterward rather than firing silently, since this is a manual,
+  // on-demand action rather than the quiet weekly background job.
+  const sendRemindersBtn = document.getElementById('send-reminders-now-btn');
+  if(sendRemindersBtn) sendRemindersBtn.addEventListener('click', async () => {
+    if(!confirm('Send course reminder emails right now to everyone currently eligible (enrolled, not finished, not reminded in the last 6 days, hasn\'t unsubscribed)? This sends real emails immediately.')) return;
+    sendRemindersBtn.disabled = true;
+    sendRemindersBtn.textContent = 'Sending…';
+    try {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const res = await fetch('/.netlify/functions/admin-trigger-weekly-reminders', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token || ''}` }
+      });
+      const result = await res.json();
+      if(!res.ok){
+        alert('Could not send reminders: ' + (result.error || res.statusText));
+      } else {
+        alert(`Done. ${result.sent} reminder email(s) sent out of ${result.totalEligible} eligible.${result.failed ? ` ${result.failed} failed.` : ''}`);
+      }
+    } catch (e) {
+      alert('Could not send reminders: ' + e.message);
+    }
+    sendRemindersBtn.disabled = false;
+    sendRemindersBtn.textContent = 'Send Weekly Reminders Now';
   });
 
   document.querySelectorAll('tbody tr.clickable').forEach(tr => {
