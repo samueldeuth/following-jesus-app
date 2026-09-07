@@ -157,13 +157,20 @@ exports.handler = async (event) => {
   }
 
   const emailSent = await notifySamuel(result.name, customerEmail, notifyEmail, resendApiKey, result.suggested_merge_church_name);
-  const purchaserEmailSent = result.signup_token
+  // Withheld whenever a domain match was suggested -- sending "finish
+  // setting up your course" to a church that may turn out to be a
+  // duplicate of one already live was the exact real incident
+  // (dennis@lcny.us) this guards against. It's released later, from
+  // the admin dashboard, only once a super_admin actually confirms this
+  // is genuinely a new church by clicking Approve & Go Live -- see
+  // release_withheld_setup_email in fix-church-setup-email-timing.sql.
+  const purchaserEmailSent = (result.signup_token && !result.suggested_merge_church_id)
     ? await notifyPurchaser(customerEmail, result.name, result.signup_token, resendApiKey)
     : false;
   if (!result.signup_token) {
     console.error('shopify-church-signup-webhook: no signup_token returned from process_church_signup_order -- purchaser was NOT emailed a completion link. Run add-church-signup-completion-flow.sql if this is unexpected.');
   }
-  return { statusCode: 200, body: JSON.stringify({ created: true, churchId: result.church_id, name: result.name, notifyEmailSent: emailSent, purchaserEmailSent }) };
+  return { statusCode: 200, body: JSON.stringify({ created: true, churchId: result.church_id, name: result.name, notifyEmailSent: emailSent, purchaserEmailSent, withheldForReview: !!result.suggested_merge_church_id }) };
 };
 
 async function notifyPurchaser(purchaserEmail, churchName, signupToken, apiKey) {
@@ -205,7 +212,8 @@ async function notifySamuel(churchName, purchaserEmail, notifyEmail, apiKey, sug
   // in the admin dashboard, this is just a heads-up so it's not missed.
   const suggestionHtml = suggestedMergeChurchName
     ? `<p style="background:#fff8e1;border-left:3px solid #f0b429;padding:10px 14px;margin:16px 0;">
-         <strong>Possible match:</strong> this email's domain matches an existing church, <strong>${escapeHtml(suggestedMergeChurchName)}</strong>. If this is the same church paying from a different account, use "Merge" in the dashboard instead of approving it as new.
+         <strong>Possible match:</strong> this email's domain matches an existing church, <strong>${escapeHtml(suggestedMergeChurchName)}</strong>. If this is the same church paying from a different account, use "Merge" in the dashboard instead of approving it as new.<br><br>
+         The purchaser's own "finish setting up your course" email is being held until you decide -- it won't send unless you approve this as genuinely new.
        </p>`
     : '';
   const html = `
