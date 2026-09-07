@@ -4024,33 +4024,55 @@ const supabaseClient = (typeof window !== 'undefined' && window.supabase)
   }
 })();
 
+// On mobile, "closing and reopening the app" very often just brings an
+// already-running app back to the foreground rather than truly
+// reloading its code from scratch -- meaning the one-time check above
+// (which only runs when this script first executes) can genuinely
+// never re-fire even after what looks, from the outside, like a full
+// close/reopen. This re-runs the exact same check whenever the tab/app
+// actually becomes visible again, so a badge earned earlier in the same
+// still-running session gets caught on the next foreground, not only
+// on a true cold start. Confirmed as a real gap, not just a theory --
+// found by checking a specific case where a badge was genuinely
+// recorded in the database but never celebrated client-side.
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible' || !supabaseConfigured || !supabaseClient) return;
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session || !session.user) return;
+    await celebrateNewBadgesIfAny(session.user.id);
+  } catch (e) { /* best effort -- next foreground or next cold load will catch it */ }
+});
+
 // Badges are awarded from several different places -- some client-
 // triggered (reading plan progress, gospel sharing), most entirely
 // server-side via database triggers (course completion, leader
 // approval, first disciple) that can fire while this person isn't even
 // looking at their phone. Rather than trying to catch each one at its
 // own exact moment (fragile, and impossible for the trigger-based ones
-// with no connected client code), this checks once per app load --
-// riding inside the SAME already-existing check used for streaks, so
-// it costs one extra indexed query, not a new page-load trigger -- and
-// celebrates whatever's new since last time by comparing against a
-// locally-remembered set of already-seen badge keys. The honest
-// tradeoff: a badge earned while away from the app (or by a trigger
-// with no client moment of its own) shows up on the NEXT open, not the
-// literal instant it happened -- a reasonable, common pattern, not a
-// bug.
+// with no connected client code), this checks once per app load AND
+// once per foreground-resume (see visibilitychange listener above) --
+// riding on events that already happen anyway, not a new recurring
+// page-load trigger -- and celebrates whatever's new since last time by
+// comparing against a locally-remembered set of already-seen badge
+// keys.
 async function celebrateNewBadgesIfAny(userId) {
   const { data: rows } = await supabaseClient.from('badges_earned').select('badge_key').eq('user_id', userId);
   if (!rows) return;
   const currentKeys = rows.map(r => r.badge_key);
   const seenKeys = new Set((await dSafeGet('seenBadgeKeys')) || []);
   const newKeys = currentKeys.filter(k => !seenKeys.has(k));
-  if (newKeys.length === 0) return;
 
-  // Recorded as "seen" immediately, before showing anything -- if
-  // something interrupts the celebration below (person closes the app
-  // mid-alert), this never re-shows the same badge again next time.
+  // Always saved, even when nothing's new -- previously this only ran
+  // inside the "found something new" branch below, which meant anyone
+  // with zero badges the very first time this code ran would NEVER get
+  // a saved baseline at all (an empty diff short-circuited before
+  // reaching the save), leaving seenBadgeKeys permanently unset until
+  // the first new badge happened to arrive. Saving unconditionally here
+  // means the baseline is always correctly established from the very
+  // first check, badges or not.
   await dSafeSet('seenBadgeKeys', currentKeys);
+  if (newKeys.length === 0) return;
 
   // Small delay so this doesn't collide with the page's own initial
   // render -- shown one at a time (awaited in sequence), not stacked,
