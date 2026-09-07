@@ -5336,14 +5336,39 @@ function showShareModal(code, label) {
 
 // ---------- Solo (self-guided, no leader needed) ----------
 async function renderDiscipleshipHub() {
-  const account = await dSafeGet('account');
-  const leaderApp = await getLeaderApplication(myId);
-  const membership = await getDiscipleMembership(myId);
-  const { progress, walkoutProgress, essentialsSessionData } = await getCourseProgressData(myId, 'essentials');
+  // These 8 lookups are all independent of each other -- none needs a
+  // result from any of the others, they all just need myId, which is
+  // already known before any of this starts. Running them together
+  // rather than one at a time only waits for the single slowest one
+  // instead of the sum of all 8 -- this was the single biggest
+  // contributor to the Hub feeling slow to load.
+  const [
+    account,
+    leaderApp,
+    membership,
+    essentialsData,
+    wbData,
+    globalCount,
+    hubMilestonesData,
+    myOwnGroups,
+    fjCourseCard
+  ] = await Promise.all([
+    dSafeGet('account'),
+    getLeaderApplication(myId),
+    getDiscipleMembership(myId),
+    getCourseProgressData(myId, 'essentials'),
+    getCourseProgressData(myId, 'waterBaptism'),
+    getGlobalDiscipleCount(),
+    getDiscipleshipMilestonesData(myId),
+    getDiscipleGroups(myId),
+    fjCourseCardHtml()
+  ]);
+
+  const { progress, walkoutProgress, essentialsSessionData } = essentialsData;
   checkAndCelebrateEssentialsCompletion(myId, progress);
-  const { progress: wbProgress, walkoutProgress: wbWalkoutProgress } = await getCourseProgressData(myId, 'waterBaptism');
+  const { progress: wbProgress, walkoutProgress: wbWalkoutProgress } = wbData;
   const isApprovedLeader = leaderApp && leaderApp.status === 'approved';
-  const globalCount = await getGlobalDiscipleCount();
+  checkAndCelebrateMilestones(myId, hubMilestonesData.allDone);
 
   let stepsHtml = '';
   STEPS.forEach((title, i) => {
@@ -5361,23 +5386,19 @@ async function renderDiscipleshipHub() {
 
   const nestedCoursesHtml =
     courseCardHtml('waterBaptism', COURSES.waterBaptism.title, COURSES.waterBaptism.subtitle, wbStepsHtml, wbWalkoutProgress, wbProgress, WB_STEPS, WB_WALK_IT_OUT) +
-    await fjCourseCardHtml();
+    fjCourseCard;
 
   // The Discipleship Pathway checklist and the person's own groups
   // (when they're being discipled) both show right on the Hub now,
   // rather than requiring a trip into "Being Discipled" first just to
   // see them — same idea as an approved leader already seeing their
   // groups directly here.
-  const hubMilestonesData = await getDiscipleshipMilestonesData(myId);
-  checkAndCelebrateMilestones(myId, hubMilestonesData.allDone);
   const pathwayCardHtml = `
     <div class="card" id="hubMilestonesCard">
       <h2>Discipleship Pathway</h2>
       <p>${hubMilestonesData.allDone ? "You've covered everything on this list — well done!" : 'Tap an item to mark it covered.'}</p>
       ${milestonesChecklistHtml(hubMilestonesData, true)}
     </div>`;
-
-  const myOwnGroups = await getDiscipleGroups(myId);
 
   const discipleCardHtml = membership
     ? `<button type="button" class="hub-role-card${isApprovedLeader ? ' hub-role-card-standalone' : ''}" id="goDiscipleDash">
@@ -5448,12 +5469,20 @@ async function renderDiscipleshipHub() {
   } else {
     // Approved: the leader dashboard now lives directly on the Hub instead
     // of behind a separate screen — this is that merged content.
-    groups = await getLeaderGroups(myId);
-    disciples = await getLeaderDisciples(myId);
-    const { data: directGroup } = await supabaseClient.from('discipleship_groups').select('invite_code').eq('leader_id', myId).eq('is_direct', true).maybeSingle();
-    directCode = directGroup ? directGroup.invite_code : null;
-    discipledCount = await computeDiscipledCount(myId);
-    unreadDmSenderIds = await getUnreadDmSenderIds(myId);
+    // Same fix as the top of this function -- these 5 are independent
+    // of each other, so they run together rather than one at a time.
+    const [leaderGroupsResult, disciplesResult, directGroupResult, discipledCountResult, unreadDmSenderIdsResult] = await Promise.all([
+      getLeaderGroups(myId),
+      getLeaderDisciples(myId),
+      supabaseClient.from('discipleship_groups').select('invite_code').eq('leader_id', myId).eq('is_direct', true).maybeSingle(),
+      computeDiscipledCount(myId),
+      getUnreadDmSenderIds(myId)
+    ]);
+    groups = leaderGroupsResult;
+    disciples = disciplesResult;
+    directCode = directGroupResult.data ? directGroupResult.data.invite_code : null;
+    discipledCount = discipledCountResult;
+    unreadDmSenderIds = unreadDmSenderIdsResult;
 
     leaderSectionHtml = `
       <div class="discipled-stat-card">
