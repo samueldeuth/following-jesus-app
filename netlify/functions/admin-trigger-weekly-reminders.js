@@ -125,6 +125,15 @@ exports.handler = async function (event) {
   const successfulIds = [];
   const failures = [];
 
+  // 150ms between sends keeps this comfortably under Resend's rate
+  // limit even for a large batch -- confirmed necessary from a real
+  // run: 78 sequential sends with no pause completed in 8.2 seconds
+  // (~9.5/sec), and the 20 that failed left zero trace anywhere in
+  // Resend's own log (not Bounced, Failed, or Suppressed) -- consistent
+  // with being rejected at the rate limit before Resend ever created a
+  // record for them, not a real delivery problem with those addresses.
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
   for (const student of students) {
     try {
       await sendReminderEmail({
@@ -138,6 +147,7 @@ exports.handler = async function (event) {
     } catch (e) {
       failures.push({ enrollment_id: student.enrollment_id, error: e.message });
     }
+    await sleep(150);
   }
 
   if (successfulIds.length) {

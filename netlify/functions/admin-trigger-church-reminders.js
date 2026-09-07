@@ -126,6 +126,10 @@ exports.handler = async function (event) {
   const successfulIds = [];
   const failures = [];
 
+  // Same fix as admin-trigger-weekly-reminders.js -- see that file for
+  // the real evidence this is needed.
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
   for (const student of students) {
     try {
       await sendReminderEmail({
@@ -139,6 +143,7 @@ exports.handler = async function (event) {
     } catch (e) {
       failures.push({ enrollment_id: student.enrollment_id, error: e.message });
     }
+    await sleep(150);
   }
 
   if (successfulIds.length) {
