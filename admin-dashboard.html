@@ -2791,13 +2791,32 @@ async function renderChurchStudents(churchId){
   // button programmatically, so anything Samuel already edited in the
   // name/slug fields gets saved along with the approval in one action.
   const approveBtn = document.getElementById('approve-pending-church-btn');
-  if(approveBtn) approveBtn.addEventListener('click', () => {
+  if(approveBtn) approveBtn.addEventListener('click', async () => {
     const statusSelect = document.getElementById('edit-course-status');
     if(statusSelect){
       statusSelect.value = 'live';
       statusSelect.dispatchEvent(new Event('change'));
     }
     document.getElementById('save-church-settings-btn')?.click();
+
+    // Only relevant for churches that had a suggested merge match --
+    // those are the only ones whose purchaser email was ever withheld
+    // in the first place (see release_withheld_setup_email). A plain
+    // pending signup with no suggestion already got its purchaser email
+    // immediately from the original webhook, so this is a genuine no-op
+    // for the normal case, not an extra send.
+    if(church?.suggested_merge_church_id){
+      const { data: releaseResult, error: releaseError } = await supabaseClient.rpc('release_withheld_setup_email', { p_church_id: churchId });
+      if(!releaseError && releaseResult?.should_send){
+        try {
+          await fetch('/.netlify/functions/send-released-setup-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: releaseResult.email, name: releaseResult.name, token: releaseResult.token })
+          });
+        } catch (e) { console.error('Failed to send released setup email:', e); }
+      }
+    }
   });
 
   // Links this pending signup's payer account onto the suggested
