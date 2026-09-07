@@ -2281,6 +2281,26 @@
     } catch (e) { /* best effort — the local account copy is still saved regardless */ }
   }
 
+  // Fire-and-forget helper for the two badges with no existing
+  // table/function to piggyback on (reading plan progress, gospel
+  // sharing -- both purely client-tracked actions, unlike the
+  // trigger-based badges added in the same SQL migration). Declared
+  // here specifically (not in the other <script> block) since
+  // supabaseClient only exists in this scope -- being a plain function
+  // declaration is what makes it callable from the other script tag
+  // anyway (same reasoning as renderProfileSettings/toggleNotifPref
+  // elsewhere in this file). Never awaited meaningfully by any caller --
+  // a badge is a nice-to-have, never something that should block or
+  // slow down the actual action that earned it.
+  async function awardBadgeIfSignedIn(badgeKey) {
+    if (!supabaseClient) return;
+    try {
+      const account = await dSafeGet('account');
+      if (!account) return;
+      await supabaseClient.rpc('award_badge', { p_badge_key: badgeKey });
+    } catch (e) { /* best effort -- badges never block the real action */ }
+  }
+
   // Looks up an existing profile by email — used only after a real Google
   // sign-in completes (see completeOAuthIfPending below), to avoid
   // creating a duplicate account for someone who already has one under
@@ -2429,6 +2449,27 @@
     return true;
   }
 
+  // Badges — static display data only (title, icon, description).
+  // Deliberately NOT database-driven -- there's nothing here that ever
+  // changes without a code deploy anyway, so a DB round trip just to
+  // learn what a badge_key means would be pure overhead for zero
+  // benefit. "Fully Discipled" from the original 10-badge list isn't
+  // included yet -- its eligibility (every milestone done, including
+  // auto-detected ones) is genuinely multi-table and harder to safely
+  // re-derive inside a lightweight trigger; worth its own focused pass
+  // later rather than risking an incorrect award now.
+  const BADGE_CATALOG = [
+    { key: 'streak_7', emoji: '🔥', title: '7-Day Streak', description: 'Open the app 7 days in a row.' },
+    { key: 'streak_30', emoji: '🔥', title: '30-Day Streak', description: 'Open the app 30 days in a row.' },
+    { key: 'streak_100', emoji: '🔥', title: '100-Day Streak', description: 'Open the app 100 days in a row.' },
+    { key: 'reading_plan_day1', emoji: '📖', title: 'First Step', description: 'Complete Day 1 of the 365-Day Reading Plan.' },
+    { key: 'reading_plan_complete', emoji: '📖', title: '365 Complete', description: 'Finish the entire 365-Day Reading Plan.' },
+    { key: 'course_graduate', emoji: '🎓', title: 'Course Graduate', description: 'Complete the free Following Jesus course.' },
+    { key: 'gospel_sharer', emoji: '💬', title: 'Gospel Sharer', description: 'Share a Gospel verse graphic.' },
+    { key: 'disciple_maker', emoji: '🤝', title: 'Disciple Maker', description: 'Get approved as a leader.' },
+    { key: 'first_disciple', emoji: '👥', title: 'First Disciple', description: 'Someone joins your group or invite for the first time.' }
+  ];
+
   async function renderProfileSettings(editMode) {
     const account = await dSafeGet('account');
     const leaderApp = account ? await getLeaderApplication(account.id) : null;
@@ -2546,6 +2587,19 @@
         }
       } catch (e) { /* columns not added yet, or offline -- streak card just shows 0/0 */ }
     }
+    // One single, indexed lookup -- this is the only cost badges ever
+    // add to a page load, and only on the Profile screen specifically,
+    // never anywhere else. Every badge's actual eligibility check
+    // already happened once, earlier, at the exact moment it was
+    // earned (see add-badges-system.sql) -- nothing here recomputes
+    // anything.
+    let earnedBadgeKeys = new Set();
+    if (account && supabaseClient) {
+      try {
+        const { data: badgeRows } = await supabaseClient.from('badges_earned').select('badge_key').eq('user_id', account.id);
+        if (badgeRows) earnedBadgeKeys = new Set(badgeRows.map(b => b.badge_key));
+      } catch (e) { /* table not added yet, or offline -- badges grid just shows everything locked */ }
+    }
     // Verse of the Day preference -- reuses the SAME notifPrefs/OneSignal
     // tag system that already powers the toggle on the Today tab
     // (getNotifPrefs/toggleNotifPref, defined in the other <script>
@@ -2602,6 +2656,18 @@
       </div>
       <p class="dm-note">Get notified when someone messages your group or sends you a direct message, and/or get a daily reminder with that day's verse. Turn either off anytime.</p>
       <p class="dm-note" style="margin-top:8px;">Tap Discipleship Dashboard to see your groups, disciples, and invites.</p>
+
+      <div class="section-label" style="margin-top:28px; margin-bottom:12px;">Badges — ${earnedBadgeKeys.size} of ${BADGE_CATALOG.length}</div>
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
+        ${BADGE_CATALOG.map(b => {
+          const earned = earnedBadgeKeys.has(b.key);
+          return `
+          <div style="text-align:center; opacity:${earned ? '1' : '0.4'};" title="${escapeHtmlMain(b.description)}">
+            <div style="font-size:26px; width:52px; height:52px; margin:0 auto 6px; border-radius:50%; background:${earned ? 'rgba(200,155,60,0.2)' : 'rgba(10,10,10,0.05)'}; display:flex; align-items:center; justify-content:center;">${b.emoji}</div>
+            <div style="font-size:10px; font-weight:700; color:rgba(10,10,10,0.7); line-height:1.3;">${escapeHtmlMain(b.title)}</div>
+          </div>`;
+        }).join('')}
+      </div>
 
       <button class="secondary-btn" id="profLogoutBtn" style="margin-top:24px;">Log out</button>
       <p class="dm-note">Logging out signs you out on this device entirely — including the course site, since they share the same account. Nothing you've built (groups, disciples, progress) is deleted. Sign back in anytime with the same Google account to pick right back up.</p>
@@ -2890,6 +2956,7 @@
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({ files: [file], title: card.title, text: `${card.message} — ${card.ref}` });
+          awardBadgeIfSignedIn('gospel_sharer');
           return;
         } catch (e) {
           // AbortError specifically means the person closed or cancelled
@@ -2907,6 +2974,7 @@
       document.body.appendChild(a);
       a.click();
       a.remove();
+      awardBadgeIfSignedIn('gospel_sharer');
       setTimeout(() => URL.revokeObjectURL(url), 2000);
     }, 'image/png', 0.95);
   }
@@ -6946,7 +7014,12 @@ async function renderDiscipleshipApp() {
     const segDone = planSegmentDone[planDay] || [];
     const allDone = segDone.length > 0 && segDone.every(Boolean);
     const wasComplete = planCompletedDays.includes(planDay);
-    if (allDone && !wasComplete) { planCompletedDays.push(planDay); maybeTriggerReviewPrompt(); }
+    if (allDone && !wasComplete) {
+      planCompletedDays.push(planDay);
+      maybeTriggerReviewPrompt();
+      if (planDay === 1) awardBadgeIfSignedIn('reading_plan_day1');
+      if (planCompletedDays.length === 365) awardBadgeIfSignedIn('reading_plan_complete');
+    }
     if (!allDone && wasComplete) planCompletedDays.splice(planCompletedDays.indexOf(planDay), 1);
     planMarkDone.textContent = allDone ? '✓ Day Read' : 'Mark Day Read';
     planMarkDone.classList.toggle('done', allDone);
