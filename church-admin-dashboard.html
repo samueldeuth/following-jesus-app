@@ -830,10 +830,11 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
     </div>
 
     <div class="church-tab-panel active" data-tab-panel="students">
-      <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
         <button class="mini-btn" id="export-students-btn">Export Students (CSV)</button>
         <button class="mini-btn gold" id="view-report-btn">View Progress Report</button>
         <button class="mini-btn gold" id="church-send-email-btn">Send Email to Your Students</button>
+        <a class="mini-btn" href="https://www.dropbox.com/scl/fo/m3uqrv12dlju8fspxs6tt/AFDdPdLz7gKrdAiUT15H1e0?rlkey=d8kmvbd5nb9l8lxsdfs3gzjag&st=ybcx2n84&dl=0" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;">Download Course Videos</a>
       </div>
       <table>
         <thead><tr><th>Student</th><th>Course</th><th>Progress</th><th>Enrolled</th><th>Actions</th></tr></thead>
