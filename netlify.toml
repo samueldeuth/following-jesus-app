@@ -12,19 +12,23 @@
   [headers.values]
     Access-Control-Allow-Origin = "*"
 
-# Runs once a day at 13:00 UTC (~8am Eastern / 5am Pacific).
-# Adjust the cron string below if you'd rather it fire at a different time —
-# format is "minute hour day month weekday", all in UTC.
+# Runs once a day at 16:00 UTC = 8am PST (California). Netlify's cron
+# schedule is a fixed UTC time with no built-in daylight-saving
+# awareness -- during PDT (mid-March to early November, i.e. most of
+# the year), this will actually fire at 9am Pacific clock time, one
+# hour later than labeled, since the UTC offset doesn't shift with the
+# season. Worth revisiting if that seasonal hour drift ever matters
+# enough to warrant updating this twice a year.
 [functions."send-daily-notifications"]
-  schedule = "0 13 * * *"
+  schedule = "0 16 * * *"
 
 # Runs every 3 days — comfortably inside Supabase's 7-day auto-pause window,
 # so the free-tier database never goes to sleep from inactivity.
 [functions."keep-alive-ping"]
   schedule = "0 12 */3 * *"
 
-# Runs every Monday at 14:00 UTC (~9am Eastern / 6am Pacific) — same
-# timezone convention as send-daily-notifications above. Adjust the
-# cron string if 9am should mean a different timezone.
+# Runs every Monday at 17:00 UTC = 9am PST (California). Same daylight-saving
+# caveat as send-daily-notifications above -- fires at 10am Pacific
+# clock time during PDT months instead of 9am.
 [functions."send-weekly-course-reminders"]
-  schedule = "0 14 * * 1"
+  schedule = "0 17 * * 1"
