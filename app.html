@@ -2459,15 +2459,15 @@
   // re-derive inside a lightweight trigger; worth its own focused pass
   // later rather than risking an incorrect award now.
   const BADGE_CATALOG = [
-    { key: 'streak_7', emoji: '🔥', title: '7-Day Streak', description: 'Open the app 7 days in a row.' },
-    { key: 'streak_30', emoji: '🔥', title: '30-Day Streak', description: 'Open the app 30 days in a row.' },
-    { key: 'streak_100', emoji: '🔥', title: '100-Day Streak', description: 'Open the app 100 days in a row.' },
-    { key: 'reading_plan_day1', emoji: '📖', title: 'First Step', description: 'Complete Day 1 of the 365-Day Reading Plan.' },
-    { key: 'reading_plan_complete', emoji: '📖', title: '365 Complete', description: 'Finish the entire 365-Day Reading Plan.' },
-    { key: 'course_graduate', emoji: '🎓', title: 'Course Graduate', description: 'Complete the free Following Jesus course.' },
-    { key: 'gospel_sharer', emoji: '💬', title: 'Gospel Sharer', description: 'Share a Gospel verse graphic.' },
-    { key: 'disciple_maker', emoji: '🤝', title: 'Disciple Maker', description: 'Get approved as a leader.' },
-    { key: 'first_disciple', emoji: '👥', title: 'First Disciple', description: 'Someone joins your group or invite for the first time.' }
+    { key: 'streak_7', title: '7-Day Streak', description: 'Open the app 7 days in a row.', svg: '<circle r="58" fill="#f6e9d8" stroke="#8a3b2b" stroke-width="2"/><circle r="47" fill="#e8a94a"/><path d="M0,-28 C14,-14 16,2 6,14 C10,4 4,-2 0,-4 C-2,4 -8,8 -6,18 C-16,10 -18,-6 -6,-18 C-4,-22 -2,-25 0,-28 Z" fill="#8a3b2b"/>' },
+    { key: 'streak_30', title: '30-Day Streak', description: 'Open the app 30 days in a row.', svg: '<circle r="58" fill="#f6e2d2" stroke="#7a2f1f" stroke-width="2"/><circle r="47" fill="#d98a35"/><path d="M-8,-30 C6,-16 8,0 -2,12 C2,2 -4,-4 -8,-6 C-10,2 -16,6 -14,16 C-24,8 -26,-8 -14,-20 C-12,-24 -10,-27 -8,-30 Z" fill="#7a2f1f"/><path d="M10,-20 C18,-10 19,0 13,8 C15,2 11,-2 9,-3 C8,2 4,5 6,11 C-1,6 -2,-4 6,-11 C8,-14 9,-17 10,-20 Z" fill="#7a2f1f"/>' },
+    { key: 'streak_100', title: '100-Day Streak', description: 'Open the app 100 days in a row.', svg: '<circle r="58" fill="#f3e8c9" stroke="#8a6d1a" stroke-width="2"/><circle r="47" fill="#e8c968"/><path d="M-9,-32 C7,-16 9,2 -3,15 C2,3 -5,-4 -9,-7 C-11,3 -18,7 -16,19 C-27,9 -29,-9 -16,-22 C-14,-27 -11,-30 -9,-32 Z" fill="#8a6d1a"/><path d="M12,-22 C21,-11 22,1 15,10 C17,3 12,-2 10,-3 C9,3 4,6 7,13 C-2,7 -3,-5 7,-13 C9,-16 11,-19 12,-22 Z" fill="#8a6d1a"/><path d="M0,-42 L3,-36 L9,-36 L4,-32 L6,-26 L0,-30 L-6,-26 L-4,-32 L-9,-36 L-3,-36 Z" fill="#8a6d1a"/>' },
+    { key: 'reading_plan_day1', title: 'First Step', description: 'Complete Day 1 of the 365-Day Reading Plan.', svg: '<circle r="58" fill="#e6eef2" stroke="#1e5f52" stroke-width="2"/><circle r="47" fill="#a9d8cb"/><path d="M-28,-15 C-15,-20 -3,-17 0,-11 L0,18 C-3,13 -15,10 -28,15 Z" fill="#1e5f52"/><path d="M28,-15 C15,-20 3,-17 0,-11 L0,18 C3,13 15,10 28,15 Z" fill="#1e5f52"/><rect x="-4" y="-30" width="8" height="16" rx="1" fill="#e6eef2" stroke="#1e5f52" stroke-width="1.5"/>' },
+    { key: 'reading_plan_complete', title: '365 Complete', description: 'Finish the entire 365-Day Reading Plan.', svg: '<circle r="58" fill="#e6eef2" stroke="#1e4a5f" stroke-width="2"/><circle r="47" fill="#a9cbd8"/><path d="M-30,-16 C-16,-22 -4,-18 0,-12 L0,20 C-4,14 -16,10 -30,16 Z" fill="#1e4a5f"/><path d="M30,-16 C16,-22 4,-18 0,-12 L0,20 C4,14 16,10 30,16 Z" fill="#1e4a5f"/><circle cx="20" cy="26" r="13" fill="#e6eef2" stroke="#1e4a5f" stroke-width="1.5"/><path d="M14,26 L18,31 L27,20" fill="none" stroke="#1e4a5f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' },
+    { key: 'course_graduate', title: 'Course Graduate', description: 'Complete the free Following Jesus course.', svg: '<circle r="58" fill="#efe6f2" stroke="#4a2f5f" stroke-width="2"/><circle r="47" fill="#c9a9d8"/><path d="M-32,-6 L0,-18 L32,-6 L0,6 Z" fill="#4a2f5f"/><path d="M-16,0 L-16,16 C-16,22 16,22 16,16 L16,0" fill="none" stroke="#4a2f5f" stroke-width="2.5" stroke-linecap="round"/><line x1="26" y1="-2" x2="26" y2="14" stroke="#4a2f5f" stroke-width="1.5"/><circle cx="26" cy="17" r="2.5" fill="#4a2f5f"/>' },
+    { key: 'gospel_sharer', title: 'Gospel Sharer', description: 'Share a Gospel verse graphic.', svg: '<circle r="58" fill="#f6e6ea" stroke="#8a2f4a" stroke-width="2"/><circle r="47" fill="#e8a9bd"/><g transform="rotate(-25) scale(0.8) translate(-9.5,0)"><path d="M-22,-5 L-22,5 L-6,9 L24,20 C26,7 26,-7 24,-20 L-6,-9 Z" fill="#8a2f4a"/><g stroke="#8a2f4a" stroke-width="3" stroke-linecap="round" fill="none"><path d="M30,-14 C34,-6 34,6 30,14"/><path d="M36,-19 C41,-9 41,9 36,19"/></g></g>' },
+    { key: 'disciple_maker', title: 'Disciple Maker', description: 'Get approved as a leader.', svg: '<circle r="58" fill="#f2ede2" stroke="#6b4423" stroke-width="2"/><circle r="47" fill="#d4b896"/><g fill="#6b4423"><circle cx="-10" cy="-14" r="10"/><path d="M-26,22 C-26,4 6,4 6,22 Z"/></g><g stroke="#6b4423" stroke-width="3" stroke-linecap="round"><line x1="21" y1="-8" x2="21" y2="8"/><line x1="13" y1="0" x2="29" y2="0"/></g>' },
+    { key: 'first_disciple', title: 'First Disciple', description: 'Someone joins your group or invite for the first time.', svg: '<circle r="58" fill="#e9f1e6" stroke="#2f5d34" stroke-width="2"/><circle r="47" fill="#a9cfa0"/><g fill="#2f5d34"><circle cx="-18" cy="-14" r="9"/><path d="M-30,22 C-30,4 -6,4 -6,22 Z"/><circle cx="18" cy="-14" r="9"/><path d="M6,22 C6,4 30,4 30,22 Z"/></g>' }
   ];
 
   async function renderProfileSettings(editMode) {
@@ -2662,8 +2662,8 @@
         ${BADGE_CATALOG.map(b => {
           const earned = earnedBadgeKeys.has(b.key);
           return `
-          <div style="text-align:center; opacity:${earned ? '1' : '0.4'};" title="${escapeHtmlMain(b.description)}">
-            <div style="font-size:26px; width:52px; height:52px; margin:0 auto 6px; border-radius:50%; background:${earned ? 'rgba(200,155,60,0.2)' : 'rgba(10,10,10,0.05)'}; display:flex; align-items:center; justify-content:center;">${b.emoji}</div>
+          <div style="text-align:center;" title="${escapeHtmlMain(b.description)}">
+            <svg viewBox="-58 -58 116 116" width="52" height="52" style="display:block; margin:0 auto 6px; filter:${earned ? 'none' : 'grayscale(1) opacity(0.4)'};">${b.svg}</svg>
             <div style="font-size:10px; font-weight:700; color:rgba(10,10,10,0.7); line-height:1.3;">${escapeHtmlMain(b.title)}</div>
           </div>`;
         }).join('')}
@@ -4012,10 +4012,51 @@ const supabaseClient = (typeof window !== 'undefined' && window.supabase)
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session || !session.user) return;
     await supabaseClient.rpc('record_daily_app_open');
+    await celebrateNewBadgesIfAny(session.user.id);
   } catch (e) {
     console.error('Failed to record daily app open for streak:', e);
   }
 })();
+
+// Badges are awarded from several different places -- some client-
+// triggered (reading plan progress, gospel sharing), most entirely
+// server-side via database triggers (course completion, leader
+// approval, first disciple) that can fire while this person isn't even
+// looking at their phone. Rather than trying to catch each one at its
+// own exact moment (fragile, and impossible for the trigger-based ones
+// with no connected client code), this checks once per app load --
+// riding inside the SAME already-existing check used for streaks, so
+// it costs one extra indexed query, not a new page-load trigger -- and
+// celebrates whatever's new since last time by comparing against a
+// locally-remembered set of already-seen badge keys. The honest
+// tradeoff: a badge earned while away from the app (or by a trigger
+// with no client moment of its own) shows up on the NEXT open, not the
+// literal instant it happened -- a reasonable, common pattern, not a
+// bug.
+async function celebrateNewBadgesIfAny(userId) {
+  const { data: rows } = await supabaseClient.from('badges_earned').select('badge_key').eq('user_id', userId);
+  if (!rows) return;
+  const currentKeys = rows.map(r => r.badge_key);
+  const seenKeys = new Set((await dSafeGet('seenBadgeKeys')) || []);
+  const newKeys = currentKeys.filter(k => !seenKeys.has(k));
+  if (newKeys.length === 0) return;
+
+  // Recorded as "seen" immediately, before showing anything -- if
+  // something interrupts the celebration below (person closes the app
+  // mid-alert), this never re-shows the same badge again next time.
+  await dSafeSet('seenBadgeKeys', currentKeys);
+
+  // Small delay so this doesn't collide with the page's own initial
+  // render -- shown one at a time (awaited in sequence), not stacked,
+  // in case more than one badge was earned since the last visit.
+  await new Promise(resolve => setTimeout(resolve, 900));
+  for (const key of newKeys) {
+    const badge = BADGE_CATALOG.find(b => b.key === key);
+    if (!badge) continue; // catalog entry removed/renamed since this was earned -- skip rather than show a blank alert
+    triggerConfetti();
+    await showAppAlert(`🎉 New badge earned!\n\n${badge.title}\n${badge.description}`);
+  }
+}
 
 async function safeGet(key, shared) {
   if (shared && supabaseConfigured) {
