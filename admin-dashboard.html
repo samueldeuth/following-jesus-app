@@ -956,7 +956,7 @@ async function renderOverviewRangeMetrics(){
   const startDate = rangeStartDate(overviewRangeKey);
   const startIso = startDate.toISOString();
 
-  const newChurches = allChurches.filter(c => c.created_at && c.created_at >= startIso).length;
+  const newChurches = allChurches.filter(c => c.approved_at && c.approved_at >= startIso).length;
   const newStudentRows = allRows
     .filter(r => r.enrolled_at && r.enrolled_at >= startIso)
     .slice()
@@ -2817,6 +2817,15 @@ async function renderChurchStudents(churchId){
       letter_author_title: document.getElementById('edit-letter-author-title').value.trim() || null,
       website_url: document.getElementById('edit-website').value.trim() || null
     };
+    // Only stamped the moment a church actually moves out of
+    // pending_approval into live for the first time -- this is what
+    // the Overview page's "New Churches" count now reads (see
+    // renderOverviewRangeMetrics), instead of created_at, so a pending
+    // signup that turns out to be a duplicate (archived, never
+    // approved) correctly never counts as a "new church" for any day.
+    if(church?.course_status === 'pending_approval' && updates.course_status === 'live'){
+      updates.approved_at = new Date().toISOString();
+    }
 
     statusEl.textContent = 'Saving...';
     const { data: updated, error } = await supabaseClient.from('churches').update(updates).eq('id', churchId).select().maybeSingle();
