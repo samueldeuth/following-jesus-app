@@ -878,6 +878,15 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
       </div>
       <span id="promote-status" style="font-size:12.5px;color:var(--ink-soft);"></span>
 
+      <label class="field-label" style="margin-top:16px;">Invite Someone New as Admin</label>
+      <p class="field-hint" style="margin-bottom:8px;">For someone who hasn't signed up yet -- they'll get an email with a link to set up their own access.</p>
+      <div class="new-group-form">
+        <input type="text" id="invite-admin-name" placeholder="Their name (optional)" style="max-width:160px;" />
+        <input type="text" id="invite-admin-email" placeholder="Their email address" />
+        <button id="invite-admin-btn">Send Invite</button>
+      </div>
+      <span id="invite-admin-status" style="font-size:12.5px;color:var(--ink-soft);"></span>
+
       <label class="field-label">Accent Color</label>
       <div class="color-field-row">
         <input type="color" class="color-swatch" id="edit-church-color-picker" value="${/^#[0-9a-fA-F]{6}$/.test(myChurch?.primary_color||'') ? myChurch.primary_color : '#3E82F7'}" />
@@ -1043,6 +1052,46 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
     }
     statusEl.textContent = 'Promoted ✓';
     init();
+  });
+
+  // create_admin_invite_as_church_contact looks up the caller's own
+  // church_id itself, server-side -- myChurch.id is never sent to it,
+  // so there's no way this could ever be pointed at a different
+  // church, no matter what the request claims.
+  const inviteBtn = document.getElementById('invite-admin-btn');
+  if(inviteBtn) inviteBtn.addEventListener('click', async () => {
+    const email = document.getElementById('invite-admin-email').value.trim();
+    const name = document.getElementById('invite-admin-name').value.trim();
+    const statusEl = document.getElementById('invite-admin-status');
+    if(!email){ statusEl.textContent = 'Enter an email first.'; return; }
+    statusEl.textContent = 'Sending invite...';
+    inviteBtn.disabled = true;
+    const { data: result, error } = await supabaseClient.rpc('create_admin_invite_as_church_contact', { p_email: email, p_contact_name: name || null });
+    if(error || result?.status !== 'success'){
+      statusEl.textContent = 'Something went wrong. Please try again.';
+      inviteBtn.disabled = false;
+      return;
+    }
+    try {
+      const res = await fetch('/.netlify/functions/send-single-admin-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: result.email,
+          contact_name: result.contact_name,
+          church_name: result.church_name,
+          church_slug: result.church_slug,
+          invite_token: result.invite_token
+        })
+      });
+      const sendResult = await res.json();
+      statusEl.textContent = sendResult.sent ? 'Invite sent ✓' : 'Invite created, but the email failed to send.';
+    } catch (e) {
+      statusEl.textContent = 'Invite created, but the email failed to send.';
+    }
+    document.getElementById('invite-admin-email').value = '';
+    document.getElementById('invite-admin-name').value = '';
+    inviteBtn.disabled = false;
   });
 
   document.querySelectorAll('[data-remove-admin]').forEach(btn => {
