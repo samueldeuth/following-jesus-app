@@ -6161,18 +6161,16 @@ async function getCourseCompletionMap(discipleIds) {
 // completed — reused everywhere the app links out to the course site,
 // so it stays consistent and only needs updating in one place.
 async function fjCourseCardHtml() {
-  // Used to check completions first, and only THEN (sequentially) check
-  // progress if there were none -- up to 6 round-trips stacked one
-  // after another, all hidden inside just one of the 8 items already
-  // running in parallel inside renderDiscipleshipHub's own Promise.all.
-  // Since the Hub only loads as fast as its slowest single branch, this
-  // one hidden chain could single-handedly slow the whole Hub down even
-  // though the outer parallelization was already correct. Neither check
-  // actually needs the other's result, so they just run together now.
-  const [completions, progress] = await Promise.all([
-    getMyCourseCompletions(),
-    getMyCourseProgress()
-  ]);
+  // Deliberately sequential, NOT Promise.all -- for anyone who's
+  // already completed the course (the common case, especially for
+  // testing this), this returns after just 2 quick calls and never
+  // touches getMyCourseProgress()'s own 4-step chain at all. Running
+  // both unconditionally in parallel was tried and reverted -- it only
+  // helped brand-new users with no course activity yet, while making
+  // this slower for everyone who's actually finished the course, since
+  // the progress chain ran (and was waited on) every time even though
+  // its result goes completely unused whenever a completion exists.
+  const completions = await getMyCourseCompletions();
   if (completions.length > 0) {
     return `
       <div class="card" style="margin-top:20px;">
@@ -6182,6 +6180,7 @@ async function fjCourseCardHtml() {
       </div>`;
   }
 
+  const progress = await getMyCourseProgress();
   if (progress) {
     return `
       <div class="card" style="margin-top:20px;">
