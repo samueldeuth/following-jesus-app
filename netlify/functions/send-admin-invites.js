@@ -177,8 +177,6 @@ async function sendInviteEmail(invite, apiKey) {
 
       ${isDraft ? courseLinkSection : ''}
 
-      <p style="color:#666;font-size:13px;margin-top:28px;border-top:1px solid #eee;padding-top:16px;">This link will no longer work after September 30, 2026.</p>
-
       <p style="margin-top:28px;">Any questions let us know,</p>
       <p>Thank you,<br>Following Jesus Team</p>
     </div>
