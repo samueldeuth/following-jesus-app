@@ -2653,10 +2653,12 @@
     let leaderApp = null;
     if (account && supabaseClient) {
       const [profileRes, badgesRes, prefsRes, leaderAppRes] = await Promise.all([
-        supabaseClient.from('profiles').select('chat_notifications_enabled, current_streak, longest_streak').eq('id', account.id).maybeSingle()
-          .then(r => r).catch(() => ({ data: null })),
-        supabaseClient.from('badges_earned').select('badge_key').eq('user_id', account.id)
-          .then(r => r).catch(() => ({ data: null })),
+        cachedFetch('profileMeta:' + account.id, () =>
+          supabaseClient.from('profiles').select('chat_notifications_enabled, current_streak, longest_streak').eq('id', account.id).maybeSingle()
+            .then(r => r).catch(() => ({ data: null }))),
+        cachedFetch('badges:' + account.id, () =>
+          supabaseClient.from('badges_earned').select('badge_key').eq('user_id', account.id)
+            .then(r => r).catch(() => ({ data: null }))),
         getNotifPrefs(),
         getLeaderApplication(account.id)
       ]);
@@ -2756,6 +2758,7 @@
         await showAppAlert("Couldn't save that setting — check your connection and try again.");
         return;
       }
+      invalidateDataCache('profileMeta:' + account.id);
       chatNotifsEnabled = next;
     };
     document.getElementById('profileVerseOfDayToggle').onclick = async () => {
@@ -3489,6 +3492,48 @@ async function computeDiscipledCount(leaderId) {
 // the very unlikely case of two people finishing at the exact same
 // instant, one increment could be lost. Fine at real-world usage scale;
 // worth knowing if this ever needs to be exact.
+// Short-lived cache for Discipleship Hub / Profile data. Both screens
+// live inside the same modal that gets fully torn down and rebuilt every
+// time someone switches to one of the 5 main tabs and back (see
+// closeAllModals/goToTab further down), and every fetch function these
+// two screens use was written to always pull fresh data with no memory
+// of having just done so a moment ago -- so every single tab-away-and-
+// back cycle paid for a full round of database round-trips again, even
+// switching away for only a few seconds and coming right back.
+//
+// cachedFetch makes that instant for genuinely quick back-and-forth,
+// while still refreshing automatically after DATA_CACHE_TTL_MS or
+// immediately whenever something that would actually change the cached
+// data happens (see the invalidateDataCache calls at every mutation
+// point -- toggleMilestone, updateProgressRow, joinGroupByCode, etc.) --
+// so this never shows meaningfully stale information, it just skips
+// repeat work when nothing's actually changed since the last fetch.
+const dataCache = new Map();
+const DATA_CACHE_TTL_MS = 45000;
+
+async function cachedFetch(key, fetchFn) {
+  const entry = dataCache.get(key);
+  if (entry && (Date.now() - entry.time) < DATA_CACHE_TTL_MS) {
+    return entry.value;
+  }
+  const value = await fetchFn();
+  dataCache.set(key, { value, time: Date.now() });
+  return value;
+}
+
+// Clears one specific cached key, or every key starting with a given
+// prefix (e.g. invalidateDataCache('groups:') clears every disciple's
+// cached group list at once, useful from a leader-side action that
+// doesn't know/care about caller-side key formatting). Called right
+// after any mutation that would make a cached value wrong, so the very
+// next fetch for that key goes to the database again instead of quietly
+// waiting out the TTL.
+function invalidateDataCache(keyOrPrefix) {
+  for (const key of dataCache.keys()) {
+    if (key === keyOrPrefix || key.startsWith(keyOrPrefix)) dataCache.delete(key);
+  }
+}
+
 // Cached lookup of the Following Jesus (is_free = true) course's own id
 // -- there's only one such course row, shared by every church (a
 // church's own branding on it is just its welcome-letter content, not a
@@ -3516,10 +3561,12 @@ async function getFreeCourseId() {
 // here on purpose -- every completion of this course counts, regardless
 // of which church (or none) the student belongs to.
 async function getGlobalDiscipleCount() {
-  const courseId = await getFreeCourseId();
-  if (!courseId) return 0;
-  const { count } = await supabaseClient.from('certificates').select('id', { count: 'exact', head: true }).eq('course_id', courseId);
-  return count || 0;
+  return cachedFetch('globalDiscipleCount', async () => {
+    const courseId = await getFreeCourseId();
+    if (!courseId) return 0;
+    const { count } = await supabaseClient.from('certificates').select('id', { count: 'exact', head: true }).eq('course_id', courseId);
+    return count || 0;
+  });
 }
 
 // ---------- Discipleship milestone checklist ----------
@@ -3597,6 +3644,7 @@ async function isAutoMilestoneDone(autoSource, discipleId) {
 }
 
 async function getDiscipleshipMilestonesData(discipleId) {
+  return cachedFetch('milestones:' + discipleId, async () => {
   const defs = await getMilestoneDefinitions();
   const autoSources = [...new Set(defs.filter(m => m.auto_source).map(m => m.auto_source))];
   const [stages, completionsRes, courseProgress, ...autoResults] = await Promise.all([
@@ -3649,6 +3697,7 @@ async function getDiscipleshipMilestonesData(discipleId) {
   const ungrouped = items.filter(i => !stageGroups.some(g => g.items.includes(i)));
 
   return { items, allDone, stageGroups, ungrouped };
+  });
 }
 
 async function toggleMilestone(discipleId, milestoneId, done) {
@@ -3665,6 +3714,11 @@ async function toggleMilestone(discipleId, milestoneId, done) {
   if (def && def.auto_source === 'course_completion' && done) {
     const courseId = await getFreeCourseId();
     if (courseId) await supabaseClient.rpc('issue_certificate_if_needed', { p_student_id: discipleId, p_course_id: courseId });
+    // A new certificate affects this disciple's own FJ course card and
+    // the site-wide disciple counter too, not just their milestones.
+    invalidateDataCache('milestones:' + discipleId);
+    invalidateDataCache('fjCourseCard:' + discipleId);
+    invalidateDataCache('globalDiscipleCount');
     return;
   }
   if (done) {
@@ -3674,6 +3728,7 @@ async function toggleMilestone(discipleId, milestoneId, done) {
   } else {
     await supabaseClient.from('discipleship_milestone_completions').delete().eq('disciple_id', discipleId).eq('milestone_id', milestoneId);
   }
+  invalidateDataCache('milestones:' + discipleId);
 }
 
 // Fires the one-time celebration the moment all milestones are done for
@@ -5725,12 +5780,14 @@ async function getLeaderName(leaderId) {
 
 async function getLeaderApplication(userId) {
   if (!supabaseClient || !userId) return null;
-  const { data } = await supabaseClient.from('leader_applications').select('*').eq('applicant_id', userId).maybeSingle();
-  if (!data) return null;
-  return {
-    name: data.name, church: data.church, pastorName: data.pastor_name,
-    pastorEmail: data.pastor_email, status: data.status, submittedAt: data.applied_at
-  };
+  return cachedFetch('leaderApp:' + userId, async () => {
+    const { data } = await supabaseClient.from('leader_applications').select('*').eq('applicant_id', userId).maybeSingle();
+    if (!data) return null;
+    return {
+      name: data.name, church: data.church, pastorName: data.pastor_name,
+      pastorEmail: data.pastor_email, status: data.status, submittedAt: data.applied_at
+    };
+  });
 }
 
 async function submitLeaderApplication(fields) {
@@ -5826,6 +5883,8 @@ async function joinGroupByCode(codeInput) {
     leader_id: group.leader_id
   });
 
+  invalidateDataCache('groups:' + myId);
+  invalidateDataCache('membership:' + myId);
   window.pendingJoinCode = null;
   return { ok: true };
 }
@@ -5874,26 +5933,30 @@ async function getLeaderDisciples(leaderId) {
 // aren't "groups" from the disciple's own point of view) — matches the
 // old [{code, label, leaderId}] shape.
 async function getDiscipleGroups(discipleId) {
-  const { data: memberships } = await supabaseClient.from('discipleship_memberships')
-    .select('group_id, leader_id').eq('disciple_id', discipleId).not('group_id', 'is', null);
-  if (!memberships || !memberships.length) return [];
-  const groupIds = memberships.map(m => m.group_id);
-  const { data: groups } = await supabaseClient.from('discipleship_groups').select('id, invite_code, label').in('id', groupIds);
-  const groupById = {};
-  (groups || []).forEach(g => { groupById[g.id] = g; });
-  return memberships
-    .map(m => ({ code: groupById[m.group_id]?.invite_code, label: groupById[m.group_id]?.label, leaderId: m.leader_id }))
-    .filter(g => g.code);
+  return cachedFetch('groups:' + discipleId, async () => {
+    const { data: memberships } = await supabaseClient.from('discipleship_memberships')
+      .select('group_id, leader_id').eq('disciple_id', discipleId).not('group_id', 'is', null);
+    if (!memberships || !memberships.length) return [];
+    const groupIds = memberships.map(m => m.group_id);
+    const { data: groups } = await supabaseClient.from('discipleship_groups').select('id, invite_code, label').in('id', groupIds);
+    const groupById = {};
+    (groups || []).forEach(g => { groupById[g.id] = g; });
+    return memberships
+      .map(m => ({ code: groupById[m.group_id]?.invite_code, label: groupById[m.group_id]?.label, leaderId: m.leader_id }))
+      .filter(g => g.code);
+  });
 }
 
 // A disciple's primary relationship — matches the old {leaderId, name} shape.
 async function getDiscipleMembership(discipleId) {
-  const [{ data }, { data: profile }] = await Promise.all([
-    supabaseClient.from('discipleship_memberships').select('leader_id').eq('disciple_id', discipleId).limit(1).maybeSingle(),
-    supabaseClient.from('profiles').select('full_name').eq('id', discipleId).maybeSingle()
-  ]);
-  if (!data) return null;
-  return { leaderId: data.leader_id, name: profile?.full_name || 'Friend' };
+  return cachedFetch('membership:' + discipleId, async () => {
+    const [{ data }, { data: profile }] = await Promise.all([
+      supabaseClient.from('discipleship_memberships').select('leader_id').eq('disciple_id', discipleId).limit(1).maybeSingle(),
+      supabaseClient.from('profiles').select('full_name').eq('id', discipleId).maybeSingle()
+    ]);
+    if (!data) return null;
+    return { leaderId: data.leader_id, name: profile?.full_name || 'Friend' };
+  });
 }
 
 // Removes a disciple entirely — every group AND their direct
@@ -5901,6 +5964,8 @@ async function getDiscipleMembership(discipleId) {
 // removeDisciple's full-removal behavior).
 async function removeDiscipleEntirely(discipleId) {
   await supabaseClient.from('discipleship_memberships').delete().eq('leader_id', myId).eq('disciple_id', discipleId);
+  invalidateDataCache('groups:' + discipleId);
+  invalidateDataCache('membership:' + discipleId);
 }
 
 // Removes one specific disciple from one specific group by its invite
@@ -5909,6 +5974,8 @@ async function removeFromGroupByCode(code, discipleId) {
   const { data: group } = await supabaseClient.from('discipleship_groups').select('id').eq('invite_code', code).maybeSingle();
   if (!group) return;
   await supabaseClient.from('discipleship_memberships').delete().eq('group_id', group.id).eq('disciple_id', discipleId);
+  invalidateDataCache('groups:' + discipleId);
+  invalidateDataCache('membership:' + discipleId);
 }
 
 // A disciple leaving a group themselves.
@@ -5923,6 +5990,8 @@ async function addDiscipleToGroupByCode(code, discipleId) {
   const { data: existing } = await supabaseClient.from('discipleship_memberships').select('id').eq('group_id', group.id).eq('disciple_id', discipleId).maybeSingle();
   if (existing) return;
   await supabaseClient.from('discipleship_memberships').insert({ group_id: group.id, disciple_id: discipleId, leader_id: group.leader_id });
+  invalidateDataCache('groups:' + discipleId);
+  invalidateDataCache('membership:' + discipleId);
 }
 
 // The exact set of disciple ids in one specific group, by group id —
@@ -6161,6 +6230,7 @@ async function getCourseCompletionMap(discipleIds) {
 // completed — reused everywhere the app links out to the course site,
 // so it stays consistent and only needs updating in one place.
 async function fjCourseCardHtml() {
+  return cachedFetch('fjCourseCard:' + myId, async () => {
   // Deliberately sequential, NOT Promise.all -- for anyone who's
   // already completed the course (the common case, especially for
   // testing this), this returns after just 2 quick calls and never
@@ -6196,6 +6266,7 @@ async function fjCourseCardHtml() {
       <p>Go deeper with the full Following Jesus online course — video teaching, memory verses, and a certificate when you finish.</p>
       <a href="https://followingjesus.com/course" target="_blank" rel="noopener" class="primary" style="display:block;text-decoration:none;text-align:center;box-sizing:border-box;">Start the FJ Course →</a>
     </div>`;
+  });
 }
 
 // ---------- Course progress (Phase 3a — relational).
@@ -6222,6 +6293,7 @@ async function getEssentialsCourseProgress(studentId) {
 
 async function getCourseProgressData(studentId, courseKey) {
   if (!supabaseClient) return { progress: {}, walkoutProgress: {} };
+  return cachedFetch('courseProgress:' + studentId + ':' + courseKey, async () => {
 
   // Walk It Out reflection checkboxes stay app-only and manual for both
   // courses — only how a STEP's own done/not status is derived differs.
@@ -6249,6 +6321,7 @@ async function getCourseProgressData(studentId, courseKey) {
     progress[i] = row.is_done ? 'done' : (row.has_any_progress ? 'in_progress' : 'not_started');
   });
   return { progress, walkoutProgress, essentialsSessionData: essentialsProgress };
+  });
 }
 
 // Reads the existing row (if any) first, then writes back the full row
@@ -6264,6 +6337,7 @@ async function updateProgressRow(studentId, courseKey, stepIndex, updates) {
     walkout_checked: updates.walkout_checked !== undefined ? updates.walkout_checked : (existing ? existing.walkout_checked : [])
   };
   await supabaseClient.from('app_course_progress').upsert(merged, { onConflict: 'student_id,course_key,step_index' });
+  invalidateDataCache('courseProgress:' + studentId + ':' + courseKey);
 }
 
 // ---------- Direct 1-on-1 messages (Phase 3b — relational).
