@@ -4028,7 +4028,11 @@ const supabaseClient = (typeof window !== 'undefined' && window.supabase)
   try {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session || !session.user) return;
-    await supabaseClient.rpc('record_daily_app_open');
+    // Passing the browser's own detected timezone so "today" for
+    // streak purposes matches this person's real local day, not
+    // whatever timezone the database itself happens to run in.
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    await supabaseClient.rpc('record_daily_app_open', { p_timezone: userTimezone });
     await celebrateNewBadgesIfAny(session.user.id);
   } catch (e) {
     console.error('Failed to record daily app open for streak:', e);
