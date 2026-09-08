@@ -1158,6 +1158,7 @@ function renderPushNotifications(){
         Reaches everyone who has opened the Following Jesus app on their phone -- not people who've only ever used a course.
         Good for announcing new features, blog posts, or reading plans, or nudging people to turn on Verse of the Day or try Share the Gospel.
       </p>
+      <p style="font-size:13px;margin:0 0 14px;padding:8px 12px;background:var(--bg-soft);border-radius:6px;" id="push-audience-count">Checking how many people this would currently reach…</p>
       <input type="text" id="push-title-input" placeholder="Title (e.g. New reading plan available!)" maxlength="65" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
       <textarea id="push-message-input" placeholder="Message" maxlength="150" rows="3" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
       <label style="font-size:13px;color:var(--ink-soft);display:block;margin-bottom:4px;">Where should tapping this take them? (optional)</label>
@@ -1189,6 +1190,16 @@ function renderPushNotifications(){
 
       <button class="mini-btn gold" id="send-push-btn">Schedule Push Notification</button>
     </div>
+
+    <div class="card" style="margin-bottom:20px;max-width:680px;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 12px;">Scheduled</h3>
+      <div id="push-scheduled-list" style="font-size:13px;color:var(--ink-soft);">Loading…</div>
+    </div>
+
+    <div class="card" style="max-width:680px;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 12px;">Sent Log</h3>
+      <div id="push-sent-list" style="font-size:13px;color:var(--ink-soft);">Loading…</div>
+    </div>
     </div>
   `;
 
@@ -1198,6 +1209,88 @@ function renderPushNotifications(){
       document.getElementById('push-url-input').value = pushDestinationSelect.value;
     }
   });
+
+  // Real audience count, straight from OneSignal -- not an estimate.
+  (async () => {
+    const audienceEl = document.getElementById('push-audience-count');
+    try {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const res = await fetch('/.netlify/functions/get-push-audience-count', {
+        headers: { Authorization: `Bearer ${session?.access_token || ''}` }
+      });
+      const result = await res.json();
+      audienceEl.textContent = res.ok
+        ? `This will currently reach approximately ${result.messageable?.toLocaleString() ?? 'an unknown number of'} people.`
+        : 'Could not check audience size right now.';
+    } catch (e) {
+      audienceEl.textContent = 'Could not check audience size right now.';
+    }
+  })();
+
+  // Splits the notifications this admin panel has sent/scheduled into
+  // "Scheduled" (completedAt not yet set, not canceled) and "Sent Log"
+  // (completedAt set) -- called once on load, and again after a
+  // successful send/schedule so the new one shows up immediately.
+  async function loadPushNotificationsList(){
+    const scheduledEl = document.getElementById('push-scheduled-list');
+    const sentEl = document.getElementById('push-sent-list');
+    try {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const res = await fetch('/.netlify/functions/list-push-notifications', {
+        headers: { Authorization: `Bearer ${session?.access_token || ''}` }
+      });
+      const result = await res.json();
+      if(!res.ok){
+        scheduledEl.textContent = sentEl.textContent = 'Could not load push history right now.';
+        return;
+      }
+      const notifications = result.notifications || [];
+      const scheduled = notifications.filter(n => !n.completedAt && !n.canceled);
+      const sent = notifications.filter(n => n.completedAt && !n.canceled);
+
+      scheduledEl.innerHTML = scheduled.length ? scheduled.map(n => `
+        <div class="group-row">
+          <span>
+            <strong>${(n.title||'').replace(/</g,'&lt;')}</strong> — ${(n.message||'').replace(/</g,'&lt;')}<br>
+            <span style="color:var(--ink-soft);font-size:12px;">${n.deliveryTimeOfDay ? `Delivers at ${n.deliveryTimeOfDay} in each person's own timezone` : 'Scheduled'}</span>
+          </span>
+          <button class="mini-btn danger" data-cancel-push="${n.id}">Cancel</button>
+        </div>`).join('') : 'Nothing currently scheduled.';
+
+      sentEl.innerHTML = sent.length ? sent.map(n => `
+        <div class="group-row">
+          <span>
+            <strong>${(n.title||'').replace(/</g,'&lt;')}</strong> — ${(n.message||'').replace(/</g,'&lt;')}<br>
+            <span style="color:var(--ink-soft);font-size:12px;">${new Date(n.completedAt * 1000).toLocaleString()} · Reached ${n.successful ?? 0}${n.failed ? `, ${n.failed} failed` : ''}</span>
+          </span>
+        </div>`).join('') : 'Nothing sent yet.';
+
+      document.querySelectorAll('[data-cancel-push]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if(!confirm('Cancel this scheduled push? Anyone who hasn\'t received it yet will not get it.')) return;
+          btn.disabled = true;
+          btn.textContent = 'Cancelling…';
+          try {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const res = await fetch('/.netlify/functions/cancel-push-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+              body: JSON.stringify({ notificationId: btn.dataset.cancelPush })
+            });
+            if(!res.ok){ alert('Could not cancel — it may have already gone out.'); btn.disabled = false; btn.textContent = 'Cancel'; return; }
+            loadPushNotificationsList();
+          } catch (e) {
+            alert('Could not cancel: ' + e.message);
+            btn.disabled = false;
+            btn.textContent = 'Cancel';
+          }
+        });
+      });
+    } catch (e) {
+      scheduledEl.textContent = sentEl.textContent = 'Could not load push history right now.';
+    }
+  }
+  loadPushNotificationsList();
 
   const sendModeRadios = document.querySelectorAll('input[name="push-send-mode"]');
   const scheduleRow = document.getElementById('push-schedule-row');
@@ -1242,12 +1335,14 @@ function renderPushNotifications(){
         document.getElementById('push-message-input').value = '';
         document.getElementById('push-url-input').value = '';
         document.getElementById('push-destination-select').value = '';
+        loadPushNotificationsList();
       } else {
         alert(`Sent! Reached ${result.recipients ?? 'an unknown number of'} app users.`);
         document.getElementById('push-title-input').value = '';
         document.getElementById('push-message-input').value = '';
         document.getElementById('push-url-input').value = '';
         document.getElementById('push-destination-select').value = '';
+        loadPushNotificationsList();
       }
     } catch (e) {
       alert('Could not send: ' + e.message);
