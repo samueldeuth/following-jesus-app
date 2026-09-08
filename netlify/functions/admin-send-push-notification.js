@@ -97,10 +97,18 @@ exports.handler = async function (event) {
     // here -- list-push-notifications.js filters on this so the
     // Scheduled/Sent Log only shows what was actually sent from this
     // page, not every automated send mixed in with it.
-    data: { source: 'admin_composer' }
+    // Destination goes in data.targetUrl, NOT the top-level `url` field.
+    // OneSignal's top-level `url` opens the link in an external
+    // browser/webview when tapped. Median instead reads a `targetUrl`
+    // key from the notification's "Additional Data" to navigate inside
+    // the app itself, using app.html's own hash router -- see
+    // https://docs.median.co/docs/open-url-from-notification. This is
+    // the same pattern send-daily-notifications.js already uses
+    // correctly for the Verse of the Day / Reading Reminder pushes; this
+    // composer was setting the wrong field, which is why tapping a push
+    // sent from here opened a website instead of the in-app tab.
+    data: url ? { source: 'admin_composer', targetUrl: url } : { source: 'admin_composer' }
   };
-  if (url) notificationPayload.url = url;
-
   // When a delivery time is given, this becomes a one-time send that
   // OneSignal delivers to each person at their own next occurrence of
   // that clock time -- OneSignal resolves each recipient's timezone
