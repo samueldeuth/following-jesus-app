@@ -1159,10 +1159,10 @@ function renderPushNotifications(){
         Reaches everyone who has opened the Following Jesus app on their phone -- not people who've only ever used a course.
         Good for announcing new features, blog posts, or reading plans, or nudging people to turn on Verse of the Day or try Share the Gospel.
       </p>
-      <input type="text" id="push-title-input" placeholder="Title (e.g. New reading plan available!)" maxlength="65" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
-      <textarea id="push-message-input" placeholder="Message" maxlength="150" rows="3" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
+      <input type="text" id="push-title-input" placeholder="Title (e.g. New reading plan available!)" maxlength="65" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg-soft);">
+      <textarea id="push-message-input" placeholder="Message" maxlength="150" rows="3" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;background:var(--bg-soft);"></textarea>
       <label style="font-size:13px;color:var(--ink-soft);display:block;margin-bottom:4px;">Where should tapping this take them? (optional)</label>
-      <select id="push-destination-select" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:#fff;">
+      <select id="push-destination-select" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg-soft);">
         <option value="">Choose a destination, or type a custom link below…</option>
         <option value="https://followingjesus.com/app">Home</option>
         <option value="https://followingjesus.com/app#bible">Bible</option>
@@ -1173,7 +1173,7 @@ function renderPushNotifications(){
         <option value="https://followingjesus.com/app#profile">Profile</option>
         <option value="https://followingjesus.com/app#player">Worship Playlist</option>
       </select>
-      <input type="text" id="push-url-input" placeholder="Optional: link to open when tapped (e.g. https://followingjesus.com/app#gospel)" style="width:100%;margin-bottom:14px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
+      <input type="text" id="push-url-input" placeholder="Optional: link to open when tapped (e.g. https://followingjesus.com/app#gospel)" style="width:100%;margin-bottom:14px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg-soft);">
 
       <div style="display:flex;gap:16px;margin-bottom:10px;">
         <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;">
@@ -1185,7 +1185,7 @@ function renderPushNotifications(){
       </div>
       <div id="push-schedule-row" style="margin-bottom:10px;">
         <label style="font-size:13px;color:var(--ink-soft);display:block;margin-bottom:4px;">Deliver at this time, in each person's own timezone:</label>
-        <input type="time" id="push-time-input" value="09:00" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
+        <input type="time" id="push-time-input" value="09:00" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg-soft);">
       </div>
 
       <button class="mini-btn gold" id="send-push-btn">Schedule Push Notification</button>
