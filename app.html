@@ -1721,6 +1721,15 @@
         </div>
       </div>
 
+      <button type="button" class="disciple-banner disciple-banner-tertiary" id="shareGospelBannerBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4v16l4-4h12V4H4z"/><path d="M8 9h8M8 12h5"/></svg>
+        <span>
+          <span class="disciple-banner-title">Share The Word!</span>
+          <span class="disciple-banner-sub">Share custom Bible verse graphics for your social media</span>
+        </span>
+        <span class="disciple-banner-arrow">→</span>
+      </button>
+
       <button type="button" class="disciple-banner" id="discipleBannerBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9" r="2.6"/><path d="M3.5 20c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5"/><path d="M14.5 15.2c2.6.2 4.5 2.2 4.5 4.8"/></svg>
         <span>
@@ -1735,15 +1744,6 @@
         <span>
           <span class="disciple-banner-title">Become a Disciple of Jesus</span>
           <span class="disciple-banner-sub">Join a group or invite a friend to grow their faith</span>
-        </span>
-        <span class="disciple-banner-arrow">→</span>
-      </button>
-
-      <button type="button" class="disciple-banner disciple-banner-tertiary" id="shareGospelBannerBtn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4v16l4-4h12V4H4z"/><path d="M8 9h8M8 12h5"/></svg>
-        <span>
-          <span class="disciple-banner-title">Share the Gospel</span>
-          <span class="disciple-banner-sub">Share custom Bible verse graphics for your social media</span>
         </span>
         <span class="disciple-banner-arrow">→</span>
       </button>
@@ -2113,7 +2113,7 @@
 
   document.getElementById('shareGospelBannerBtn').addEventListener('click', () => {
     hideMainScreens();
-    showPageHeader('Share the Gospel');
+    showPageHeader('Share The Word!');
     document.getElementById('gospelModal').classList.add('open');
     renderGospelGrid();
     pushUrlHash('gospel');
@@ -4099,6 +4099,22 @@ async function celebrateNewBadgesIfAny(userId) {
       title: badge.title,
       buttonLabel: 'Nice'
     });
+
+    // Prompts for an App Store rating/review right after one of three
+    // specific, genuine accomplishments -- Samuel's own choice, and it
+    // matches Apple's own guidance against tying this to an arbitrary
+    // visit count instead. currentKeys is a fixed snapshot taken before
+    // this loop started, so currentKeys.length === 1 here means this is
+    // truly the very first badge this person has ever earned, not just
+    // the first one processed in this batch. median.appreview only
+    // exists inside the actual wrapped app (never in a plain browser
+    // tab), so this checks for it before calling -- doing nothing
+    // outside the real app, rather than throwing.
+    const isFirstBadgeEver = currentKeys.length === 1;
+    const isMilestoneBadge = key === 'disciple_maker' || key === 'course_graduate';
+    if ((isFirstBadgeEver || isMilestoneBadge) && typeof median !== 'undefined' && median.appreview) {
+      median.appreview.prompt();
+    }
   }
 }
 
@@ -7453,7 +7469,7 @@ async function renderDiscipleshipApp() {
       if (handled) return;
     }
     if (hash === 'gospel') {
-      showPageHeader('Share the Gospel');
+      showPageHeader('Share The Word!');
       document.getElementById('gospelModal').classList.add('open');
       renderGospelGrid();
       return;
