@@ -59,7 +59,9 @@ exports.handler = async function (event) {
     if (!res.ok) {
       return { statusCode: 502, body: JSON.stringify({ error: result.errors ? JSON.stringify(result.errors) : 'OneSignal rejected the request.' }) };
     }
-    const notifications = (result.notifications || []).map(n => ({
+    const notifications = (result.notifications || [])
+      .filter(n => n.data?.source === 'admin_composer')
+      .map(n => ({
       id: n.id,
       title: n.headings?.en || '',
       message: n.contents?.en || '',

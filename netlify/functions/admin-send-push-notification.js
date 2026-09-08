@@ -77,7 +77,14 @@ exports.handler = async function (event) {
     app_id: ONESIGNAL_APP_ID,
     included_segments: ['Subscribed Users'],
     headings: { en: title },
-    contents: { en: message }
+    contents: { en: message },
+    // Identifies this as a general alert sent from this composer,
+    // distinct from the automated Verse of the Day and Reading Plan
+    // systems, which also send via this same API but aren't created
+    // here -- list-push-notifications.js filters on this so the
+    // Scheduled/Sent Log only shows what was actually sent from this
+    // page, not every automated send mixed in with it.
+    data: { source: 'admin_composer' }
   };
   if (url) notificationPayload.url = url;
 
