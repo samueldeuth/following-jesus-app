@@ -144,13 +144,13 @@ async function sendInviteEmail(invite, apiKey) {
 
   const subject = isDraft
     ? `We'd love to have ${invite.church_name} back on Following Jesus`
-    : `${invite.church_name}'s course has a new home`;
+    : `You're the contact for ${invite.church_name}'s Following Jesus course`;
 
   const intro = isDraft
     ? `<p>It's been a while since <strong>${escapeHtml(invite.church_name)}</strong>'s Following Jesus course was active, and we'd love to have you back!</p>
       <p>We're excited to reach out to let you know that we're adding some great new features to our Following Jesus course that will allow you to engage with your church going through the course in a way we'd never been able to before.</p>`
-    : `<p><strong>${escapeHtml(invite.church_name)}</strong>'s Following Jesus course is moving to a new platform and adding new features to serve your church family.</p>
-      <p>Here's what's changing and what to do next.</p>`;
+    : `<p>You've been invited to be the new contact for <strong>${escapeHtml(invite.church_name)}</strong>'s Following Jesus course.</p>
+      <p>Here's what you need to do next.</p>`;
 
   const courseLinkSection = isDraft
     ? `<p style="margin-top:24px;"><strong>Once you're signed in, you can turn your course back on whenever you're ready.</strong> Your church's course link will be:</p>
