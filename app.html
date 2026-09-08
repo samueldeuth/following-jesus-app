@@ -2539,10 +2539,6 @@
       await supabaseClient.auth.getSession();
     }
     const account = await dSafeGet('account');
-    const leaderApp = account ? await getLeaderApplication(account.id) : null;
-    const approvalHtml = (leaderApp && leaderApp.status === 'approved')
-      ? `<div class="approval-badge">✓ Approved as a leader by ${escapeHtmlMain(leaderApp.pastorName)} at ${escapeHtmlMain(leaderApp.church)}</div>`
-      : '';
 
     if (editMode) {
       discipleBody.innerHTML = `
@@ -2636,47 +2632,53 @@
     // object -- fetched fresh here rather than assumed. Defaults to true
     // (matches the column's own default) if the row/field isn't there
     // yet for some reason, rather than silently rendering as Off.
+    //
+    // This used to be up to 5 separate sequential database round-trips
+    // in a row (leader application, chat notification setting, streak --
+    // as its OWN separate query to this same profiles table -- badges,
+    // then a local prefs read), none of which actually depend on each
+    // other's results, all just needing account.id which is already
+    // known by this point. Combined into one query for the two profiles
+    // columns plus one Promise.all for everything else -- same data,
+    // same fallback behavior on every failure, just not paying for each
+    // round-trip one at a time anymore. This was very likely the real
+    // cause of the Profile tab feeling slow again, the same category of
+    // bug as the Discipleship Hub's own sequential-awaits fix from
+    // earlier -- that fix never touched this screen.
     let chatNotifsEnabled = true;
     let currentStreak = 0;
     let longestStreak = 0;
-    if (account && supabaseClient) {
-      const { data: notifProfile } = await supabaseClient.from('profiles').select('chat_notifications_enabled').eq('id', account.id).maybeSingle();
-      if (notifProfile && notifProfile.chat_notifications_enabled === false) chatNotifsEnabled = false;
-      // Best-effort, separate query rather than folding into the one
-      // above -- if a Supabase project hasn't run add-daily-streak.sql
-      // yet, this fails quietly and the streak card just shows 0/0
-      // instead of taking down the rest of the profile view with it.
-      try {
-        const { data: streakProfile } = await supabaseClient.from('profiles').select('current_streak, longest_streak').eq('id', account.id).maybeSingle();
-        if (streakProfile) {
-          currentStreak = streakProfile.current_streak || 0;
-          longestStreak = streakProfile.longest_streak || 0;
-        }
-      } catch (e) { /* columns not added yet, or offline -- streak card just shows 0/0 */ }
-    }
-    // One single, indexed lookup -- this is the only cost badges ever
-    // add to a page load, and only on the Profile screen specifically,
-    // never anywhere else. Every badge's actual eligibility check
-    // already happened once, earlier, at the exact moment it was
-    // earned (see add-badges-system.sql) -- nothing here recomputes
-    // anything.
     let earnedBadgeKeys = new Set();
+    let notifPrefs = NOTIF_DEFAULTS;
+    let leaderApp = null;
     if (account && supabaseClient) {
-      try {
-        const { data: badgeRows } = await supabaseClient.from('badges_earned').select('badge_key').eq('user_id', account.id);
-        if (badgeRows) earnedBadgeKeys = new Set(badgeRows.map(b => b.badge_key));
-      } catch (e) { /* table not added yet, or offline -- badges grid just shows everything locked */ }
+      const [profileRes, badgesRes, prefsRes, leaderAppRes] = await Promise.all([
+        supabaseClient.from('profiles').select('chat_notifications_enabled, current_streak, longest_streak').eq('id', account.id).maybeSingle()
+          .then(r => r).catch(() => ({ data: null })),
+        supabaseClient.from('badges_earned').select('badge_key').eq('user_id', account.id)
+          .then(r => r).catch(() => ({ data: null })),
+        getNotifPrefs(),
+        getLeaderApplication(account.id)
+      ]);
+      const notifProfile = profileRes && profileRes.data;
+      if (notifProfile && notifProfile.chat_notifications_enabled === false) chatNotifsEnabled = false;
+      // Streak columns may not exist yet on a project that hasn't run
+      // add-daily-streak.sql -- same quiet 0/0 fallback as before, just
+      // no longer its own separate query to find that out.
+      if (notifProfile) {
+        currentStreak = notifProfile.current_streak || 0;
+        longestStreak = notifProfile.longest_streak || 0;
+      }
+      const badgeRows = badgesRes && badgesRes.data;
+      if (badgeRows) earnedBadgeKeys = new Set(badgeRows.map(b => b.badge_key));
+      notifPrefs = prefsRes;
+      leaderApp = leaderAppRes;
+    } else {
+      notifPrefs = await getNotifPrefs();
     }
-    // Verse of the Day preference -- reuses the SAME notifPrefs/OneSignal
-    // tag system that already powers the toggle on the Today tab
-    // (getNotifPrefs/toggleNotifPref, defined in the other <script>
-    // block further down the page -- both window-scoped function
-    // declarations, so callable here). This is a second, independent
-    // control over the identical underlying preference, not a separate
-    // setting -- toggling either one changes the same verse_of_day
-    // OneSignal tag, they just aren't visually synced with each other
-    // until the page is reloaded.
-    const notifPrefs = await getNotifPrefs();
+    const approvalHtml = (leaderApp && leaderApp.status === 'approved')
+      ? `<div class="approval-badge">✓ Approved as a leader by ${escapeHtmlMain(leaderApp.pastorName)} at ${escapeHtmlMain(leaderApp.church)}</div>`
+      : '';
 
     discipleBody.innerHTML = `
       <div class="profile-view-row">
@@ -5886,9 +5888,11 @@ async function getDiscipleGroups(discipleId) {
 
 // A disciple's primary relationship — matches the old {leaderId, name} shape.
 async function getDiscipleMembership(discipleId) {
-  const { data } = await supabaseClient.from('discipleship_memberships').select('leader_id').eq('disciple_id', discipleId).limit(1).maybeSingle();
+  const [{ data }, { data: profile }] = await Promise.all([
+    supabaseClient.from('discipleship_memberships').select('leader_id').eq('disciple_id', discipleId).limit(1).maybeSingle(),
+    supabaseClient.from('profiles').select('full_name').eq('id', discipleId).maybeSingle()
+  ]);
   if (!data) return null;
-  const { data: profile } = await supabaseClient.from('profiles').select('full_name').eq('id', discipleId).maybeSingle();
   return { leaderId: data.leader_id, name: profile?.full_name || 'Friend' };
 }
 
@@ -6157,7 +6161,18 @@ async function getCourseCompletionMap(discipleIds) {
 // completed — reused everywhere the app links out to the course site,
 // so it stays consistent and only needs updating in one place.
 async function fjCourseCardHtml() {
-  const completions = await getMyCourseCompletions();
+  // Used to check completions first, and only THEN (sequentially) check
+  // progress if there were none -- up to 6 round-trips stacked one
+  // after another, all hidden inside just one of the 8 items already
+  // running in parallel inside renderDiscipleshipHub's own Promise.all.
+  // Since the Hub only loads as fast as its slowest single branch, this
+  // one hidden chain could single-handedly slow the whole Hub down even
+  // though the outer parallelization was already correct. Neither check
+  // actually needs the other's result, so they just run together now.
+  const [completions, progress] = await Promise.all([
+    getMyCourseCompletions(),
+    getMyCourseProgress()
+  ]);
   if (completions.length > 0) {
     return `
       <div class="card" style="margin-top:20px;">
@@ -6167,7 +6182,6 @@ async function fjCourseCardHtml() {
       </div>`;
   }
 
-  const progress = await getMyCourseProgress();
   if (progress) {
     return `
       <div class="card" style="margin-top:20px;">
