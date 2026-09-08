@@ -1160,7 +1160,19 @@ function renderPushNotifications(){
       </p>
       <input type="text" id="push-title-input" placeholder="Title (e.g. New reading plan available!)" maxlength="65" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
       <textarea id="push-message-input" placeholder="Message" maxlength="150" rows="3" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
-      <input type="text" id="push-url-input" placeholder="Optional: link to open when tapped (e.g. https://followingjesus.com/plans)" style="width:100%;margin-bottom:14px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
+      <label style="font-size:13px;color:var(--ink-soft);display:block;margin-bottom:4px;">Where should tapping this take them? (optional)</label>
+      <select id="push-destination-select" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:#fff;">
+        <option value="">Choose a destination, or type a custom link below…</option>
+        <option value="https://followingjesus.com/app">Home</option>
+        <option value="https://followingjesus.com/app#bible">Bible</option>
+        <option value="https://followingjesus.com/app#plans">Plans</option>
+        <option value="https://followingjesus.com/app#blog">Blog</option>
+        <option value="https://followingjesus.com/app#jesus">Jesus</option>
+        <option value="https://followingjesus.com/app#gospel">Share The Word</option>
+        <option value="https://followingjesus.com/app#profile">Profile</option>
+        <option value="https://followingjesus.com/app#player">Worship Playlist</option>
+      </select>
+      <input type="text" id="push-url-input" placeholder="Optional: link to open when tapped (e.g. https://followingjesus.com/app#gospel)" style="width:100%;margin-bottom:14px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
 
       <div style="display:flex;gap:16px;margin-bottom:10px;">
         <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;">
@@ -1179,6 +1191,13 @@ function renderPushNotifications(){
     </div>
     </div>
   `;
+
+  const pushDestinationSelect = document.getElementById('push-destination-select');
+  if(pushDestinationSelect) pushDestinationSelect.addEventListener('change', () => {
+    if(pushDestinationSelect.value){
+      document.getElementById('push-url-input').value = pushDestinationSelect.value;
+    }
+  });
 
   const sendModeRadios = document.querySelectorAll('input[name="push-send-mode"]');
   const scheduleRow = document.getElementById('push-schedule-row');
@@ -1222,11 +1241,13 @@ function renderPushNotifications(){
         document.getElementById('push-title-input').value = '';
         document.getElementById('push-message-input').value = '';
         document.getElementById('push-url-input').value = '';
+        document.getElementById('push-destination-select').value = '';
       } else {
         alert(`Sent! Reached ${result.recipients ?? 'an unknown number of'} app users.`);
         document.getElementById('push-title-input').value = '';
         document.getElementById('push-message-input').value = '';
         document.getElementById('push-url-input').value = '';
+        document.getElementById('push-destination-select').value = '';
       }
     } catch (e) {
       alert('Could not send: ' + e.message);
