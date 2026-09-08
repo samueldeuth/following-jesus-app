@@ -2933,7 +2933,7 @@ async function renderChurchStudents(churchId){
         await fetch('/.netlify/functions/send-church-welcome-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: welcomeResult.email, name: welcomeResult.name, slug: welcomeResult.slug })
+          body: JSON.stringify({ email: welcomeResult.email, name: welcomeResult.name, slug: welcomeResult.slug, additional_emails: welcomeResult.additional_emails })
         });
       }
     } catch (e) { console.error('Failed to send church welcome email:', e); }
