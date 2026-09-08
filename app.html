@@ -2490,6 +2490,19 @@
   ];
 
   async function renderProfileSettings(editMode) {
+    // If the app sat backgrounded for a while, the access token can
+    // quietly expire without this page knowing -- the name/photo below
+    // still render fine since they come straight from the local
+    // account cache with no network call, but the RLS-protected
+    // queries further down (leader status, streak, chat notification
+    // setting) would silently return nothing under an expired token,
+    // rather than erroring in any visible way. getSession() here
+    // transparently refreshes an expired-but-still-refreshable token
+    // before those queries run, fixing all of them at once rather than
+    // needing a full sign-out/sign-in to recover.
+    if (supabaseClient) {
+      await supabaseClient.auth.getSession();
+    }
     const account = await dSafeGet('account');
     const leaderApp = account ? await getLeaderApplication(account.id) : null;
     const approvalHtml = (leaderApp && leaderApp.status === 'approved')
