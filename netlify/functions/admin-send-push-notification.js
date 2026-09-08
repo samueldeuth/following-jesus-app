@@ -68,7 +68,7 @@ exports.handler = async function (event) {
   } catch (e) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON body.' }) };
   }
-  const { title, message, url } = body;
+  const { title, message, url, deliveryTime } = body;
   if (!title || !message) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Missing title or message.' }) };
   }
@@ -80,6 +80,18 @@ exports.handler = async function (event) {
     contents: { en: message }
   };
   if (url) notificationPayload.url = url;
+
+  // When a delivery time is given, this becomes a one-time send that
+  // OneSignal delivers to each person at their own next occurrence of
+  // that clock time -- OneSignal resolves each recipient's timezone
+  // itself (from data its own SDK already collects), so nothing needs
+  // to be stored or computed on our end for this to work correctly.
+  // With no delivery time, this sends immediately to everyone, exactly
+  // as before.
+  if (deliveryTime) {
+    notificationPayload.delayed_option = 'timezone';
+    notificationPayload.delivery_time_of_day = deliveryTime;
+  }
 
   try {
     const res = await fetch('https://onesignal.com/api/v1/notifications', {
@@ -94,7 +106,7 @@ exports.handler = async function (event) {
     if (!res.ok) {
       return { statusCode: 502, body: JSON.stringify({ error: result.errors ? JSON.stringify(result.errors) : 'OneSignal rejected the request.' }) };
     }
-    return { statusCode: 200, body: JSON.stringify({ id: result.id, recipients: result.recipients }) };
+    return { statusCode: 200, body: JSON.stringify({ id: result.id, recipients: result.recipients, scheduled: !!deliveryTime }) };
   } catch (e) {
     return { statusCode: 502, body: JSON.stringify({ error: e.message }) };
   }
