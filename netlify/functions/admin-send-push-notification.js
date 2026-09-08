@@ -75,7 +75,20 @@ exports.handler = async function (event) {
 
   const notificationPayload = {
     app_id: ONESIGNAL_APP_ID,
-    included_segments: ['Subscribed Users'],
+    // 'Subscribed Users' is NOT a real segment in this OneSignal app --
+    // confirmed directly in the OneSignal dashboard (Audience > Segments)
+    // that the actual segments here are All Email Subscriptions, All SMS
+    // Subscriptions, Engaged/Inactive/Active Subscriptions, and Total
+    // Subscriptions (the Default "everyone with push enabled" segment,
+    // 104 push subs as of this fix). Sending to a segment name that
+    // doesn't exist doesn't error -- OneSignal returns 200 with an EMPTY
+    // id and no recipients field, silently matching zero people. That
+    // looked like a successful send in the UI ("Sent! Reached an unknown
+    // number of app users.") while actually reaching no one and never
+    // creating a real notification record for list-push-notifications.js
+    // to find -- explaining both "nothing arrived" and "nothing in the
+    // Sent Log" at once. Use the real segment name here.
+    included_segments: ['Total Subscriptions'],
     headings: { en: title },
     contents: { en: message },
     // Identifies this as a general alert sent from this composer,
