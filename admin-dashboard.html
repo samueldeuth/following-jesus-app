@@ -353,6 +353,7 @@
     <div id="sidebar-course-list"></div>
     <div class="sidebar-section-title" style="border-top:1px solid var(--line);padding-top:14px;">Other Lists</div>
     <div id="sidebar-subscriber-list-link"></div>
+    <a class="sidebar-link" id="sidebar-push-notifications-link" style="border-top:1px solid var(--line);margin-top:6px;padding-top:14px;">Push Notifications</a>
   </div>
   <div class="sidebar-overlay" id="sidebar-overlay"></div>
   <main><div id="content" class="loading">Loading…</div></main>
@@ -449,6 +450,10 @@ let viewingAllStudents = false;
 // The samueldeuth.com subscriber list is its own separate view, not a
 // course or church -- same highlighting pattern as viewingAllStudents.
 let viewingSubscriberList = false;
+// Push Notifications now lives as its own standalone sidebar page
+// (moved out of the Overview page it originally launched on) -- same
+// highlighting pattern as the other standalone views above.
+let viewingPushNotifications = false;
 // Which status tab is active in the church sidebar list — 'all' shows
 // everything, otherwise only churches matching that course_status.
 let sidebarStatusFilter = 'all';
@@ -532,6 +537,7 @@ async function init(){
   renderSidebar();
   document.getElementById('sidebar-overview-link').addEventListener('click', renderChurchesOverview);
   document.getElementById('sidebar-all-students-link').addEventListener('click', renderAllStudents);
+  document.getElementById('sidebar-push-notifications-link').addEventListener('click', renderPushNotifications);
   document.getElementById('sidebar-church-search').addEventListener('input', renderSidebar);
   wireAddChurchForm();
   renderChurchesOverview();
@@ -943,8 +949,9 @@ function renderSidebar(){
     btn.onclick = () => { sidebarStatusFilter = btn.dataset.statusFilter; renderSidebar(); };
   });
 
-  document.getElementById('sidebar-overview-link').classList.toggle('active', activeChurchId === null && activeCourseId === null && !viewingNoChurch && !viewingAllStudents);
+  document.getElementById('sidebar-overview-link').classList.toggle('active', activeChurchId === null && activeCourseId === null && !viewingNoChurch && !viewingAllStudents && !viewingPushNotifications);
   document.getElementById('sidebar-all-students-link').classList.toggle('active', viewingAllStudents);
+  document.getElementById('sidebar-push-notifications-link').classList.toggle('active', viewingPushNotifications);
 }
 
 /* ---------- Level 1: all churches ---------- */
@@ -1041,6 +1048,7 @@ function renderChurchesOverview(){
   viewingNoChurch = false;
   viewingAllStudents = false;
   viewingSubscriberList = false;
+  viewingPushNotifications = false;
   renderSidebar();
   const totalChurches = allChurches.length;
   const activeChurches = allChurches.filter(ch => !['draft', 'archived'].includes(ch.course_status || 'live')).length;
@@ -1080,18 +1088,6 @@ function renderChurchesOverview(){
     <button class="mini-btn" id="export-all-btn" style="margin-bottom:16px;">Export All Students (CSV)</button>
     <button class="mini-btn gold" id="send-reminders-now-btn" style="margin-bottom:16px;">Send Weekly Reminders Now</button>
 
-    <div class="card" style="margin-bottom:20px;">
-      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 4px;">Send Push Notification</h3>
-      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 14px;">
-        Reaches everyone who has opened the Following Jesus app on their phone -- not people who've only ever used a course.
-        Good for announcing new features, blog posts, or reading plans, or nudging people to turn on Verse of the Day or try Share the Gospel.
-      </p>
-      <input type="text" id="push-title-input" placeholder="Title (e.g. New reading plan available!)" maxlength="65" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
-      <textarea id="push-message-input" placeholder="Message" maxlength="150" rows="3" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
-      <input type="text" id="push-url-input" placeholder="Optional: link to open when tapped (e.g. https://followingjesus.com/plans)" style="width:100%;margin-bottom:10px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
-      <button class="mini-btn gold" id="send-push-btn">Send to All App Users</button>
-    </div>
-
     <table>
       <thead><tr><th>Church</th><th>Students</th><th>Avg. Progress</th></tr></thead>
       <tbody>${churchRowsHtml || '<tr><td colspan="3" style="color:var(--ink-soft);">No churches yet.</td></tr>'}</tbody>
@@ -1100,38 +1096,6 @@ function renderChurchesOverview(){
 
   wireOverviewRangeSelector();
   renderOverviewRangeMetrics();
-
-  const sendPushBtn = document.getElementById('send-push-btn');
-  if(sendPushBtn) sendPushBtn.addEventListener('click', async () => {
-    const title = document.getElementById('push-title-input').value.trim();
-    const message = document.getElementById('push-message-input').value.trim();
-    const url = document.getElementById('push-url-input').value.trim();
-    if(!title || !message){ alert('Please fill in both a title and a message.'); return; }
-    if(!confirm(`Send this push notification to every app user right now?\n\n"${title}"\n${message}`)) return;
-    sendPushBtn.disabled = true;
-    sendPushBtn.textContent = 'Sending…';
-    try {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      const res = await fetch('/.netlify/functions/admin-send-push-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
-        body: JSON.stringify({ title, message, url: url || undefined })
-      });
-      const result = await res.json();
-      if(!res.ok){
-        alert('Could not send: ' + (result.error || res.statusText));
-      } else {
-        alert(`Sent! Reached ${result.recipients ?? 'an unknown number of'} app users.`);
-        document.getElementById('push-title-input').value = '';
-        document.getElementById('push-message-input').value = '';
-        document.getElementById('push-url-input').value = '';
-      }
-    } catch (e) {
-      alert('Could not send: ' + e.message);
-    }
-    sendPushBtn.disabled = false;
-    sendPushBtn.textContent = 'Send to All App Users';
-  });
 
   const exportAllBtn = document.getElementById('export-all-btn');
   if(exportAllBtn) exportAllBtn.addEventListener('click', () => {
@@ -1168,6 +1132,69 @@ function renderChurchesOverview(){
 
   document.querySelectorAll('tbody tr.clickable').forEach(tr => {
     tr.addEventListener('click', () => renderChurchStudents(tr.dataset.churchId));
+  });
+}
+
+/* ---------- Push Notifications: its own standalone sidebar page ---------- */
+// Moved out of the Overview page it originally launched on, into its
+// own dedicated page at Samuel's request -- same composer, same
+// authorization and rate limits (all handled server-side in
+// admin-send-push-notification.js), just its own place in the sidebar
+// now instead of being mixed into the Overview page's content.
+function renderPushNotifications(){
+  activeChurchId = null;
+  activeCourseId = null;
+  viewingNoChurch = false;
+  viewingAllStudents = false;
+  viewingSubscriberList = false;
+  viewingPushNotifications = true;
+  renderSidebar();
+
+  document.getElementById('content').innerHTML = `
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 20px;">Push Notifications</h2>
+    <div class="card" style="margin-bottom:20px;max-width:520px;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 4px;">Send Push Notification</h3>
+      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 14px;">
+        Reaches everyone who has opened the Following Jesus app on their phone -- not people who've only ever used a course.
+        Good for announcing new features, blog posts, or reading plans, or nudging people to turn on Verse of the Day or try Share the Gospel.
+      </p>
+      <input type="text" id="push-title-input" placeholder="Title (e.g. New reading plan available!)" maxlength="65" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
+      <textarea id="push-message-input" placeholder="Message" maxlength="150" rows="3" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
+      <input type="text" id="push-url-input" placeholder="Optional: link to open when tapped (e.g. https://followingjesus.com/plans)" style="width:100%;margin-bottom:10px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
+      <button class="mini-btn gold" id="send-push-btn">Send to All App Users</button>
+    </div>
+  `;
+
+  const sendPushBtn = document.getElementById('send-push-btn');
+  if(sendPushBtn) sendPushBtn.addEventListener('click', async () => {
+    const title = document.getElementById('push-title-input').value.trim();
+    const message = document.getElementById('push-message-input').value.trim();
+    const url = document.getElementById('push-url-input').value.trim();
+    if(!title || !message){ alert('Please fill in both a title and a message.'); return; }
+    if(!confirm(`Send this push notification to every app user right now?\n\n"${title}"\n${message}`)) return;
+    sendPushBtn.disabled = true;
+    sendPushBtn.textContent = 'Sending…';
+    try {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const res = await fetch('/.netlify/functions/admin-send-push-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+        body: JSON.stringify({ title, message, url: url || undefined })
+      });
+      const result = await res.json();
+      if(!res.ok){
+        alert('Could not send: ' + (result.error || res.statusText));
+      } else {
+        alert(`Sent! Reached ${result.recipients ?? 'an unknown number of'} app users.`);
+        document.getElementById('push-title-input').value = '';
+        document.getElementById('push-message-input').value = '';
+        document.getElementById('push-url-input').value = '';
+      }
+    } catch (e) {
+      alert('Could not send: ' + e.message);
+    }
+    sendPushBtn.disabled = false;
+    sendPushBtn.textContent = 'Send to All App Users';
   });
 }
 
@@ -2141,6 +2168,7 @@ function renderAllStudents(){
   viewingNoChurch = false;
   viewingAllStudents = true;
   viewingSubscriberList = false;
+  viewingPushNotifications = false;
   selectedEnrollmentIds.clear();
   renderSidebar();
 
@@ -2334,6 +2362,7 @@ function renderMergeAccounts(){
   viewingNoChurch = false;
   viewingAllStudents = true;
   viewingSubscriberList = false;
+  viewingPushNotifications = false;
   renderSidebar();
 
   // Local-only selection state for this view -- doesn't need to persist
@@ -2517,6 +2546,7 @@ async function renderChurchStudents(churchId){
   viewingNoChurch = (churchId === null);
   viewingAllStudents = false;
   viewingSubscriberList = false;
+  viewingPushNotifications = false;
   selectedEnrollmentIds.clear();
   renderSidebar();
   const church = allChurches.find(c => c.id === churchId);
@@ -2891,6 +2921,22 @@ async function renderChurchStudents(churchId){
         } catch (e) { console.error('Failed to send released setup email:', e); }
       }
     }
+
+    // Unconditional, unlike the release above -- every newly-approved
+    // church gets this "how to use and set up" email, not just the
+    // merge-suggestion cases. mark_welcome_email_sent marks itself sent
+    // atomically, so clicking this button more than once for the same
+    // church can't send it twice.
+    try {
+      const { data: welcomeResult, error: welcomeError } = await supabaseClient.rpc('mark_welcome_email_sent', { p_church_id: churchId });
+      if(!welcomeError && welcomeResult?.should_send){
+        await fetch('/.netlify/functions/send-church-welcome-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: welcomeResult.email, name: welcomeResult.name, slug: welcomeResult.slug })
+        });
+      }
+    } catch (e) { console.error('Failed to send church welcome email:', e); }
   });
 
   // Links this pending signup's payer account onto the suggested
@@ -3291,6 +3337,7 @@ async function renderCourseStudents(courseId, courseTitle){
   viewingNoChurch = false;
   viewingAllStudents = false;
   viewingSubscriberList = false;
+  viewingPushNotifications = false;
   selectedEnrollmentIds.clear();
   renderSidebar();
 
