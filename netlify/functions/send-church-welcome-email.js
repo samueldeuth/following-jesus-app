@@ -32,7 +32,7 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: 'Invalid JSON body.' };
   }
 
-  const { email, name, slug } = body;
+  const { email, name, slug, additional_emails } = body;
   if (!email) {
     return { statusCode: 400, body: 'Missing email.' };
   }
@@ -67,19 +67,26 @@ exports.handler = async (event) => {
     </div>
   `;
 
+  // Sent to the primary contact, plus anyone who's already an admin
+  // for this church (deduplicated server-side in
+  // mark_welcome_email_sent, so no address appears twice here).
+  const recipients = [email, ...(Array.isArray(additional_emails) ? additional_emails : [])];
+
   try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: FROM_EMAIL,
-        to: email,
-        reply_to: 'info@followingjesusbook.com',
-        subject: `Welcome to Following Jesus — here's how to get started`,
-        html
+    const results = await Promise.all(recipients.map(to =>
+      fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: FROM_EMAIL,
+          to,
+          reply_to: 'info@followingjesusbook.com',
+          subject: `Welcome to the Following Jesus Online Course — here's how to get started`,
+          html
+        })
       })
-    });
-    return { statusCode: 200, body: JSON.stringify({ sent: res.ok }) };
+    ));
+    return { statusCode: 200, body: JSON.stringify({ sent: results.every(r => r.ok), recipientCount: recipients.length }) };
   } catch (e) {
     return { statusCode: 502, body: `Failed to send: ${e.message}` };
   }
