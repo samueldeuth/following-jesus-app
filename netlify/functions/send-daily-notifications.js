@@ -23,19 +23,28 @@
 // in one timezone and someone in another both get "7AM" at their actual
 // 7AM, from a single daily trigger of this function.
 //
-// REAL VERSE TEXT (added): the "Verse of the Day" push now shows actual
+// REAL VERSE TEXT (added): the "Verse of the Day" push shows actual
 // verse words in the body, not just a citation + "open the app" prompt.
 // Pulled from bible-api.com — the same public API app.html already uses
 // for its Bible reader — using the same default translation ('web', the
 // first/default option in app.html's translationSelect) for consistency.
-// Only the FIRST VERSE of the day's first reading-plan passage is fetched
-// (e.g. just John 15:1, not the whole 15:1-8 range) since a full passage
-// is far too long for a notification body. This is a pragmatic stand-in
-// for a true single curated "verse of the day" — this project doesn't
-// have a separate 365-day single-verse list, only the reading plan's
-// passage references. If bible-api.com is unreachable or the passage
-// can't be parsed, falls back to the old citation-only body rather than
-// failing the whole send.
+//
+// CURATED LIST (replaces the old reading-plan stand-in): the verse shown
+// now comes from verse-of-day-data.js — a hand-curated list of 458
+// unique references pulled from Samuel's own six "52 Bible Verses"
+// devotionals plus additional hand-picked verses, deduplicated. This
+// replaces the previous pragmatic stand-in (first verse of the day's
+// first reading-plan passage), which often produced verses that read
+// oddly in isolation since the reading plan wasn't curated with
+// standalone readability in mind. See verse-of-day-data.js for the full
+// list, the day-index formula, and why it's a single source of truth
+// shared with app.html's Today-tab card — the two MUST stay in sync, or
+// this reintroduces the exact "card doesn't match the notification" bug
+// this feature was originally built to fix. The reading-plan-based
+// "Reading reminder" push (a separate notification type, below) is
+// untouched by this change and still uses READING_PLAN as before.
+// If bible-api.com is unreachable or the reference can't be parsed,
+// falls back to a citation-only body rather than failing the whole send.
 //
 // KNOWN TRADEOFF (not a bug): OneSignal's timezone delivery skips a
 // recipient to the next day if their chosen local hour has already
@@ -53,6 +62,7 @@
 //   ONESIGNAL_REST_API_KEY
 
 const { READING_PLAN, BOOKS } = require('./reading-plan-data.js');
+const { todaysVerseRef } = require('./verse-of-day-data.js');
 
 function bookName(id) {
   const b = BOOKS.find(x => x[0] === id);
@@ -169,18 +179,23 @@ exports.handler = async function () {
   const day = calendarPlanDay();
   const refs = READING_PLAN[day - 1] || [];
   const readingText = refs.map(refLabel).join(', ');
-  const firstRef = refs[0] ? refLabel(refs[0]) : '';
+
+  // Verse of the Day now comes from the curated list (verse-of-day-data.js),
+  // NOT from the reading plan -- this is a deliberately separate reference
+  // from `refs` above, which still only feeds the Reading Reminder push.
+  const verseOfDayRef = todaysVerseRef(); // e.g. "PSA 91:1"
+  const verseOfDayLabel = refLabel(verseOfDayRef);
 
   // 'web' matches app.html's translationSelect default (first/no explicit
   // "selected" option) so the verse text matches what someone would see
-  // in-app if they opened today's passage themselves.
-  const verseText = refs[0] ? await fetchFirstVerseText(refs[0], 'web') : null;
+  // in-app if they opened today's verse themselves.
+  const verseText = await fetchFirstVerseText(verseOfDayRef, 'web');
   // Reference is appended after truncation so it's never itself cut off --
   // knowing *which verse* this is matters more than a few extra words of
   // the quote, especially since the full text is one tap away in the app.
   const verseBody = verseText
-    ? `${truncateForPush(verseText, 130)} \u2014 ${firstRef}`
-    : (firstRef ? `Open today's verse from ${firstRef} →` : 'Open today\u2019s verse →');
+    ? `${truncateForPush(verseText, 130)} \u2014 ${verseOfDayLabel}`
+    : `Open today's verse from ${verseOfDayLabel} →`;
 
   // Weekly-cadence users only get included on the day their weekly send
   // is due. Fixed to Monday (UTC calendar day) for now — no per-user
@@ -233,6 +248,7 @@ exports.handler = async function () {
     body: JSON.stringify({
       day,
       readingText,
+      verseOfDayRef,
       verseTextUsed: !!verseText,
       verseBody,
       isWeeklySendDay,
