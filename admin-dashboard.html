@@ -1160,30 +1160,67 @@ function renderPushNotifications(){
       </p>
       <input type="text" id="push-title-input" placeholder="Title (e.g. New reading plan available!)" maxlength="65" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
       <textarea id="push-message-input" placeholder="Message" maxlength="150" rows="3" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
-      <input type="text" id="push-url-input" placeholder="Optional: link to open when tapped (e.g. https://followingjesus.com/plans)" style="width:100%;margin-bottom:10px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
-      <button class="mini-btn gold" id="send-push-btn">Send to All App Users</button>
+      <input type="text" id="push-url-input" placeholder="Optional: link to open when tapped (e.g. https://followingjesus.com/plans)" style="width:100%;margin-bottom:14px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
+
+      <div style="display:flex;gap:16px;margin-bottom:10px;">
+        <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="radio" name="push-send-mode" value="scheduled" checked> Scheduled (each person's own local time)
+        </label>
+        <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="radio" name="push-send-mode" value="now"> Send Now (everyone, immediately)
+        </label>
+      </div>
+      <div id="push-schedule-row" style="margin-bottom:10px;">
+        <label style="font-size:13px;color:var(--ink-soft);display:block;margin-bottom:4px;">Deliver at this time, in each person's own timezone:</label>
+        <input type="time" id="push-time-input" value="09:00" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
+      </div>
+
+      <button class="mini-btn gold" id="send-push-btn">Schedule Push Notification</button>
     </div>
   `;
 
+  const sendModeRadios = document.querySelectorAll('input[name="push-send-mode"]');
+  const scheduleRow = document.getElementById('push-schedule-row');
   const sendPushBtn = document.getElementById('send-push-btn');
+  const updatePushModeUI = () => {
+    const mode = document.querySelector('input[name="push-send-mode"]:checked').value;
+    scheduleRow.style.display = mode === 'scheduled' ? 'block' : 'none';
+    sendPushBtn.textContent = mode === 'scheduled' ? 'Schedule Push Notification' : 'Send to All App Users Now';
+  };
+  sendModeRadios.forEach(r => r.addEventListener('change', updatePushModeUI));
+  updatePushModeUI();
+
   if(sendPushBtn) sendPushBtn.addEventListener('click', async () => {
     const title = document.getElementById('push-title-input').value.trim();
     const message = document.getElementById('push-message-input').value.trim();
     const url = document.getElementById('push-url-input').value.trim();
+    const mode = document.querySelector('input[name="push-send-mode"]:checked').value;
+    const deliveryTime = mode === 'scheduled' ? document.getElementById('push-time-input').value : null;
     if(!title || !message){ alert('Please fill in both a title and a message.'); return; }
-    if(!confirm(`Send this push notification to every app user right now?\n\n"${title}"\n${message}`)) return;
+    if(mode === 'scheduled' && !deliveryTime){ alert('Please choose a delivery time.'); return; }
+
+    const confirmText = mode === 'scheduled'
+      ? `Schedule this push to reach each person at ${deliveryTime} in their own local time?\n\n"${title}"\n${message}`
+      : `Send this push notification to every app user right now?\n\n"${title}"\n${message}`;
+    if(!confirm(confirmText)) return;
+
     sendPushBtn.disabled = true;
-    sendPushBtn.textContent = 'Sending…';
+    sendPushBtn.textContent = mode === 'scheduled' ? 'Scheduling…' : 'Sending…';
     try {
       const { data: { session } } = await supabaseClient.auth.getSession();
       const res = await fetch('/.netlify/functions/admin-send-push-notification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
-        body: JSON.stringify({ title, message, url: url || undefined })
+        body: JSON.stringify({ title, message, url: url || undefined, deliveryTime: deliveryTime || undefined })
       });
       const result = await res.json();
       if(!res.ok){
         alert('Could not send: ' + (result.error || res.statusText));
+      } else if(result.scheduled){
+        alert(`Scheduled ✓ Each person will get this at ${deliveryTime} in their own local time.`);
+        document.getElementById('push-title-input').value = '';
+        document.getElementById('push-message-input').value = '';
+        document.getElementById('push-url-input').value = '';
       } else {
         alert(`Sent! Reached ${result.recipients ?? 'an unknown number of'} app users.`);
         document.getElementById('push-title-input').value = '';
@@ -1194,7 +1231,7 @@ function renderPushNotifications(){
       alert('Could not send: ' + e.message);
     }
     sendPushBtn.disabled = false;
-    sendPushBtn.textContent = 'Send to All App Users';
+    updatePushModeUI();
   });
 }
 
