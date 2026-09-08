@@ -773,7 +773,7 @@ async function init(){
 
 async function renderDashboard(rows, pendingStudents = allPendingStudents){
   const [{ data: currentAdminsData }, { data: myGroupsData }] = await Promise.all([
-    supabaseClient.from('profiles').select('id, full_name').eq('church_id', myChurch.id).eq('role', 'church_admin'),
+    supabaseClient.rpc('get_church_admins_with_email', { p_church_id: myChurch.id }),
     supabaseClient.from('course_groups').select('*').eq('church_id', myChurch.id).order('name')
   ]);
   const currentAdmins = currentAdminsData || [];
@@ -866,7 +866,7 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
       <div id="current-admins-list">
         ${currentAdmins.length ? currentAdmins.map(a => `
           <div class="group-row">
-            <span>${a.full_name || 'Unnamed'}</span>
+            <span>${a.full_name || 'Unnamed'} <span style="color:var(--ink-soft);font-weight:400;">(${a.email || 'no email on file'})</span></span>
             ${a.id !== currentAdminId ? `<button class="mini-btn danger" data-remove-admin="${a.id}">Remove Admin</button>` : `<span style="font-size:12px;color:var(--ink-soft);">You</span>`}
           </div>`).join('') : '<p style="color:var(--ink-soft);font-size:13px;margin:0 0 12px;">No other admins assigned yet.</p>'}
       </div>
