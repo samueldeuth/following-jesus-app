@@ -400,6 +400,50 @@ function cleanRedirectUrl(){
   return window.location.origin + window.location.pathname;
 }
 
+// Refreshing the page used to always land back on Overview, no matter
+// which church/course/etc. an admin was actually looking at -- every
+// view switch here is a plain JS function call with no URL involved, so
+// there was nothing for a fresh page load to read back. These two
+// helpers fix that with simple, readable hash routes:
+//   #church:<id>   (or #church:none for the "No church" list)
+//   #course:<id>
+//   #all-students
+//   #push-notifications
+// Overview itself uses no hash at all (the default/fallback case).
+// Deliberately NOT used for renderStudentDetail/renderMergeAccounts/
+// renderSubscriberList and other deeper or rarer views -- those are
+// reached via clicks from an already-loaded page and refreshing while
+// deep in one of them is rare enough not to be worth the extra
+// complexity; landing back on the parent list they were opened from is
+// an acceptable fallback for those.
+function setViewHash(hash){
+  history.replaceState(null, '', hash ? '#' + hash : window.location.pathname + window.location.search);
+}
+
+function restoreViewFromHash(){
+  const hash = window.location.hash;
+  const churchMatch = hash.match(/^#church:(.+)$/);
+  const courseMatch = hash.match(/^#course:(.+)$/);
+  if(churchMatch){
+    const raw = decodeURIComponent(churchMatch[1]);
+    renderChurchStudents(raw === 'none' ? null : raw);
+    return;
+  }
+  if(courseMatch){
+    const courseId = decodeURIComponent(courseMatch[1]);
+    const courseConfig = NON_WHITE_LABEL_COURSES.find(c => c.id === courseId);
+    if(courseConfig){
+      renderCourseStudents(courseId, courseConfig.title);
+      return;
+    }
+    // Course id from an old/bad link no longer matches anything real --
+    // fall through to Overview rather than showing a broken empty page.
+  }
+  if(hash === '#all-students'){ renderAllStudents(); return; }
+  if(hash === '#push-notifications'){ renderPushNotifications(); return; }
+  renderChurchesOverview();
+}
+
 // Defensive cleanup on every load: only strips the hash if it's clearly
 // NOT a legitimate, still-unprocessed OAuth response (i.e. it doesn't
 // contain 'access_token') -- a real token response needs to stay put so
@@ -407,7 +451,12 @@ function cleanRedirectUrl(){
 // This only ever cleans up genuine leftovers, like a bare '#' with
 // nothing in it, so that kind of stray artifact can never survive into
 // a LATER, unrelated sign-in attempt as described above.
-if(window.location.hash && !window.location.hash.includes('access_token')){
+// A real view-routing hash (see setViewHash/restoreViewFromHash below)
+// must survive this cleanup -- it's not an OAuth artifact, it's the
+// whole point of what lets a page refresh land back where the admin
+// actually was (a specific church or course) instead of always
+// bouncing to Overview.
+if(window.location.hash && !window.location.hash.includes('access_token') && !/^#(church|course|all-students|push-notifications):?/.test(window.location.hash)){
   history.replaceState(null, '', window.location.pathname + window.location.search);
 }
 
@@ -540,7 +589,7 @@ async function init(){
   document.getElementById('sidebar-push-notifications-link').addEventListener('click', renderPushNotifications);
   document.getElementById('sidebar-church-search').addEventListener('input', renderSidebar);
   wireAddChurchForm();
-  renderChurchesOverview();
+  restoreViewFromHash();
 }
 
 // Set up once here, rather than inside renderSidebar/renderChurchesOverview
@@ -1049,6 +1098,7 @@ function renderChurchesOverview(){
   viewingAllStudents = false;
   viewingSubscriberList = false;
   viewingPushNotifications = false;
+  setViewHash(null);
   renderSidebar();
   const totalChurches = allChurches.length;
   const activeChurches = allChurches.filter(ch => !['draft', 'archived'].includes(ch.course_status || 'live')).length;
@@ -1148,6 +1198,7 @@ function renderPushNotifications(){
   viewingAllStudents = false;
   viewingSubscriberList = false;
   viewingPushNotifications = true;
+  setViewHash('push-notifications');
   renderSidebar();
 
   document.getElementById('content').innerHTML = `
@@ -2326,6 +2377,7 @@ function renderAllStudents(){
   viewingSubscriberList = false;
   viewingPushNotifications = false;
   selectedEnrollmentIds.clear();
+  setViewHash('all-students');
   renderSidebar();
 
   const activeCount = allRows.filter(r => r.status !== 'archived').length;
@@ -2704,6 +2756,7 @@ async function renderChurchStudents(churchId){
   viewingSubscriberList = false;
   viewingPushNotifications = false;
   selectedEnrollmentIds.clear();
+  setViewHash('church:' + (churchId === null ? 'none' : encodeURIComponent(churchId)));
   renderSidebar();
   const church = allChurches.find(c => c.id === churchId);
   const churchRows = allRows.filter(r => churchId ? r.church_id === churchId : !r.church_id);
@@ -3495,6 +3548,7 @@ async function renderCourseStudents(courseId, courseTitle){
   viewingSubscriberList = false;
   viewingPushNotifications = false;
   selectedEnrollmentIds.clear();
+  setViewHash('course:' + encodeURIComponent(courseId));
   renderSidebar();
 
   const courseConfig = NON_WHITE_LABEL_COURSES.find(c => c.id === courseId);
