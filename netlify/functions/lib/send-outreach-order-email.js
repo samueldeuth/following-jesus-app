@@ -1,3 +1,5 @@
+// netlify/functions/lib/send-outreach-order-email.js
+//
 // Sends Outreach their order email ourselves, via Resend — completely
 // decoupled from Shopify's fulfillment status. This replaces Shopify's
 // built-in "Custom order fulfillment" email-on-fulfill feature, which had
@@ -35,8 +37,16 @@ function buildOrderEmailHtml(order, lineItems) {
     )
     .join('');
 
+  // Real bug fixed here: no timeZone meant this rendered in whatever
+  // timezone the Netlify server itself happens to run in (UTC), not
+  // Pacific -- confirmed from a real order email showing 8:41 PM for
+  // what was actually a different local time. Using the real IANA zone
+  // name (rather than a fixed UTC offset, like the netlify.toml cron
+  // schedules elsewhere in this project) means PST/PDT switches
+  // correctly on its own across daylight saving, with nothing to
+  // revisit twice a year.
   const placedAt = order.created_at
-    ? new Date(order.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+    ? new Date(order.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Los_Angeles' })
     : '';
 
   return `
