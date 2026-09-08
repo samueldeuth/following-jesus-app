@@ -34,6 +34,7 @@
 <style>
   :root {
     --black: #0a0a0a;
+    --ink: #0a0a0a;
     --white: #ffffff;
     --paper: #f6f4ef;
     --ink-soft: #57534d;
@@ -256,6 +257,33 @@
     color: var(--white);
   }
   .notif-toggle-dark .notif-toggle-state { color: rgba(255,255,255,0.5); }
+
+  /* Small circular bell replacing the old full-width Verse of the Day
+     banner -- opens a popup instead of showing the toggle/time picker
+     inline. Deliberately NOT under .disciple-app-scope since this
+     lives on the Today page, not inside that wrapper -- reusing the
+     scoped .app-alert-card styles here would silently fail to apply. */
+  .verse-alert-bell {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--ember); color: var(--white);
+    display: inline-flex; align-items: center; justify-content: center;
+    border: none; cursor: pointer; padding: 0; margin-top: 14px;
+  }
+  .verse-alert-bell.off { background: #d8d5cf; }
+  .verse-alert-bell-slash { display: none; }
+  .verse-alert-bell.off .verse-alert-bell-slash { display: block; }
+  .verse-alert-bell svg { width: 17px; height: 17px; }
+  .verse-alert-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 500;
+    display: none; align-items: center; justify-content: center; padding: 24px;
+  }
+  .verse-alert-modal-overlay.open { display: flex; }
+  .verse-alert-modal-card {
+    width: 100%; max-width: 300px; background: var(--paper); border-radius: 20px;
+    padding: 28px 24px; animation: alertPop 0.18s ease;
+  }
+  .verse-alert-modal-title { font-size: 17px; font-weight: 600; color: var(--ink); margin: 0 0 18px; text-align: center; }
+  .verse-alert-modal-time-label { display: block; font-size: 12px; color: var(--ink-soft); margin: 18px 0 6px; }
 
   .notif-settings-row {
     display: none;
@@ -1707,17 +1735,24 @@
           Loading today's verse…
         </div>
         <div class="today-ref" id="todayVerseRef"></div>
-        <button type="button" class="notif-toggle" id="verseOfDayToggle">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <span>Daily Verse Alert</span>
-          <span class="notif-toggle-state">Off</span>
+        <button type="button" class="verse-alert-bell" id="verseOfDayBellBtn" aria-label="Verse of the Day alert settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line class="verse-alert-bell-slash" x1="3" y1="3" x2="21" y2="21"/></svg>
         </button>
-        <div class="notif-settings-row" id="verseOfDaySettingsRow">
-          <select class="notif-settings-select" id="verseOfDayFreqSelect">
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly (Mon)</option>
-          </select>
-          <select class="notif-settings-select" id="verseOfDayTimeSelect"></select>
+      </div>
+
+      <div class="verse-alert-modal-overlay" id="verseOfDayModalOverlay">
+        <div class="verse-alert-modal-card">
+          <h3 class="verse-alert-modal-title">Verse of the Day Alert</h3>
+          <button type="button" class="notif-toggle" id="verseOfDayToggle" style="margin:0 auto;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span>Daily Verse Alert</span>
+            <span class="notif-toggle-state">Off</span>
+          </button>
+          <div id="verseOfDaySettingsRow">
+            <label class="verse-alert-modal-time-label">Alert time</label>
+            <select class="notif-settings-select" id="verseOfDayTimeSelect" style="width:100%;"></select>
+          </div>
+          <button type="button" class="app-alert-btn" id="verseOfDayModalDoneBtn" style="width:100%;background:var(--black);color:#fff;padding:12px;border-radius:12px;font-size:14px;font-weight:600;border:none;cursor:pointer;margin-top:20px;">Done</button>
         </div>
       </div>
 
@@ -1730,20 +1765,20 @@
         <span class="disciple-banner-arrow">→</span>
       </button>
 
+      <button type="button" class="disciple-banner disciple-banner-secondary" id="becomeDiscipleBannerBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v6"/><path d="M12 22v-6"/><circle cx="12" cy="12" r="4"/></svg>
+        <span>
+          <span class="disciple-banner-title">Become a Disciple of Jesus</span>
+          <span class="disciple-banner-sub">Build your life on a firm foundation | Invite a friend to join.</span>
+        </span>
+        <span class="disciple-banner-arrow">→</span>
+      </button>
+
       <button type="button" class="disciple-banner" id="discipleBannerBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9" r="2.6"/><path d="M3.5 20c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5"/><path d="M14.5 15.2c2.6.2 4.5 2.2 4.5 4.8"/></svg>
         <span>
           <span class="disciple-banner-title">Make Disciples</span>
           <span class="disciple-banner-sub">Walk a friend or a group through the essentials of Faith</span>
-        </span>
-        <span class="disciple-banner-arrow">→</span>
-      </button>
-
-      <button type="button" class="disciple-banner disciple-banner-secondary" id="becomeDiscipleBannerBtn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v6"/><path d="M12 22v-6"/><circle cx="12" cy="12" r="4"/></svg>
-        <span>
-          <span class="disciple-banner-title">Become a Disciple of Jesus</span>
-          <span class="disciple-banner-sub">Join a group or invite a friend to grow their faith</span>
         </span>
         <span class="disciple-banner-arrow">→</span>
       </button>
@@ -6692,7 +6727,7 @@ async function renderDiscipleshipApp() {
 
   const NOTIF_DEFAULTS = {
     readingReminder: false, readingReminderFreq: 'daily', readingReminderHour: '07',
-    verseOfDay: false, verseOfDayFreq: 'daily', verseOfDayHour: '07'
+    verseOfDay: true, verseOfDayFreq: 'daily', verseOfDayHour: '07'
   };
   async function getNotifPrefs() {
     const stored = await dSafeGet('notifPrefs');
@@ -6756,19 +6791,36 @@ async function renderDiscipleshipApp() {
     }
 
     const verseBtn = document.getElementById('verseOfDayToggle');
-    const verseRow = document.getElementById('verseOfDaySettingsRow');
-    const verseFreqSelect = document.getElementById('verseOfDayFreqSelect');
     const verseHourSelect = document.getElementById('verseOfDayTimeSelect');
+    const verseBellBtn = document.getElementById('verseOfDayBellBtn');
     if (verseBtn) {
       verseBtn.classList.toggle('on', prefs.verseOfDay);
       verseBtn.querySelector('.notif-toggle-state').textContent = prefs.verseOfDay ? 'On' : 'Off';
-      if (verseRow) verseRow.classList.toggle('show', prefs.verseOfDay);
+      if (verseBellBtn) verseBellBtn.classList.toggle('off', !prefs.verseOfDay);
       if (verseHourSelect) verseHourSelect.innerHTML = notifHourOptionsHtml(prefs.verseOfDayHour);
-      if (verseFreqSelect) verseFreqSelect.value = prefs.verseOfDayFreq;
-      verseBtn.addEventListener('click', () => toggleNotifPref('verseOfDay', 'verse_of_day', verseBtn, verseBtn.querySelector('.notif-toggle-state'), verseRow));
-      if (verseFreqSelect) verseFreqSelect.addEventListener('change', () => updateNotifSetting('verseOfDay', 'verse_of_day', 'Freq', verseFreqSelect.value));
+      verseBtn.addEventListener('click', async () => {
+        await toggleNotifPref('verseOfDay', 'verse_of_day', verseBtn, verseBtn.querySelector('.notif-toggle-state'), null);
+        // Bell needs updating right away too, not just on next load --
+        // this reads the toggle button's own just-updated 'on' class
+        // rather than re-fetching prefs, since toggleNotifPref already
+        // set it a line above.
+        if (verseBellBtn) verseBellBtn.classList.toggle('off', !verseBtn.classList.contains('on'));
+      });
       if (verseHourSelect) verseHourSelect.addEventListener('change', () => updateNotifSetting('verseOfDay', 'verse_of_day', 'Hour', verseHourSelect.value));
       applyNotifTags('verseOfDay', 'verse_of_day', prefs);
+    }
+    // Small bell button opens the popup; the popup's own Done button
+    // (or tapping the dark overlay behind it) closes it again -- the
+    // toggle and time picker inside still just call the same
+    // toggleNotifPref/updateNotifSetting functions as before, this is
+    // only a presentation change, not a data model change.
+    const verseModalOverlay = document.getElementById('verseOfDayModalOverlay');
+    if (verseBellBtn && verseModalOverlay) {
+      verseBellBtn.addEventListener('click', () => verseModalOverlay.classList.add('open'));
+      const closeVerseModal = () => verseModalOverlay.classList.remove('open');
+      const verseModalDoneBtn = document.getElementById('verseOfDayModalDoneBtn');
+      if (verseModalDoneBtn) verseModalDoneBtn.addEventListener('click', closeVerseModal);
+      verseModalOverlay.addEventListener('click', (e) => { if (e.target === verseModalOverlay) closeVerseModal(); });
     }
   }
   initNotifToggles();
