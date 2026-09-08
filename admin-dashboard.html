@@ -1151,9 +1151,9 @@ function renderPushNotifications(){
   renderSidebar();
 
   document.getElementById('content').innerHTML = `
+    <div style="text-align:left;">
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 20px;">Push Notifications</h2>
     <div class="card" style="margin-bottom:20px;max-width:520px;">
-      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 4px;">Send Push Notification</h3>
       <p style="font-size:13px;color:var(--ink-soft);margin:0 0 14px;">
         Reaches everyone who has opened the Following Jesus app on their phone -- not people who've only ever used a course.
         Good for announcing new features, blog posts, or reading plans, or nudging people to turn on Verse of the Day or try Share the Gospel.
@@ -1176,6 +1176,7 @@ function renderPushNotifications(){
       </div>
 
       <button class="mini-btn gold" id="send-push-btn">Schedule Push Notification</button>
+    </div>
     </div>
   `;
 
