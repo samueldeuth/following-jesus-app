@@ -217,6 +217,29 @@
   }
   .mini-btn.danger{border-color:var(--red);color:var(--red);}
   .mini-btn.gold{border-color:#B08D3E;color:#B08D3E;}
+
+  /* Small "i" info icon + popover, replacing a description paragraph
+     that used to always show under a heading. One shared popover
+     element is reused for whichever icon was tapped (see
+     initInfoTooltips) rather than one per icon -- lighter, and
+     guarantees only one is ever open at a time. Meant to be reusable
+     anywhere a short explanatory line sits under a heading, not just
+     this one page. */
+  .info-icon-btn {
+    width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+    border: 1.5px solid var(--ink-soft); background: none; color: var(--ink-soft);
+    font-size: 11px; font-weight: 700; font-style: italic; font-family: Georgia, 'Times New Roman', serif;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; padding: 0; line-height: 1;
+  }
+  .info-icon-btn:hover, .info-icon-btn.open { background: var(--ink-soft); color: #fff; }
+  .info-tooltip-popover {
+    position: absolute; z-index: 200; max-width: 260px;
+    background: var(--black); color: #fff; font-size: 12px; font-weight: 400;
+    padding: 10px 12px; border-radius: 8px; line-height: 1.4;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2); display: none;
+  }
+  .info-tooltip-popover.open { display: block; }
   .mini-btn.active{background:var(--ink);border-color:var(--ink);color:#fff;}
 
   .qa-block{border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;}
@@ -334,9 +357,9 @@
     <a class="sidebar-link" id="sidebar-push-notifications-link">Push Notifications</a>
     <div class="sidebar-section-title">Churches (<span id="sidebar-church-count">0</span>)</div>
     <div class="sidebar-status-filters" id="sidebar-status-filters">
-      <button class="status-filter-btn active" data-status-filter="all">All</button>
+      <button class="status-filter-btn" data-status-filter="all">All</button>
       <button class="status-filter-btn" data-status-filter="pending_approval">Pending</button>
-      <button class="status-filter-btn" data-status-filter="live">Live</button>
+      <button class="status-filter-btn active" data-status-filter="live">Live</button>
       <button class="status-filter-btn" data-status-filter="draft">Draft</button>
       <button class="status-filter-btn" data-status-filter="archived">Archived</button>
     </div>
@@ -505,7 +528,7 @@ let viewingSubscriberList = false;
 let viewingPushNotifications = false;
 // Which status tab is active in the church sidebar list — 'all' shows
 // everything, otherwise only churches matching that course_status.
-let sidebarStatusFilter = 'all';
+let sidebarStatusFilter = 'live';
 
 // Courses that get their own sidebar entry instead of being buried as a
 // per-church filter — these are NOT white-labeled (no per-church variants),
@@ -1191,6 +1214,45 @@ function renderChurchesOverview(){
 // authorization and rate limits (all handled server-side in
 // admin-send-push-notification.js), just its own place in the sidebar
 // now instead of being mixed into the Overview page's content.
+// Wires up every .info-icon-btn on the page to open/close a single
+// shared popover showing that icon's data-info text -- one popover
+// element reused for whichever icon was tapped, rather than one per
+// icon, so only one is ever open at a time and there's nothing extra
+// to manage per instance. Safe to call again after any re-render that
+// creates new .info-icon-btn elements (e.g. every time
+// renderPushNotifications rebuilds its own innerHTML) -- always
+// rebinds fresh, since a full innerHTML replacement means these are
+// genuinely new DOM nodes each time, not stale ones being double-wired.
+function initInfoTooltips(){
+  let popover = document.getElementById('shared-info-popover');
+  if(!popover){
+    popover = document.createElement('div');
+    popover.id = 'shared-info-popover';
+    popover.className = 'info-tooltip-popover';
+    document.body.appendChild(popover);
+    document.addEventListener('click', () => {
+      popover.classList.remove('open');
+      document.querySelectorAll('.info-icon-btn.open').forEach(b => b.classList.remove('open'));
+    });
+  }
+
+  document.querySelectorAll('.info-icon-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const wasOpen = btn.classList.contains('open');
+      popover.classList.remove('open');
+      document.querySelectorAll('.info-icon-btn.open').forEach(b => b.classList.remove('open'));
+      if(wasOpen) return; // tapping an already-open icon just closes it
+      popover.textContent = btn.dataset.info;
+      const rect = btn.getBoundingClientRect();
+      popover.style.top = (window.scrollY + rect.bottom + 6) + 'px';
+      popover.style.left = Math.max(12, Math.min(window.scrollX + rect.left, window.innerWidth - 272)) + 'px';
+      popover.classList.add('open');
+      btn.classList.add('open');
+    });
+  });
+}
+
 function renderPushNotifications(){
   activeChurchId = null;
   activeCourseId = null;
@@ -1266,24 +1328,28 @@ function renderPushNotifications(){
     </div>
 
     <div class="card" style="margin-bottom:20px;max-width:680px;">
-      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 4px;">Recurring</h3>
-      <p style="font-size:12px;color:var(--ink-soft);margin:0 0 12px;">Repeating alerts created from this page. Pause or delete anytime.</p>
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 4px;display:flex;align-items:center;gap:6px;">Recurring
+        <button type="button" class="info-icon-btn" data-info="Repeating alerts created from this page. Pause or delete anytime.">i</button>
+      </h3>
       <div id="push-recurring-list" style="font-size:13px;color:var(--ink-soft);">Loading…</div>
     </div>
 
     <div class="card" style="margin-bottom:20px;max-width:680px;">
-      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 4px;">Scheduled</h3>
-      <p style="font-size:12px;color:var(--ink-soft);margin:0 0 12px;">General alerts sent from this page only -- not the automated Verse of the Day or Reading Plan reminders, which run separately.</p>
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 4px;display:flex;align-items:center;gap:6px;">Scheduled
+        <button type="button" class="info-icon-btn" data-info="General alerts sent from this page only -- not the automated Verse of the Day or Reading Plan reminders, which run separately.">i</button>
+      </h3>
       <div id="push-scheduled-list" style="font-size:13px;color:var(--ink-soft);">Loading…</div>
     </div>
 
     <div class="card" style="max-width:680px;">
-      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 4px;">Sent Log</h3>
-      <p style="font-size:12px;color:var(--ink-soft);margin:0 0 12px;">General alerts sent from this page only -- not the automated Verse of the Day or Reading Plan reminders, which run separately.</p>
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 4px;display:flex;align-items:center;gap:6px;">Sent Log
+        <button type="button" class="info-icon-btn" data-info="General alerts sent from this page only -- not the automated Verse of the Day or Reading Plan reminders, which run separately.">i</button>
+      </h3>
       <div id="push-sent-list" style="font-size:13px;color:var(--ink-soft);">Loading…</div>
     </div>
     </div>
   `;
+  initInfoTooltips();
 
   const pushDestinationSelect = document.getElementById('push-destination-select');
   if(pushDestinationSelect) pushDestinationSelect.addEventListener('change', () => {
