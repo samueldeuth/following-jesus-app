@@ -1226,20 +1226,49 @@ function renderPushNotifications(){
       </select>
       <input type="text" id="push-url-input" placeholder="Optional: link to open when tapped (e.g. https://followingjesus.com/app#gospel)" style="width:100%;margin-bottom:14px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg-soft);">
 
-      <div style="display:flex;gap:16px;margin-bottom:10px;">
+      <div style="display:flex;gap:16px;margin-bottom:10px;flex-wrap:wrap;">
         <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;">
           <input type="radio" name="push-send-mode" value="scheduled" checked> Scheduled (each person's own local time)
         </label>
         <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;">
           <input type="radio" name="push-send-mode" value="now"> Send Now (everyone, immediately)
         </label>
+        <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="radio" name="push-send-mode" value="recurring"> Recurring (repeats automatically)
+        </label>
       </div>
       <div id="push-schedule-row" style="margin-bottom:10px;">
         <label style="font-size:13px;color:var(--ink-soft);display:block;margin-bottom:4px;">Deliver at this time, in each person's own timezone:</label>
         <input type="time" id="push-time-input" value="09:00" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg-soft);">
       </div>
+      <div id="push-recurring-row" style="margin-bottom:10px;display:none;">
+        <label style="font-size:13px;color:var(--ink-soft);display:block;margin-bottom:4px;">Repeats:</label>
+        <select id="push-recurring-freq-select" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg-soft);margin-bottom:8px;">
+          <option value="daily">Every day</option>
+          <option value="weekly">Every week</option>
+          <option value="monthly">Every month</option>
+        </select>
+        <select id="push-recurring-weekday-select" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg-soft);margin-bottom:8px;display:none;">
+          <option value="0">Sunday</option>
+          <option value="1" selected>Monday</option>
+          <option value="2">Tuesday</option>
+          <option value="3">Wednesday</option>
+          <option value="4">Thursday</option>
+          <option value="5">Friday</option>
+          <option value="6">Saturday</option>
+        </select>
+        <select id="push-recurring-monthday-select" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg-soft);margin-bottom:8px;display:none;"></select>
+        <label style="font-size:13px;color:var(--ink-soft);display:block;margin-bottom:4px;">At this time, in each person's own timezone:</label>
+        <input type="time" id="push-recurring-time-input" value="09:00" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg-soft);">
+      </div>
 
       <button class="mini-btn gold" id="send-push-btn">Schedule Push Notification</button>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;max-width:680px;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 4px;">Recurring</h3>
+      <p style="font-size:12px;color:var(--ink-soft);margin:0 0 12px;">Repeating alerts created from this page. Pause or delete anytime.</p>
+      <div id="push-recurring-list" style="font-size:13px;color:var(--ink-soft);">Loading…</div>
     </div>
 
     <div class="card" style="margin-bottom:20px;max-width:680px;">
@@ -1347,14 +1376,96 @@ function renderPushNotifications(){
 
   const sendModeRadios = document.querySelectorAll('input[name="push-send-mode"]');
   const scheduleRow = document.getElementById('push-schedule-row');
+  const recurringRow = document.getElementById('push-recurring-row');
+  const recurringFreqSelect = document.getElementById('push-recurring-freq-select');
+  const recurringWeekdaySelect = document.getElementById('push-recurring-weekday-select');
+  const recurringMonthdaySelect = document.getElementById('push-recurring-monthday-select');
   const sendPushBtn = document.getElementById('send-push-btn');
+
+  // 1st, 2nd, 3rd... 31st -- populated once here rather than hardcoded
+  // in the HTML above, same spirit as this file's other option-list
+  // builders.
+  recurringMonthdaySelect.innerHTML = Array.from({ length: 31 }, (_, i) => i + 1)
+    .map(d => `<option value="${d}"${d === 1 ? ' selected' : ''}>${d}${d===1?'st':d===2?'nd':d===3?'rd':'th'} of the month</option>`).join('');
+
+  const updateRecurringFieldsUI = () => {
+    const freq = recurringFreqSelect.value;
+    recurringWeekdaySelect.style.display = freq === 'weekly' ? 'block' : 'none';
+    recurringMonthdaySelect.style.display = freq === 'monthly' ? 'block' : 'none';
+  };
+  recurringFreqSelect.addEventListener('change', updateRecurringFieldsUI);
+  updateRecurringFieldsUI();
+
   const updatePushModeUI = () => {
     const mode = document.querySelector('input[name="push-send-mode"]:checked').value;
     scheduleRow.style.display = mode === 'scheduled' ? 'block' : 'none';
-    sendPushBtn.textContent = mode === 'scheduled' ? 'Schedule Push Notification' : 'Send to All App Users Now';
+    recurringRow.style.display = mode === 'recurring' ? 'block' : 'none';
+    sendPushBtn.textContent = mode === 'scheduled' ? 'Schedule Push Notification'
+      : mode === 'recurring' ? 'Create Recurring Alert'
+      : 'Send to All App Users Now';
   };
   sendModeRadios.forEach(r => r.addEventListener('change', updatePushModeUI));
   updatePushModeUI();
+
+  // Recurring alerts live directly in Supabase (RLS restricts this
+  // table to super_admin, same role this whole dashboard already
+  // requires), not through a Netlify function -- there's no OneSignal
+  // API call to make here at all, just storing the schedule for
+  // send-recurring-push-notifications.js's own daily cron to pick up.
+  async function loadRecurringPushesList(){
+    const listEl = document.getElementById('push-recurring-list');
+    try {
+      const { data: pushes, error } = await supabaseClient
+        .from('recurring_push_notifications').select('*').order('created_at', { ascending: false });
+      if(error){ listEl.textContent = 'Could not load recurring alerts right now.'; return; }
+      if(!pushes.length){ listEl.textContent = 'No recurring alerts yet.'; return; }
+
+      const weekdayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      const freqLabel = (p) => p.frequency === 'daily' ? 'Every day'
+        : p.frequency === 'weekly' ? `Every ${weekdayNames[p.day_of_week]}`
+        : `Monthly on the ${p.day_of_month}${p.day_of_month===1?'st':p.day_of_month===2?'nd':p.day_of_month===3?'rd':'th'}`;
+
+      listEl.innerHTML = pushes.map(p => `
+        <div class="group-row">
+          <span>
+            <strong>${(p.title||'').replace(/</g,'&lt;')}</strong> — ${(p.message||'').replace(/</g,'&lt;')}<br>
+            <span style="color:var(--ink-soft);font-size:12px;">
+              ${freqLabel(p)} at ${p.hour}:00, each person's own timezone
+              ${p.paused ? ' · <strong>Paused</strong>' : ''}
+              ${p.last_sent_date ? ` · Last sent ${p.last_sent_date}` : ' · Never sent yet'}
+            </span>
+          </span>
+          <span style="display:flex;gap:6px;">
+            <button class="mini-btn" data-pause-recurring="${p.id}" data-paused="${p.paused}">${p.paused ? 'Resume' : 'Pause'}</button>
+            <button class="mini-btn danger" data-delete-recurring="${p.id}">Delete</button>
+          </span>
+        </div>`).join('');
+
+      document.querySelectorAll('[data-pause-recurring]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const isPaused = btn.dataset.paused === 'true';
+          btn.disabled = true;
+          const { error } = await supabaseClient.from('recurring_push_notifications')
+            .update({ paused: !isPaused }).eq('id', btn.dataset.pauseRecurring);
+          if(error){ alert('Could not update: ' + error.message); btn.disabled = false; return; }
+          loadRecurringPushesList();
+        });
+      });
+      document.querySelectorAll('[data-delete-recurring]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if(!confirm('Delete this recurring alert? This cannot be undone.')) return;
+          btn.disabled = true;
+          const { error } = await supabaseClient.from('recurring_push_notifications')
+            .delete().eq('id', btn.dataset.deleteRecurring);
+          if(error){ alert('Could not delete: ' + error.message); btn.disabled = false; return; }
+          loadRecurringPushesList();
+        });
+      });
+    } catch (e) {
+      listEl.textContent = 'Could not load recurring alerts right now.';
+    }
+  }
+  loadRecurringPushesList();
 
   if(sendPushBtn) sendPushBtn.addEventListener('click', async () => {
     const title = document.getElementById('push-title-input').value.trim();
@@ -1364,6 +1475,46 @@ function renderPushNotifications(){
     const deliveryTime = mode === 'scheduled' ? document.getElementById('push-time-input').value : null;
     if(!title || !message){ alert('Please fill in both a title and a message.'); return; }
     if(mode === 'scheduled' && !deliveryTime){ alert('Please choose a delivery time.'); return; }
+
+    if(mode === 'recurring'){
+      const freq = recurringFreqSelect.value;
+      const recurringTime = document.getElementById('push-recurring-time-input').value;
+      if(!recurringTime){ alert('Please choose a time.'); return; }
+      const hour = recurringTime.split(':')[0];
+      const dayOfWeek = freq === 'weekly' ? parseInt(recurringWeekdaySelect.value, 10) : null;
+      const dayOfMonth = freq === 'monthly' ? parseInt(recurringMonthdaySelect.value, 10) : null;
+
+      const freqDescription = freq === 'daily' ? 'every day'
+        : freq === 'weekly' ? `every ${recurringWeekdaySelect.options[recurringWeekdaySelect.selectedIndex].text}`
+        : `monthly on the ${recurringMonthdaySelect.options[recurringMonthdaySelect.selectedIndex].text}`;
+      if(!confirm(`Create a recurring alert that sends ${freqDescription} at ${recurringTime}, each person's own local time, until you pause or delete it?\n\n"${title}"\n${message}`)) return;
+
+      sendPushBtn.disabled = true;
+      sendPushBtn.textContent = 'Creating…';
+      try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const { error } = await supabaseClient.from('recurring_push_notifications').insert({
+          title, message, url: url || null,
+          frequency: freq, day_of_week: dayOfWeek, day_of_month: dayOfMonth,
+          hour, created_by: session?.user?.id || null
+        });
+        if(error){
+          alert('Could not create recurring alert: ' + error.message);
+        } else {
+          alert('Recurring alert created ✓');
+          document.getElementById('push-title-input').value = '';
+          document.getElementById('push-message-input').value = '';
+          document.getElementById('push-url-input').value = '';
+          document.getElementById('push-destination-select').value = '';
+          loadRecurringPushesList();
+        }
+      } catch (e) {
+        alert('Could not create recurring alert: ' + e.message);
+      }
+      sendPushBtn.disabled = false;
+      updatePushModeUI();
+      return;
+    }
 
     const confirmText = mode === 'scheduled'
       ? `Schedule this push to reach each person at ${deliveryTime} in their own local time?\n\n"${title}"\n${message}`

@@ -38,3 +38,12 @@
 # of whatever hour that happened to be in Pacific time.
 [functions."send-weekly-course-reminders"]
   schedule = "0 * * * *"
+
+# Runs once a day, checking which recurring push notifications (see the
+# admin Push Notifications page's "Recurring" mode) are due today.
+# Doesn't need to run more than once a day -- OneSignal's own
+# delayed_option:'timezone' resolves each recipient's own local
+# delivery time from a single daily trigger, same as it already does
+# for the one-time "Scheduled" push mode.
+[functions."send-recurring-push-notifications"]
+  schedule = "0 8 * * *"
