@@ -127,7 +127,11 @@ exports.handler = async function (event) {
   const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_students_needing_reminders`, {
     method: 'POST',
     headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ caller_secret: reminderSecret })
+    // p_respect_timezone: false -- an admin clicking "Send Weekly
+    // Reminders Now" means now, not "whenever each student's local
+    // clock hits 8am Monday" (that timezone window only applies to the
+    // real scheduled cron in send-weekly-course-reminders.js).
+    body: JSON.stringify({ caller_secret: reminderSecret, p_respect_timezone: false })
   });
   if (!rpcRes.ok) {
     const errText = await rpcRes.text();
