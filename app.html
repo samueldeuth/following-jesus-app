@@ -269,7 +269,7 @@
     display: inline-flex; align-items: center; justify-content: center;
     border: none; cursor: pointer; padding: 0; margin-top: 14px;
   }
-  .verse-alert-bell.off { background: #d8d5cf; }
+  .verse-alert-bell.off { background: #5c5850; }
   .verse-alert-bell-slash { display: none; }
   .verse-alert-bell.off .verse-alert-bell-slash { display: block; }
   .verse-alert-bell svg { width: 17px; height: 17px; }
@@ -1912,7 +1912,13 @@
           </button>
         </div>
         <div class="plan-day-refs" id="planDayRefs"></div>
-        <div class="plan-bar-actions">
+        <!-- Hidden for now, not removed -- Play Day (text-to-speech) is
+             paused until a better audio voice is available, and Mark Day
+             Read is redundant now that checking off each chapter's own
+             circle above already marks the whole day read automatically
+             (see updateDayCompleteUI). Both buttons' underlying
+             functions/handlers are untouched, just not shown. -->
+        <div class="plan-bar-actions" style="display:none;">
           <button type="button" id="planPlayBtn" class="bible-listen-btn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
             <span id="planPlayLabel">Play Day</span>
