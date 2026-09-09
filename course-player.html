@@ -697,9 +697,19 @@ async function ensureProfileAndEnrollment(){
     if(legacyChurchId) resolvedChurchId = legacyChurchId;
   }
 
+  // Browser's own IANA timezone (e.g. 'America/Denver') -- captured here
+  // so the weekly course reminder email can send at 8am in each
+  // student's OWN local time instead of one fixed hour for everyone.
+  // Same Intl.DateTimeFormat().resolvedOptions().timeZone approach
+  // app.html already uses for its streak day-boundary logic. Anyone who
+  // never opens this page at all (e.g. a Shopify-created student who
+  // purchased but never signed in) falls back to Samuel's own Pacific
+  // timezone via the profiles table's own column default instead.
+  const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
   // Create their profile row if this is their first time (won't overwrite an existing one)
   const { data: existingProfile } = await supabaseClient
-    .from('profiles').select('id').eq('id', currentUser.id).maybeSingle();
+    .from('profiles').select('id, timezone').eq('id', currentUser.id).maybeSingle();
 
   if(!existingProfile){
     // Same private-relay-aware fallback as app.html's syncAccountFromActiveSession().
@@ -718,8 +728,14 @@ async function ensureProfileAndEnrollment(){
       id: currentUser.id,
       church_id: resolvedChurchId,
       full_name: fallbackName,
-      role: 'student'
+      role: 'student',
+      timezone: browserTimezone
     });
+  } else if(!existingProfile.timezone && browserTimezone){
+    // Backfill for anyone whose profile predates this column -- happens
+    // on every visit until it's set once, not a one-time migration, so
+    // it self-heals the moment they next open this page.
+    await supabaseClient.from('profiles').update({ timezone: browserTimezone }).eq('id', currentUser.id);
   }
 
   // Enroll them in this course if they aren't already — skipped

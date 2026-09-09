@@ -27,8 +27,14 @@
 [functions."keep-alive-ping"]
   schedule = "0 12 */3 * *"
 
-# Runs every Monday at 17:00 UTC = 9am PST (California). Same daylight-saving
-# caveat as send-daily-notifications above -- fires at 10am Pacific
-# clock time during PDT months instead of 9am.
+# Runs every hour, on the hour. Used to be a single fixed weekly UTC
+# time (17:00 UTC = 9am Pacific during PDT months) that emailed
+# everyone eligible at once, regardless of where they lived. Now checks
+# hourly for students whose own local time currently falls in the 8am
+# hour on a Monday (see get_students_needing_reminders's timezone
+# window filter) -- so this fires 24 times each Monday, but any given
+# student's existing 6-day "already reminded" guard means they still
+# only ever get one email a week, just at their own local 8am instead
+# of whatever hour that happened to be in Pacific time.
 [functions."send-weekly-course-reminders"]
-  schedule = "0 17 * * 1"
+  schedule = "0 * * * *"
