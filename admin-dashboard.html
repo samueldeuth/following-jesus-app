@@ -1024,7 +1024,49 @@ function renderSidebar(){
   document.getElementById('sidebar-overview-link').classList.toggle('active', activeChurchId === null && activeCourseId === null && !viewingNoChurch && !viewingAllStudents && !viewingPushNotifications);
   document.getElementById('sidebar-all-students-link').classList.toggle('active', viewingAllStudents);
   document.getElementById('sidebar-push-notifications-link').classList.toggle('active', viewingPushNotifications);
+
+  positionSidebarToggleBtn();
 }
+
+// The toggle button used to sit at a hardcoded left:224px, calculated
+// assuming .logo-badge always renders at the sidebar's full available
+// content width (270px sidebar - 18px padding each side = 234px). Real
+// bug this fixes: .admin-sidebar has overflow-y:auto, and whenever its
+// content is actually tall enough to need scrolling (which it usually
+// is, given a long enough church list), the browser's own scrollbar
+// eats into that content width from the inside -- shrinking
+// .logo-badge's real rendered width below what the hardcoded 224px
+// assumed, so the button visually spilled past the badge's true right
+// edge onto the lighter scrollbar-track area next to it. Confirmed
+// live: badge rendered at 218px wide instead of the assumed 234px, a
+// 16px gap matching exactly one browser's reserved scrollbar width.
+//
+// That scrollbar width isn't a fixed, universal number, though -- it
+// varies by OS and browser (and disappears entirely if the sidebar's
+// content happens to be short enough not to need scrolling at all, or
+// on a system using overlay-style scrollbars that don't reserve space).
+// Any single hardcoded replacement value would just move the bug to
+// different environments instead of fixing it. Measuring
+// .logo-badge's own real getBoundingClientRect() at runtime and
+// positioning the button against THAT is correct everywhere,
+// regardless of scrollbar width, OS, or whether one is showing at all.
+function positionSidebarToggleBtn(){
+  const badge = document.querySelector('.logo-badge');
+  const btn = document.getElementById('sidebar-toggle-btn');
+  if(!badge || !btn) return;
+  // Only meaningful in the desktop/expanded layout -- the mobile media
+  // query and the sidebar-collapsed state both switch this button to
+  // position:fixed with their own explicit top/left/right values, which
+  // this measurement would only fight with if applied there too.
+  if(getComputedStyle(btn).position !== 'absolute') return;
+  const badgeRect = badge.getBoundingClientRect();
+  const btnWidth = btn.offsetWidth;
+  // 6px inset from the badge's own real right edge, inside its own
+  // padding -- not flush against it, matching the visual breathing room
+  // the original design intended.
+  btn.style.left = Math.round(badgeRect.right - btnWidth - 6) + 'px';
+}
+window.addEventListener('resize', positionSidebarToggleBtn);
 
 /* ---------- Level 1: all churches ---------- */
 // Start date for each time-range option, computed fresh each time so
