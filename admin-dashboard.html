@@ -1437,6 +1437,7 @@ function renderDirectoryRows(filterText){
         <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;">
           <input type="checkbox" data-toggle-featured="${r.id}" ${r.featured ? 'checked' : ''} /> Featured
         </label>
+        ${r.status === 'pending_confirmation' ? `<button class="mini-btn gold" data-confirm-directory="${r.id}">Confirm & Go Live</button>` : ''}
         <button class="mini-btn" data-edit-directory="${r.id}">Edit</button>
         <button class="mini-btn danger" data-delete-directory="${r.id}" style="margin-left:auto;">Delete</button>
       </div>
@@ -1456,6 +1457,16 @@ function renderDirectoryRows(filterText){
       const { error } = await supabaseClient.from('church_directory').update({ featured: cb.checked }).eq('id', cb.dataset.toggleFeatured);
       if(error){ alert('Could not update: ' + error.message); cb.checked = !cb.checked; }
       cb.disabled = false;
+    });
+  });
+  document.querySelectorAll('[data-confirm-directory]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!confirm('Confirm this church and make it live in Find a Church now, without waiting for them to confirm it themselves via email?')) return;
+      btn.disabled = true;
+      btn.textContent = 'Confirming…';
+      const { error } = await supabaseClient.from('church_directory').update({ status: 'confirmed' }).eq('id', btn.dataset.confirmDirectory);
+      if(error){ alert('Could not confirm: ' + error.message); btn.disabled = false; btn.textContent = 'Confirm & Go Live'; return; }
+      await loadChurchDirectoryList();
     });
   });
   document.querySelectorAll('[data-delete-directory]').forEach(btn => {
