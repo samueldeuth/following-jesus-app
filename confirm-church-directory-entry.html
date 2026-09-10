@@ -139,8 +139,11 @@ function renderMainScreen(token, entry){
 
     <div style="margin-top:32px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.1);text-align:left;">
       <p class="field-label" style="font-size:13px;color:rgba(255,255,255,0.75);margin-bottom:12px;">Have another campus or location? Add it below and it'll be featured too.</p>
-      <label class="field-label">Location Name</label>
-      <input type="text" class="address-input" id="newLocationName" placeholder="e.g. Downtown Campus" />
+      <label class="field-label">Campus / Location Name</label>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <span style="font-size:14px;color:rgba(255,255,255,0.5);white-space:nowrap;">${escapeHtml(entry.name)} |</span>
+        <input type="text" class="address-input" id="newLocationName" placeholder="e.g. Downtown Campus" style="margin-bottom:0;" />
+      </div>
       <label class="field-label">Address</label>
       <gmp-place-autocomplete id="newLocationAddress" placeholder="Street, City, State, Zip"></gmp-place-autocomplete>
       <button type="button" class="btn btn-secondary" id="addLocationBtn">Add This Location</button>
@@ -159,9 +162,15 @@ function renderMainScreen(token, entry){
   });
 
   document.getElementById('addLocationBtn').addEventListener('click', async () => {
-    const name = document.getElementById('newLocationName').value.trim();
+    const suffix = document.getElementById('newLocationName').value.trim();
     const statusEl = document.getElementById('addLocationStatus');
-    if(!name){ alert('Please enter a name for this location.'); return; }
+    if(!suffix){ alert('Please enter a name for this location (e.g. "Downtown Campus").'); return; }
+    // Combines with the parent church's own name using the same
+    // "Parent Church | Campus" convention already used throughout this
+    // project (e.g. "Awaken Church | Bressi Campus") -- this is what
+    // actually makes it clear in search results that this is a
+    // location of the SAME church, not an unrelated standalone entry.
+    const name = `${entry.name} | ${suffix}`;
     if(!selectedNewLocationAddress){ alert('Please choose an address from the suggestions as you type.'); return; }
     const address = selectedNewLocationAddress;
     const btn = document.getElementById('addLocationBtn');
