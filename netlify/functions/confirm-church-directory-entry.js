@@ -1,12 +1,23 @@
 // netlify/functions/confirm-church-directory-entry.js
 //
-// Handles the "Fix This Info" path on confirm-church-directory-entry.html
-// -- geocodes the corrected address (reusing the same Google Places API
-// key as the rest of Find a Church) and confirms the entry in one step
-// via update_and_confirm_pending_church. The simple "Yes, this is
-// correct" path doesn't need this function at all -- it calls
-// confirm_pending_church directly from the page via supabaseClient,
-// since no geocoding is needed when nothing's changing.
+// Handles two things from confirm-church-directory-entry.html, both
+// needing server-side geocoding (reusing the same Google Places API
+// key as the rest of Find a Church):
+//   - action: 'edit' (default) -- the "Fix This Info" path, confirming
+//     the ORIGINAL entry with corrected info via
+//     update_and_confirm_pending_church.
+//   - action: 'addLocation' -- lets someone add an ADDITIONAL,
+//     independent location (another campus) via
+//     add_confirmed_church_location. Not tied back to the original
+//     entry structurally -- these Shopify-import rows have no shared
+//     "parent organization" concept the way course-customer churches
+//     do -- the confirmation_token just proves this came from someone
+//     who received a real confirmation email.
+//
+// The simple "Yes, this is correct" path for the ORIGINAL entry doesn't
+// need this function at all -- it calls confirm_pending_church directly
+// from the page via supabaseClient, since no geocoding is needed when
+// nothing's changing.
 //
 // REQUIRES the same environment variable already set for the other
 // Find a Church functions:
@@ -46,7 +57,7 @@ exports.handler = async function (event) {
   } catch (e) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON body.' }) };
   }
-  const { token, name, address } = body;
+  const { token, name, address, action } = body;
   if (!token || !name || !address) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Missing token, name, or address.' }) };
   }
@@ -57,7 +68,8 @@ exports.handler = async function (event) {
       return { statusCode: 200, body: JSON.stringify({ status: 'geocode_failed' }) };
     }
 
-    const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/update_and_confirm_pending_church`, {
+    const rpcName = action === 'addLocation' ? 'add_confirmed_church_location' : 'update_and_confirm_pending_church';
+    const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${rpcName}`, {
       method: 'POST',
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
