@@ -355,6 +355,7 @@
     <a class="sidebar-link" id="sidebar-overview-link">Overview</a>
     <a class="sidebar-link" id="sidebar-all-students-link">All Students</a>
     <a class="sidebar-link" id="sidebar-push-notifications-link">Push Notifications</a>
+    <a class="sidebar-link" id="sidebar-church-directory-link">Church Directory</a>
     <div class="sidebar-section-title">Churches (<span id="sidebar-church-count">0</span>)</div>
     <div class="sidebar-status-filters" id="sidebar-status-filters">
       <button class="status-filter-btn" data-status-filter="all">All</button>
@@ -526,6 +527,7 @@ let viewingSubscriberList = false;
 // (moved out of the Overview page it originally launched on) -- same
 // highlighting pattern as the other standalone views above.
 let viewingPushNotifications = false;
+let viewingChurchDirectory = false;
 // Which status tab is active in the church sidebar list — 'all' shows
 // everything, otherwise only churches matching that course_status.
 let sidebarStatusFilter = 'live';
@@ -610,6 +612,7 @@ async function init(){
   document.getElementById('sidebar-overview-link').addEventListener('click', renderChurchesOverview);
   document.getElementById('sidebar-all-students-link').addEventListener('click', renderAllStudents);
   document.getElementById('sidebar-push-notifications-link').addEventListener('click', renderPushNotifications);
+  document.getElementById('sidebar-church-directory-link').addEventListener('click', renderChurchDirectory);
   document.getElementById('sidebar-church-search').addEventListener('input', renderSidebar);
   wireAddChurchForm();
   restoreViewFromHash();
@@ -1021,9 +1024,10 @@ function renderSidebar(){
     btn.onclick = () => { sidebarStatusFilter = btn.dataset.statusFilter; renderSidebar(); };
   });
 
-  document.getElementById('sidebar-overview-link').classList.toggle('active', activeChurchId === null && activeCourseId === null && !viewingNoChurch && !viewingAllStudents && !viewingPushNotifications);
+  document.getElementById('sidebar-overview-link').classList.toggle('active', activeChurchId === null && activeCourseId === null && !viewingNoChurch && !viewingAllStudents && !viewingPushNotifications && !viewingChurchDirectory);
   document.getElementById('sidebar-all-students-link').classList.toggle('active', viewingAllStudents);
   document.getElementById('sidebar-push-notifications-link').classList.toggle('active', viewingPushNotifications);
+  document.getElementById('sidebar-church-directory-link').classList.toggle('active', viewingChurchDirectory);
 
   positionSidebarToggleBtn();
 }
@@ -1163,6 +1167,7 @@ function renderChurchesOverview(){
   viewingAllStudents = false;
   viewingSubscriberList = false;
   viewingPushNotifications = false;
+  viewingChurchDirectory = false;
   setViewHash(null);
   renderSidebar();
   const totalChurches = allChurches.length;
@@ -1295,6 +1300,131 @@ function initInfoTooltips(){
   });
 }
 
+// Manages church_directory directly -- the standalone list of physical
+// church locations behind "Find a Church" in the app. Deliberately
+// separate from the churches table (course customers): a church here
+// might be a course customer (auto-synced in via the sync_church_to_directory
+// trigger, source='course_customer'), a book-only customer or anyone
+// else Samuel wants to feature (added manually here, source='manual'),
+// or eventually a Shopify-order-derived candidate awaiting confirmation
+// (source='shopify_import', status='pending_confirmation' -- not yet
+// built). One course customer can have multiple rows here (multiple
+// campuses), which is the whole reason this isn't just a field on
+// churches itself -- see add-church-directory.sql for the full story.
+async function renderChurchDirectory(){
+  activeChurchId = null;
+  activeCourseId = null;
+  viewingNoChurch = false;
+  viewingAllStudents = false;
+  viewingSubscriberList = false;
+  viewingPushNotifications = false;
+  viewingChurchDirectory = true;
+  setViewHash('church-directory');
+  renderSidebar();
+
+  document.getElementById('content').innerHTML = `
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">Church Directory</h2>
+    <p style="font-size:13px;margin:0 0 20px;padding:8px 12px;background:var(--bg-soft);border-radius:6px;max-width:640px;">
+      Every physical church location shown in the app's "Find a Church" feature. Course customers sync in here automatically once approved -- add anyone else directly below, whether they're a book customer or just a church you want to feature.
+    </p>
+
+    <div class="card" style="margin-bottom:20px;max-width:640px;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 12px;">Add a Church</h3>
+      <input type="text" class="field-input" id="new-directory-name" placeholder="Church name" style="margin-bottom:8px;" />
+      <input type="text" class="field-input" id="new-directory-address" placeholder="Street, City, State, Zip" style="margin-bottom:8px;" />
+      <input type="text" class="field-input" id="new-directory-website" placeholder="Website (optional)" style="margin-bottom:10px;" />
+      <button class="mini-btn" id="add-directory-btn" style="background:var(--ink);color:#fff;border-color:var(--ink);">Add to Directory</button>
+      <span id="add-directory-status" style="font-size:12.5px;color:var(--ink-soft);margin-left:10px;"></span>
+    </div>
+
+    <div id="directory-list" style="max-width:640px;">Loading…</div>
+  `;
+
+  await loadChurchDirectoryList();
+
+  document.getElementById('add-directory-btn').addEventListener('click', async () => {
+    const name = document.getElementById('new-directory-name').value.trim();
+    const address = document.getElementById('new-directory-address').value.trim();
+    const website = document.getElementById('new-directory-website').value.trim();
+    const statusEl = document.getElementById('add-directory-status');
+    if(!name){ alert('Please enter a church name.'); return; }
+    if(!address){ alert('Please enter an address.'); return; }
+
+    statusEl.textContent = 'Locating on map...';
+    try {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const geoRes = await fetch('/.netlify/functions/geocode-address', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+        body: JSON.stringify({ address })
+      });
+      const geo = await geoRes.json();
+      if(!geo.found){
+        statusEl.textContent = "Couldn't find that address on the map — check spelling.";
+        return;
+      }
+      const { error } = await supabaseClient.from('church_directory').insert({
+        name, address: geo.formattedAddress, latitude: geo.lat, longitude: geo.lng,
+        website: website || null, source: 'manual', status: 'confirmed'
+      });
+      if(error){
+        statusEl.textContent = 'Could not add: ' + error.message;
+        return;
+      }
+      statusEl.textContent = '';
+      document.getElementById('new-directory-name').value = '';
+      document.getElementById('new-directory-address').value = '';
+      document.getElementById('new-directory-website').value = '';
+      await loadChurchDirectoryList();
+    } catch(e){
+      statusEl.textContent = 'Could not add: ' + e.message;
+    }
+  });
+}
+
+async function loadChurchDirectoryList(){
+  const listEl = document.getElementById('directory-list');
+  const { data: rows, error } = await supabaseClient.from('church_directory').select('*').order('name');
+  if(error){ listEl.textContent = 'Could not load the directory right now.'; return; }
+  if(!rows.length){ listEl.textContent = 'Nothing in the directory yet.'; return; }
+
+  const sourceLabel = { course_customer: 'Course customer', shopify_import: 'Shopify import', manual: 'Manually added' };
+
+  listEl.innerHTML = rows.map(r => `
+    <div class="group-row" style="flex-direction:column;align-items:stretch;gap:8px;" data-directory-id="${r.id}">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <strong>${(r.name||'').replace(/</g,'&lt;')}</strong>
+        <span style="font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.03em;">${sourceLabel[r.source] || r.source}${r.status === 'pending_confirmation' ? ' · Pending confirmation' : ''}</span>
+      </div>
+      <div style="font-size:12.5px;color:var(--ink-soft);">${(r.address||'No address yet').replace(/</g,'&lt;')}</div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;">
+          <input type="checkbox" data-toggle-featured="${r.id}" ${r.featured ? 'checked' : ''} /> Featured
+        </label>
+        <button class="mini-btn danger" data-delete-directory="${r.id}" style="margin-left:auto;">Delete</button>
+      </div>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('[data-toggle-featured]').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      cb.disabled = true;
+      const { error } = await supabaseClient.from('church_directory').update({ featured: cb.checked }).eq('id', cb.dataset.toggleFeatured);
+      if(error){ alert('Could not update: ' + error.message); cb.checked = !cb.checked; }
+      cb.disabled = false;
+    });
+  });
+  document.querySelectorAll('[data-delete-directory]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!confirm('Remove this location from the directory? This cannot be undone.')) return;
+      btn.disabled = true;
+      const { error } = await supabaseClient.from('church_directory').delete().eq('id', btn.dataset.deleteDirectory);
+      if(error){ alert('Could not delete: ' + error.message); btn.disabled = false; return; }
+      await loadChurchDirectoryList();
+    });
+  });
+}
+
 function renderPushNotifications(){
   activeChurchId = null;
   activeCourseId = null;
@@ -1302,6 +1432,7 @@ function renderPushNotifications(){
   viewingAllStudents = false;
   viewingSubscriberList = false;
   viewingPushNotifications = true;
+  viewingChurchDirectory = false;
   setViewHash('push-notifications');
   renderSidebar();
 
@@ -2635,6 +2766,7 @@ function renderAllStudents(){
   viewingAllStudents = true;
   viewingSubscriberList = false;
   viewingPushNotifications = false;
+  viewingChurchDirectory = false;
   selectedEnrollmentIds.clear();
   setViewHash('all-students');
   renderSidebar();
@@ -2830,6 +2962,7 @@ function renderMergeAccounts(){
   viewingAllStudents = true;
   viewingSubscriberList = false;
   viewingPushNotifications = false;
+  viewingChurchDirectory = false;
   renderSidebar();
 
   // Local-only selection state for this view -- doesn't need to persist
@@ -3014,6 +3147,7 @@ async function renderChurchStudents(churchId){
   viewingAllStudents = false;
   viewingSubscriberList = false;
   viewingPushNotifications = false;
+  viewingChurchDirectory = false;
   selectedEnrollmentIds.clear();
   setViewHash('church:' + (churchId === null ? 'none' : encodeURIComponent(churchId)));
   renderSidebar();
@@ -3224,13 +3358,7 @@ async function renderChurchStudents(churchId){
       <input type="text" class="field-input" id="edit-website" value="${(church?.website_url||'').replace(/"/g,'&quot;')}" placeholder="https://..." />
 
       <h4 class="field-section-title">Find a Church (location)</h4>
-      <label class="field-label">Church Address</label>
-      <input type="text" class="field-input" id="edit-church-address" value="${(church?.address||'').replace(/"/g,'&quot;')}" placeholder="Street, City, State, Zip" />
-      <p class="field-hint" style="margin-bottom:8px;">Saved automatically to the map when you save below -- shows this church as a featured partner to anyone searching nearby in the app.</p>
-      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:8px;">
-        <input type="checkbox" id="edit-church-featured" ${church?.featured_in_church_finder !== false ? 'checked' : ''} />
-        Show as a featured partner church in Find a Church
-      </label>
+      <p class="field-hint" style="margin-bottom:8px;">This church's physical location(s) -- including multi-campus, if any -- are managed in <a href="#church-directory" id="go-to-directory-link" style="color:var(--ink);font-weight:600;">Church Directory</a> in the sidebar, not here. A church can have more than one location (e.g. multiple campuses), so this lives as its own list rather than a single address field.</p>
 
       <button class="mini-btn" id="save-church-settings-btn" style="margin-top:14px;background:var(--ink);color:#fff;border-color:var(--ink);">Save Church Settings</button>
       <span id="save-status" style="font-size:12.5px;color:var(--ink-soft);margin-left:10px;"></span>
@@ -3503,8 +3631,7 @@ async function renderChurchStudents(churchId){
       letter_image_url: document.getElementById('edit-letter-image').value.trim() || null,
       letter_author_name: document.getElementById('edit-letter-author').value.trim() || null,
       letter_author_title: document.getElementById('edit-letter-author-title').value.trim() || null,
-      website_url: document.getElementById('edit-website').value.trim() || null,
-      featured_in_church_finder: document.getElementById('edit-church-featured').checked
+      website_url: document.getElementById('edit-website').value.trim() || null
     };
     // Only stamped the moment a church actually moves out of
     // pending_approval into live for the first time -- this is what
@@ -3524,41 +3651,10 @@ async function renderChurchStudents(churchId){
       return;
     }
 
-    // Address goes through submit-church-location.js instead of the
-    // direct update above -- geocoding it into real lat/lng needs the
-    // Places API key, which only lives server-side. Reuses the exact
-    // same public, token-gated endpoint the church's own outreach-email
-    // submission form uses -- the church's own location_submission_token
-    // (already on the row, already visible to admin here) is all the
-    // authorization that endpoint needs, so there's no separate
-    // authenticated version of this to build and keep in sync.
-    const newAddress = document.getElementById('edit-church-address').value.trim();
-    if(newAddress && newAddress !== (church?.address || '')){
-      statusEl.textContent = 'Saved ✓ · Locating on map...';
-      try {
-        const geoRes = await fetch('/.netlify/functions/submit-church-location', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: updated.location_submission_token, address: newAddress })
-        });
-        const geoResult = await geoRes.json();
-        if(geoResult.status === 'success'){
-          statusEl.textContent = 'Saved ✓ · Location updated';
-        } else if(geoResult.status === 'geocode_failed'){
-          statusEl.textContent = 'Saved ✓ · Address not found on map — check spelling';
-        } else {
-          statusEl.textContent = 'Saved ✓ · Could not update location';
-        }
-      } catch(e) {
-        statusEl.textContent = 'Saved ✓ · Could not update location';
-      }
-    } else {
-      statusEl.textContent = 'Saved ✓';
-    }
-
     const idx = allChurches.findIndex(c => c.id === churchId);
     if(idx !== -1) allChurches[idx] = updated;
-    setTimeout(() => { statusEl.textContent = ''; }, 4000);
+    statusEl.textContent = 'Saved ✓';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
   });
 
   wireChurchContactSection(churchId, contactInviteStatus, church);
@@ -3847,6 +3943,7 @@ async function renderCourseStudents(courseId, courseTitle){
   viewingAllStudents = false;
   viewingSubscriberList = false;
   viewingPushNotifications = false;
+  viewingChurchDirectory = false;
   selectedEnrollmentIds.clear();
   setViewHash('course:' + encodeURIComponent(courseId));
   renderSidebar();
