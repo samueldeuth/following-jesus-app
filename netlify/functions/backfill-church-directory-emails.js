@@ -1215,19 +1215,32 @@ exports.handler = async function (event) {
     return { statusCode: 401, body: 'Not authorized -- provide the secret query parameter.' };
   }
 
+  // Sequential (one at a time, awaiting each before starting the next)
+  // timed out on Netlify's own execution limit with 296 calls to make --
+  // even at a fraction of a second each, that adds up past what a
+  // single function invocation is allowed to run for. These are
+  // lightweight database calls with no external rate limit to respect
+  // (unlike the geocoding-heavy import, which genuinely needed to go
+  // one at a time) -- running them in chunks of 50 in parallel finishes
+  // in a couple of seconds instead of timing out.
+  const CHUNK_SIZE = 50;
   const results = [];
-  for (const pair of NAME_EMAIL_PAIRS) {
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_pending_church_email`, {
-        method: 'POST',
-        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caller_secret: secret, p_name: pair.name, p_email: pair.email })
-      });
-      const result = await res.json();
-      results.push({ name: pair.name, status: result });
-    } catch (e) {
-      results.push({ name: pair.name, status: 'error', error: e.message });
-    }
+  for (let i = 0; i < NAME_EMAIL_PAIRS.length; i += CHUNK_SIZE) {
+    const chunk = NAME_EMAIL_PAIRS.slice(i, i + CHUNK_SIZE);
+    const chunkResults = await Promise.all(chunk.map(async (pair) => {
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_pending_church_email`, {
+          method: 'POST',
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ caller_secret: secret, p_name: pair.name, p_email: pair.email })
+        });
+        const result = await res.json();
+        return { name: pair.name, status: result };
+      } catch (e) {
+        return { name: pair.name, status: 'error', error: e.message };
+      }
+    }));
+    results.push(...chunkResults);
   }
 
   const summary = results.reduce((acc, r) => { acc[r.status] = (acc[r.status] || 0) + 1; return acc; }, {});
