@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Confirm Your Church's Info — Following Jesus</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --black: #0a0a0a; --white: #ffffff; --ink-soft: #57534d; --ember: #c89b3c;
+    --font-display: 'Archivo', sans-serif; --font-body: 'Inter', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--black); color:var(--white);
+    font-family:var(--font-body); -webkit-font-smoothing:antialiased;
+    min-height:100vh; display:flex; flex-direction:column;
+  }
+  .wrap{
+    max-width:440px; margin:0 auto; padding:60px 24px 40px;
+    flex:1; display:flex; flex-direction:column; justify-content:center; text-align:center;
+  }
+  .logo-badge{
+    background:var(--white); color:var(--black); font-family:var(--font-display); font-weight:700;
+    letter-spacing:0.14em; font-size:13px; padding:10px 16px; text-transform:uppercase;
+    display:inline-block; margin-bottom:32px;
+  }
+  h1{ font-family:var(--font-display); font-weight:800; font-size:24px; line-height:1.3; margin:0 0 14px; }
+  .detail{ font-size:15px; color:rgba(255,255,255,0.75); line-height:1.6; margin:0 0 24px; text-align:left; }
+  .detail strong{ color:var(--white); }
+  .info-card{
+    background:rgba(255,255,255,0.06); border-radius:10px; padding:16px; margin-bottom:20px; text-align:left;
+  }
+  .info-card-name{ font-weight:700; font-size:15px; margin-bottom:4px; }
+  .info-card-address{ font-size:13px; color:rgba(255,255,255,0.65); }
+  .field-label{ display:block; font-size:12px; color:rgba(255,255,255,0.6); margin:0 0 6px; text-align:left; }
+  .address-input{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.15);
+    background:rgba(255,255,255,0.06); color:var(--white); font-size:15px; margin-bottom:14px; font-family:var(--font-body);
+  }
+  .btn{
+    border:none; border-radius:6px; padding:14px 20px; font-family:var(--font-display);
+    font-weight:700; font-size:15px; cursor:pointer; width:100%; margin-bottom:10px;
+  }
+  .btn-primary{background:var(--white); color:var(--black);}
+  .btn-secondary{background:rgba(255,255,255,0.06); color:var(--white); border:1px solid rgba(255,255,255,0.15);}
+  .btn-text{background:none; color:rgba(255,255,255,0.5); text-decoration:underline; font-family:var(--font-body); font-weight:400; font-size:13px;}
+  .btn:disabled{opacity:0.5; cursor:default;}
+  .status-icon{font-size:40px; margin-bottom:16px;}
+  .loading{color:rgba(255,255,255,0.5); font-size:14px;}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="content">
+  <div class="logo-badge">Following Jesus</div>
+  <p class="loading">Loading…</p>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function getToken(){
+  return new URLSearchParams(window.location.search).get('token');
+}
+function renderContent(html){
+  document.getElementById('content').innerHTML = `<div class="logo-badge">Following Jesus</div>${html}`;
+}
+
+async function init(){
+  const token = getToken();
+  if(!token){
+    renderContent(`<h1>Link Not Found</h1><p class="detail">This link is missing some information. Please use the link from your email directly.</p>`);
+    return;
+  }
+
+  const { data, error } = await supabaseClient.rpc('get_pending_church_by_token', { lookup_token: token });
+  const entry = data && data[0];
+
+  if(error || !entry){
+    renderContent(`<h1>Link Not Found</h1><p class="detail">This link doesn't match anything on file. It may have already been confirmed, or entered incorrectly.</p>`);
+    return;
+  }
+
+  if(entry.status === 'confirmed'){
+    renderContent(`
+      <div class="status-icon">✓</div>
+      <h1>Already Confirmed</h1>
+      <p class="detail" style="text-align:center;"><strong>${escapeHtml(entry.name)}</strong> is already live in our church directory. Nothing more to do here!</p>
+    `);
+    return;
+  }
+
+  renderMainScreen(token, entry);
+}
+
+function renderMainScreen(token, entry){
+  renderContent(`
+    <h1>We'd Love to Feature Your Church</h1>
+    <p class="detail">We're building a "Find a Church" feature in the Following Jesus app to help people get connected, planted, and serving in a local church near them. Here's what we have on file for you:</p>
+    <div class="info-card">
+      <div class="info-card-name">${escapeHtml(entry.name)}</div>
+      <div class="info-card-address">${escapeHtml(entry.address || 'No address on file')}</div>
+    </div>
+    <button type="button" class="btn btn-primary" id="confirmBtn">Yes, This Is Correct</button>
+    <button type="button" class="btn btn-secondary" id="editBtn">Fix This Info</button>
+    <button type="button" class="btn btn-text" id="rejectBtn">This isn't accurate — remove it</button>
+    <div id="editForm" style="display:none;margin-top:16px;text-align:left;">
+      <label class="field-label">Church Name</label>
+      <input type="text" class="address-input" id="editName" value="${escapeHtml(entry.name)}" />
+      <label class="field-label">Address</label>
+      <input type="text" class="address-input" id="editAddress" value="${escapeHtml(entry.address || '')}" />
+      <button type="button" class="btn btn-primary" id="saveEditBtn">Save & Confirm</button>
+    </div>
+  `);
+
+  document.getElementById('confirmBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('confirmBtn');
+    btn.disabled = true;
+    btn.textContent = 'Confirming…';
+    const { data } = await supabaseClient.rpc('confirm_pending_church', { lookup_token: token });
+    if(data === 'success'){
+      renderContent(`
+        <div class="status-icon">✓</div>
+        <h1>You're All Set</h1>
+        <p class="detail" style="text-align:center;">Thanks! <strong>${escapeHtml(entry.name)}</strong> will now show up as a featured church to anyone nearby searching in the app.</p>
+      `);
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Yes, This Is Correct';
+      alert('Something went wrong. Please try again.');
+    }
+  });
+
+  document.getElementById('editBtn').addEventListener('click', () => {
+    document.getElementById('editForm').style.display = 'block';
+    document.getElementById('editBtn').style.display = 'none';
+  });
+
+  document.getElementById('rejectBtn').addEventListener('click', async () => {
+    if(!confirm('Remove this entry? We will not feature this church in the directory.')) return;
+    const btn = document.getElementById('rejectBtn');
+    btn.disabled = true;
+    const { data } = await supabaseClient.rpc('reject_pending_church', { lookup_token: token });
+    if(data === 'success'){
+      renderContent(`<h1>Got It</h1><p class="detail" style="text-align:center;">We've removed this entry. Thanks for letting us know.</p>`);
+    } else {
+      btn.disabled = false;
+      alert('Something went wrong. Please try again.');
+    }
+  });
+
+  document.getElementById('saveEditBtn').addEventListener('click', async () => {
+    const name = document.getElementById('editName').value.trim();
+    const address = document.getElementById('editAddress').value.trim();
+    if(!name || !address){ alert('Please fill in both fields.'); return; }
+    const btn = document.getElementById('saveEditBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      const res = await fetch('/.netlify/functions/confirm-church-directory-entry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, name, address })
+      });
+      const result = await res.json();
+      if(result.status === 'success'){
+        renderContent(`
+          <div class="status-icon">✓</div>
+          <h1>You're All Set</h1>
+          <p class="detail" style="text-align:center;">Thanks! <strong>${escapeHtml(name)}</strong> will now show up as a featured church to anyone nearby searching in the app.</p>
+        `);
+      } else if(result.status === 'geocode_failed'){
+        btn.disabled = false;
+        btn.textContent = 'Save & Confirm';
+        alert("We couldn't find that address on the map — please double-check it and try again.");
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Save & Confirm';
+        alert('Something went wrong. Please try again.');
+      }
+    } catch(e) {
+      btn.disabled = false;
+      btn.textContent = 'Save & Confirm';
+      alert('Something went wrong. Please try again.');
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>
