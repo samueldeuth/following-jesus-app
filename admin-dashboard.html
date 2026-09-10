@@ -465,6 +465,7 @@ function restoreViewFromHash(){
   }
   if(hash === '#all-students'){ renderAllStudents(); return; }
   if(hash === '#push-notifications'){ renderPushNotifications(); return; }
+  if(hash === '#church-directory'){ renderChurchDirectory(); return; }
   renderChurchesOverview();
 }
 
@@ -1323,6 +1324,7 @@ async function renderChurchDirectory(){
   renderSidebar();
 
   document.getElementById('content').innerHTML = `
+    <div style="text-align:left;">
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">Church Directory</h2>
     <p style="font-size:13px;margin:0 0 20px;padding:8px 12px;background:var(--bg-soft);border-radius:6px;max-width:640px;">
       Every physical church location shown in the app's "Find a Church" feature. Course customers sync in here automatically once approved -- add anyone else directly below, whether they're a book customer or just a church you want to feature.
@@ -1338,7 +1340,11 @@ async function renderChurchDirectory(){
       <span id="add-directory-status" style="font-size:12.5px;color:var(--ink-soft);margin-left:10px;"></span>
     </div>
 
+    <div style="max-width:640px;margin-bottom:12px;">
+      <input type="text" class="sidebar-search" id="directory-search" placeholder="Search churches by name…" style="width:100%;margin-bottom:0;" />
+    </div>
     <div id="directory-list" style="max-width:640px;">Loading…</div>
+    </div>
   `;
 
   await loadChurchDirectoryList();
@@ -1383,6 +1389,8 @@ async function renderChurchDirectory(){
   });
 }
 
+let allDirectoryRows = [];
+
 async function loadChurchDirectoryList(){
   const listEl = document.getElementById('directory-list');
   const countEl = document.getElementById('church-directory-count');
@@ -1392,13 +1400,29 @@ async function loadChurchDirectoryList(){
     if(countEl) countEl.textContent = '';
     return;
   }
+  allDirectoryRows = rows;
   if(countEl){
     const pending = rows.filter(r => r.status === 'pending_confirmation').length;
     countEl.textContent = pending
       ? `${rows.length.toLocaleString()} churches in the directory — ${pending.toLocaleString()} still pending confirmation.`
       : `${rows.length.toLocaleString()} churches in the directory.`;
   }
-  if(!rows.length){ listEl.textContent = 'Nothing in the directory yet.'; return; }
+
+  const searchInput = document.getElementById('directory-search');
+  if(searchInput && !searchInput.dataset.wired){
+    searchInput.dataset.wired = 'true';
+    searchInput.addEventListener('input', () => renderDirectoryRows(searchInput.value));
+  }
+  renderDirectoryRows(searchInput ? searchInput.value : '');
+}
+
+function renderDirectoryRows(filterText){
+  const listEl = document.getElementById('directory-list');
+  const query = (filterText || '').trim().toLowerCase();
+  const rows = query ? allDirectoryRows.filter(r => (r.name || '').toLowerCase().includes(query)) : allDirectoryRows;
+
+  if(!allDirectoryRows.length){ listEl.textContent = 'Nothing in the directory yet.'; return; }
+  if(!rows.length){ listEl.textContent = 'No churches match that search.'; return; }
 
   const sourceLabel = { course_customer: 'Course customer', shopify_import: 'Shopify import', manual: 'Manually added' };
 
@@ -1413,7 +1437,15 @@ async function loadChurchDirectoryList(){
         <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;">
           <input type="checkbox" data-toggle-featured="${r.id}" ${r.featured ? 'checked' : ''} /> Featured
         </label>
+        <button class="mini-btn" data-edit-directory="${r.id}">Edit</button>
         <button class="mini-btn danger" data-delete-directory="${r.id}" style="margin-left:auto;">Delete</button>
+      </div>
+      <div id="edit-directory-form-${r.id}" style="display:none;padding-top:6px;border-top:1px solid var(--line, #eee);">
+        <input type="text" class="field-input" id="edit-directory-name-${r.id}" value="${(r.name||'').replace(/"/g,'&quot;')}" placeholder="Church name" style="margin-bottom:8px;" />
+        <input type="text" class="field-input" id="edit-directory-address-${r.id}" value="${(r.address||'').replace(/"/g,'&quot;')}" placeholder="Street, City, State, Zip" style="margin-bottom:8px;" />
+        <input type="text" class="field-input" id="edit-directory-website-${r.id}" value="${(r.website||'').replace(/"/g,'&quot;')}" placeholder="Website (optional)" style="margin-bottom:8px;" />
+        <button class="mini-btn" data-save-directory="${r.id}" style="background:var(--ink);color:#fff;border-color:var(--ink);">Save</button>
+        <span id="save-directory-status-${r.id}" style="font-size:12.5px;color:var(--ink-soft);margin-left:8px;"></span>
       </div>
     </div>
   `).join('');
@@ -1432,6 +1464,68 @@ async function loadChurchDirectoryList(){
       btn.disabled = true;
       const { error } = await supabaseClient.from('church_directory').delete().eq('id', btn.dataset.deleteDirectory);
       if(error){ alert('Could not delete: ' + error.message); btn.disabled = false; return; }
+      await loadChurchDirectoryList();
+    });
+  });
+  document.querySelectorAll('[data-edit-directory]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const form = document.getElementById('edit-directory-form-' + btn.dataset.editDirectory);
+      if(form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    });
+  });
+  document.querySelectorAll('[data-save-directory]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.saveDirectory;
+      const statusEl = document.getElementById('save-directory-status-' + id);
+      const name = document.getElementById('edit-directory-name-' + id).value.trim();
+      const address = document.getElementById('edit-directory-address-' + id).value.trim();
+      const website = document.getElementById('edit-directory-website-' + id).value.trim();
+      if(!name){ alert('Church name is required.'); return; }
+      const existing = allDirectoryRows.find(r => r.id === id);
+      const addressChanged = address !== (existing?.address || '');
+
+      btn.disabled = true;
+      const updates = { name, website: website || null };
+
+      // Only re-geocode when the address actually changed -- avoids an
+      // unnecessary Places API call on every save when just fixing the
+      // name or website.
+      if(addressChanged && address){
+        statusEl.textContent = 'Locating on map…';
+        try {
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          const geoRes = await fetch('/.netlify/functions/geocode-address', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+            body: JSON.stringify({ address })
+          });
+          const geo = await geoRes.json();
+          if(!geo.found){
+            statusEl.textContent = "Couldn't find that address on the map — check spelling.";
+            btn.disabled = false;
+            return;
+          }
+          updates.address = geo.formattedAddress;
+          updates.latitude = geo.lat;
+          updates.longitude = geo.lng;
+        } catch(e) {
+          statusEl.textContent = 'Could not look up that address.';
+          btn.disabled = false;
+          return;
+        }
+      } else if(!address){
+        updates.address = null;
+        updates.latitude = null;
+        updates.longitude = null;
+      }
+
+      statusEl.textContent = 'Saving…';
+      const { error } = await supabaseClient.from('church_directory').update(updates).eq('id', id);
+      if(error){
+        statusEl.textContent = 'Could not save: ' + error.message;
+        btn.disabled = false;
+        return;
+      }
       await loadChurchDirectoryList();
     });
   });
@@ -2785,10 +2879,15 @@ function renderAllStudents(){
 
   const activeCount = allRows.filter(r => r.status !== 'archived').length;
   const archivedCount = allRows.filter(r => r.status === 'archived').length;
+  // Distinct churches actually represented among these students -- not
+  // allChurches.length, which is every church record that exists
+  // whether or not it has any students at all. A student with no
+  // church_id (viewingNoChurch bucket) doesn't count as "a church."
+  const churchesWithStudents = new Set(allRows.filter(r => r.church_id).map(r => r.church_id)).size;
 
   document.getElementById('content').innerHTML = `
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">All Students</h2>
-    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:14px;">${allRows.length} student${allRows.length===1?'':'s'} across ${allChurches.length} church${allChurches.length===1?'':'es'}</p>
+    <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:14px;">${allRows.length} student${allRows.length===1?'':'s'} across ${churchesWithStudents} church${churchesWithStudents===1?'':'es'}</p>
     <div style="display:flex;gap:6px;margin-bottom:14px;">
       <button class="mini-btn ${studentViewMode==='active'?'active':''}" id="student-mode-active-btn">Active (${activeCount})</button>
       <button class="mini-btn ${studentViewMode==='archived'?'active':''}" id="student-mode-archived-btn">Archived (${archivedCount})</button>
