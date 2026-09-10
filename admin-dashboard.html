@@ -1439,7 +1439,8 @@ function renderDirectoryRows(filterText){
           <input type="checkbox" data-toggle-featured="${r.id}" ${r.featured ? 'checked' : ''} /> Featured
         </label>
         ${r.status === 'pending_confirmation' ? `<button class="mini-btn gold" data-confirm-directory="${r.id}">Confirm & Go Live</button>` : ''}
-        ${r.contact_email ? `<button class="mini-btn" data-send-single="${r.id}">${r.confirmation_email_sent_at ? 'Re-send Confirmation' : 'Send Confirmation'}</button>` : ''}
+        ${r.status === 'pending_confirmation' && r.contact_email && !r.admin_approved_at ? `<button class="mini-btn gold" data-approve-and-send="${r.id}">Approve & Send Confirmation</button>` : ''}
+        ${r.contact_email && (r.status !== 'pending_confirmation' || r.admin_approved_at) ? `<button class="mini-btn" data-send-single="${r.id}">${r.confirmation_email_sent_at ? 'Re-send Confirmation' : 'Send Confirmation'}</button>` : ''}
         <button class="mini-btn" data-edit-directory="${r.id}">Edit</button>
         <button class="mini-btn danger" data-delete-directory="${r.id}" style="margin-left:auto;">Delete</button>
       </div>
@@ -1497,6 +1498,41 @@ function renderDirectoryRows(filterText){
         alert('Could not send: ' + e.message);
         btn.disabled = false;
         btn.textContent = originalText;
+      }
+    });
+  });
+  document.querySelectorAll('[data-approve-and-send]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!confirm('Approve this church and send them the confirmation email now?')) return;
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      try {
+        // Marking approved FIRST is what actually matters here -- it's
+        // the gate that keeps the hourly background job from ever
+        // touching an entry Samuel hasn't reviewed yet. The immediate
+        // send below reuses the exact same trusted one-at-a-time
+        // function as the regular Send Confirmation button -- no
+        // separate email-sending logic to keep in sync.
+        const { error: approveError } = await supabaseClient.from('church_directory').update({ admin_approved_at: new Date().toISOString() }).eq('id', btn.dataset.approveAndSend);
+        if(approveError){ alert('Could not approve: ' + approveError.message); btn.disabled = false; btn.textContent = 'Approve & Send Confirmation'; return; }
+
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const res = await fetch('/.netlify/functions/send-single-church-confirmation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+          body: JSON.stringify({ churchId: btn.dataset.approveAndSend })
+        });
+        const result = await res.json();
+        if(result.status === 'success'){
+          await loadChurchDirectoryList();
+        } else {
+          alert('Approved, but could not send the email: ' + (result.error || 'unknown error') + '. Use the Send Confirmation button to try again.');
+          await loadChurchDirectoryList();
+        }
+      } catch(e) {
+        alert('Could not send: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = 'Approve & Send Confirmation';
       }
     });
   });
