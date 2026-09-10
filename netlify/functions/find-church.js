@@ -6,28 +6,45 @@
 // every other third-party API key in this project (OneSignal,
 // Resend, etc.).
 //
+// Phase 2 addition: checks Supabase FIRST for Following Jesus partner
+// churches near the search location (any church with
+// featured_in_church_finder = true and a real address on file -- see
+// add-church-locations.sql), and returns those ahead of the generic
+// Google results, clearly flagged with isPartner: true so app.html can
+// visually distinguish them. Distance is computed with a plain
+// haversine formula here in JS rather than a PostGIS/earthdistance
+// query -- with well under a couple hundred churches total, pulling
+// every featured+geocoded row and filtering in code is simpler and
+// plenty fast, with no extra Postgres extension to set up.
+//
 // Accepts EITHER a lat/lng pair (from the browser's own geolocation)
 // OR a free-text location string (city, zip, address someone typed in
 // manually) -- these map to two different Google Places API (New)
-// endpoints:
+// endpoints for the GOOGLE portion of results:
 //   - lat/lng  -> searchNearby   (a real radius search around a point)
 //   - text     -> searchText     (Google resolves the location text
 //                                 itself -- no separate Geocoding API
 //                                 call needed first)
+// The free-text case is also geocoded once (reusing that same
+// searchText call's own returned location) so partner-church distance
+// filtering has real coordinates to compare against too, not just the
+// Google results.
 //
 // Only requests Pro-tier fields (name, address, location, phone,
-// website) -- deliberately NOT rating, reviews, or photos, since
-// Google bills the ENTIRE request at whichever field's tier is
+// website) from Google -- deliberately NOT rating, reviews, or photos,
+// since Google bills the ENTIRE request at whichever field's tier is
 // highest. Adding a rating field alone would push every search from
 // $32/1,000 (Pro) to $35/1,000 (Enterprise), and reviews/photos to
 // $40/1,000. Confirmed directly against Google's own current pricing
 // page before building this.
 //
 // includedTypes:['church'] is the actual filter that keeps mosques,
-// synagogues, and Hindu temples out of results -- Google's Places data
-// tags those as separate, distinct types from 'church', so allow-
-// listing just 'church' excludes them cleanly and reliably at the API
-// level, no guessing involved.
+// synagogues, and Hindu temples out of the GOOGLE results -- Google's
+// Places data tags those as separate, distinct types from 'church', so
+// allow-listing just 'church' excludes them cleanly and reliably at the
+// API level, no guessing involved. Partner churches from Supabase are
+// obviously already real churches by definition, so this filter only
+// ever applies to the Google portion.
 //
 // The one thing Google's data CANNOT distinguish is denomination or
 // theology within "church" itself -- Mormon/LDS meetinghouses, for
@@ -47,7 +64,43 @@
 // REQUIRES one Netlify environment variable:
 //   GOOGLE_PLACES_API_KEY
 
+const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
+
 const LDS_NAME_PATTERN = /latter-day saints|latter day saints|\bLDS\b/i;
+const SEARCH_RADIUS_MILES = 25;
+
+function milesBetween(lat1, lng1, lat2, lng2) {
+  const R = 3958.8; // Earth's radius in miles
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.asin(Math.sqrt(a));
+}
+
+async function getPartnerChurches(lat, lng) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/churches?select=name,address,latitude,longitude,website_url,slug&featured_in_church_finder=eq.true&latitude=not.is.null&longitude=not.is.null`,
+    { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+  );
+  if (!res.ok) return [];
+  const rows = await res.json();
+  return rows
+    .map(c => ({ ...c, distance: milesBetween(lat, lng, c.latitude, c.longitude) }))
+    .filter(c => c.distance <= SEARCH_RADIUS_MILES)
+    .sort((a, b) => a.distance - b.distance)
+    .map(c => ({
+      id: 'partner-' + c.slug,
+      name: c.name,
+      address: c.address,
+      lat: c.latitude,
+      lng: c.longitude,
+      phone: null,
+      website: c.website_url || `https://followingjesus.com/courses/${c.slug}`,
+      isPartner: true
+    }));
+}
 
 exports.handler = async function (event) {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
@@ -56,8 +109,8 @@ exports.handler = async function (event) {
   }
 
   const params = event.queryStringParameters || {};
-  const lat = params.lat ? parseFloat(params.lat) : null;
-  const lng = params.lng ? parseFloat(params.lng) : null;
+  let lat = params.lat ? parseFloat(params.lat) : null;
+  let lng = params.lng ? parseFloat(params.lng) : null;
   const query = (params.q || '').trim();
 
   if ((lat === null || lng === null || isNaN(lat) || isNaN(lng)) && !query) {
@@ -76,13 +129,14 @@ exports.handler = async function (event) {
   ].join(',');
 
   let endpoint, body;
-  if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
+  const usingCoordinates = lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng);
+  if (usingCoordinates) {
     endpoint = 'https://places.googleapis.com/v1/places:searchNearby';
     body = {
       includedTypes: ['church'],
       maxResultCount: 20,
       locationRestriction: {
-        circle: { center: { latitude: lat, longitude: lng }, radius: 40000 } // ~25 miles
+        circle: { center: { latitude: lat, longitude: lng }, radius: SEARCH_RADIUS_MILES * 1609.34 }
       }
     };
   } else {
@@ -109,7 +163,7 @@ exports.handler = async function (event) {
       return { statusCode: 502, body: JSON.stringify({ error: data.error?.message || 'Google Places rejected the request.' }) };
     }
 
-    const places = (data.places || [])
+    const googleChurches = (data.places || [])
       .filter(p => !LDS_NAME_PATTERN.test(p.displayName?.text || ''))
       .map(p => ({
         id: p.id,
@@ -118,10 +172,32 @@ exports.handler = async function (event) {
         lat: p.location?.latitude ?? null,
         lng: p.location?.longitude ?? null,
         phone: p.nationalPhoneNumber || null,
-        website: p.websiteUri || null
+        website: p.websiteUri || null,
+        isPartner: false
       }));
 
-    return { statusCode: 200, body: JSON.stringify({ churches: places }) };
+    // For a text-search request, borrow the FIRST Google result's own
+    // resolved coordinates to check for partner churches nearby too --
+    // Google already did the work of turning "Escondido, CA" or a zip
+    // code into a real point, no separate geocoding call needed.
+    let searchLat = lat, searchLng = lng;
+    if (!usingCoordinates && googleChurches.length && googleChurches[0].lat !== null) {
+      searchLat = googleChurches[0].lat;
+      searchLng = googleChurches[0].lng;
+    }
+
+    let partnerChurches = [];
+    if (searchLat !== null && searchLng !== null && !isNaN(searchLat) && !isNaN(searchLng)) {
+      partnerChurches = await getPartnerChurches(searchLat, searchLng);
+    }
+
+    // Partner churches first, then Google's results -- de-duplicated on
+    // name+address so a partner church that also happens to show up in
+    // Google's own results isn't listed twice.
+    const partnerKeys = new Set(partnerChurches.map(c => (c.name + c.address).toLowerCase()));
+    const dedupedGoogle = googleChurches.filter(c => !partnerKeys.has((c.name + c.address).toLowerCase()));
+
+    return { statusCode: 200, body: JSON.stringify({ churches: [...partnerChurches, ...dedupedGoogle] }) };
   } catch (e) {
     return { statusCode: 502, body: JSON.stringify({ error: e.message }) };
   }
