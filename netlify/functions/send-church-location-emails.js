@@ -62,22 +62,38 @@ exports.handler = async function (event) {
   const failures = [];
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+  // Shared brand header for every email this project sends -- logo
+  // lives at this one real, hosted URL. Wrapping in a full
+  // <!DOCTYPE html> document with an explicit <meta charset="UTF-8">
+  // is what actually prevents special characters (the em dash, the
+  // arrow below) from rendering as garbled "â€"" / "â†'" in some email
+  // clients -- a bare HTML fragment with no charset declaration leaves
+  // them to guess the encoding, and they don't always guess UTF-8.
+  const LOGO_URL = 'https://followingjesus.com/assets/FJ_logo_rectangle_Thinkific_v2.png';
+
   for (const church of churches) {
     const formUrl = `${APP_URL}/church-location-form?token=${church.location_submission_token}`;
     const firstName = church.contact_name ? church.contact_name.trim().split(/\s+/)[0] : '';
     const greeting = firstName ? `Hi Pastor ${escapeHtml(firstName)},` : 'Hi Pastor,';
 
-    const html = `
-      <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-        <p>${greeting}</p>
-        <p>We just launched a new "Find a Church" feature in the Following Jesus app — it helps people get connected, planted, and serving in a local church near them, using their own location to surface nearby options.</p>
-        <p>We'd love to feature <strong>${escapeHtml(church.name)}</strong> as a Following Jesus partner church for anyone searching nearby. It just takes adding your address:</p>
-        <p style="margin: 28px 0;">
-          <a href="${formUrl}" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Add Our Church's Location →</a>
-        </p>
-        <p>Thank you,<br>Following Jesus Team</p>
-      </div>
-    `;
+    const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;">
+  <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <img src="${LOGO_URL}" alt="Following Jesus" style="max-width:200px;width:100%;height:auto;" />
+    </div>
+    <p>${greeting}</p>
+    <p>We just launched a new "Find a Church" feature in the Following Jesus app — it helps people get connected, planted, and serving in a local church near them, using their own location to surface nearby options.</p>
+    <p>We'd love to feature <strong>${escapeHtml(church.name)}</strong> as a Following Jesus partner church for anyone searching nearby. It just takes adding your address:</p>
+    <p style="margin: 28px 0;">
+      <a href="${formUrl}" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Add Our Church's Location →</a>
+    </p>
+    <p>Thank you,<br>Following Jesus Team</p>
+  </div>
+</body>
+</html>`;
 
     try {
       const res = await fetch('https://api.resend.com/emails', {

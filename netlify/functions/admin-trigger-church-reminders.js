@@ -59,18 +59,34 @@ async function sendReminderEmail({ resendApiKey, toEmail, studentName, courseTit
   const continueUrl = buildContinueUrl(courseUrlPath, churchSlug);
   const unsubscribeUrl = `${APP_URL}/course-reminder-unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
 
-  const html = `
-    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-      <p>Hi ${escapeHtml(studentName)},</p>
-      <p>Just a gentle nudge — you're partway through <strong>${escapeHtml(courseTitle)}</strong> and haven't finished yet. Whenever you're ready to pick back up:</p>
-      <p style="margin: 28px 0;">
-        <a href="${continueUrl}" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Continue the Course →</a>
-      </p>
-      <p style="color:#999;font-size:12px;margin-top:36px;border-top:1px solid #eee;padding-top:16px;">
-        Getting this every week and would rather not? <a href="${unsubscribeUrl}" style="color:#999;">Unsubscribe from reminders</a>
-      </p>
+  // Shared brand header for every email this project sends -- logo
+  // lives at this one real, hosted URL. Wrapping in a full
+  // <!DOCTYPE html> document with an explicit <meta charset="UTF-8">
+  // is what actually prevents special characters (the em dash, the
+  // arrow below) from rendering as garbled "â€"" / "â†'" in some email
+  // clients -- a bare HTML fragment with no charset declaration leaves
+  // them to guess the encoding, and they don't always guess UTF-8.
+  const LOGO_URL = 'https://followingjesus.com/assets/FJ_logo_rectangle_Thinkific_v2.png';
+
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;">
+  <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <img src="${LOGO_URL}" alt="Following Jesus" style="max-width:200px;width:100%;height:auto;" />
     </div>
-  `;
+    <p>Hi ${escapeHtml(studentName)},</p>
+    <p>Just a gentle nudge — you're partway through <strong>${escapeHtml(courseTitle)}</strong> and haven't finished yet. Whenever you're ready to pick back up:</p>
+    <p style="margin: 28px 0;">
+      <a href="${continueUrl}" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Continue the Course →</a>
+    </p>
+    <p style="color:#999;font-size:12px;margin-top:36px;border-top:1px solid #eee;padding-top:16px;">
+      Getting this every week and would rather not? <a href="${unsubscribeUrl}" style="color:#999;">Unsubscribe from reminders</a>
+    </p>
+  </div>
+</body>
+</html>`;
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',

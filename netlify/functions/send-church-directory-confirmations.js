@@ -35,10 +35,34 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// Shared brand header for every email this project sends -- the logo
+// lives at this one real, hosted URL (uploaded once to the assets
+// folder), referenced the same way in every email function rather than
+// duplicating an image anywhere. Wrapping in a full <!DOCTYPE html>
+// document with an explicit <meta charset="UTF-8"> is what actually
+// fixes special characters (the em dash in "Jesus app —", the arrow in
+// "Confirm →") rendering as garbled "â€"" / "â†'" -- a bare HTML
+// fragment with no charset declaration leaves email clients and
+// browsers to guess the encoding, and they don't always guess UTF-8.
+const LOGO_URL = 'https://followingjesus.com/assets/FJ_logo_rectangle_Thinkific_v2.png';
+function wrapEmailHtml(bodyHtml) {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;">
+  <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <img src="${LOGO_URL}" alt="Following Jesus" style="max-width:200px;width:100%;height:auto;" />
+    </div>
+    ${bodyHtml}
+  </div>
+</body>
+</html>`;
+}
+
 function buildEmailHtml(churchName, confirmToken) {
   const confirmUrl = `${APP_URL}/confirm-church-directory-entry?token=${confirmToken}`;
-  return `
-    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+  return wrapEmailHtml(`
       <p>Hi there,</p>
       <p>We're building a new "Find a Church" feature in the Following Jesus app — it helps people get connected, planted, and serving in a local church near them.</p>
       <p>We'd love to feature <strong>${escapeHtml(churchName)}</strong> in our church directory. Can you take a second to confirm your info is correct?</p>
@@ -46,8 +70,7 @@ function buildEmailHtml(churchName, confirmToken) {
         <a href="${confirmUrl}" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Confirm Our Info →</a>
       </p>
       <p>Thank you,<br>Following Jesus Team</p>
-    </div>
-  `;
+  `);
 }
 
 exports.handler = async function (event) {
@@ -85,7 +108,7 @@ exports.handler = async function (event) {
     const previewHtml = buildEmailHtml(sample.name, sample.confirmation_token);
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'text/html' },
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
       body: `
         <div style="background:#f5f5f5;padding:24px;font-family:-apple-system,sans-serif;">
           <p style="max-width:480px;margin:0 auto 16px;font-weight:600;">

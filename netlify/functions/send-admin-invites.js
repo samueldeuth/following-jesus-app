@@ -162,25 +162,41 @@ async function sendInviteEmail(invite, apiKey) {
     ? `<strong>Your admin access</strong> — sign in to pick back up and see your church's past students:`
     : `<strong>Your admin access</strong> — this is for you specifically, to see who's enrolled and track progress:`;
 
-  const html = `
-    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-      <p>${greeting}</p>
-      ${intro}
+  // Shared brand header for every email this project sends -- logo
+  // lives at this one real, hosted URL. Wrapping in a full
+  // <!DOCTYPE html> document with an explicit <meta charset="UTF-8">
+  // is what actually prevents special characters (the em dashes, the
+  // arrow below) from rendering as garbled "â€"" / "â†'" in some email
+  // clients -- a bare HTML fragment with no charset declaration leaves
+  // them to guess the encoding, and they don't always guess UTF-8.
+  const LOGO_URL = 'https://followingjesus.com/assets/FJ_logo_rectangle_Thinkific_v2.png';
 
-      ${isDraft ? '' : courseLinkSection}
-
-      <p style="margin-top:24px;">${adminAccessLabel}</p>
-      <p style="margin: 20px 0;">
-        <a href="${claimUrl}" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Set Up Admin Access →</a>
-      </p>
-      <p style="color:#666;font-size:13px;">Sign in with Google using this same email address (${escapeHtml(invite.email)}) — that's how your access gets matched to your account. If you'd rather use a different email, sign in with that account instead and you'll be given the option to use it.</p>
-
-      ${isDraft ? courseLinkSection : ''}
-
-      <p style="margin-top:28px;">Any questions let us know,</p>
-      <p>Thank you,<br>Following Jesus Team</p>
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;">
+  <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <img src="${LOGO_URL}" alt="Following Jesus" style="max-width:200px;width:100%;height:auto;" />
     </div>
-  `;
+    <p>${greeting}</p>
+    ${intro}
+
+    ${isDraft ? '' : courseLinkSection}
+
+    <p style="margin-top:24px;">${adminAccessLabel}</p>
+    <p style="margin: 20px 0;">
+      <a href="${claimUrl}" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Set Up Admin Access →</a>
+    </p>
+    <p style="color:#666;font-size:13px;">Sign in with Google using this same email address (${escapeHtml(invite.email)}) — that's how your access gets matched to your account. If you'd rather use a different email, sign in with that account instead and you'll be given the option to use it.</p>
+
+    ${isDraft ? courseLinkSection : ''}
+
+    <p style="margin-top:28px;">Any questions let us know,</p>
+    <p>Thank you,<br>Following Jesus Team</p>
+  </div>
+</body>
+</html>`;
 
   try {
     const res = await fetch('https://api.resend.com/emails', {
