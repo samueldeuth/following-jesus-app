@@ -106,35 +106,29 @@ async function init(){
     return;
   }
 
-  if(entry.status === 'confirmed'){
-    renderContent(`
-      <div class="status-icon">✓</div>
-      <h1>Already Confirmed</h1>
-      <p class="detail" style="text-align:center;"><strong>${escapeHtml(entry.name)}</strong> is already live in our church directory. Nothing more to do here!</p>
-    `);
-    return;
-  }
-
   renderMainScreen(token, entry);
 }
 
 function renderMainScreen(token, entry){
+  const alreadyLive = entry.status === 'confirmed';
   renderContent(`
-    <h1>We'd Love to Feature Your Church</h1>
-    <p class="detail">We're building a "Find a Church" feature in the Following Jesus app to help people get connected, planted, and serving in a local church near them. Here's what we have on file for you:</p>
+    <h1>${alreadyLive ? 'Your Church Is Featured' : "We'd Love to Feature Your Church"}</h1>
+    <p class="detail">${alreadyLive
+      ? `<strong>${escapeHtml(entry.name)}</strong> is already live in our "Find a Church" feature in the Following Jesus app. Here's what we currently have on file -- feel free to fix it or add another location below.`
+      : 'We\'re building a "Find a Church" feature in the Following Jesus app to help people get connected, planted, and serving in a local church near them. Here\'s what we have on file for you:'}</p>
     <div class="info-card">
       <div class="info-card-name">${escapeHtml(entry.name)}</div>
       <div class="info-card-address">${escapeHtml(entry.address || 'No address on file')}</div>
     </div>
-    <button type="button" class="btn btn-primary" id="confirmBtn">Yes, This Is Correct</button>
+    ${alreadyLive ? '' : '<button type="button" class="btn btn-primary" id="confirmBtn">Yes, This Is Correct</button>'}
     <button type="button" class="btn btn-secondary" id="editBtn">Fix This Info</button>
-    <button type="button" class="btn btn-text" id="rejectBtn">This isn't accurate — remove it</button>
+    <button type="button" class="btn btn-text" id="rejectBtn">${alreadyLive ? "Remove us from the directory" : "This isn't accurate — remove it"}</button>
     <div id="editForm" style="display:none;margin-top:16px;text-align:left;">
       <label class="field-label">Church Name</label>
       <input type="text" class="address-input" id="editName" value="${escapeHtml(entry.name)}" />
       <label class="field-label">Address</label>
       <input type="text" class="address-input" id="editAddress" value="${escapeHtml(entry.address || '')}" />
-      <button type="button" class="btn btn-primary" id="saveEditBtn">Save & Confirm</button>
+      <button type="button" class="btn btn-primary" id="saveEditBtn">Save${alreadyLive ? '' : ' & Confirm'}</button>
     </div>
 
     <div style="margin-top:32px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.1);text-align:left;">
@@ -200,7 +194,8 @@ function renderMainScreen(token, entry){
     btn.textContent = 'Add This Location';
   });
 
-  document.getElementById('confirmBtn').addEventListener('click', async () => {
+  const confirmBtn = document.getElementById('confirmBtn');
+  if(confirmBtn) confirmBtn.addEventListener('click', async () => {
     const btn = document.getElementById('confirmBtn');
     btn.disabled = true;
     btn.textContent = 'Confirming…';
