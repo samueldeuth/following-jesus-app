@@ -7,9 +7,23 @@
 // SAFETY: by default (no &send=true), this returns the fully-rendered
 // email HTML for ONE real candidate WITHOUT sending anything to
 // anyone -- lets you see exactly what will go out before it does.
-// Only adding &send=true actually sends, to everyone eligible, for
-// real. This isn't just a suggestion in the comments -- the code
-// itself refuses to send unless that parameter is explicitly present.
+// Only adding &send=true actually sends. This isn't just a suggestion
+// in the comments -- the code itself refuses to send unless that
+// parameter is explicitly present.
+//
+// BATCHED on purpose: a real run of ~289 sends, even with a small
+// pause between each, took several minutes total -- comfortably past
+// Netlify's own execution time limit for a single function call,
+// which silently killed the function partway through with a 502 and
+// zero emails actually sent. Processing a bounded number per call
+// (default 20) and returning a nextOffset keeps each individual call
+// well within that limit -- same fix already applied to the earlier
+// geocoding import for the same underlying reason.
+//
+// Each successful send is marked via mark_confirmation_email_sent
+// immediately (not batched up and marked all at once at the end), so
+// if a later call in the sequence ever fails or times out, everyone
+// already emailed in an earlier call is never re-sent.
 //
 // ---------------------------------------------------------------------
 // USAGE:
@@ -17,8 +31,9 @@
 // Preview (safe, sends nothing):
 //   https://followingjesus.com/.netlify/functions/send-church-directory-confirmations?secret=<REMINDER_FUNCTION_SECRET>
 //
-// Actually send to everyone eligible:
-//   https://followingjesus.com/.netlify/functions/send-church-directory-confirmations?secret=<REMINDER_FUNCTION_SECRET>&send=true
+// Send a batch (repeat with the nextOffset each response gives back,
+// until done:true):
+//   https://followingjesus.com/.netlify/functions/send-church-directory-confirmations?secret=<REMINDER_FUNCTION_SECRET>&send=true&offset=0
 //
 // REQUIRES:
 //   RESEND_API_KEY
@@ -30,6 +45,7 @@ const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
 const FROM_EMAIL = 'Following Jesus <approvals@mail.followingjesus.com>';
 const APP_URL = 'https://followingjesus.com';
+const BATCH_SIZE = 20;
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -125,11 +141,21 @@ exports.handler = async function (event) {
   }
 
   // Real send -- only reachable with send=true explicitly in the URL.
+  // Only processes one bounded batch (BATCH_SIZE, default 20) starting
+  // at the given offset -- see the file header for why the whole list
+  // was never safe to process in a single call.
+  const offset = parseInt(params.offset || '0', 10);
+  const batch = pendingChurches.slice(offset, offset + BATCH_SIZE);
+
+  if (!batch.length) {
+    return { statusCode: 200, body: JSON.stringify({ done: true, message: 'All eligible churches have been sent to.' }) };
+  }
+
   const successful = [];
   const failures = [];
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-  for (const church of pendingChurches) {
+  for (const church of batch) {
     try {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -143,6 +169,14 @@ exports.handler = async function (event) {
         })
       });
       if (res.ok) {
+        // Marked immediately, not batched up for the end -- if a LATER
+        // batch call in this same sequence ever fails or times out,
+        // everyone already emailed here still never gets a duplicate.
+        await fetch(`${SUPABASE_URL}/rest/v1/rpc/mark_confirmation_email_sent`, {
+          method: 'POST',
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ caller_secret: functionSecret, p_id: church.id })
+        });
         successful.push(church.contact_email);
       } else {
         failures.push({ email: church.contact_email, error: await res.text() });
@@ -153,8 +187,17 @@ exports.handler = async function (event) {
     await sleep(150); // stays comfortably under Resend's rate limit, same pattern as the other bulk-email functions in this project
   }
 
+  const nextOffset = offset + BATCH_SIZE;
   return {
     statusCode: 200,
-    body: JSON.stringify({ totalEligible: pendingChurches.length, sent: successful.length, failed: failures.length, failures })
+    body: JSON.stringify({
+      done: nextOffset >= pendingChurches.length,
+      totalEligible: pendingChurches.length,
+      processedThisBatch: batch.length,
+      sentThisBatch: successful.length,
+      failedThisBatch: failures.length,
+      nextOffset: nextOffset < pendingChurches.length ? nextOffset : null,
+      failures
+    })
   };
 };
