@@ -1848,12 +1848,35 @@
         <span class="disciple-banner-arrow">→</span>
       </button>
 
+      <div class="verse-alert-modal-overlay" id="findChurchModalOverlay">
+        <div class="verse-alert-modal-card" style="max-width:440px;max-height:82vh;overflow-y:auto;text-align:left;position:relative;">
+          <button type="button" id="findChurchCloseBtn" aria-label="Close" style="position:absolute;top:14px;right:14px;background:none;border:none;font-size:20px;color:var(--ink-soft);cursor:pointer;line-height:1;">×</button>
+          <h3 class="verse-alert-modal-title" style="text-align:left;">Find a Church</h3>
+          <p style="font-size:13px;color:var(--ink-soft);line-height:1.5;margin:0 0 16px;">
+            Being connected, planted, and serving in a local church is one of the most important things you can do in your walk with Jesus. Here are some churches near you to check out.
+          </p>
+          <button type="button" id="findChurchUseLocationBtn" class="app-alert-btn" style="width:100%;background:var(--black);color:#fff;padding:12px;border-radius:12px;font-size:14px;font-weight:600;border:none;cursor:pointer;margin-bottom:10px;">📍 Use My Location</button>
+          <div style="display:flex;gap:8px;margin-bottom:16px;">
+            <input type="text" id="findChurchLocationInput" placeholder="Or enter a city or zip code" style="flex:1;padding:10px 12px;border:1px solid var(--line, #ddd);border-radius:10px;font-size:14px;">
+            <button type="button" id="findChurchSearchBtn" style="padding:10px 16px;border-radius:10px;border:none;background:var(--ember, #c89b3c);color:#fff;font-weight:600;cursor:pointer;">Search</button>
+          </div>
+          <div id="findChurchResults"></div>
+          <p style="font-size:11px;color:var(--ink-soft);line-height:1.5;margin:16px 0 0;border-top:1px solid rgba(0,0,0,0.08);padding-top:12px;">
+            These results come from Google's map data. We can't verify each church's specific beliefs or practices — when visiting, look for a church that's Christ-centered, teaches from the Bible, and where people are experiencing real relationship with Jesus.
+          </p>
+        </div>
+      </div>
+
       <div class="section-label">More</div>
       <div class="icon-grid">
         <a class="grid-item" href="https://followingjesus.com/course" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="3" width="16" height="18" rx="1"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>
           <span>Free Course</span>
         </a>
+        <button type="button" class="grid-item" id="findChurchBannerBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+          <span>Find a Church</span>
+        </button>
         <button type="button" class="grid-item" onclick="goToTab('screen-blog')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 19V6a2 2 0 012-2h9l5 5v10a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M14 4v5h5"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="16.5" x2="13" y2="16.5"/></svg>
           <span>Blog</span>
@@ -2238,6 +2261,84 @@
     document.getElementById('gospelModal').classList.add('open');
     renderGospelGrid();
     pushUrlHash('gospel');
+  });
+
+  // ---------- Find a Church ----------
+  const findChurchOverlay = document.getElementById('findChurchModalOverlay');
+  const findChurchResults = document.getElementById('findChurchResults');
+  const findChurchLocationInput = document.getElementById('findChurchLocationInput');
+
+  document.getElementById('findChurchBannerBtn').addEventListener('click', () => {
+    findChurchOverlay.classList.add('open');
+  });
+  document.getElementById('findChurchCloseBtn').addEventListener('click', () => {
+    findChurchOverlay.classList.remove('open');
+  });
+  findChurchOverlay.addEventListener('click', (e) => {
+    if (e.target === findChurchOverlay) findChurchOverlay.classList.remove('open');
+  });
+
+  function renderFindChurchLoading(){
+    findChurchResults.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);text-align:center;padding:16px 0;">Searching…</p>`;
+  }
+  function renderFindChurchError(msg){
+    findChurchResults.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);text-align:center;padding:16px 0;">${escapeHtml(msg)}</p>`;
+  }
+  function renderFindChurchResults(churches){
+    if(!churches.length){
+      renderFindChurchError('No churches found nearby. Try a different city or zip code.');
+      return;
+    }
+    findChurchResults.innerHTML = churches.map(c => {
+      const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(c.name + ' ' + c.address);
+      return `
+        <div style="padding:12px 0;border-bottom:1px solid rgba(0,0,0,0.08);">
+          <div style="font-family:var(--font-display, inherit);font-weight:700;font-size:14px;color:var(--black, #000);">${escapeHtml(c.name)}</div>
+          <div style="font-size:12.5px;color:var(--ink-soft);margin:2px 0 6px;">${escapeHtml(c.address)}</div>
+          <div style="display:flex;gap:14px;font-size:12.5px;">
+            <a href="${mapsUrl}" target="_blank" rel="noopener" style="color:var(--ember, #c89b3c);font-weight:600;text-decoration:none;">Get Directions</a>
+            ${c.website ? `<a href="${escapeHtml(c.website)}" target="_blank" rel="noopener" style="color:var(--ember, #c89b3c);font-weight:600;text-decoration:none;">Website</a>` : ''}
+            ${c.phone ? `<a href="tel:${escapeHtml(c.phone)}" style="color:var(--ember, #c89b3c);font-weight:600;text-decoration:none;">Call</a>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  async function searchFindChurch(params){
+    renderFindChurchLoading();
+    try {
+      const qs = new URLSearchParams(params).toString();
+      const res = await fetch(`/.netlify/functions/find-church?${qs}`);
+      const data = await res.json();
+      if(!res.ok){
+        renderFindChurchError("Couldn't load nearby churches right now. Please try again in a moment.");
+        return;
+      }
+      renderFindChurchResults(data.churches || []);
+    } catch (e) {
+      renderFindChurchError("Couldn't load nearby churches right now. Please try again in a moment.");
+    }
+  }
+
+  document.getElementById('findChurchUseLocationBtn').addEventListener('click', () => {
+    if(!navigator.geolocation){
+      renderFindChurchError('Location isn\u2019t available on this device. Try entering a city or zip code instead.');
+      return;
+    }
+    renderFindChurchLoading();
+    navigator.geolocation.getCurrentPosition(
+      (pos) => searchFindChurch({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => renderFindChurchError('Location access was denied. Try entering a city or zip code instead.')
+    );
+  });
+
+  document.getElementById('findChurchSearchBtn').addEventListener('click', () => {
+    const q = findChurchLocationInput.value.trim();
+    if(!q){ renderFindChurchError('Enter a city or zip code to search.'); return; }
+    searchFindChurch({ q });
+  });
+  findChurchLocationInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') document.getElementById('findChurchSearchBtn').click();
   });
 
   // If someone opened the app via a shared invite link (?join=CODE), take
