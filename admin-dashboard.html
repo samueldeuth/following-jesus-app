@@ -3842,6 +3842,18 @@ async function renderChurchStudents(churchId){
 
     const idx = allChurches.findIndex(c => c.id === churchId);
     if(idx !== -1) allChurches[idx] = updated;
+
+    // Updates the preview link immediately -- previously this only
+    // reflected the new slug after a full page refresh, since the link
+    // was rendered once from the initial template and never touched
+    // again after a save succeeded.
+    const linkPreview = document.getElementById('church-link-preview');
+    if(linkPreview){
+      const newUrl = `https://followingjesus.com/courses/${updated.slug}`;
+      linkPreview.textContent = `followingjesus.com/courses/${updated.slug}`;
+      linkPreview.href = newUrl;
+    }
+
     statusEl.textContent = 'Saved ✓';
     setTimeout(() => { statusEl.textContent = ''; }, 2000);
   });
