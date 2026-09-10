@@ -20,6 +20,7 @@ const { verifyShopifyWebhook } = require('./lib/verify');
 const { tagOrderAwaitingOutreach, getProductTags } = require('./lib/shopify');
 const { sendOutreachOrderEmail } = require('./lib/send-outreach-order-email');
 const { sendAlertEmail } = require('./lib/alert');
+const { maybeAddChurchFromOrder } = require('./lib/add-church-from-order');
 
 const OUTREACH_FULFILLED_TAG = 'outreach-fulfilled';
 
@@ -37,6 +38,14 @@ exports.handler = async (event) => {
   }
 
   const order = JSON.parse(rawBody);
+
+  // Independent of everything below -- checks the order's shipping
+  // Company field for a church-like name and adds a new pending
+  // church_directory entry if so, regardless of what was actually
+  // purchased. Awaited but never allowed to affect anything else in
+  // this handler; failures are only logged, not alerted, since this is
+  // a nice-to-have enrichment, not something that needs manual recovery.
+  await maybeAddChurchFromOrder(order);
 
   const physicalLineItems = (order.line_items || []).filter((li) => li.requires_shipping);
 
