@@ -285,6 +285,26 @@
   .verse-alert-modal-title { font-size: 17px; font-weight: 600; color: var(--ink); margin: 0 0 18px; text-align: center; }
   .verse-alert-modal-time-label { display: block; font-size: 12px; color: var(--ink-soft); margin: 18px 0 6px; }
 
+  /* Small "i" info icon + popover, replacing a description/disclaimer
+     that would otherwise always show inline. One shared popover
+     element is reused for whichever icon was tapped (see
+     initInfoTooltips) rather than one per icon. */
+  .info-icon-btn {
+    width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+    border: 1.5px solid var(--ink-soft); background: none; color: var(--ink-soft);
+    font-size: 11px; font-weight: 700; font-style: italic; font-family: Georgia, 'Times New Roman', serif;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; padding: 0; line-height: 1;
+  }
+  .info-icon-btn:hover, .info-icon-btn.open { background: var(--ink-soft); color: #fff; }
+  .info-tooltip-popover {
+    position: absolute; z-index: 600; max-width: 260px;
+    background: var(--black, #0a0a0a); color: #fff; font-size: 12px; font-weight: 400;
+    padding: 10px 12px; border-radius: 8px; line-height: 1.4;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2); display: none;
+  }
+  .info-tooltip-popover.open { display: block; }
+
   .notif-settings-row {
     display: none;
     align-items: center;
@@ -1851,7 +1871,9 @@
       <div class="verse-alert-modal-overlay" id="findChurchModalOverlay">
         <div class="verse-alert-modal-card" style="max-width:440px;max-height:82vh;overflow-y:auto;text-align:left;position:relative;">
           <button type="button" id="findChurchCloseBtn" aria-label="Close" style="position:absolute;top:14px;right:14px;background:none;border:none;font-size:20px;color:var(--ink-soft);cursor:pointer;line-height:1;">×</button>
-          <h3 class="verse-alert-modal-title" style="text-align:left;">Find a Church</h3>
+          <h3 class="verse-alert-modal-title" style="text-align:left;display:flex;align-items:center;gap:6px;">Find a Church
+            <button type="button" class="info-icon-btn" data-info="These results come from Google's map data. We can't verify each church's specific beliefs or practices -- when visiting, look for a church that's Christ-centered, teaches from the Bible, and where people are experiencing real relationship with Jesus.">i</button>
+          </h3>
           <p style="font-size:13px;color:var(--ink-soft);line-height:1.5;margin:0 0 16px;">
             Being connected, planted, and serving in a local church is one of the most important things you can do in your walk with Jesus. Here are some churches near you to check out.
           </p>
@@ -1861,9 +1883,6 @@
             <button type="button" id="findChurchSearchBtn" style="padding:10px 16px;border-radius:10px;border:none;background:var(--ember, #c89b3c);color:#fff;font-weight:600;cursor:pointer;">Search</button>
           </div>
           <div id="findChurchResults"></div>
-          <p style="font-size:11px;color:var(--ink-soft);line-height:1.5;margin:16px 0 0;border-top:1px solid rgba(0,0,0,0.08);padding-top:12px;">
-            These results come from Google's map data. We can't verify each church's specific beliefs or practices — when visiting, look for a church that's Christ-centered, teaches from the Bible, and where people are experiencing real relationship with Jesus.
-          </p>
         </div>
       </div>
 
@@ -2264,6 +2283,40 @@
   });
 
   // ---------- Find a Church ----------
+  // Wires up every .info-icon-btn on the page to open/close a single
+  // shared popover showing that icon's data-info text -- one popover
+  // element reused for whichever icon was tapped, so only one is ever
+  // open at a time.
+  function initInfoTooltips(){
+    let popover = document.getElementById('shared-info-popover');
+    if(!popover){
+      popover = document.createElement('div');
+      popover.id = 'shared-info-popover';
+      popover.className = 'info-tooltip-popover';
+      document.body.appendChild(popover);
+      document.addEventListener('click', () => {
+        popover.classList.remove('open');
+        document.querySelectorAll('.info-icon-btn.open').forEach(b => b.classList.remove('open'));
+      });
+    }
+    document.querySelectorAll('.info-icon-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const wasOpen = btn.classList.contains('open');
+        popover.classList.remove('open');
+        document.querySelectorAll('.info-icon-btn.open').forEach(b => b.classList.remove('open'));
+        if(wasOpen) return;
+        popover.textContent = btn.dataset.info;
+        const rect = btn.getBoundingClientRect();
+        popover.style.top = (window.scrollY + rect.bottom + 6) + 'px';
+        popover.style.left = Math.max(12, Math.min(window.scrollX + rect.left, window.innerWidth - 272)) + 'px';
+        popover.classList.add('open');
+        btn.classList.add('open');
+      });
+    });
+  }
+  initInfoTooltips();
+
   const findChurchOverlay = document.getElementById('findChurchModalOverlay');
   const findChurchResults = document.getElementById('findChurchResults');
   const findChurchLocationInput = document.getElementById('findChurchLocationInput');
@@ -2292,7 +2345,7 @@
     findChurchResults.innerHTML = churches.map(c => {
       const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(c.name + ' ' + c.address);
       const partnerBadge = c.isPartner
-        ? `<div style="display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:var(--ember, #c89b3c);background:rgba(200,155,60,0.14);border-radius:8px;padding:2px 8px;margin-bottom:4px;">Following Jesus Partner Church</div><br>`
+        ? `<div style="display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:var(--ember, #c89b3c);background:rgba(200,155,60,0.14);border-radius:8px;padding:2px 8px;margin-bottom:4px;">Following Jesus Featured Church</div><br>`
         : '';
       return `
         <div style="padding:12px 0;border-bottom:1px solid rgba(0,0,0,0.08);">
