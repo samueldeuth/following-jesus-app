@@ -1281,11 +1281,16 @@ exports.handler = async function (event) {
 
   // Skip anything already in church_directory (by normalized name) --
   // safe to re-run this same offset, or the whole import, without
-  // creating duplicates.
-  const existingRes = await fetch(`${SUPABASE_URL}/rest/v1/church_directory?select=name`, {
-    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+  // creating duplicates. Goes through get_church_directory_names
+  // (security definer, gated by the same secret) rather than a direct
+  // table read -- church_directory's RLS restricts direct access to a
+  // real, logged-in super_admin, which this backend script never is.
+  const existingRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_church_directory_names`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ caller_secret: secret })
   });
-  const existingNames = new Set((await existingRes.json()).map(r => normalize(r.name)));
+  const existingNames = new Set((await existingRes.json()).map(n => normalize(n)));
 
   const results = [];
   for (const candidate of batch) {
@@ -1299,25 +1304,22 @@ exports.handler = async function (event) {
         results.push({ name: candidate.name, status: 'geocode_failed', address: candidate.address });
         continue;
       }
-      const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/church_directory`, {
+      // insert_pending_church (security definer, same secret) instead
+      // of a direct table insert -- same RLS reasoning as the read
+      // above.
+      const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/insert_pending_church`, {
         method: 'POST',
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-          Prefer: 'return=minimal'
-        },
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: candidate.name,
-          address: geocoded.formattedAddress,
-          latitude: geocoded.lat,
-          longitude: geocoded.lng,
-          source: 'shopify_import',
-          status: 'pending_confirmation',
-          featured: true
+          caller_secret: secret,
+          p_name: candidate.name,
+          p_address: geocoded.formattedAddress,
+          p_lat: geocoded.lat,
+          p_lng: geocoded.lng
         })
       });
-      results.push({ name: candidate.name, status: insertRes.ok ? 'imported' : 'insert_failed' });
+      const insertResult = await insertRes.json();
+      results.push({ name: candidate.name, status: insertResult === 'success' ? 'imported' : 'insert_failed' });
     } catch (e) {
       results.push({ name: candidate.name, status: 'error', error: e.message });
     }
