@@ -1327,6 +1327,7 @@ async function renderChurchDirectory(){
     <p style="font-size:13px;margin:0 0 20px;padding:8px 12px;background:var(--bg-soft);border-radius:6px;max-width:640px;">
       Every physical church location shown in the app's "Find a Church" feature. Course customers sync in here automatically once approved -- add anyone else directly below, whether they're a book customer or just a church you want to feature.
     </p>
+    <p style="font-size:13px;margin:0 0 20px;padding:8px 12px;background:var(--bg-soft);border-radius:6px;max-width:640px;" id="church-directory-count">Loading total…</p>
 
     <div class="card" style="margin-bottom:20px;max-width:640px;">
       <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 12px;">Add a Church</h3>
@@ -1384,8 +1385,19 @@ async function renderChurchDirectory(){
 
 async function loadChurchDirectoryList(){
   const listEl = document.getElementById('directory-list');
+  const countEl = document.getElementById('church-directory-count');
   const { data: rows, error } = await supabaseClient.from('church_directory').select('*').order('name');
-  if(error){ listEl.textContent = 'Could not load the directory right now.'; return; }
+  if(error){
+    listEl.textContent = 'Could not load the directory right now.';
+    if(countEl) countEl.textContent = '';
+    return;
+  }
+  if(countEl){
+    const pending = rows.filter(r => r.status === 'pending_confirmation').length;
+    countEl.textContent = pending
+      ? `${rows.length.toLocaleString()} churches in the directory — ${pending.toLocaleString()} still pending confirmation.`
+      : `${rows.length.toLocaleString()} churches in the directory.`;
+  }
   if(!rows.length){ listEl.textContent = 'Nothing in the directory yet.'; return; }
 
   const sourceLabel = { course_customer: 'Course customer', shopify_import: 'Shopify import', manual: 'Manually added' };
