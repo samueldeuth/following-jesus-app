@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Add Your Church's Location — Following Jesus</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --black: #0a0a0a;
+    --white: #ffffff;
+    --ink-soft: #57534d;
+    --ember: #c89b3c;
+    --font-display: 'Archivo', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--black); color:var(--white);
+    font-family:var(--font-body); -webkit-font-smoothing:antialiased;
+    min-height:100vh; display:flex; flex-direction:column;
+  }
+  .wrap{
+    max-width:440px; margin:0 auto; padding:60px 24px 40px;
+    flex:1; display:flex; flex-direction:column; justify-content:center;
+    text-align:center;
+  }
+  .logo-badge{
+    background:var(--white); color:var(--black); font-family:var(--font-display); font-weight:700;
+    letter-spacing:0.14em; font-size:13px; padding:10px 16px; text-transform:uppercase;
+    display:inline-block; margin-bottom:32px;
+  }
+  h1{
+    font-family:var(--font-display); font-weight:800; font-size:24px;
+    line-height:1.3; margin:0 0 14px;
+  }
+  .detail{
+    font-size:15px; color:rgba(255,255,255,0.75); line-height:1.6; margin:0 0 28px; text-align:left;
+  }
+  .detail strong{ color:var(--white); }
+  .field-label{ display:block; font-size:12px; color:rgba(255,255,255,0.6); margin:0 0 6px; text-align:left; }
+  .address-input{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.15);
+    background:rgba(255,255,255,0.06); color:var(--white); font-size:15px; margin-bottom:20px;
+    font-family:var(--font-body);
+  }
+  .address-input::placeholder{ color:rgba(255,255,255,0.35); }
+  .btn{
+    border:none; border-radius:6px; padding:14px 20px; font-family:var(--font-display);
+    font-weight:700; font-size:15px; cursor:pointer; width:100%; text-decoration:none;
+    display:inline-block;
+  }
+  .btn-primary{background:var(--white); color:var(--black);}
+  .btn:disabled{opacity:0.5; cursor:default;}
+  .status-icon{font-size:40px; margin-bottom:16px;}
+  .loading{color:rgba(255,255,255,0.5); font-size:14px;}
+  .toggle-hint{ font-size:12px; color:var(--ember); margin-top:14px; }
+</style>
+</head>
+<body>
+
+<div class="wrap" id="content">
+  <div class="logo-badge">Following Jesus</div>
+  <p class="loading">Loading…</p>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function getToken(){
+  return new URLSearchParams(window.location.search).get('token');
+}
+
+function renderContent(html){
+  document.getElementById('content').innerHTML = `<div class="logo-badge">Following Jesus</div>${html}`;
+}
+
+async function init(){
+  const token = getToken();
+  if(!token){
+    renderContent(`<h1>Link Not Found</h1><p class="detail">This link is missing some information. Please use the link from your email directly.</p>`);
+    return;
+  }
+
+  const { data, error } = await supabaseClient.rpc('get_church_by_location_token', { lookup_token: token });
+  const church = data && data[0];
+
+  if(error || !church){
+    renderContent(`<h1>Link Not Found</h1><p class="detail">This link doesn't match anything on file. It may have been entered incorrectly — please use the link from your email directly.</p>`);
+    return;
+  }
+
+  renderContent(`
+    <h1>Add ${escapeHtml(church.church_name)}'s Location</h1>
+    <p class="detail">We're launching a new "Find a Church" feature in the Following Jesus app to help people get connected, planted, and serving in a local church near them. Add your church's address below and you'll show up as a featured Following Jesus partner church to anyone searching nearby.</p>
+    <label class="field-label">Church Address</label>
+    <input type="text" class="address-input" id="addressInput" placeholder="Street, City, State, Zip" value="${escapeHtml(church.current_address || '')}" />
+    <button type="button" class="btn btn-primary" id="submitBtn">Save Our Location</button>
+  `);
+
+  document.getElementById('submitBtn').addEventListener('click', async () => {
+    const address = document.getElementById('addressInput').value.trim();
+    if(!address){ alert('Please enter your church\\'s address.'); return; }
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      const res = await fetch('/.netlify/functions/submit-church-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, address })
+      });
+      const result = await res.json();
+      if(result.status === 'success'){
+        renderContent(`
+          <div class="status-icon">✓</div>
+          <h1>You're All Set</h1>
+          <p class="detail" style="text-align:center;">Thanks! <strong>${escapeHtml(church.church_name)}</strong> will now show up as a featured partner church to anyone nearby searching in the app.</p>
+        `);
+      } else if(result.status === 'geocode_failed'){
+        btn.disabled = false;
+        btn.textContent = 'Save Our Location';
+        alert("We couldn't find that address on the map — please double-check it and try again.");
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Save Our Location';
+        alert('Something went wrong. Please try again, or reach out directly if this keeps happening.');
+      }
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = 'Save Our Location';
+      alert('Something went wrong. Please try again, or reach out directly if this keeps happening.');
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>

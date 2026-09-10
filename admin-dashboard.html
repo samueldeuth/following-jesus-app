@@ -3223,6 +3223,15 @@ async function renderChurchStudents(churchId){
       <label class="field-label">Church Website</label>
       <input type="text" class="field-input" id="edit-website" value="${(church?.website_url||'').replace(/"/g,'&quot;')}" placeholder="https://..." />
 
+      <h4 class="field-section-title">Find a Church (location)</h4>
+      <label class="field-label">Church Address</label>
+      <input type="text" class="field-input" id="edit-church-address" value="${(church?.address||'').replace(/"/g,'&quot;')}" placeholder="Street, City, State, Zip" />
+      <p class="field-hint" style="margin-bottom:8px;">Saved automatically to the map when you save below -- shows this church as a featured partner to anyone searching nearby in the app.</p>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:8px;">
+        <input type="checkbox" id="edit-church-featured" ${church?.featured_in_church_finder !== false ? 'checked' : ''} />
+        Show as a featured partner church in Find a Church
+      </label>
+
       <button class="mini-btn" id="save-church-settings-btn" style="margin-top:14px;background:var(--ink);color:#fff;border-color:var(--ink);">Save Church Settings</button>
       <span id="save-status" style="font-size:12.5px;color:var(--ink-soft);margin-left:10px;"></span>
     </div>
@@ -3494,7 +3503,8 @@ async function renderChurchStudents(churchId){
       letter_image_url: document.getElementById('edit-letter-image').value.trim() || null,
       letter_author_name: document.getElementById('edit-letter-author').value.trim() || null,
       letter_author_title: document.getElementById('edit-letter-author-title').value.trim() || null,
-      website_url: document.getElementById('edit-website').value.trim() || null
+      website_url: document.getElementById('edit-website').value.trim() || null,
+      featured_in_church_finder: document.getElementById('edit-church-featured').checked
     };
     // Only stamped the moment a church actually moves out of
     // pending_approval into live for the first time -- this is what
@@ -3514,10 +3524,41 @@ async function renderChurchStudents(churchId){
       return;
     }
 
+    // Address goes through submit-church-location.js instead of the
+    // direct update above -- geocoding it into real lat/lng needs the
+    // Places API key, which only lives server-side. Reuses the exact
+    // same public, token-gated endpoint the church's own outreach-email
+    // submission form uses -- the church's own location_submission_token
+    // (already on the row, already visible to admin here) is all the
+    // authorization that endpoint needs, so there's no separate
+    // authenticated version of this to build and keep in sync.
+    const newAddress = document.getElementById('edit-church-address').value.trim();
+    if(newAddress && newAddress !== (church?.address || '')){
+      statusEl.textContent = 'Saved ✓ · Locating on map...';
+      try {
+        const geoRes = await fetch('/.netlify/functions/submit-church-location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: updated.location_submission_token, address: newAddress })
+        });
+        const geoResult = await geoRes.json();
+        if(geoResult.status === 'success'){
+          statusEl.textContent = 'Saved ✓ · Location updated';
+        } else if(geoResult.status === 'geocode_failed'){
+          statusEl.textContent = 'Saved ✓ · Address not found on map — check spelling';
+        } else {
+          statusEl.textContent = 'Saved ✓ · Could not update location';
+        }
+      } catch(e) {
+        statusEl.textContent = 'Saved ✓ · Could not update location';
+      }
+    } else {
+      statusEl.textContent = 'Saved ✓';
+    }
+
     const idx = allChurches.findIndex(c => c.id === churchId);
     if(idx !== -1) allChurches[idx] = updated;
-    statusEl.textContent = 'Saved ✓';
-    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+    setTimeout(() => { statusEl.textContent = ''; }, 4000);
   });
 
   wireChurchContactSection(churchId, contactInviteStatus, church);
