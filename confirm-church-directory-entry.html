@@ -120,7 +120,49 @@ function renderMainScreen(token, entry){
       <input type="text" class="address-input" id="editAddress" value="${escapeHtml(entry.address || '')}" />
       <button type="button" class="btn btn-primary" id="saveEditBtn">Save & Confirm</button>
     </div>
+
+    <div style="margin-top:32px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.1);text-align:left;">
+      <p class="field-label" style="font-size:13px;color:rgba(255,255,255,0.75);margin-bottom:12px;">Have another campus or location? Add it below and it'll be featured too.</p>
+      <label class="field-label">Location Name</label>
+      <input type="text" class="address-input" id="newLocationName" placeholder="e.g. Downtown Campus" />
+      <label class="field-label">Address</label>
+      <input type="text" class="address-input" id="newLocationAddress" placeholder="Street, City, State, Zip" />
+      <button type="button" class="btn btn-secondary" id="addLocationBtn">Add This Location</button>
+      <p id="addLocationStatus" style="font-size:13px;color:rgba(255,255,255,0.5);margin-top:8px;"></p>
+    </div>
   `);
+
+  document.getElementById('addLocationBtn').addEventListener('click', async () => {
+    const name = document.getElementById('newLocationName').value.trim();
+    const address = document.getElementById('newLocationAddress').value.trim();
+    const statusEl = document.getElementById('addLocationStatus');
+    if(!name || !address){ alert('Please fill in both the location name and address.'); return; }
+    const btn = document.getElementById('addLocationBtn');
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+    try {
+      const res = await fetch('/.netlify/functions/confirm-church-directory-entry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, name, address, action: 'addLocation' })
+      });
+      const result = await res.json();
+      if(result.status === 'success'){
+        statusEl.textContent = `${name} added ✓`;
+        statusEl.style.color = '#8fd4c1';
+        document.getElementById('newLocationName').value = '';
+        document.getElementById('newLocationAddress').value = '';
+      } else if(result.status === 'geocode_failed'){
+        statusEl.textContent = "Couldn't find that address on the map — check spelling and try again.";
+      } else {
+        statusEl.textContent = 'Something went wrong. Please try again.';
+      }
+    } catch(e) {
+      statusEl.textContent = 'Something went wrong. Please try again.';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Add This Location';
+  });
 
   document.getElementById('confirmBtn').addEventListener('click', async () => {
     const btn = document.getElementById('confirmBtn');
@@ -169,7 +211,7 @@ function renderMainScreen(token, entry){
       const res = await fetch('/.netlify/functions/confirm-church-directory-entry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, name, address })
+        body: JSON.stringify({ token, name, address, action: 'edit' })
       });
       const result = await res.json();
       if(result.status === 'success'){

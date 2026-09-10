@@ -47,3 +47,11 @@
 # for the one-time "Scheduled" push mode.
 [functions."send-recurring-push-notifications"]
   schedule = "0 8 * * *"
+
+# Runs hourly. One-time, per-timezone send for the church directory
+# confirmation emails -- see send-church-directory-confirmations-scheduled.js
+# for the full "why this needs its own logic" explanation. Safe to
+# leave running indefinitely; becomes a no-op once everyone's been
+# emailed.
+[functions."send-church-directory-confirmations-scheduled"]
+  schedule = "0 * * * *"
