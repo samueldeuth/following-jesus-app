@@ -11,6 +11,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- REPLACE YOUR_BROWSER_PLACES_API_KEY_HERE with the actual key value
+     from the "Find a Church - Browser Autocomplete" key in Google Cloud
+     Console -- this one is restricted to followingjesus.com/* and
+     Places API (New) only, safe to have visible in page source. -->
+<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_BROWSER_PLACES_API_KEY_HERE&libraries=places&loading=async" async></script>
 <style>
   :root{
     --black: #0a0a0a;
@@ -47,20 +52,42 @@
   .field-label{ display:block; font-size:12px; color:rgba(255,255,255,0.6); margin:0 0 6px; text-align:left; }
   .address-input{
     width:100%; padding:12px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.15);
-    background:rgba(255,255,255,0.06); color:var(--white); font-size:15px; margin-bottom:20px;
+    background:rgba(255,255,255,0.06); color:var(--white); font-size:15px; margin-bottom:14px;
     font-family:var(--font-body);
   }
   .address-input::placeholder{ color:rgba(255,255,255,0.35); }
+  /* Styling for Google's <gmp-place-autocomplete> element via its
+     supported CSS custom properties -- matches the dark, rounded look
+     of the plain .address-input fields elsewhere on this page. */
+  gmp-place-autocomplete{
+    width:100%; margin-bottom:14px;
+    --gmpx-color-surface: rgba(255,255,255,0.06);
+    --gmpx-color-on-surface: #ffffff;
+    --gmpx-color-on-surface-variant: rgba(255,255,255,0.35);
+    --gmpx-color-primary: var(--ember);
+    --gmpx-font-family-base: 'Inter', sans-serif;
+  }
   .btn{
     border:none; border-radius:6px; padding:14px 20px; font-family:var(--font-display);
     font-weight:700; font-size:15px; cursor:pointer; width:100%; text-decoration:none;
     display:inline-block;
   }
   .btn-primary{background:var(--white); color:var(--black);}
+  .btn-secondary{background:rgba(255,255,255,0.06); color:var(--white); border:1px solid rgba(255,255,255,0.15);}
   .btn:disabled{opacity:0.5; cursor:default;}
   .status-icon{font-size:40px; margin-bottom:16px;}
   .loading{color:rgba(255,255,255,0.5); font-size:14px;}
-  .toggle-hint{ font-size:12px; color:var(--ember); margin-top:14px; }
+  .location-row{
+    background:rgba(255,255,255,0.06); border-radius:10px; padding:14px; margin-bottom:10px;
+    display:flex; justify-content:space-between; align-items:flex-start; gap:10px; text-align:left;
+  }
+  .location-row-name{ font-weight:700; font-size:14px; }
+  .location-row-address{ font-size:12.5px; color:rgba(255,255,255,0.6); margin-top:2px; }
+  .location-remove-btn{
+    background:none; border:none; color:rgba(255,255,255,0.4); cursor:pointer; font-size:13px;
+    flex-shrink:0; padding:4px;
+  }
+  .location-remove-btn:hover{ color:var(--white); }
 </style>
 </head>
 <body>
@@ -94,53 +121,110 @@ async function init(){
     return;
   }
 
-  const { data, error } = await supabaseClient.rpc('get_church_by_location_token', { lookup_token: token });
-  const church = data && data[0];
+  const { data, error } = await supabaseClient.rpc('get_church_locations_by_token', { lookup_token: token });
+  const result = data && data[0];
 
-  if(error || !church){
+  if(error || !result){
     renderContent(`<h1>Link Not Found</h1><p class="detail">This link doesn't match anything on file. It may have been entered incorrectly — please use the link from your email directly.</p>`);
     return;
   }
 
+  renderMainScreen(token, result);
+}
+
+function renderMainScreen(token, result){
+  const locations = result.locations || [];
+  const locationsHtml = locations.length
+    ? locations.map(loc => `
+        <div class="location-row" data-location-id="${loc.id}">
+          <div>
+            <div class="location-row-name">${escapeHtml(loc.name)}</div>
+            <div class="location-row-address">${escapeHtml(loc.address || '')}</div>
+          </div>
+          <button type="button" class="location-remove-btn" data-remove-location="${loc.id}">Remove</button>
+        </div>
+      `).join('')
+    : `<p class="detail" style="text-align:center;color:rgba(255,255,255,0.5);">No locations added yet.</p>`;
+
   renderContent(`
-    <h1>Add ${escapeHtml(church.church_name)}'s Location</h1>
-    <p class="detail">We're launching a new "Find a Church" feature in the Following Jesus app to help people get connected, planted, and serving in a local church near them. Add your church's address below and you'll show up as a featured Following Jesus partner church to anyone searching nearby.</p>
-    <label class="field-label">Church Address</label>
-    <input type="text" class="address-input" id="addressInput" placeholder="Street, City, State, Zip" value="${escapeHtml(church.current_address || '')}" />
-    <button type="button" class="btn btn-primary" id="submitBtn">Save Our Location</button>
+    <h1>${escapeHtml(result.church_name)}'s Locations</h1>
+    <p class="detail">We're launching a new "Find a Church" feature in the Following Jesus app to help people get connected, planted, and serving in a local church near them. Add every campus or location for <strong>${escapeHtml(result.church_name)}</strong> below and you'll show up as a featured Following Jesus partner church to anyone searching nearby.</p>
+    <div id="locationsList">${locationsHtml}</div>
+    <label class="field-label" style="margin-top:20px;">Location Name</label>
+    <input type="text" class="address-input" id="nameInput" placeholder="e.g. Main Campus, Bressi Campus" />
+    <label class="field-label">Address</label>
+    <gmp-place-autocomplete id="addressInput" placeholder="Street, City, State, Zip"></gmp-place-autocomplete>
+    <button type="button" class="btn btn-primary" id="addBtn">Add This Location</button>
   `);
 
-  document.getElementById('submitBtn').addEventListener('click', async () => {
-    const address = document.getElementById('addressInput').value.trim();
-    if(!address){ alert('Please enter your church\\'s address.'); return; }
-    const btn = document.getElementById('submitBtn');
+  // Only settled once a real suggestion is picked from the dropdown --
+  // requiring an actual selection (rather than accepting whatever raw
+  // text someone typed) is what actually guarantees the address sent
+  // to the server is a real, Google-verified one, cutting down on the
+  // "couldn't find that address" failures that plain manual typing
+  // could hit before.
+  let selectedAddress = null;
+  document.getElementById('addressInput').addEventListener('gmp-select', async ({ placePrediction }) => {
+    const place = placePrediction.toPlace();
+    await place.fetchFields({ fields: ['formattedAddress'] });
+    selectedAddress = place.formattedAddress;
+  });
+
+  document.querySelectorAll('[data-remove-location]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!confirm('Remove this location?')) return;
+      btn.disabled = true;
+      try {
+        const res = await fetch('/.netlify/functions/submit-church-location', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, locationId: btn.dataset.removeLocation })
+        });
+        const r = await res.json();
+        if(r.status === 'success'){
+          const { data } = await supabaseClient.rpc('get_church_locations_by_token', { lookup_token: token });
+          renderMainScreen(token, data[0]);
+        } else {
+          alert('Could not remove that location. Please try again.');
+          btn.disabled = false;
+        }
+      } catch(e) {
+        alert('Could not remove that location. Please try again.');
+        btn.disabled = false;
+      }
+    });
+  });
+
+  document.getElementById('addBtn').addEventListener('click', async () => {
+    const name = document.getElementById('nameInput').value.trim();
+    if(!name){ alert('Please enter a name for this location (e.g. "Main Campus").'); return; }
+    if(!selectedAddress){ alert('Please choose an address from the suggestions as you type.'); return; }
+    const address = selectedAddress;
+    const btn = document.getElementById('addBtn');
     btn.disabled = true;
     btn.textContent = 'Saving…';
     try {
       const res = await fetch('/.netlify/functions/submit-church-location', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, address })
+        body: JSON.stringify({ token, locationName: name, address })
       });
       const result = await res.json();
       if(result.status === 'success'){
-        renderContent(`
-          <div class="status-icon">✓</div>
-          <h1>You're All Set</h1>
-          <p class="detail" style="text-align:center;">Thanks! <strong>${escapeHtml(church.church_name)}</strong> will now show up as a featured partner church to anyone nearby searching in the app.</p>
-        `);
+        const { data } = await supabaseClient.rpc('get_church_locations_by_token', { lookup_token: token });
+        renderMainScreen(token, data[0]);
       } else if(result.status === 'geocode_failed'){
         btn.disabled = false;
-        btn.textContent = 'Save Our Location';
+        btn.textContent = 'Add This Location';
         alert("We couldn't find that address on the map — please double-check it and try again.");
       } else {
         btn.disabled = false;
-        btn.textContent = 'Save Our Location';
+        btn.textContent = 'Add This Location';
         alert('Something went wrong. Please try again, or reach out directly if this keeps happening.');
       }
     } catch (e) {
       btn.disabled = false;
-      btn.textContent = 'Save Our Location';
+      btn.textContent = 'Add This Location';
       alert('Something went wrong. Please try again, or reach out directly if this keeps happening.');
     }
   });

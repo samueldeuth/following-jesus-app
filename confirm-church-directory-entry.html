@@ -8,6 +8,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- REPLACE YOUR_BROWSER_PLACES_API_KEY_HERE with the actual key value
+     from the "Find a Church - Browser Autocomplete" key in Google Cloud
+     Console -- this one is restricted to followingjesus.com/* and
+     Places API (New) only, safe to have visible in page source. -->
+<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_BROWSER_PLACES_API_KEY_HERE&libraries=places&loading=async" async></script>
 <style>
   :root{
     --black: #0a0a0a; --white: #ffffff; --ink-soft: #57534d; --ember: #c89b3c;
@@ -40,6 +45,17 @@
   .address-input{
     width:100%; padding:12px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.15);
     background:rgba(255,255,255,0.06); color:var(--white); font-size:15px; margin-bottom:14px; font-family:var(--font-body);
+  }
+  /* Styling for Google's <gmp-place-autocomplete> element via its
+     supported CSS custom properties -- matches the dark, rounded look
+     of the plain .address-input fields elsewhere on this page. */
+  gmp-place-autocomplete{
+    width:100%; margin-bottom:14px;
+    --gmpx-color-surface: rgba(255,255,255,0.06);
+    --gmpx-color-on-surface: #ffffff;
+    --gmpx-color-on-surface-variant: rgba(255,255,255,0.35);
+    --gmpx-color-primary: var(--ember);
+    --gmpx-font-family-base: 'Inter', sans-serif;
   }
   .btn{
     border:none; border-radius:6px; padding:14px 20px; font-family:var(--font-display);
@@ -126,17 +142,28 @@ function renderMainScreen(token, entry){
       <label class="field-label">Location Name</label>
       <input type="text" class="address-input" id="newLocationName" placeholder="e.g. Downtown Campus" />
       <label class="field-label">Address</label>
-      <input type="text" class="address-input" id="newLocationAddress" placeholder="Street, City, State, Zip" />
+      <gmp-place-autocomplete id="newLocationAddress" placeholder="Street, City, State, Zip"></gmp-place-autocomplete>
       <button type="button" class="btn btn-secondary" id="addLocationBtn">Add This Location</button>
       <p id="addLocationStatus" style="font-size:13px;color:rgba(255,255,255,0.5);margin-top:8px;"></p>
     </div>
   `);
 
+  // Requiring a real selection from the dropdown (rather than accepting
+  // whatever raw text someone typed) is what actually guarantees the
+  // address sent to the server is a real, Google-verified one.
+  let selectedNewLocationAddress = null;
+  document.getElementById('newLocationAddress').addEventListener('gmp-select', async ({ placePrediction }) => {
+    const place = placePrediction.toPlace();
+    await place.fetchFields({ fields: ['formattedAddress'] });
+    selectedNewLocationAddress = place.formattedAddress;
+  });
+
   document.getElementById('addLocationBtn').addEventListener('click', async () => {
     const name = document.getElementById('newLocationName').value.trim();
-    const address = document.getElementById('newLocationAddress').value.trim();
     const statusEl = document.getElementById('addLocationStatus');
-    if(!name || !address){ alert('Please fill in both the location name and address.'); return; }
+    if(!name){ alert('Please enter a name for this location.'); return; }
+    if(!selectedNewLocationAddress){ alert('Please choose an address from the suggestions as you type.'); return; }
+    const address = selectedNewLocationAddress;
     const btn = document.getElementById('addLocationBtn');
     btn.disabled = true;
     btn.textContent = 'Adding…';
@@ -151,7 +178,7 @@ function renderMainScreen(token, entry){
         statusEl.textContent = `${name} added ✓`;
         statusEl.style.color = '#8fd4c1';
         document.getElementById('newLocationName').value = '';
-        document.getElementById('newLocationAddress').value = '';
+        selectedNewLocationAddress = null;
       } else if(result.status === 'geocode_failed'){
         statusEl.textContent = "Couldn't find that address on the map — check spelling and try again.";
       } else {
