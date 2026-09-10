@@ -94,7 +94,7 @@ exports.handler = async function (event) {
   }
 
   const churchRes = await fetch(`${SUPABASE_URL}/rest/v1/church_directory?id=eq.${churchId}&select=name,contact_email,confirmation_token`, {
-    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${userAccessToken}` }
   });
   if (!churchRes.ok) {
     return { statusCode: 502, body: JSON.stringify({ error: 'Could not look up that church.' }) };
