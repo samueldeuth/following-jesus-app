@@ -1374,7 +1374,9 @@ async function renderChurchDirectory(){
       <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 12px;">Add a Church</h3>
       <input type="text" class="field-input" id="new-directory-name" placeholder="Church name" style="margin-bottom:8px;" />
       <input type="text" class="field-input" id="new-directory-address" placeholder="Street, City, State, Zip" style="margin-bottom:8px;" />
-      <input type="text" class="field-input" id="new-directory-website" placeholder="Website (optional)" style="margin-bottom:10px;" />
+      <input type="text" class="field-input" id="new-directory-website" placeholder="Website (optional)" style="margin-bottom:8px;" />
+      <input type="email" class="field-input" id="new-directory-email" placeholder="Contact email (optional)" style="margin-bottom:10px;" />
+      <p class="field-hint" style="margin-bottom:10px;">If you add a contact email, you'll get a "Send Confirmation" option below to ask them to confirm or update their info -- same email every imported church received.</p>
       <button class="mini-btn" id="add-directory-btn" style="background:var(--ink);color:#fff;border-color:var(--ink);">Add to Directory</button>
       <span id="add-directory-status" style="font-size:12.5px;color:var(--ink-soft);margin-left:10px;"></span>
     </div>
@@ -1392,6 +1394,7 @@ async function renderChurchDirectory(){
     const name = document.getElementById('new-directory-name').value.trim();
     const address = document.getElementById('new-directory-address').value.trim();
     const website = document.getElementById('new-directory-website').value.trim();
+    const email = document.getElementById('new-directory-email').value.trim();
     const statusEl = document.getElementById('add-directory-status');
     if(!name){ alert('Please enter a church name.'); return; }
     if(!address){ alert('Please enter an address.'); return; }
@@ -1411,7 +1414,7 @@ async function renderChurchDirectory(){
       }
       const { error } = await supabaseClient.from('church_directory').insert({
         name, address: geo.formattedAddress, latitude: geo.lat, longitude: geo.lng,
-        website: website || null, source: 'manual', status: 'confirmed'
+        website: website || null, contact_email: email || null, source: 'manual', status: 'confirmed'
       });
       if(error){
         statusEl.textContent = 'Could not add: ' + error.message;
@@ -1421,6 +1424,7 @@ async function renderChurchDirectory(){
       document.getElementById('new-directory-name').value = '';
       document.getElementById('new-directory-address').value = '';
       document.getElementById('new-directory-website').value = '';
+      document.getElementById('new-directory-email').value = '';
       await loadChurchDirectoryList();
     } catch(e){
       statusEl.textContent = 'Could not add: ' + e.message;
@@ -3540,6 +3544,14 @@ async function renderChurchStudents(churchId){
       </div>
       <p class="field-hint" style="margin-bottom:8px;">Use Draft if a church pauses using the course (their link stays live so nothing breaks, but no one can newly enroll). Use Archived only once a church is fully done — the page itself stops showing, even to someone with the direct link.</p>
 
+      <h4 class="field-section-title">Resend an Onboarding Email</h4>
+      <p class="field-hint" style="margin-bottom:8px;">In case a church loses or can't find one of these -- sends again regardless of whether it's already gone out before.</p>
+      <div style="display:flex;gap:10px;margin-bottom:8px;">
+        <button type="button" class="mini-btn" id="resend-setup-email-btn">Resend "Finish Setting Up" Email</button>
+        <button type="button" class="mini-btn" id="resend-welcome-email-btn">Resend "Welcome / Get Started" Email</button>
+      </div>
+      <span id="resend-email-status" style="font-size:12.5px;color:var(--ink-soft);"></span>
+
       <h4 class="field-section-title">Church Admin</h4>
       <div id="current-admins-list">
         ${currentAdmins.length ? currentAdmins.map(a => `
@@ -3778,6 +3790,56 @@ async function renderChurchStudents(churchId){
         });
       }
     } catch (e) { console.error('Failed to send released setup email:', e); }
+  });
+
+  const resendSetupBtn = document.getElementById('resend-setup-email-btn');
+  if(resendSetupBtn) resendSetupBtn.addEventListener('click', async () => {
+    const statusEl = document.getElementById('resend-email-status');
+    resendSetupBtn.disabled = true;
+    statusEl.textContent = 'Sending…';
+    try {
+      const { data: result, error } = await supabaseClient.rpc('resend_setup_email', { p_church_id: churchId });
+      if(error || !result?.should_send){
+        statusEl.textContent = result?.reason === 'no_contact_email' ? 'No contact email on file for this church.' : 'Something went wrong.';
+        resendSetupBtn.disabled = false;
+        return;
+      }
+      await fetch('/.netlify/functions/send-released-setup-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: result.email, name: result.name, token: result.token })
+      });
+      statusEl.textContent = 'Sent ✓';
+    } catch (e) {
+      statusEl.textContent = 'Something went wrong.';
+    }
+    resendSetupBtn.disabled = false;
+    setTimeout(() => { statusEl.textContent = ''; }, 3000);
+  });
+
+  const resendWelcomeBtn = document.getElementById('resend-welcome-email-btn');
+  if(resendWelcomeBtn) resendWelcomeBtn.addEventListener('click', async () => {
+    const statusEl = document.getElementById('resend-email-status');
+    resendWelcomeBtn.disabled = true;
+    statusEl.textContent = 'Sending…';
+    try {
+      const { data: result, error } = await supabaseClient.rpc('resend_welcome_email', { p_church_id: churchId });
+      if(error || !result?.should_send){
+        statusEl.textContent = result?.reason === 'no_contact_email' ? 'No contact email on file for this church.' : 'Something went wrong.';
+        resendWelcomeBtn.disabled = false;
+        return;
+      }
+      await fetch('/.netlify/functions/send-church-welcome-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: result.email, name: result.name, slug: result.slug, additional_emails: result.additional_emails })
+      });
+      statusEl.textContent = 'Sent ✓';
+    } catch (e) {
+      statusEl.textContent = 'Something went wrong.';
+    }
+    resendWelcomeBtn.disabled = false;
+    setTimeout(() => { statusEl.textContent = ''; }, 3000);
   });
 
   // Links this pending signup's payer account onto the suggested
