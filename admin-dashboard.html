@@ -3631,12 +3631,22 @@ async function renderChurchStudents(churchId){
 
   const editSlugInput = document.getElementById('edit-church-slug');
   const editSlugStatus = document.getElementById('edit-church-slug-status');
+  const updateSlugLinkPreviewLive = () => {
+    const linkPreview = document.getElementById('church-link-preview');
+    if(!linkPreview) return;
+    const normalized = editSlugInput.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '') || '...';
+    linkPreview.textContent = `followingjesus.com/courses/${normalized}`;
+    linkPreview.href = `https://followingjesus.com/courses/${normalized}`;
+  };
   if(editSlugInput && editSlugStatus){
     // excludeChurchId is this church's own id -- otherwise its current,
     // already-saved slug would falsely flag itself as "taken" the
     // moment this page renders.
     checkSlugAvailability(editSlugInput.value, churchId, editSlugStatus);
-    editSlugInput.addEventListener('input', () => checkSlugAvailability(editSlugInput.value, churchId, editSlugStatus));
+    editSlugInput.addEventListener('input', () => {
+      checkSlugAvailability(editSlugInput.value, churchId, editSlugStatus);
+      updateSlugLinkPreviewLive();
+    });
   }
 
   async function handleChurchPhotoFile(file){
