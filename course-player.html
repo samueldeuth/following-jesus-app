@@ -1062,7 +1062,18 @@ function letterSectionHtml(course, churchObj){
   // real content; a real church record with nothing configured gets
   // the plain, unsigned generic filler instead.
   if(churchObj){
-    const source = hasAnyLetterContent(churchObj) ? churchObj : { letter_title: 'Welcome to the Family of God!', letter_body: DEFAULT_LETTER_BODY };
+    // Spreads the real church record first, THEN overrides just the
+    // title/body -- this is what actually preserves pastor name, title,
+    // and website when a church has filled those in but hasn't written
+    // their own welcome title/body/photo/video yet. The earlier version
+    // replaced the whole object with a bare {title, body} pair, silently
+    // dropping every other field the church had genuinely saved --
+    // confirmed on a real church, Grace | North County, whose pastor
+    // name/title/website never showed up on their live page despite
+    // being saved correctly in the admin.
+    const source = hasAnyLetterContent(churchObj)
+      ? churchObj
+      : { ...churchObj, letter_title: 'Welcome to the Family of God!', letter_body: DEFAULT_LETTER_BODY };
     return renderLetterFrom(source);
   }
   if(!hasAnyLetterContent(course)) return '';
