@@ -1487,6 +1487,7 @@ function renderDirectoryRows(filterText){
         ${r.status === 'pending_confirmation' ? `<button class="mini-btn gold" data-confirm-directory="${r.id}">Confirm & Go Live</button>` : ''}
         ${r.status === 'pending_confirmation' && r.contact_email && !r.admin_approved_at ? `<button class="mini-btn gold" data-approve-and-send="${r.id}">Approve</button>` : ''}
         ${r.contact_email && r.status !== 'declined' && (r.status !== 'pending_confirmation' || r.admin_approved_at) ? `<button class="mini-btn" data-send-single="${r.id}">${r.confirmation_email_sent_at ? 'Re-send Confirmation' : 'Send Confirmation'}</button>` : ''}
+        ${r.status === 'confirmed' && !r.church_confirmed_at ? `<button class="mini-btn" data-mark-church-confirmed="${r.id}" title="Use this if you've confirmed directly with the church yourself -- skips needing them to click the email link">Mark Confirmed by Church</button>` : ''}
         <button class="mini-btn" data-edit-directory="${r.id}">Edit</button>
         <button class="mini-btn danger" data-delete-directory="${r.id}" style="margin-left:auto;">Delete</button>
       </div>
@@ -1581,6 +1582,15 @@ function renderDirectoryRows(filterText){
         btn.disabled = false;
         btn.textContent = 'Approve';
       }
+    });
+  });
+  document.querySelectorAll('[data-mark-church-confirmed]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!confirm("Mark this as confirmed by the church? Use this only if you've actually confirmed the info directly with them yourself.")) return;
+      btn.disabled = true;
+      const { error } = await supabaseClient.from('church_directory').update({ church_confirmed_at: new Date().toISOString() }).eq('id', btn.dataset.markChurchConfirmed);
+      if(error){ alert('Could not mark as confirmed: ' + error.message); btn.disabled = false; return; }
+      await loadChurchDirectoryList();
     });
   });
   document.querySelectorAll('[data-delete-directory]').forEach(btn => {
