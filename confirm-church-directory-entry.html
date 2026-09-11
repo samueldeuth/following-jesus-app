@@ -120,7 +120,7 @@ function renderMainScreen(token, entry){
       <div class="info-card-name">${escapeHtml(entry.name)}</div>
       <div class="info-card-address">${escapeHtml(entry.address || 'No address on file')}</div>
     </div>
-    ${alreadyLive ? '' : '<button type="button" class="btn btn-primary" id="confirmBtn">Yes, This Is Correct</button>'}
+    <button type="button" class="btn btn-primary" id="confirmBtn">${alreadyLive ? 'Yes, Keep My Church Featured' : 'Yes, This Is Correct'}</button>
     <button type="button" class="btn btn-secondary" id="editBtn">Fix This Info</button>
     <button type="button" class="btn btn-text" id="rejectBtn">${alreadyLive ? "Remove us from the directory" : "This isn't accurate — remove it"}</button>
     <div id="editForm" style="display:none;margin-top:16px;text-align:left;">
@@ -197,6 +197,7 @@ function renderMainScreen(token, entry){
   const confirmBtn = document.getElementById('confirmBtn');
   if(confirmBtn) confirmBtn.addEventListener('click', async () => {
     const btn = document.getElementById('confirmBtn');
+    const originalLabel = btn.textContent;
     btn.disabled = true;
     btn.textContent = 'Confirming…';
     const { data } = await supabaseClient.rpc('confirm_pending_church', { lookup_token: token });
@@ -204,11 +205,11 @@ function renderMainScreen(token, entry){
       renderContent(`
         <div class="status-icon">✓</div>
         <h1>You're All Set</h1>
-        <p class="detail" style="text-align:center;">Thanks! <strong>${escapeHtml(entry.name)}</strong> will now show up as a featured church to anyone nearby searching in the app.</p>
+        <p class="detail" style="text-align:center;">Thanks! <strong>${escapeHtml(entry.name)}</strong> ${alreadyLive ? 'will stay featured' : 'will now show up as a featured church'} to anyone nearby searching in the app.</p>
       `);
     } else {
       btn.disabled = false;
-      btn.textContent = 'Yes, This Is Correct';
+      btn.textContent = originalLabel;
       alert('Something went wrong. Please try again.');
     }
   });
