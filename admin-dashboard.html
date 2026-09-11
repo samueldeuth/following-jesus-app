@@ -1491,6 +1491,7 @@ function renderDirectoryRows(filterText){
         <input type="text" class="field-input" id="edit-directory-name-${r.id}" value="${(r.name||'').replace(/"/g,'&quot;')}" placeholder="Church name" style="margin-bottom:8px;" />
         <input type="text" class="field-input" id="edit-directory-address-${r.id}" value="${(r.address||'').replace(/"/g,'&quot;')}" placeholder="Street, City, State, Zip" style="margin-bottom:8px;" />
         <input type="text" class="field-input" id="edit-directory-website-${r.id}" value="${(r.website||'').replace(/"/g,'&quot;')}" placeholder="Website (optional)" style="margin-bottom:8px;" />
+        <input type="email" class="field-input" id="edit-directory-email-${r.id}" value="${(r.contact_email||'').replace(/"/g,'&quot;')}" placeholder="Contact email (optional)" style="margin-bottom:8px;" />
         <button class="mini-btn" data-save-directory="${r.id}" style="background:var(--ink);color:#fff;border-color:var(--ink);">Save</button>
         <span id="save-directory-status-${r.id}" style="font-size:12.5px;color:var(--ink-soft);margin-left:8px;"></span>
       </div>
@@ -1601,12 +1602,13 @@ function renderDirectoryRows(filterText){
       const name = document.getElementById('edit-directory-name-' + id).value.trim();
       const address = document.getElementById('edit-directory-address-' + id).value.trim();
       const website = document.getElementById('edit-directory-website-' + id).value.trim();
+      const email = document.getElementById('edit-directory-email-' + id).value.trim();
       if(!name){ alert('Church name is required.'); return; }
       const existing = allDirectoryRows.find(r => r.id === id);
       const addressChanged = address !== (existing?.address || '');
 
       btn.disabled = true;
-      const updates = { name, website: website || null };
+      const updates = { name, website: website || null, contact_email: email || null };
 
       // Only re-geocode when the address actually changed -- avoids an
       // unnecessary Places API call on every save when just fixing the
