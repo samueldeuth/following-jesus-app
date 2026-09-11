@@ -38,6 +38,11 @@
 [functions."send-church-directory-second-reminder"]
   schedule = "0 15 * * *"
 
+# Weekly, Monday mornings -- matches the existing weekly course reminder
+# email's own cadence for consistency.
+[functions."send-weekly-checkin-reminders"]
+  schedule = "0 15 * * 1"
+
 # Runs every 3 days — comfortably inside Supabase's 7-day auto-pause window,
 # so the free-tier database never goes to sleep from inactivity.
 [functions."keep-alive-ping"]

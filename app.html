@@ -4692,6 +4692,20 @@ async function wireLeaderQuickActions() {
       showShareModal(newCode, label.trim());
     };
   }
+  const weeklyCheckinBtn = document.getElementById('weeklyCheckinReminderToggle');
+  if (weeklyCheckinBtn) {
+    weeklyCheckinBtn.onclick = async () => {
+      const next = !weeklyCheckinBtn.classList.contains('on');
+      const { error } = await supabaseClient.from('profiles').update({ weekly_checkin_reminder_enabled: next }).eq('id', myId);
+      if (error) { console.error('Failed to update weekly check-in reminder preference:', error); return; }
+      weeklyCheckinBtn.classList.toggle('on', next);
+      weeklyCheckinBtn.querySelector('.notif-toggle-state').textContent = next ? 'On' : 'Off';
+      // Re-confirms the tag right at the moment they opt in, in case this
+      // is a session where the once-per-load backfill above hasn't run
+      // yet for some reason -- cheap, harmless to repeat.
+      if (next) setOneSignalTag('leader_user_id', myId);
+    };
+  }
 }
 
 async function removeDisciple(discipleId) {
@@ -5739,6 +5753,17 @@ async function renderDiscipleshipHub() {
   const isApprovedLeader = leaderApp && leaderApp.status === 'approved';
   checkAndCelebrateMilestones(myId, hubMilestonesData.allDone);
 
+  // Tags this leader's device with their own user id -- the only way a
+  // server-side push can target ONE SPECIFIC person rather than a
+  // broadcast group of everyone sharing a tag value (how every other
+  // push notification in this app works so far). Backfilled every load,
+  // same reasoning as Verse of the Day's own tags: harmless no-op once
+  // already set, and covers anyone who was already a leader before this
+  // shipped without needing a migration.
+  if (isApprovedLeader) {
+    setOneSignalTag('leader_user_id', myId);
+  }
+
   let stepsHtml = '';
   STEPS.forEach((title, i) => {
     const status = progress[i] || 'not_started';
@@ -5840,18 +5865,20 @@ async function renderDiscipleshipHub() {
     // of behind a separate screen — this is that merged content.
     // Same fix as the top of this function -- these 5 are independent
     // of each other, so they run together rather than one at a time.
-    const [leaderGroupsResult, disciplesResult, directGroupResult, discipledCountResult, unreadDmSenderIdsResult] = await Promise.all([
+    const [leaderGroupsResult, disciplesResult, directGroupResult, discipledCountResult, unreadDmSenderIdsResult, myProfileResult] = await Promise.all([
       getLeaderGroups(myId),
       getLeaderDisciples(myId),
       supabaseClient.from('discipleship_groups').select('invite_code').eq('leader_id', myId).eq('is_direct', true).maybeSingle(),
       computeDiscipledCount(myId),
-      getUnreadDmSenderIds(myId)
+      getUnreadDmSenderIds(myId),
+      supabaseClient.from('profiles').select('weekly_checkin_reminder_enabled').eq('id', myId).maybeSingle()
     ]);
     groups = leaderGroupsResult;
     disciples = disciplesResult;
     directCode = directGroupResult.data ? directGroupResult.data.invite_code : null;
     discipledCount = discipledCountResult;
     unreadDmSenderIds = unreadDmSenderIdsResult;
+    const weeklyCheckinReminderEnabled = !!myProfileResult.data?.weekly_checkin_reminder_enabled;
 
     leaderSectionHtml = `
       <div class="discipled-stat-card">
@@ -5862,6 +5889,15 @@ async function renderDiscipleshipHub() {
         <button class="compact-action-btn" id="inviteFriendBtn">Invite a Friend</button>
         <button class="compact-action-btn" id="newGroupBtn">Create a Group</button>
       </div>
+      <label class="notif-toggle-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0;padding:12px 14px;background:var(--bg-soft, #f5f5f5);border-radius:10px;">
+        <span style="font-size:14px;">
+          <strong>Weekly Check-In Reminder</strong>
+          <div style="font-size:12px;color:var(--ink-soft, #777);margin-top:2px;">A weekly nudge if any of your disciples still have something unfinished</div>
+        </span>
+        <button type="button" class="notif-toggle-btn${weeklyCheckinReminderEnabled ? ' on' : ''}" id="weeklyCheckinReminderToggle" style="flex-shrink:0;">
+          <span class="notif-toggle-state">${weeklyCheckinReminderEnabled ? 'On' : 'Off'}</span>
+        </button>
+      </label>
       <div class="subnav">
         <button id="tabGroups" class="${leaderTab==='groups'?'active':''}">Groups</button>
         <button id="tabDisciples" class="${leaderTab==='disciples'?'active':''}">All Disciples (${disciples.length})</button>
@@ -6364,10 +6400,22 @@ async function toggleBlockUser(blockedId, isCurrentlyBlocked) {
 }
 
 async function sendGroupMessage(code, body, isAction = false) {
-  const { data: group } = await supabaseClient.from('discipleship_groups').select('id').eq('invite_code', code).maybeSingle();
+  const { data: group } = await supabaseClient.from('discipleship_groups').select('id, leader_id, label').eq('invite_code', code).maybeSingle();
   if (!group) return { ok: false, error: 'Could not find this group.' };
   const { error } = await supabaseClient.from('discipleship_messages').insert({ group_id: group.id, sender_id: myId, body, is_action: isAction });
   if (error) { console.error('sendGroupMessage failed:', error); return { ok: false, error: error.message }; }
+  // Fire-and-forget -- never awaited, so a slow or failed notification
+  // call can't delay or break the sender's own experience of sending a
+  // message. Skipped entirely when the leader is the one sending (no
+  // point notifying yourself), same reasoning as any self-notification
+  // guard elsewhere.
+  if (group.leader_id && group.leader_id !== myId) {
+    fetch('/.netlify/functions/notify-leader-of-new-message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leaderId: group.leader_id, groupLabel: group.label, senderId: myId })
+    }).catch(err => console.log('[notifications] leader message alert failed to send:', err));
+  }
   return { ok: true };
 }
 
