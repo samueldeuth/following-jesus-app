@@ -1473,17 +1473,20 @@ function renderDirectoryRows(filterText){
     <div class="group-row" style="flex-direction:column;align-items:stretch;gap:8px;" data-directory-id="${r.id}">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <strong>${(r.name||'').replace(/</g,'&lt;')}</strong>
-        <span style="font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.03em;">${sourceLabel[r.source] || r.source}${r.status === 'pending_confirmation' ? ' · Pending confirmation' : ''}</span>
+        <span style="font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.03em;">${sourceLabel[r.source] || r.source}${r.status === 'pending_confirmation' ? ' · Pending confirmation' : ''}${r.status === 'declined' ? ' · Declined by church' : ''}</span>
       </div>
       <div style="font-size:12.5px;color:var(--ink-soft);">${(r.address||'No address yet').replace(/</g,'&lt;')}</div>
       ${r.contact_email ? `<div style="font-size:11.5px;color:var(--ink-soft);">${r.contact_email}${r.confirmation_email_sent_at ? ` · Last sent ${new Date(r.confirmation_email_sent_at).toLocaleDateString()}` : ' · Never sent'}</div>` : ''}
+      ${r.church_confirmed_at
+        ? `<div style="font-size:11.5px;color:#166534;">✓ Confirmed by church on ${new Date(r.church_confirmed_at).toLocaleDateString()}</div>`
+        : (r.status === 'confirmed' ? `<div style="font-size:11.5px;color:var(--ink-soft);">Confirmed by you, not yet clicked by the church</div>` : '')}
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
         <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;">
           <input type="checkbox" data-toggle-featured="${r.id}" ${r.featured ? 'checked' : ''} /> Featured
         </label>
         ${r.status === 'pending_confirmation' ? `<button class="mini-btn gold" data-confirm-directory="${r.id}">Confirm & Go Live</button>` : ''}
         ${r.status === 'pending_confirmation' && r.contact_email && !r.admin_approved_at ? `<button class="mini-btn gold" data-approve-and-send="${r.id}">Approve</button>` : ''}
-        ${r.contact_email && (r.status !== 'pending_confirmation' || r.admin_approved_at) ? `<button class="mini-btn" data-send-single="${r.id}">${r.confirmation_email_sent_at ? 'Re-send Confirmation' : 'Send Confirmation'}</button>` : ''}
+        ${r.contact_email && r.status !== 'declined' && (r.status !== 'pending_confirmation' || r.admin_approved_at) ? `<button class="mini-btn" data-send-single="${r.id}">${r.confirmation_email_sent_at ? 'Re-send Confirmation' : 'Send Confirmation'}</button>` : ''}
         <button class="mini-btn" data-edit-directory="${r.id}">Edit</button>
         <button class="mini-btn danger" data-delete-directory="${r.id}" style="margin-left:auto;">Delete</button>
       </div>
@@ -3488,11 +3491,19 @@ async function renderChurchStudents(churchId){
     ${churchId ? `
     <div class="church-tab-panel" data-tab-panel="settings">
       ${church?.course_status === 'pending_approval' ? `
+      ${church?.subscription_lapsed_at ? `
+      <div style="background:#fff8e1;border:1px solid #f0b429;border-radius:8px;padding:14px;margin-bottom:20px;">
+        <p style="margin:0 0 4px;font-weight:700;color:#92400e;">Subscription lapsed — course paused, needs your review</p>
+        <p style="margin:0 0 12px;font-size:13px;color:var(--ink-soft);">This church's subscription payment lapsed on ${new Date(church.subscription_lapsed_at).toLocaleDateString()} and stayed unresolved for 7 days, so their course was automatically paused here for you to review before it can go live again. This isn't a new signup -- no setup email is needed (it's already been sent), and Approving here just clears it for you to flip back to Live whenever you're ready.</p>
+        <button type="button" class="mini-btn" id="approve-pending-church-btn" style="background:#92400e;color:#fff;border-color:#92400e;">Approve</button>
+      </div>
+      ` : `
       <div style="background:#f5f3ff;border:1px solid #8b5cf6;border-radius:8px;padding:14px;margin-bottom:20px;">
         <p style="margin:0 0 4px;font-weight:700;color:#5b21b6;">New signup — pending your approval</p>
         <p style="margin:0 0 12px;font-size:13px;color:var(--ink-soft);">This church was auto-created from a purchase. Review and fix the details below (the name and URL slug especially — they started from checkout data, which isn't always accurate). Approving moves this to Draft and sends the church their setup email -- going Live afterward is a separate, deliberate step below, once they've filled in their info.</p>
         <button type="button" class="mini-btn" id="approve-pending-church-btn" style="background:#5b21b6;color:#fff;border-color:#5b21b6;">Approve</button>
       </div>
+      `}
       ${church?.suggested_merge_church_id ? (() => {
         // Set by process_church_signup_order when this order's email
         // domain matched an already-approved church's own contact-email
@@ -3951,6 +3962,13 @@ async function renderChurchStudents(churchId){
     // marks itself sent atomically, so saving while already Live (any
     // other routine edit) can never re-send it.
     const isGoingLiveNow = church?.course_status !== 'live' && updates.course_status === 'live';
+    // Going live is the natural signal a lapsed payment got resolved --
+    // without clearing this, the lapsed-reactivation banner would
+    // incorrectly keep showing on this church forever, even for a
+    // completely unrelated pending review months or years later.
+    if(isGoingLiveNow && church?.subscription_lapsed_at){
+      updates.subscription_lapsed_at = null;
+    }
 
     statusEl.textContent = 'Saving...';
     const { data: updated, error } = await supabaseClient.from('churches').update(updates).eq('id', churchId).select().maybeSingle();
