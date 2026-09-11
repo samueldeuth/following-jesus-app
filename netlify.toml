@@ -12,15 +12,22 @@
   [headers.values]
     Access-Control-Allow-Origin = "*"
 
-# Runs once a day at 16:00 UTC = 8am PST (California). Netlify's cron
-# schedule is a fixed UTC time with no built-in daylight-saving
-# awareness -- during PDT (mid-March to early November, i.e. most of
-# the year), this will actually fire at 9am Pacific clock time, one
-# hour later than labeled, since the UTC offset doesn't shift with the
-# season. Worth revisiting if that seasonal hour drift ever matters
-# enough to warrant updating this twice a year.
+# Runs once a day at 8:00 UTC. This is NOT what determines when anyone
+# actually receives their notification -- send-daily-notifications.js
+# uses OneSignal's delayed_option: 'timezone', so each person's push
+# arrives at their own chosen local hour regardless of when this
+# trigger fires. What this trigger's OWN time actually controls is
+# simpler: it just needs to run early enough, in UTC, that OneSignal
+# has same-day lead time for every supported local hour (6am-9pm) across
+# the app's US-timezone audience. The earliest of those, 6am Eastern,
+# falls at 10:00 UTC during EDT -- 8:00 UTC gives a comfortable 2-hour
+# margin ahead of that, so nobody's early-hour choice gets silently
+# pushed to the next day. International users choosing very early local
+# hours (parts of Australia, South Africa) aren't covered by any single
+# fixed trigger time -- see send-daily-notifications.js's own comments
+# for the fuller, options-based fix if that ever becomes worth doing.
 [functions."send-daily-notifications"]
-  schedule = "0 16 * * *"
+  schedule = "0 8 * * *"
 
 # Runs every 3 days — comfortably inside Supabase's 7-day auto-pause window,
 # so the free-tier database never goes to sleep from inactivity.
@@ -47,11 +54,3 @@
 # for the one-time "Scheduled" push mode.
 [functions."send-recurring-push-notifications"]
   schedule = "0 8 * * *"
-
-# Runs hourly. One-time, per-timezone send for the church directory
-# confirmation emails -- see send-church-directory-confirmations-scheduled.js
-# for the full "why this needs its own logic" explanation. Safe to
-# leave running indefinitely; becomes a no-op once everyone's been
-# emailed.
-[functions."send-church-directory-confirmations-scheduled"]
-  schedule = "0 * * * *"
