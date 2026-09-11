@@ -755,7 +755,7 @@ async function ensureProfileAndEnrollment(){
   // courses the same day, Sep 4 2026. This only changes whether the
   // enrollment ROW gets created; it never affected content access,
   // which was already safe.
-  let canEnrollInCourse = course && church?.course_status !== 'draft' && church?.course_status !== 'archived';
+  let canEnrollInCourse = course && church?.course_status !== 'draft' && church?.course_status !== 'archived' && church?.course_status !== 'pending_approval';
 
   if(canEnrollInCourse && course.requires_purchase){
     const { data: purchased } = await supabaseClient.rpc('has_purchased_course', { p_course_id: course.id });
