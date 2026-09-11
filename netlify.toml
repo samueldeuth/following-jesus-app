@@ -29,6 +29,15 @@
 [functions."send-daily-notifications"]
   schedule = "0 8 * * *"
 
+# Runs once a day -- checks for any church_directory entry that's now
+# 7+ days past its original confirmation email with no response, and
+# sends exactly one follow-up reminder. Safe to run daily since the
+# underlying query and its own tracking column (second_reminder_sent_at)
+# mean a church can only ever receive this once, no matter how many
+# times this fires.
+[functions."send-church-directory-second-reminder"]
+  schedule = "0 15 * * *"
+
 # Runs every 3 days — comfortably inside Supabase's 7-day auto-pause window,
 # so the free-tier database never goes to sleep from inactivity.
 [functions."keep-alive-ping"]
