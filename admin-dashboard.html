@@ -501,6 +501,21 @@ function extractYoutubeId(input){
 }
 let allRows = [];
 let allChurches = [];
+
+// Warns before losing unsaved edits on a church's settings panel (name,
+// slug, letter content, etc.) if the page gets refreshed or closed
+// without saving first -- previously changes just silently vanished on
+// refresh, with no warning at all. Browsers no longer allow custom
+// warning text in this dialog (a long-standing security restriction,
+// not something to work around) -- the native "leave site? changes you
+// made may not be saved" prompt is what actually shows.
+let hasUnsavedChurchEdits = false;
+window.addEventListener('beforeunload', (e) => {
+  if(hasUnsavedChurchEdits){
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 // The free/default ("is_free = true") Following Jesus course's id.
 // Derived from allRows once loaded (any row's course_id where
 // course_title === 'Following Jesus') rather than hardcoded, since it
@@ -3663,6 +3678,18 @@ async function renderChurchStudents(churchId){
 
   const saveSettingsBtn = document.getElementById('save-church-settings-btn');
   if(saveSettingsBtn) {
+    // Reset for this church's freshly-rendered panel -- otherwise a
+    // dirty flag left over from whichever church was open before this
+    // one would incorrectly warn on a completely untouched page.
+    hasUnsavedChurchEdits = false;
+    const trackedFieldIds = ['edit-church-name','edit-church-slug','edit-church-color','edit-course-status',
+      'edit-letter-title','edit-letter-subtitle','edit-letter-body','edit-letter-video','edit-letter-image',
+      'edit-letter-author','edit-letter-author-title','edit-website'];
+    trackedFieldIds.forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.addEventListener('input', () => { hasUnsavedChurchEdits = true; });
+    });
+
     const statusSelect = document.getElementById('edit-course-status');
     const statusBadge = document.getElementById('course-status-badge');
     const STATUS_STYLES = {
@@ -3854,6 +3881,7 @@ async function renderChurchStudents(churchId){
       linkPreview.href = newUrl;
     }
 
+    hasUnsavedChurchEdits = false;
     statusEl.textContent = 'Saved ✓';
     setTimeout(() => { statusEl.textContent = ''; }, 2000);
   });
