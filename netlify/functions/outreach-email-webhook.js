@@ -29,6 +29,7 @@ const {
   fulfillOrderWithTracking,
 } = require('./lib/shopify');
 const { parseConfirmationEmail, parseShippingEmail, isMatch, normalize } = require('./lib/parse-outreach');
+const { parseSquarespaceOrder, matchedOutreachProducts } = require('./lib/parse-squarespace-order');
 
 async function sendAlertEmail(subject, bodyText) {
   const to = process.env.ALERT_EMAIL_TO;
@@ -138,6 +139,47 @@ async function handleShippingEmail(outreachOrderNumber, html) {
   }
 }
 
+// A forwarded Squarespace order-notification email -- a genuinely
+// separate concern from the two Outreach-email types above (this isn't
+// a reply FROM Outreach, it's a NEW order that might NEED to go TO
+// Outreach). Deliberately does NOT try to auto-tag or auto-fulfill
+// anything the way the Shopify pipeline does -- instead sends a clear,
+// honest "here's what was detected, please verify" alert, since the
+// underlying parser (see lib/parse-squarespace-order.js) is built from
+// screenshots, not confirmed real HTML, and the line items aren't
+// parsed into exact structured quantities on purpose.
+async function handleSquarespaceOrderEmail(html, subject) {
+  const parsed = parseSquarespaceOrder(html, subject);
+  const matched = matchedOutreachProducts(parsed.orderSummaryText);
+
+  if (matched.length === 0) {
+    // Not an outreach-fulfilled product -- nothing to do, same as most
+    // Squarespace orders (course purchases, digital-only items, etc.).
+    console.log(`Squarespace order ${parsed.orderNumber || '(unknown)'}: no outreach-fulfilled products detected, skipping.`);
+    return;
+  }
+
+  const to = process.env.ALERT_EMAIL_TO;
+  if (!to || !process.env.RESEND_API_KEY) {
+    console.error('Squarespace order needs Outreach fulfillment but ALERT_EMAIL_TO or RESEND_API_KEY is not set -- nobody was notified.');
+    return;
+  }
+
+  await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: 'Following Jesus Books <no-reply@mail.followingjesus.com>',
+      to: [to],
+      reply_to: 'info@followingjesusbook.com',
+      subject: `Squarespace order ${parsed.orderNumber || ''} needs Outreach fulfillment — please verify`,
+      text: `A Squarespace order was detected containing at least one outreach-fulfilled product. Since this is auto-detected from a forwarded order email (not Shopify's own structured order data), please verify the details below against the original email before sending anything to Outreach.\n\nOrder #: ${parsed.orderNumber || '(not found)'}\nCustomer email: ${parsed.customerEmail || '(not found)'}\n\nShipping info (raw, as detected):\n${parsed.shippingBlock || '(not found -- check the original email)'}\n\nMatched outreach-fulfilled product(s):\n${matched.map(m => '- ' + m).join('\n')}\n\nFull order summary (raw, as detected):\n${parsed.orderSummaryText || '(not found -- check the original email)'}`
+    })
+  }).catch(err => console.error('Squarespace order alert email failed to send:', err));
+
+  console.log(`Squarespace order ${parsed.orderNumber || '(unknown)'}: matched outreach-fulfilled product(s), alert sent to ${to}.`);
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
@@ -159,10 +201,11 @@ exports.handler = async (event) => {
 
   const confirmationMatch = subject.match(/Outreach Order #([A-Za-z0-9]+) Confirmation/i);
   const shippingMatch = subject.match(/Shipping Notification from Outreach/i);
+  const squarespaceOrderMatch = subject.match(/A New Order has Arrived/i);
 
-  if (!confirmationMatch && !shippingMatch) {
-    // Not an Outreach email we recognize — ignore quietly.
-    return { statusCode: 200, body: 'Not an Outreach order email, ignored' };
+  if (!confirmationMatch && !shippingMatch && !squarespaceOrderMatch) {
+    // Not an email we recognize — ignore quietly.
+    return { statusCode: 200, body: 'Not a recognized order email, ignored' };
   }
 
   const email = await fetchReceivedEmail(emailId);
@@ -171,7 +214,7 @@ exports.handler = async (event) => {
   try {
     if (confirmationMatch) {
       await handleConfirmationEmail(confirmationMatch[1], html);
-    } else {
+    } else if (shippingMatch) {
       const { orderNumber } = parseShippingEmail(html);
       if (!orderNumber) {
         await sendAlertEmail(
@@ -181,6 +224,8 @@ exports.handler = async (event) => {
         return { statusCode: 200, body: 'Could not parse order number' };
       }
       await handleShippingEmail(orderNumber, html);
+    } else {
+      await handleSquarespaceOrderEmail(html, subject);
     }
   } catch (err) {
     console.error('Error processing Outreach email:', err);
