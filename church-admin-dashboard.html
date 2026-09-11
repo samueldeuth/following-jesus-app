@@ -862,6 +862,17 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
       <p class="field-hint" style="margin-bottom:8px;">This can't be changed here — changing it would break any links or QR codes already shared with your church.</p>
       <p class="field-hint">Link: <a href="https://followingjesus.com/courses/${myChurch?.slug || ''}" target="_blank" rel="noopener">followingjesus.com/courses/${myChurch?.slug || '...'}</a></p>
 
+      <h4 class="field-section-title">Course Status</h4>
+      ${myChurch?.course_status === 'live' ? `
+        <p class="field-hint" style="margin-bottom:8px;"><strong style="color:#166534;">Live</strong> — your page works and enrollment is open.</p>
+        <button type="button" class="mini-btn" id="pause-course-btn">Pause Enrollment (Move to Draft)</button>
+        <p class="field-hint" style="margin-top:6px;">Your page stays up so nothing breaks, but no one new can enroll. Only the Following Jesus team can turn enrollment back on once paused.</p>
+      ` : `
+        <p class="field-hint" style="margin-bottom:8px;"><strong style="color:#92400e;">Paused (Draft)</strong> — your page is up, but enrollment is closed.</p>
+        <p class="field-hint">Reach out to the Following Jesus team whenever you're ready to reopen enrollment.</p>
+      `}
+      <span id="pause-course-status" style="font-size:12.5px;color:var(--ink-soft);"></span>
+
       <h4 class="field-section-title">Church Admin</h4>
       <div id="current-admins-list">
         ${currentAdmins.length ? currentAdmins.map(a => `
@@ -1051,6 +1062,22 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
       return;
     }
     statusEl.textContent = 'Promoted ✓';
+    init();
+  });
+
+  const pauseCourseBtn = document.getElementById('pause-course-btn');
+  if(pauseCourseBtn) pauseCourseBtn.addEventListener('click', async () => {
+    if(!confirm('Pause enrollment for your course? Your page stays up, but no one new will be able to enroll until the Following Jesus team turns it back on.')) return;
+    const statusEl = document.getElementById('pause-course-status');
+    pauseCourseBtn.disabled = true;
+    statusEl.textContent = 'Pausing...';
+    const { data: result, error } = await supabaseClient.rpc('church_admin_pause_own_course', { p_church_id: myChurch.id });
+    if(error || result !== 'success'){
+      statusEl.textContent = 'Something went wrong. Please try again.';
+      pauseCourseBtn.disabled = false;
+      return;
+    }
+    myChurch.course_status = 'draft';
     init();
   });
 

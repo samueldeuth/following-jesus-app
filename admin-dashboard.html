@@ -3460,8 +3460,8 @@ async function renderChurchStudents(churchId){
       ${church?.course_status === 'pending_approval' ? `
       <div style="background:#f5f3ff;border:1px solid #8b5cf6;border-radius:8px;padding:14px;margin-bottom:20px;">
         <p style="margin:0 0 4px;font-weight:700;color:#5b21b6;">New signup — pending your approval</p>
-        <p style="margin:0 0 12px;font-size:13px;color:var(--ink-soft);">This church was auto-created from a purchase. Review and fix the details below (the name and URL slug especially — they started from checkout data, which isn't always accurate), then approve to make it live.</p>
-        <button type="button" class="mini-btn" id="approve-pending-church-btn" style="background:#5b21b6;color:#fff;border-color:#5b21b6;">Approve &amp; Go Live</button>
+        <p style="margin:0 0 12px;font-size:13px;color:var(--ink-soft);">This church was auto-created from a purchase. Review and fix the details below (the name and URL slug especially — they started from checkout data, which isn't always accurate). Approving moves this to Draft and sends the church their setup email -- going Live afterward is a separate, deliberate step below, once they've filled in their info.</p>
+        <button type="button" class="mini-btn" id="approve-pending-church-btn" style="background:#5b21b6;color:#fff;border-color:#5b21b6;">Approve</button>
       </div>
       ${church?.suggested_merge_church_id ? (() => {
         // Set by process_church_signup_order when this order's email
@@ -3500,6 +3500,10 @@ async function renderChurchStudents(churchId){
       <p id="edit-church-slug-status" style="font-size:11.5px;margin:4px 0 8px;min-height:14px;"></p>
       <p class="field-hint">Link: <a href="https://followingjesus.com/courses/${church?.slug || ''}" target="_blank" rel="noopener" id="church-link-preview">followingjesus.com/courses/${church?.slug || '...'}</a></p>
 
+      <h4 class="field-section-title">Church Contact <span style="font-weight:400;text-transform:none;letter-spacing:normal;color:var(--ink-soft);">(optional)</span></h4>
+      <p class="field-hint" style="margin-bottom:8px;">Who to reach out to about this church — doesn't have to be the same person as the Church Admin below.</p>
+      <div id="church-contact-section">${churchContactSectionHtml(contactInviteStatus, church)}</div>
+
       <label class="field-label">Course Status</label>
       <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
         <select class="field-input" id="edit-course-status" style="width:auto; flex:1;">
@@ -3525,10 +3529,6 @@ async function renderChurchStudents(churchId){
       <input type="text" class="sidebar-search" id="promote-admin-search" placeholder="Search by name or email…" style="margin-bottom:8px;" />
       <div id="promote-admin-results"></div>
       <span id="promote-status" style="font-size:12.5px;color:var(--ink-soft);"></span>
-
-      <h4 class="field-section-title">Church Contact <span style="font-weight:400;text-transform:none;letter-spacing:normal;color:var(--ink-soft);">(optional)</span></h4>
-      <p class="field-hint" style="margin-bottom:8px;">Who to reach out to about this church — doesn't have to be the same person as the Church Admin above.</p>
-      <div id="church-contact-section">${churchContactSectionHtml(contactInviteStatus, church)}</div>
 
       <label class="field-label">Accent Color</label>
       <div class="color-field-row">
@@ -3729,45 +3729,31 @@ async function renderChurchStudents(churchId){
   if(approveBtn) approveBtn.addEventListener('click', async () => {
     const statusSelect = document.getElementById('edit-course-status');
     if(statusSelect){
-      statusSelect.value = 'live';
+      // Draft, not Live -- their page exists and is viewable so nothing
+      // breaks, but enrollment stays closed until Samuel deliberately
+      // flips it Live later, once the church has actually filled in
+      // their info. Going Live is now its own separate, later action.
+      statusSelect.value = 'draft';
       statusSelect.dispatchEvent(new Event('change'));
     }
     document.getElementById('save-church-settings-btn')?.click();
 
-    // Only relevant for churches that had a suggested merge match --
-    // those are the only ones whose purchaser email was ever withheld
-    // in the first place (see release_withheld_setup_email). A plain
-    // pending signup with no suggestion already got its purchaser email
-    // immediately from the original webhook, so this is a genuine no-op
-    // for the normal case, not an extra send.
-    if(church?.suggested_merge_church_id){
+    // Releases the withheld "finish setting up" email for ANY pending
+    // church now, not just the suspected-duplicate cases this used to
+    // be limited to -- see fix-release-setup-email-for-all-pending.sql.
+    // This is what actually fixes the original timing problem: the
+    // church now hears nothing at all until a real human has reviewed
+    // their signup and clicked Approve.
+    try {
       const { data: releaseResult, error: releaseError } = await supabaseClient.rpc('release_withheld_setup_email', { p_church_id: churchId });
       if(!releaseError && releaseResult?.should_send){
-        try {
-          await fetch('/.netlify/functions/send-released-setup-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: releaseResult.email, name: releaseResult.name, token: releaseResult.token })
-          });
-        } catch (e) { console.error('Failed to send released setup email:', e); }
-      }
-    }
-
-    // Unconditional, unlike the release above -- every newly-approved
-    // church gets this "how to use and set up" email, not just the
-    // merge-suggestion cases. mark_welcome_email_sent marks itself sent
-    // atomically, so clicking this button more than once for the same
-    // church can't send it twice.
-    try {
-      const { data: welcomeResult, error: welcomeError } = await supabaseClient.rpc('mark_welcome_email_sent', { p_church_id: churchId });
-      if(!welcomeError && welcomeResult?.should_send){
-        await fetch('/.netlify/functions/send-church-welcome-email', {
+        await fetch('/.netlify/functions/send-released-setup-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: welcomeResult.email, name: welcomeResult.name, slug: welcomeResult.slug, additional_emails: welcomeResult.additional_emails })
+          body: JSON.stringify({ email: releaseResult.email, name: releaseResult.name, token: releaseResult.token })
         });
       }
-    } catch (e) { console.error('Failed to send church welcome email:', e); }
+    } catch (e) { console.error('Failed to send released setup email:', e); }
   });
 
   // Links this pending signup's payer account onto the suggested
@@ -3859,15 +3845,24 @@ async function renderChurchStudents(churchId){
       letter_author_title: document.getElementById('edit-letter-author-title').value.trim() || null,
       website_url: document.getElementById('edit-website').value.trim() || null
     };
-    // Only stamped the moment a church actually moves out of
-    // pending_approval into live for the first time -- this is what
-    // the Overview page's "New Churches" count now reads (see
-    // renderOverviewRangeMetrics), instead of created_at, so a pending
-    // signup that turns out to be a duplicate (archived, never
-    // approved) correctly never counts as a "new church" for any day.
-    if(church?.course_status === 'pending_approval' && updates.course_status === 'live'){
+    // Stamped the moment a church actually moves out of pending_approval
+    // for the first time, whether that's straight to Live or to Draft
+    // (the new normal path -- Approve now lands on Draft, with Live
+    // becoming a separate, later step). This is what the Church
+    // Directory sync trigger and the Overview page's "New Churches"
+    // count both read, so it has to fire on the real approval moment,
+    // not only a direct jump to Live the way it used to.
+    const wasNotYetApproved = church?.course_status === 'pending_approval';
+    if(wasNotYetApproved && (updates.course_status === 'draft' || updates.course_status === 'live')){
       updates.approved_at = new Date().toISOString();
     }
+    // Genuinely going Live for the first time (from anything other than
+    // already-Live) is what triggers the "welcome, here's how to get
+    // started" email now -- moved here from the Approve button, since
+    // Approve no longer makes anything Live by itself. mark_welcome_email_sent
+    // marks itself sent atomically, so saving while already Live (any
+    // other routine edit) can never re-send it.
+    const isGoingLiveNow = church?.course_status !== 'live' && updates.course_status === 'live';
 
     statusEl.textContent = 'Saving...';
     const { data: updated, error } = await supabaseClient.from('churches').update(updates).eq('id', churchId).select().maybeSingle();
@@ -3875,6 +3870,19 @@ async function renderChurchStudents(churchId){
       statusEl.textContent = '';
       alert('Could not save: ' + (error?.message || 'unknown error'));
       return;
+    }
+
+    if(isGoingLiveNow){
+      try {
+        const { data: welcomeResult, error: welcomeError } = await supabaseClient.rpc('mark_welcome_email_sent', { p_church_id: churchId });
+        if(!welcomeError && welcomeResult?.should_send){
+          await fetch('/.netlify/functions/send-church-welcome-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: welcomeResult.email, name: welcomeResult.name, slug: welcomeResult.slug, additional_emails: welcomeResult.additional_emails })
+          });
+        }
+      } catch (e) { console.error('Failed to send church welcome email:', e); }
     }
 
     const idx = allChurches.findIndex(c => c.id === churchId);
