@@ -516,6 +516,30 @@ window.addEventListener('beforeunload', (e) => {
     e.returnValue = '';
   }
 });
+
+// beforeunload only fires on a genuine browser-level unload (refresh,
+// close tab, leaving the domain) -- it can NEVER fire for this app's
+// own in-page navigation (clicking Overview, a different church, Push
+// Notifications, etc.), since those don't actually reload the page at
+// all, just swap #content's innerHTML via JS. Without this, unsaved
+// edits could be silently abandoned by clicking away, with no warning
+// at all until/unless a refresh happened much later -- confirmed as a
+// real gap, not just a hypothetical one.
+//
+// Capture phase (true) is what lets this run BEFORE the link's own
+// click handler -- stopImmediatePropagation on cancel is what actually
+// prevents that handler from ever firing and discarding the edit.
+document.querySelector('.admin-sidebar').addEventListener('click', (e) => {
+  const navTarget = e.target.closest('#sidebar-overview-link, #sidebar-all-students-link, #sidebar-push-notifications-link, #sidebar-church-directory-link, .sidebar-church-item');
+  if(!navTarget || !hasUnsavedChurchEdits) return;
+  if(!confirm('You have unsaved changes on this page. Leave without saving?')){
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    return;
+  }
+  hasUnsavedChurchEdits = false;
+}, true);
+
 // The free/default ("is_free = true") Following Jesus course's id.
 // Derived from allRows once loaded (any row's course_id where
 // course_title === 'Following Jesus') rather than hardcoded, since it
