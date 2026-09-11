@@ -157,51 +157,17 @@ exports.handler = async (event) => {
   }
 
   const emailSent = await notifySamuel(result.name, customerEmail, notifyEmail, resendApiKey, result.suggested_merge_church_name);
-  // Withheld whenever a domain match was suggested -- sending "finish
-  // setting up your course" to a church that may turn out to be a
-  // duplicate of one already live was the exact real incident
-  // (dennis@lcny.us) this guards against. It's released later, from
-  // the admin dashboard, only once a super_admin actually confirms this
-  // is genuinely a new church by clicking Approve & Go Live -- see
-  // release_withheld_setup_email in fix-church-setup-email-timing.sql.
-  const purchaserEmailSent = (result.signup_token && !result.suggested_merge_church_id)
-    ? await notifyPurchaser(customerEmail, result.name, result.signup_token, resendApiKey)
-    : false;
-  if (!result.signup_token) {
-    console.error('shopify-church-signup-webhook: no signup_token returned from process_church_signup_order -- purchaser was NOT emailed a completion link. Run add-church-signup-completion-flow.sql if this is unexpected.');
-  }
-  return { statusCode: 200, body: JSON.stringify({ created: true, churchId: result.church_id, name: result.name, notifyEmailSent: emailSent, purchaserEmailSent, withheldForReview: !!result.suggested_merge_church_id }) };
+  // The purchaser's "finish setting up" email is now ALWAYS withheld
+  // here, for every new signup -- not just the suspected-duplicate
+  // case this originally only covered. It's released later from the
+  // admin dashboard, once a super_admin actually reviews the signup
+  // and clicks Approve -- see release_withheld_setup_email and
+  // send-released-setup-email.js. This is what actually fixes the
+  // timing gap: a church used to get this email the instant they paid,
+  // before anyone had reviewed anything.
+  console.log(`shopify-church-signup-webhook: purchaser setup email withheld for ${result.name}, will be released when a super_admin clicks Approve`);
+  return { statusCode: 200, body: JSON.stringify({ created: true, churchId: result.church_id, name: result.name, notifyEmailSent: emailSent, purchaserEmailWithheld: true }) };
 };
-
-async function notifyPurchaser(purchaserEmail, churchName, signupToken, apiKey) {
-  const completionUrl = `${APP_URL}/church-signup-complete.html?token=${signupToken}`;
-  const html = `
-    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-      <p>Thanks for getting your church started with the Following Jesus course!</p>
-      <p>Before your church's page goes live, we need a few details from you -- your church name, contact info, and (optionally) a custom welcome message for your students.</p>
-      <p style="margin: 28px 0;">
-        <a href="${completionUrl}" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Complete Your Church Setup →</a>
-      </p>
-      <p style="color:#666;font-size:13px;">Takes about 2 minutes. Once submitted, our team will review it and get your page live.</p>
-    </div>
-  `;
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: FROM_EMAIL,
-        to: purchaserEmail,
-        reply_to: 'info@followingjesusbook.com',
-        subject: `Finish setting up your church's Following Jesus page`,
-        html,
-      }),
-    });
-    return res.ok;
-  } catch (e) {
-    return false;
-  }
-}
 
 async function notifySamuel(churchName, purchaserEmail, notifyEmail, apiKey, suggestedMergeChurchName) {
   // This order's email domain matched an already-approved church's own
@@ -212,8 +178,7 @@ async function notifySamuel(churchName, purchaserEmail, notifyEmail, apiKey, sug
   // in the admin dashboard, this is just a heads-up so it's not missed.
   const suggestionHtml = suggestedMergeChurchName
     ? `<p style="background:#fff8e1;border-left:3px solid #f0b429;padding:10px 14px;margin:16px 0;">
-         <strong>Possible match:</strong> this email's domain matches an existing church, <strong>${escapeHtml(suggestedMergeChurchName)}</strong>. If this is the same church paying from a different account, use "Merge" in the dashboard instead of approving it as new.<br><br>
-         The purchaser's own "finish setting up your course" email is being held until you decide -- it won't send unless you approve this as genuinely new.
+         <strong>Possible match:</strong> this email's domain matches an existing church, <strong>${escapeHtml(suggestedMergeChurchName)}</strong>. If this is the same church paying from a different account, use "Merge" in the dashboard instead of approving it as new.
        </p>`
     : '';
   const html = `
@@ -225,7 +190,7 @@ async function notifySamuel(churchName, purchaserEmail, notifyEmail, apiKey, sug
       <p style="margin: 20px 0;">
         <a href="${APP_URL}/admin" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Review in Admin Dashboard →</a>
       </p>
-      <p style="color:#666;font-size:13px;">This name came from the checkout's Company field (if filled in) or the purchaser's own name -- worth confirming the real church name before approving.</p>
+      <p style="color:#666;font-size:13px;">This name came from the checkout's Company field (if filled in) or the purchaser's own name -- worth confirming the real church name before approving. The purchaser hasn't been emailed anything yet -- clicking Approve is what sends them their setup instructions.</p>
     </div>
   `;
   try {
