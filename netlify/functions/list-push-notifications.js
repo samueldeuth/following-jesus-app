@@ -65,7 +65,7 @@ exports.handler = async function (event) {
       id: n.id,
       title: n.headings?.en || '',
       message: n.contents?.en || '',
-      url: n.url || null,
+      url: n.data?.targetUrl || null,
       queuedAt: n.queued_at,
       sendAfter: n.send_after,
       completedAt: n.completed_at,

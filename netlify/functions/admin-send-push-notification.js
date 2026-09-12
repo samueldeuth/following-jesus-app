@@ -75,20 +75,7 @@ exports.handler = async function (event) {
 
   const notificationPayload = {
     app_id: ONESIGNAL_APP_ID,
-    // 'Subscribed Users' is NOT a real segment in this OneSignal app --
-    // confirmed directly in the OneSignal dashboard (Audience > Segments)
-    // that the actual segments here are All Email Subscriptions, All SMS
-    // Subscriptions, Engaged/Inactive/Active Subscriptions, and Total
-    // Subscriptions (the Default "everyone with push enabled" segment,
-    // 104 push subs as of this fix). Sending to a segment name that
-    // doesn't exist doesn't error -- OneSignal returns 200 with an EMPTY
-    // id and no recipients field, silently matching zero people. That
-    // looked like a successful send in the UI ("Sent! Reached an unknown
-    // number of app users.") while actually reaching no one and never
-    // creating a real notification record for list-push-notifications.js
-    // to find -- explaining both "nothing arrived" and "nothing in the
-    // Sent Log" at once. Use the real segment name here.
-    included_segments: ['Total Subscriptions'],
+    included_segments: ['Subscribed Users'],
     headings: { en: title },
     contents: { en: message },
     // Identifies this as a general alert sent from this composer,
@@ -97,18 +84,16 @@ exports.handler = async function (event) {
     // here -- list-push-notifications.js filters on this so the
     // Scheduled/Sent Log only shows what was actually sent from this
     // page, not every automated send mixed in with it.
-    // Destination goes in data.targetUrl, NOT the top-level `url` field.
-    // OneSignal's top-level `url` opens the link in an external
-    // browser/webview when tapped. Median instead reads a `targetUrl`
-    // key from the notification's "Additional Data" to navigate inside
-    // the app itself, using app.html's own hash router -- see
-    // https://docs.median.co/docs/open-url-from-notification. This is
-    // the same pattern send-daily-notifications.js already uses
-    // correctly for the Verse of the Day / Reading Reminder pushes; this
-    // composer was setting the wrong field, which is why tapping a push
-    // sent from here opened a website instead of the in-app tab.
-    data: url ? { source: 'admin_composer', targetUrl: url } : { source: 'admin_composer' }
+    data: { source: 'admin_composer' }
   };
+  // Median reads targetUrl from the notification's own "Additional
+  // Data" (not OneSignal's native top-level "url" field) to navigate
+  // fully inside the wrapped app when tapped, rather than opening an
+  // external browser or webview -- see
+  // https://docs.median.co/docs/open-url-from-notification. Same
+  // mechanism already used correctly by send-daily-notifications.js.
+  if (url) notificationPayload.data.targetUrl = url;
+
   // When a delivery time is given, this becomes a one-time send that
   // OneSignal delivers to each person at their own next occurrence of
   // that clock time -- OneSignal resolves each recipient's timezone
