@@ -117,7 +117,13 @@ exports.handler = async function (event) {
     notificationPayload.include_external_user_ids = [userId];
     notificationPayload.channel_for_external_user_ids = 'push';
   } else {
-    notificationPayload.included_segments = ['Subscribed Users'];
+    // 'Subscribed Users' is a commonly-used OneSignal segment name in
+    // general, but this specific app's actual "everyone subscribed"
+    // segment is called 'Total Subscriptions' (confirmed directly in
+    // the OneSignal dashboard's Segments list, tagged as the app's
+    // Default segment) -- the old name matched nothing here, which is
+    // exactly why OneSignal correctly reported zero included players.
+    notificationPayload.included_segments = ['Total Subscriptions'];
   }
 
   // When a delivery time is given, this becomes a one-time send that
