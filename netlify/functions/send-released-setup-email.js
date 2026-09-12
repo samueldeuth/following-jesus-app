@@ -15,6 +15,7 @@
 
 const APP_URL = 'https://followingjesus.com';
 const FROM_EMAIL = 'Following Jesus <approvals@mail.followingjesus.com>';
+const LOGO_URL = 'https://followingjesus.com/assets/FJ_logo_rectangle_Thinkific_v2.png';
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -39,16 +40,23 @@ exports.handler = async (event) => {
   }
 
   const completionUrl = `${APP_URL}/church-signup-complete.html?token=${token}`;
-  const html = `
-    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-      <p>Thanks for getting your church started with the Following Jesus course!</p>
-      <p>Before your church's page goes live, we need a few details from you -- your church name, contact info, and (optionally) a custom welcome message for your students.</p>
-      <p style="margin: 28px 0;">
-        <a href="${completionUrl}" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Complete Your Church Setup →</a>
-      </p>
-      <p style="color:#666;font-size:13px;">Takes about 2 minutes. Once submitted, our team will review it and get your page live.</p>
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;">
+  <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <img src="${LOGO_URL}" alt="Following Jesus" style="max-width:200px;width:100%;height:auto;" />
     </div>
-  `;
+    <p>Thanks for getting your church started with the Following Jesus course!</p>
+    <p>Before your church's page goes live, we need a few details from you -- your church name, contact info, and (optionally) a custom welcome message for your students.</p>
+    <p style="margin: 28px 0;">
+      <a href="${completionUrl}" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Complete Your Church Setup →</a>
+    </p>
+    <p style="color:#666;font-size:13px;">Takes about 2 minutes. Once submitted, our team will review it and get your page live.</p>
+  </div>
+</body>
+</html>`;
 
   try {
     const res = await fetch('https://api.resend.com/emails', {

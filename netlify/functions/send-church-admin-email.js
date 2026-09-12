@@ -17,6 +17,7 @@
 
 const FROM_EMAIL = 'Following Jesus <approvals@mail.followingjesus.com>';
 const APP_URL = 'https://followingjesus.com';
+const LOGO_URL = 'https://followingjesus.com/assets/FJ_logo_rectangle_Thinkific_v2.png';
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -42,20 +43,28 @@ exports.handler = async (event) => {
 
   const dashboardUrl = `${APP_URL}/dashboard`;
 
-  // Kept intentionally simple and plain -- same reasoning as the leader
-  // approval email: a one-time account notification, not a marketing
-  // email, so clarity over polish.
-  const html = `
-    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-      <p>Hi${adminName ? ' ' + escapeHtml(adminName) : ''},</p>
-      <p>You've been given <strong>church admin</strong> access for <strong>${escapeHtml(churchName)}</strong> on Following Jesus.</p>
-      <p>As a church admin, you can view your church's students, track course progress, and manage your groups from your dashboard.</p>
-      <p style="margin: 28px 0;">
-        <a href="${dashboardUrl}" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Open Your Dashboard →</a>
-      </p>
-      <p style="color:#666;font-size:13px;">Sign in with the same Google account you already use for Following Jesus, and your dashboard will load automatically at ${dashboardUrl.replace(/^https?:\/\//, '')}.</p>
+  // Wrapped in a full <!DOCTYPE html> document with the shared logo
+  // header now standard across every email this project sends -- the
+  // explicit UTF-8 charset is also what prevents special characters
+  // (em dashes, arrows) from garbling in some email clients.
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;">
+  <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <img src="${LOGO_URL}" alt="Following Jesus" style="max-width:200px;width:100%;height:auto;" />
     </div>
-  `;
+    <p>Hi${adminName ? ' ' + escapeHtml(adminName) : ''},</p>
+    <p>You've been given <strong>church admin</strong> access for <strong>${escapeHtml(churchName)}</strong> on Following Jesus.</p>
+    <p>As a church admin, you can view your church's students, track course progress, and manage your groups from your dashboard.</p>
+    <p style="margin: 28px 0;">
+      <a href="${dashboardUrl}" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Open Your Dashboard →</a>
+    </p>
+    <p style="color:#666;font-size:13px;">Sign in with the same Google account you already use for Following Jesus, and your dashboard will load automatically at ${dashboardUrl.replace(/^https?:\/\//, '')}.</p>
+  </div>
+</body>
+</html>`;
 
   try {
     const res = await fetch('https://api.resend.com/emails', {

@@ -58,6 +58,7 @@ const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
 const FROM_EMAIL = 'Following Jesus <approvals@mail.followingjesus.com>';
 const APP_URL = 'https://followingjesus.com';
+const LOGO_URL = 'https://followingjesus.com/assets/FJ_logo_rectangle_Thinkific_v2.png';
 // This product's ID -- confirmed from Shopify Admin (product edit page
 // URL), not the storefront slug, same lesson as Process of Promotion.
 const CHURCH_SIGNUP_PRODUCT_ID = '4546123071584';
@@ -181,18 +182,25 @@ async function notifySamuel(churchName, purchaserEmail, notifyEmail, apiKey, sug
          <strong>Possible match:</strong> this email's domain matches an existing church, <strong>${escapeHtml(suggestedMergeChurchName)}</strong>. If this is the same church paying from a different account, use "Merge" in the dashboard instead of approving it as new.
        </p>`
     : '';
-  const html = `
-    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-      <p>A new church just purchased The Following Jesus Course and is waiting for you to review.</p>
-      <p><strong>Starting name:</strong> ${escapeHtml(churchName)}<br>
-      <strong>Purchaser email:</strong> ${escapeHtml(purchaserEmail)}</p>
-      ${suggestionHtml}
-      <p style="margin: 20px 0;">
-        <a href="${APP_URL}/admin" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Review in Admin Dashboard →</a>
-      </p>
-      <p style="color:#666;font-size:13px;">This name came from the checkout's Company field (if filled in) or the purchaser's own name -- worth confirming the real church name before approving. The purchaser hasn't been emailed anything yet -- clicking Approve is what sends them their setup instructions.</p>
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;">
+  <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <img src="${LOGO_URL}" alt="Following Jesus" style="max-width:200px;width:100%;height:auto;" />
     </div>
-  `;
+    <p>A new church just purchased The Following Jesus Course and is waiting for you to review.</p>
+    <p><strong>Starting name:</strong> ${escapeHtml(churchName)}<br>
+    <strong>Purchaser email:</strong> ${escapeHtml(purchaserEmail)}</p>
+    ${suggestionHtml}
+    <p style="margin: 20px 0;">
+      <a href="${APP_URL}/admin" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Review in Admin Dashboard →</a>
+    </p>
+    <p style="color:#666;font-size:13px;">This name came from the checkout's Company field (if filled in) or the purchaser's own name -- worth confirming the real church name before approving. The purchaser hasn't been emailed anything yet -- clicking Approve is what sends them their setup instructions.</p>
+  </div>
+</body>
+</html>`;
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',

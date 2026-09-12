@@ -29,6 +29,7 @@ const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
 const FROM_EMAIL = 'Following Jesus <reminders@mail.followingjesus.com>';
 const APP_URL = 'https://followingjesus.com';
+const LOGO_URL = 'https://followingjesus.com/assets/FJ_logo_rectangle_Thinkific_v2.png';
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -73,15 +74,6 @@ function buildContinueUrl(courseUrlPath, churchSlug) {
 async function sendReminderEmail({ resendApiKey, toEmail, studentName, courseTitle, courseUrlPath, churchSlug, unsubscribeToken }) {
   const continueUrl = buildContinueUrl(courseUrlPath, churchSlug);
   const unsubscribeUrl = `${APP_URL}/course-reminder-unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
-
-  // Shared brand header for every email this project sends -- logo
-  // lives at this one real, hosted URL. Wrapping in a full
-  // <!DOCTYPE html> document with an explicit <meta charset="UTF-8">
-  // is what actually prevents special characters (the em dash, the
-  // arrow below) from rendering as garbled "â€"" / "â†'" in some email
-  // clients -- a bare HTML fragment with no charset declaration leaves
-  // them to guess the encoding, and they don't always guess UTF-8.
-  const LOGO_URL = 'https://followingjesus.com/assets/FJ_logo_rectangle_Thinkific_v2.png';
 
   const html = `<!DOCTYPE html>
 <html>
@@ -143,11 +135,7 @@ exports.handler = async function (event) {
   const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_students_needing_reminders`, {
     method: 'POST',
     headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-    // p_respect_timezone: false -- an admin clicking "Send Weekly
-    // Reminders Now" means now, not "whenever each student's local
-    // clock hits 8am Monday" (that timezone window only applies to the
-    // real scheduled cron in send-weekly-course-reminders.js).
-    body: JSON.stringify({ caller_secret: reminderSecret, p_respect_timezone: false })
+    body: JSON.stringify({ caller_secret: reminderSecret })
   });
   if (!rpcRes.ok) {
     const errText = await rpcRes.text();
