@@ -1,8 +1,17 @@
 // netlify/functions/get-blog-posts.js
 //
-// Live-pulls blog posts from both samueldeuth.com (Squarespace) and
-// followingjesusbook.com (Shopify), merges them into one feed sorted by
-// publish date (newest first), and returns JSON for the app to render.
+// Live-pulls blog posts from samueldeuth.com (Squarespace) and returns
+// JSON, newest first, for the app's Blog tab to render.
+//
+// This used to also merge in posts from followingjesusbook.com (Shopify)
+// -- that blog is aimed at church leaders specifically, a different
+// audience than the app's own Blog tab, so it's been taken back out per
+// Samuel's request. The Shopify-fetching code below (fetchShopifyPosts
+// and its extractTag/extractAttr/decodeEntities helpers) is left in place
+// but unused, in case a church-leaders-facing feed is wanted somewhere
+// else later -- re-enabling it here is just restoring the Promise.all
+// call in the handler below to how it reads in git history before this
+// comment was added.
 //
 // This runs server-side, so there's no browser CORS restriction — that's
 // the whole reason this needs to be a backend function rather than
@@ -235,12 +244,9 @@ exports.handler = async function (event, context) {
   };
 
   try {
-    const [sdPosts, fjPosts] = await Promise.all([
-      fetchSquarespacePosts(),
-      fetchShopifyPosts()
-    ]);
+    const sdPosts = await fetchSquarespacePosts();
 
-    let all = [...sdPosts, ...fjPosts].filter(p => p.title && p.url);
+    let all = sdPosts.filter(p => p.title && p.url);
 
     // newest first
     all.sort((a, b) => {
