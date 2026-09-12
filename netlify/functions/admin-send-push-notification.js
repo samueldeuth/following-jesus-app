@@ -27,22 +27,23 @@ const ONESIGNAL_APP_ID = '35033fa8-5eb5-45b0-aa14-0d7d7a6c6443';
 
 // Verifies the caller is a real, currently-signed-in super_admin, using
 // their own session token -- same helper pattern as the reminder
-// functions built earlier the same day.
-async function getCallerRole(userAccessToken) {
-  if (!userAccessToken) return null;
+// functions built earlier the same day. Also returns their own user id,
+// needed for targeting a test send at just them specifically.
+async function getCallerInfo(userAccessToken) {
+  if (!userAccessToken) return { role: null, userId: null };
   const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
     headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${userAccessToken}` }
   });
-  if (!userRes.ok) return null;
+  if (!userRes.ok) return { role: null, userId: null };
   const user = await userRes.json();
-  if (!user?.id) return null;
+  if (!user?.id) return { role: null, userId: null };
 
   const profileRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=role`, {
     headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${userAccessToken}` }
   });
-  if (!profileRes.ok) return null;
+  if (!profileRes.ok) return { role: null, userId: user.id };
   const rows = await profileRes.json();
-  return rows[0]?.role || null;
+  return { role: rows[0]?.role || null, userId: user.id };
 }
 
 exports.handler = async function (event) {
@@ -57,7 +58,7 @@ exports.handler = async function (event) {
 
   const authHeader = event.headers['authorization'] || event.headers['Authorization'] || '';
   const userAccessToken = authHeader.replace(/^Bearer\s+/i, '');
-  const role = await getCallerRole(userAccessToken);
+  const { role, userId } = await getCallerInfo(userAccessToken);
   if (role !== 'super_admin') {
     return { statusCode: 403, body: JSON.stringify({ error: 'Not authorized.' }) };
   }
@@ -68,14 +69,13 @@ exports.handler = async function (event) {
   } catch (e) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON body.' }) };
   }
-  const { title, message, url, deliveryTime } = body;
+  const { title, message, url, deliveryTime, testOnly } = body;
   if (!title || !message) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Missing title or message.' }) };
   }
 
   const notificationPayload = {
     app_id: ONESIGNAL_APP_ID,
-    included_segments: ['Subscribed Users'],
     headings: { en: title },
     contents: { en: message },
     // Identifies this as a general alert sent from this composer,
@@ -86,6 +86,23 @@ exports.handler = async function (event) {
     // page, not every automated send mixed in with it.
     data: { source: 'admin_composer' }
   };
+
+  // A test send targets ONLY the caller's own device, by their own real
+  // user id -- never anything sent from the client, so there's no way
+  // to spoof targeting someone else's device. This relies on app.html's
+  // existing median.onesignal.login(myId) call, which links every
+  // signed-in user's device to their own id in OneSignal already, for
+  // exactly this kind of targeted send. If the caller has never opened
+  // the Following Jesus app themselves (push permission granted), this
+  // will correctly find zero recipients -- there's nothing else to fall
+  // back to, since sending to everyone would defeat the entire point of
+  // a test.
+  if (testOnly) {
+    notificationPayload.include_external_user_ids = [userId];
+    notificationPayload.channel_for_external_user_ids = 'push';
+  } else {
+    notificationPayload.included_segments = ['Subscribed Users'];
+  }
   // Median reads targetUrl from the notification's own "Additional
   // Data" (not OneSignal's native top-level "url" field) to navigate
   // fully inside the wrapped app when tapped, rather than opening an
@@ -119,7 +136,10 @@ exports.handler = async function (event) {
     if (!res.ok) {
       return { statusCode: 502, body: JSON.stringify({ error: result.errors ? JSON.stringify(result.errors) : 'OneSignal rejected the request.' }) };
     }
-    return { statusCode: 200, body: JSON.stringify({ id: result.id, recipients: result.recipients, scheduled: !!deliveryTime }) };
+    if (testOnly && !result.recipients) {
+      return { statusCode: 200, body: JSON.stringify({ id: result.id, recipients: 0, testOnly: true, note: "No test device found for your account -- this only works if you've personally opened the Following Jesus app on your own phone with push notifications enabled." }) };
+    }
+    return { statusCode: 200, body: JSON.stringify({ id: result.id, recipients: result.recipients, scheduled: !!deliveryTime, testOnly: !!testOnly }) };
   } catch (e) {
     return { statusCode: 502, body: JSON.stringify({ error: e.message }) };
   }
