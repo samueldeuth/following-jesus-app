@@ -545,6 +545,12 @@
     background: linear-gradient(135deg, #0a0a0a, #241d12);
     border: 1px solid rgba(200,155,60,0.3); border-radius: 2px; padding: 20px 18px;
   }
+  .disciple-app-scope .gospel-card-icon-box {
+    width: 100%; height: 108px; border-radius: 4px; margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(200,155,60,0.12);
+  }
+  .disciple-app-scope .gospel-card-icon-box svg { width: 46px; height: 46px; color: var(--ember); }
   .disciple-app-scope .gospel-card-title {
     font-family: var(--font-display); font-weight: 700; font-size: 11px;
     letter-spacing: 0.1em; text-transform: uppercase; color: var(--ember); margin-bottom: 10px;
@@ -642,6 +648,10 @@
   .jesus-cta {
     margin: 30px 20px 0;
     display: block;
+    width: calc(100% - 40px);
+    box-sizing: border-box;
+    appearance: none;
+    -webkit-appearance: none;
     background: var(--white);
     color: var(--black);
     text-decoration: none;
@@ -1841,10 +1851,10 @@
             <div class="banner-eyebrow">Free Online Course</div>
             <div class="banner-title">Following Jesus Course</div>
           </button>
-          <a class="banner-slide banner-photo" href="https://followingjesusbook.com" target="_blank" rel="noopener" style="background-image:linear-gradient(0deg, rgba(0,0,0,0.75), rgba(0,0,0,0.15)), url('/assets/book-store-banner.jpg');">
-            <div class="banner-eyebrow">For Your Church</div>
-            <div class="banner-title">Order Books in Bulk</div>
-          </a>
+          <button type="button" class="banner-slide banner-photo" id="shareYourFaithBannerSlide" style="background-image:linear-gradient(0deg, rgba(0,0,0,0.75), rgba(0,0,0,0.15)), url('/assets/share-your-faith-banner.jpg');">
+            <div class="banner-eyebrow">Share the Good News</div>
+            <div class="banner-title">Share Your Faith</div>
+          </button>
         </div>
         <div class="banner-dots" id="bannerDots"></div>
       </div>
@@ -1951,15 +1961,19 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M8 15c2.5-1.2 5.5-1.2 8 0M7.5 12c3-1.5 6-1.5 9 0M7 9c3.5-1.8 6.5-1.8 10 0"/></svg>
           <span>Worship Music</span>
         </button>
-        <a class="grid-item" href="https://www.amazon.com/s?k=Following+Jesus+Samuel+Deuth" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8a3 3 0 016 0"/></svg>
-          <span>Get the Book</span>
-        </a>
-        <a class="grid-item" href="https://followingjesusbook.com" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 21V9l8-6 8 6v12"/><line x1="9" y1="21" x2="9" y2="13"/><line x1="15" y1="21" x2="15" y2="13"/></svg>
-          <span>Bulk Order for Your Church</span>
-        </a>
       </div>
+
+      <!-- Replaces the old "Get the Book" + "Bulk Order for Your Church"
+           two-box row (both removed per Samuel's request) -- same
+           followingjesusbook.com link the "Bulk Order" box had, and the
+           same photo used on the top carousel's former 4th slide, now
+           as one wide banner instead of two white boxes. Sits right
+           below .icon-grid, not inside it, so it spans the full row
+           width without fighting the grid's own 2-column track sizing. -->
+          <a class="banner-slide banner-photo" href="https://followingjesusbook.com" target="_blank" rel="noopener" style="margin:12px 20px 0; min-height:110px; background-image:linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.8) 100%), url('/assets/church-resources-banner.jpg');">
+        <div class="banner-eyebrow">For Your Church</div>
+        <div class="banner-title">Order Books in Bulk</div>
+      </a>
 
       <div class="global-count-banner" id="todayDiscipleCounterText">📣 Loading disciple count…</div>
 
@@ -2345,6 +2359,7 @@
   };
   document.getElementById('shareGoodNewsBtn').addEventListener('click', openGoodNewsPage);
   document.getElementById('shareGoodNewsBannerBtn').addEventListener('click', openGoodNewsPage);
+  document.getElementById('shareYourFaithBannerSlide').addEventListener('click', openGoodNewsPage);
 
   // ---------- Find a Church ----------
   // Wires up every .info-icon-btn on the page to open/close a single
@@ -3194,23 +3209,13 @@
   // drawBridgeStep/drawBridgeCombined.
   const GOSPEL_SERIES_POOL = [
     {
-      id: 'romans-road',
-      title: 'The Romans Road',
-      type: 'sequence',
-      description: 'Five verses from Romans that walk through the whole gospel, in order.',
-      steps: [
-        { title: 'All Have Sinned', message: 'For all have sinned and fall short of the glory of God.', ref: 'Romans 3:23' },
-        { title: 'The Wages of Sin', message: 'For the wages of sin is death, but the free gift of God is eternal life in Christ Jesus our Lord.', ref: 'Romans 6:23' },
-        { title: "God's Love", message: 'But God shows his love for us in that while we were still sinners, Christ died for us.', ref: 'Romans 5:8' },
-        { title: 'Confess and Believe', message: 'If you confess with your mouth that Jesus is Lord and believe in your heart that God raised him from the dead, you will be saved.', ref: 'Romans 10:9' },
-        { title: 'Call on His Name', message: 'For everyone who calls on the name of the Lord will be saved.', ref: 'Romans 10:13' }
-      ]
-    },
-    {
       id: 'bridge',
       title: 'The Bridge',
       type: 'illustration',
       description: 'The story of the gap sin creates between us and God -- and how Jesus bridges it.',
+      // Echoes the actual illustration -- a cross/crossbar bridging a
+      // gap between two separated ground segments.
+      icon: '<path d="M12 4v16"/><path d="M8 9h8"/><path d="M4 19h5"/><path d="M15 19h5"/>',
       steps: [
         { title: 'Together With God', message: 'And they heard the sound of the LORD God walking in the garden in the cool of the day.', ref: 'Genesis 3:8', panel: 'together' },
         { title: 'Sin Separates Us', message: 'But your iniquities have separated you from your God, and your sins have hidden his face from you.', ref: 'Isaiah 59:2', panel: 'gap' },
@@ -3220,9 +3225,31 @@
       ]
     },
     {
+      id: 'romans-road',
+      title: 'The Romans Road',
+      type: 'sequence',
+      description: 'Five verses from Romans that walk through the whole gospel, in order.',
+      // Simple road-in-perspective icon, same line-icon feel as the
+      // Today tab's banner icons (Make Disciples, etc.) -- two
+      // converging edges plus a dashed centerline.
+      icon: '<path d="M8 20L10.5 4"/><path d="M16 20L13.5 4"/><path d="M12 6.5v2"/><path d="M12 11v2"/><path d="M12 15.5v2"/>',
+      steps: [
+        { title: 'All Have Sinned', message: 'For all have sinned and fall short of the glory of God.', ref: 'Romans 3:23' },
+        { title: 'The Wages of Sin', message: 'For the wages of sin is death, but the free gift of God is eternal life in Christ Jesus our Lord.', ref: 'Romans 6:23' },
+        { title: "God's Love", message: 'But God shows his love for us in that while we were still sinners, Christ died for us.', ref: 'Romans 5:8' },
+        { title: 'Confess and Believe', message: 'If you confess with your mouth that Jesus is Lord and believe in your heart that God raised him from the dead, you will be saved.', ref: 'Romans 10:9' },
+        { title: 'Call on His Name', message: 'For everyone who calls on the name of the Lord will be saved.', ref: 'Romans 10:13' }
+      ]
+    },
+    {
       id: 'who-is-jesus',
       title: 'Who Is Jesus',
       type: 'sequence',
+      // Hidden from the Good News grid for now, per Samuel's request --
+      // the series data, drawing logic, and share flow are untouched,
+      // so re-enabling this later is just deleting the `hidden` line
+      // below (see renderGoodNewsGrid's filter).
+      hidden: true,
       description: "A short look at Jesus' identity -- fully God, fully man, and risen.",
       steps: [
         { title: 'Fully God', message: 'In the beginning was the Word, and the Word was with God, and the Word was God.', ref: 'John 1:1' },
@@ -3233,6 +3260,7 @@
       ]
     }
   ];
+
 
   function getWeeklyGospelCards() {
     const poolSize = GOSPEL_CARDS_POOL.length;
@@ -3893,8 +3921,11 @@
     body.innerHTML = `
       <p class="dm-p">A few ready-made ways to walk someone through the whole gospel, start to finish.</p>
       <div class="gospel-grid">
-        ${GOSPEL_SERIES_POOL.map(s => `
+        ${GOSPEL_SERIES_POOL.filter(s => !s.hidden).map(s => `
           <button type="button" class="gospel-card-preview" data-series="${s.id}">
+            <div class="gospel-card-icon-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">${s.icon}</svg>
+            </div>
             <div class="gospel-card-title">${escapeHtmlMain(s.title)}</div>
             <div class="gospel-card-message">${escapeHtmlMain(s.description)}</div>
             <div class="gospel-card-ref">${s.steps.length} STEPS</div>
