@@ -7965,10 +7965,13 @@ async function renderDiscipleshipApp() {
   const articleModalBody = document.getElementById('articleModalBody');
 
   // ---------- Live blog feed ----------
-  // Tries the real backend (netlify/functions/get-blog-posts.js) which live-pulls
-  // and merges posts from both samueldeuth.com and followingjesusbook.com, sorted
-  // newest first. Falls back to the hand-picked ARTICLES list below if that function
-  // isn't deployed yet, is unreachable, or returns nothing.
+  // Tries the real backend (netlify/functions/get-blog-posts.js), which as of
+  // this writing still pulls and merges posts from both samueldeuth.com and
+  // followingjesusbook.com -- that function needs the same samueldeuth.com-only
+  // filter applied to it separately (it's not part of this file). Falls back
+  // to the hand-picked ARTICLES list below (already filtered to
+  // samueldeuth.com only) if the live fetch isn't deployed yet, is
+  // unreachable, or returns nothing.
   let BLOG_POSTS = [];
   let blogRenderCount = 5;
 
@@ -7977,15 +7980,20 @@ async function renderDiscipleshipApp() {
   }
 
   function articlesFallbackToPosts() {
-    return Object.keys(ARTICLES).map(id => {
-      const a = ARTICLES[id];
-      const firstP = (a.body.match(/<p>(.*?)<\/p>/s) || [, ''])[1];
-      return {
-        id, tag: a.tag, title: a.title, date: a.date, image: a.image,
-        excerpt: stripHtmlMain(firstP).slice(0, 160),
-        body: a.body, sourceUrl: a.sourceUrl
-      };
-    });
+    return Object.keys(ARTICLES)
+      // followingjesusbook.com's blog is the church-leaders-facing one --
+      // this fallback list should only ever surface samueldeuth.com posts,
+      // same as the live feed (once get-blog-posts.js is updated to match).
+      .filter(id => ARTICLES[id].tag === 'samueldeuth.com')
+      .map(id => {
+        const a = ARTICLES[id];
+        const firstP = (a.body.match(/<p>(.*?)<\/p>/s) || [, ''])[1];
+        return {
+          id, tag: a.tag, title: a.title, date: a.date, image: a.image,
+          excerpt: stripHtmlMain(firstP).slice(0, 160),
+          body: a.body, sourceUrl: a.sourceUrl
+        };
+      });
   }
 
   async function loadBlogPosts() {
