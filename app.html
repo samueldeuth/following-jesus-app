@@ -1944,10 +1944,10 @@
             <div class="banner-eyebrow">Listen</div>
             <div class="banner-title">Worship Playlist</div>
           </button>
-          <button type="button" class="banner-slide banner-photo" onclick="window.location.href='https://followingjesus.com/course'" style="background-image:linear-gradient(0deg, rgba(0,0,0,0.75), rgba(0,0,0,0.15)), url('/assets/course-video-preview.jpg');">
+          <a class="banner-slide banner-photo" href="https://followingjesus.com/course" target="_blank" rel="noopener" style="background-image:linear-gradient(0deg, rgba(0,0,0,0.75), rgba(0,0,0,0.15)), url('/assets/course-video-preview.jpg');">
             <div class="banner-eyebrow">Free Online Course</div>
             <div class="banner-title">Following Jesus Course</div>
-          </button>
+          </a>
           <button type="button" class="banner-slide banner-photo" id="shareYourFaithBannerSlide" style="background-image:linear-gradient(0deg, rgba(0,0,0,0.75), rgba(0,0,0,0.15)), url('/assets/share-your-faith-banner.jpg');">
             <div class="banner-eyebrow">Share the Good News</div>
             <div class="banner-title">Share Your Faith</div>
@@ -4791,7 +4791,7 @@ function stepBlockHtml(i, title, status, opts, walkItOutData = WALK_IT_OUT) {
   const clickableNow = opts.clickable && !hasWalkout && !opts.linkUrl;
   const rowTag = opts.linkUrl ? 'a' : 'div';
   const rowAttr = opts.linkUrl
-    ? `href="${opts.linkUrl}" data-step="${i}"`
+    ? `href="${opts.linkUrl}" target="_blank" rel="noopener" data-step="${i}"`
     : `data-step="${i}" data-clickable="${clickableNow ? 'true' : 'false'}"`;
   const walkout = walkItOutHtml(i, opts.walkoutChecked, opts.interactive, walkItOutData);
   const toggleBtn = walkout ? `<button type="button" class="walk-it-out-toggle" data-walkout="${i}">Action steps ▾</button>` : '';
