@@ -1698,6 +1698,7 @@ function renderPushNotifications(){
         <option value="https://followingjesus.com/app#blog">Blog</option>
         <option value="https://followingjesus.com/app#jesus">Jesus</option>
         <option value="https://followingjesus.com/app#gospel">Share The Word</option>
+        <option value="https://followingjesus.com/app#good-news">Share the Good News</option>
         <option value="https://followingjesus.com/app#profile">Profile</option>
         <option value="https://followingjesus.com/app#player">Worship Playlist</option>
       </select>
@@ -1798,6 +1799,20 @@ function renderPushNotifications(){
   // "Scheduled" (completedAt not yet set, not canceled) and "Sent Log"
   // (completedAt set) -- called once on load, and again after a
   // successful send/schedule so the new one shows up immediately.
+  // Converts OneSignal's 12-hour delivery_time_of_day format (e.g.
+  // "9:00AM") back into the 24-hour "HH:MM" format the <input
+  // type="time"> control requires -- needed when pre-filling the
+  // compose form for Edit.
+  function to24Hour(time12){
+    const match = time12.match(/(\d+):(\d+)(AM|PM)/i);
+    if(!match) return '';
+    let [, hour, minute, period] = match;
+    hour = parseInt(hour, 10);
+    if(period.toUpperCase() === 'PM' && hour !== 12) hour += 12;
+    if(period.toUpperCase() === 'AM' && hour === 12) hour = 0;
+    return `${String(hour).padStart(2,'0')}:${minute}`;
+  }
+
   async function loadPushNotificationsList(){
     const scheduledEl = document.getElementById('push-scheduled-list');
     const sentEl = document.getElementById('push-sent-list');
@@ -1821,6 +1836,7 @@ function renderPushNotifications(){
             <strong>${(n.title||'').replace(/</g,'&lt;')}</strong> — ${(n.message||'').replace(/</g,'&lt;')}<br>
             <span style="color:var(--ink-soft);font-size:12px;">${n.deliveryTimeOfDay ? `Delivers at ${n.deliveryTimeOfDay} in each person's own timezone` : 'Scheduled'}</span>
           </span>
+          <button class="mini-btn" data-edit-push="${n.id}" data-title="${(n.title||'').replace(/"/g,'&quot;')}" data-message="${(n.message||'').replace(/"/g,'&quot;')}" data-url="${(n.url||'').replace(/"/g,'&quot;')}" data-time="${n.deliveryTimeOfDay||''}">Edit</button>
           <button class="mini-btn danger" data-cancel-push="${n.id}">Cancel</button>
         </div>`).join('') : 'Nothing currently scheduled.';
 
@@ -1831,6 +1847,45 @@ function renderPushNotifications(){
             <span style="color:var(--ink-soft);font-size:12px;">${new Date(n.completedAt * 1000).toLocaleString()} · Reached ${n.successful ?? 0}${n.failed ? `, ${n.failed} failed` : ''}</span>
           </span>
         </div>`).join('') : 'Nothing sent yet.';
+
+      // OneSignal's own API has no true in-place edit for a scheduled
+      // push -- this is the closest practical equivalent: cancel the
+      // existing one, then pre-fill the compose form above with its
+      // exact details so it's a quick review-and-resend rather than
+      // retyping everything from scratch.
+      document.querySelectorAll('[data-edit-push]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if(!confirm('This will cancel the existing scheduled push so you can adjust and re-schedule it. Continue?')) return;
+          btn.disabled = true;
+          btn.textContent = 'Loading…';
+          try {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const res = await fetch('/.netlify/functions/cancel-push-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+              body: JSON.stringify({ notificationId: btn.dataset.editPush })
+            });
+            if(!res.ok){ alert('Could not cancel the original — it may have already gone out.'); btn.disabled = false; btn.textContent = 'Edit'; return; }
+
+            document.getElementById('push-title-input').value = btn.dataset.title;
+            document.getElementById('push-message-input').value = btn.dataset.message;
+            document.getElementById('push-url-input').value = btn.dataset.url;
+            const matchingOption = [...pushDestinationSelect.options].find(o => o.value === btn.dataset.url);
+            pushDestinationSelect.value = matchingOption ? btn.dataset.url : '';
+            if(btn.dataset.time){
+              document.querySelector('input[name="push-send-mode"][value="scheduled"]').checked = true;
+              document.getElementById('push-time-input').value = to24Hour(btn.dataset.time);
+              updatePushModeUI();
+            }
+            document.getElementById('push-title-input').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            loadPushNotificationsList();
+          } catch (e) {
+            alert('Could not load for editing: ' + e.message);
+            btn.disabled = false;
+            btn.textContent = 'Edit';
+          }
+        });
+      });
 
       document.querySelectorAll('[data-cancel-push]').forEach(btn => {
         btn.addEventListener('click', async () => {
