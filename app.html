@@ -534,6 +534,10 @@
   .disciple-banner-secondary:active { background: #1a1a1a; }
   .disciple-banner-tertiary { background: var(--ember); margin-top: 10px; }
   .disciple-banner-tertiary:active { background: #a8752a; }
+  .disciple-banner-white { background: var(--white); color: var(--black); margin-top: 10px; border: 1px solid rgba(0,0,0,0.1); }
+  .disciple-banner-white:active { background: #f0f0f0; }
+  .disciple-banner-white .disciple-banner-sub { color: rgba(0,0,0,0.6); }
+  .disciple-banner-white .disciple-banner-arrow { color: var(--black); }
 
   .disciple-app-scope .gospel-grid { display: flex; flex-direction: column; gap: 10px; }
   .disciple-app-scope .gospel-card-preview {
@@ -1850,6 +1854,15 @@
         <span class="disciple-banner-arrow">→</span>
       </button>
 
+      <button type="button" class="disciple-banner disciple-banner-white" id="shareGoodNewsBannerBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="2" x2="12" y2="22"/><line x1="5" y1="8" x2="19" y2="8"/></svg>
+        <span>
+          <span class="disciple-banner-title">Share the Good News</span>
+          <span class="disciple-banner-sub">Ready-made visuals to walk someone through the gospel</span>
+        </span>
+        <span class="disciple-banner-arrow">→</span>
+      </button>
+
       <button type="button" class="disciple-banner disciple-banner-secondary" id="becomeDiscipleBannerBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v6"/><path d="M12 22v-6"/><circle cx="12" cy="12" r="4"/></svg>
         <span>
@@ -2117,6 +2130,9 @@
         <div class="jesus-prayer-text">"Father, thank You for sending Jesus to die on the cross for my sins, and raising Him from the dead to give me life. I repent of my sin and turn to You. Jesus, I choose to follow You with all of my heart, for the rest of my life. I believe in You and declare that You are the leader and Lord of my life! Thank You for forgiving me and walking with me from this moment forward! Amen."</div>
       </div>
 
+      <button type="button" class="jesus-cta" id="shareGoodNewsBtn" style="background:none;border:2px solid #c89b3c;color:#c89b3c;">Share the Good News →</button>
+      <div class="jesus-cta-sub">Ready-made visuals to walk someone through the gospel</div>
+
       <a class="jesus-cta" href="https://followingjesus.com/course" target="_blank" rel="noopener">Take Your Next Step →</a>
       <div class="jesus-cta-sub">Start the free Following Jesus course</div>
     </section>
@@ -2142,6 +2158,10 @@
 
     <div class="disciple-modal" id="gospelModal">
       <div class="disciple-modal-body disciple-app-scope" id="gospelModalBody"></div>
+    </div>
+
+    <div class="disciple-modal" id="goodNewsModal">
+      <div class="disciple-modal-body disciple-app-scope" id="goodNewsModalBody"></div>
     </div>
 
     <div class="article-modal" id="articleModal">
@@ -2281,6 +2301,16 @@
     renderGospelGrid();
     pushUrlHash('gospel');
   });
+
+  const openGoodNewsPage = () => {
+    hideMainScreens();
+    showPageHeader('Share the Good News');
+    document.getElementById('goodNewsModal').classList.add('open');
+    renderGoodNewsGrid();
+    pushUrlHash('good-news');
+  };
+  document.getElementById('shareGoodNewsBtn').addEventListener('click', openGoodNewsPage);
+  document.getElementById('shareGoodNewsBannerBtn').addEventListener('click', openGoodNewsPage);
 
   // ---------- Find a Church ----------
   // Wires up every .info-icon-btn on the page to open/close a single
@@ -2764,6 +2794,7 @@
     { key: 'reading_plan_complete', title: '365 Complete', description: 'Finish the entire 365-Day Reading Plan.', svg: '<circle r="58" fill="#e6eef2" stroke="#1e4a5f" stroke-width="2"/><circle r="47" fill="#a9cbd8"/><path d="M-30,-16 C-16,-22 -4,-18 0,-12 L0,20 C-4,14 -16,10 -30,16 Z" fill="#1e4a5f"/><path d="M30,-16 C16,-22 4,-18 0,-12 L0,20 C4,14 16,10 30,16 Z" fill="#1e4a5f"/><circle cx="20" cy="26" r="13" fill="#e6eef2" stroke="#1e4a5f" stroke-width="1.5"/><path d="M14,26 L18,31 L27,20" fill="none" stroke="#1e4a5f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' },
     { key: 'course_graduate', title: 'Course Graduate', description: 'Complete the free Following Jesus course.', svg: '<circle r="58" fill="#efe6f2" stroke="#4a2f5f" stroke-width="2"/><circle r="47" fill="#c9a9d8"/><path d="M-32,-6 L0,-18 L32,-6 L0,6 Z" fill="#4a2f5f"/><path d="M-16,0 L-16,16 C-16,22 16,22 16,16 L16,0" fill="none" stroke="#4a2f5f" stroke-width="2.5" stroke-linecap="round"/><line x1="26" y1="-2" x2="26" y2="14" stroke="#4a2f5f" stroke-width="1.5"/><circle cx="26" cy="17" r="2.5" fill="#4a2f5f"/>' },
     { key: 'gospel_sharer', title: 'Gospel Sharer', description: 'Share a Gospel verse graphic.', svg: '<circle r="58" fill="#f6e6ea" stroke="#8a2f4a" stroke-width="2"/><circle r="47" fill="#e8a9bd"/><g transform="rotate(-25) scale(0.8) translate(-9.5,0)"><path d="M-22,-5 L-22,5 L-6,9 L24,20 C26,7 26,-7 24,-20 L-6,-9 Z" fill="#8a2f4a"/><g stroke="#8a2f4a" stroke-width="3" stroke-linecap="round" fill="none"><path d="M30,-14 C34,-6 34,6 30,14"/><path d="M36,-19 C41,-9 41,9 36,19"/></g></g>' },
+    { key: 'good_news_sharer', title: 'Good News Sharer', description: 'Share a gospel presentation from Share the Good News.', svg: '<circle r="58" fill="#f5ecd9" stroke="#8a6423" stroke-width="2"/><circle r="47" fill="#e0b968"/><rect x="-7" y="-32" width="14" height="64" rx="2" fill="#8a6423"/><rect x="-22" y="-14" width="44" height="14" rx="2" fill="#8a6423"/>' },
     { key: 'disciple_maker', title: 'Disciple Maker', description: 'Get approved as a leader.', svg: '<circle r="58" fill="#f2ede2" stroke="#6b4423" stroke-width="2"/><circle r="47" fill="#d4b896"/><g fill="#6b4423"><circle cx="-10" cy="-14" r="10"/><path d="M-26,22 C-26,4 6,4 6,22 Z"/></g><g stroke="#6b4423" stroke-width="3" stroke-linecap="round"><line x1="21" y1="-8" x2="21" y2="8"/><line x1="13" y1="0" x2="29" y2="0"/></g>' },
     { key: 'first_disciple', title: 'First Disciple', description: 'Someone joins your group or invite for the first time.', svg: '<circle r="58" fill="#e9f1e6" stroke="#2f5d34" stroke-width="2"/><circle r="47" fill="#a9cfa0"/><g fill="#2f5d34"><circle cx="-18" cy="-14" r="9"/><path d="M-30,22 C-30,4 -6,4 -6,22 Z"/><circle cx="18" cy="-14" r="9"/><path d="M6,22 C6,4 30,4 30,22 Z"/></g>' }
   ];
@@ -3120,6 +3151,55 @@
 
   const GOSPEL_CARDS_PER_WEEK = 5;
 
+  // Multi-step gospel presentations -- a different shape from the single
+  // rotating verse cards above: each of these is a fixed, ordered
+  // sequence meant to walk someone through the whole gospel, not one
+  // verse in isolation. 'sequence' types are plain verse steps drawn the
+  // same visual way as a single card; 'illustration' (just The Bridge,
+  // for now) draws a simple scene instead of pure text -- see
+  // drawBridgeStep/drawBridgeCombined.
+  const GOSPEL_SERIES_POOL = [
+    {
+      id: 'romans-road',
+      title: 'The Romans Road',
+      type: 'sequence',
+      description: 'Five verses from Romans that walk through the whole gospel, in order.',
+      steps: [
+        { title: 'All Have Sinned', message: 'For all have sinned and fall short of the glory of God.', ref: 'Romans 3:23' },
+        { title: 'The Wages of Sin', message: 'For the wages of sin is death, but the free gift of God is eternal life in Christ Jesus our Lord.', ref: 'Romans 6:23' },
+        { title: "God's Love", message: 'But God shows his love for us in that while we were still sinners, Christ died for us.', ref: 'Romans 5:8' },
+        { title: 'Confess and Believe', message: 'If you confess with your mouth that Jesus is Lord and believe in your heart that God raised him from the dead, you will be saved.', ref: 'Romans 10:9' },
+        { title: 'Call on His Name', message: 'For everyone who calls on the name of the Lord will be saved.', ref: 'Romans 10:13' }
+      ]
+    },
+    {
+      id: 'bridge',
+      title: 'The Bridge',
+      type: 'illustration',
+      description: 'The story of the gap sin creates between us and God -- and how Jesus bridges it.',
+      steps: [
+        { title: 'Together With God', message: 'And they heard the sound of the LORD God walking in the garden in the cool of the day.', ref: 'Genesis 3:8', panel: 'together' },
+        { title: 'Sin Separates Us', message: 'But your iniquities have separated you from your God, and your sins have hidden his face from you.', ref: 'Isaiah 59:2', panel: 'gap' },
+        { title: 'Our Own Attempts Fall Short', message: 'Not by works, so that no one can boast -- for it is by grace you have been saved, through faith.', ref: 'Ephesians 2:8-9', panel: 'attempts' },
+        { title: 'Jesus Bridges the Divide', message: 'But now in Christ Jesus you who once were far away have been brought near by the blood of Christ.', ref: 'Ephesians 2:13', panel: 'cross' },
+        { title: 'Reunited to God', message: 'All this is from God, who reconciled us to himself through Christ.', ref: '2 Corinthians 5:18', panel: 'reunited' }
+      ]
+    },
+    {
+      id: 'who-is-jesus',
+      title: 'Who Is Jesus',
+      type: 'sequence',
+      description: "A short look at Jesus' identity -- fully God, fully man, and risen.",
+      steps: [
+        { title: 'Fully God', message: 'In the beginning was the Word, and the Word was with God, and the Word was God.', ref: 'John 1:1' },
+        { title: 'Fully Man', message: 'And the Word became flesh and dwelt among us.', ref: 'John 1:14' },
+        { title: 'The Only Way', message: 'I am the way, and the truth, and the life. No one comes to the Father except through me.', ref: 'John 14:6' },
+        { title: 'The One Who Loves You', message: 'For God so loved the world, that he gave his only Son, that whoever believes in him should not perish but have eternal life.', ref: 'John 3:16' },
+        { title: 'The Risen King', message: 'He is not here, for he has risen, just as he said.', ref: 'Matthew 28:6' }
+      ]
+    }
+  ];
+
   function getWeeklyGospelCards() {
     const poolSize = GOSPEL_CARDS_POOL.length;
     const weekIndex = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
@@ -3261,6 +3341,418 @@
     ctx.fillText('FOLLOWING JESUS', width / 2, height - 70);
   }
 
+  // Dispatches to the right drawing routine based on series type
+  // ('sequence' vs the illustrated 'bridge') and mode ('single' step
+  // vs 'combined', all steps stacked in one image). Kept as one entry
+  // point so the preview screen below doesn't need to know these
+  // details -- it just calls this the same way regardless of which
+  // series or mode is selected.
+  async function drawGospelSeriesCard(canvas, series, stepIndex, format, mode) {
+    if (series.type === 'illustration') {
+      return mode === 'combined'
+        ? drawBridgeCombined(canvas, series, format)
+        : drawBridgeStep(canvas, series, stepIndex, format);
+    }
+    return mode === 'combined'
+      ? drawGospelSeriesCombined(canvas, series, format)
+      : drawGospelSeriesStep(canvas, series, stepIndex, format);
+  }
+
+  // A single step of a plain verse sequence (Romans Road, Who Is
+  // Jesus) -- visually identical to drawGospelCard's text layout, with
+  // a "STEP X OF Y" label and progress dots added above the verse
+  // instead of the card's own title, since the series title already
+  // showed on the grid before this was opened.
+  function drawGospelSeriesStep(canvas, series, stepIndex, format) {
+    const width = 1080;
+    const height = format === 'story' ? 1920 : 1080;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const step = series.steps[stepIndex];
+
+    const grad = ctx.createLinearGradient(0, 0, width, height);
+    grad.addColorStop(0, '#0a0a0a');
+    grad.addColorStop(1, '#241d12');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#c89b3c';
+    ctx.font = '600 26px Archivo, sans-serif';
+    ctx.fillText(`STEP ${stepIndex + 1} OF ${series.steps.length}`, width / 2, height * 0.14);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '500 50px Fraunces, serif';
+    const lines = wrapCanvasText(ctx, step.message, width - 160);
+    const lineHeight = 66;
+    const totalHeight = lines.length * lineHeight;
+    let y = (height - totalHeight) / 2 + 20;
+    lines.forEach(line => {
+      ctx.fillText(line, width / 2, y);
+      y += lineHeight;
+    });
+
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = '600 28px Archivo, sans-serif';
+    ctx.fillText(step.ref, width / 2, y + 28);
+
+    // Progress dots -- same idea as the mobile preview UI, drawn into
+    // the shared image itself so it's clear which step this is even
+    // once it's out of the app (a text message, a saved photo).
+    const dotCount = series.steps.length;
+    const dotSpacing = 34;
+    const dotsStartX = width / 2 - ((dotCount - 1) * dotSpacing) / 2;
+    const dotsY = height - 110;
+    for (let i = 0; i < dotCount; i++) {
+      ctx.fillStyle = i === stepIndex ? '#c89b3c' : 'rgba(255,255,255,0.25)';
+      ctx.fillRect(dotsStartX + i * dotSpacing - 12, dotsY, 24, 5);
+    }
+
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '700 22px Archivo, sans-serif';
+    ctx.fillText('FOLLOWING JESUS', width / 2, height - 60);
+  }
+
+  // All steps of a plain verse sequence stacked into one image -- the
+  // "combined" option. Font sizes shrink relative to the single-step
+  // view since five verses need to fit in the same frame; a left gold
+  // rule per step (echoing the mockup) keeps each one visually
+  // separate without needing full card borders.
+  function drawGospelSeriesCombined(canvas, series, format) {
+    const width = 1080;
+    const height = format === 'story' ? 1920 : 1080;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    const grad = ctx.createLinearGradient(0, 0, width, height);
+    grad.addColorStop(0, '#0a0a0a');
+    grad.addColorStop(1, '#241d12');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#c89b3c';
+    ctx.font = '700 32px Archivo, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(series.title.toUpperCase(), width / 2, height * 0.1);
+
+    const marginX = 110;
+    const textWidth = width - marginX * 2 - 30;
+    const stepGap = (height - height * 0.18 - 100) / series.steps.length;
+    let y = height * 0.18;
+    ctx.textAlign = 'left';
+    series.steps.forEach(step => {
+      ctx.fillStyle = '#c89b3c';
+      ctx.fillRect(marginX, y, 5, stepGap - 40);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '400 30px Fraunces, serif';
+      const lines = wrapCanvasText(ctx, step.message, textWidth);
+      let lineY = y + 36;
+      lines.slice(0, 3).forEach(line => {
+        ctx.fillText(line, marginX + 30, lineY);
+        lineY += 38;
+      });
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.font = '600 22px Archivo, sans-serif';
+      ctx.fillText(step.ref, marginX + 30, lineY + 6);
+
+      y += stepGap;
+    });
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '700 22px Archivo, sans-serif';
+    ctx.fillText('FOLLOWING JESUS', width / 2, height - 50);
+  }
+
+  // The Bridge's single-step view -- a simple illustrated scene (two
+  // cliffs, a dark gap, a gold cross bridging them) rather than pure
+  // text, matching Samuel's own "simple, not detailed" direction.
+  // Drawn fresh per step so the highlighted panel (sin / cross / new
+  // life) can be called out -- the "God" step has no gap yet, since
+  // the separation hasn't been introduced in the story yet.
+  // A simple, rounded human silhouette -- a circle for the head and a
+  // rounded body shape, nothing more detailed. scale lets the same
+  // shape represent God (drawn larger) or a person (drawn smaller)
+  // without a second function.
+  function drawSimpleFigure(ctx, x, y, scale) {
+    ctx.fillStyle = '#f5f0e6';
+    ctx.beginPath();
+    ctx.arc(x, y - 34 * scale, 14 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - 16 * scale, y + 26 * scale);
+    ctx.quadraticCurveTo(x - 20 * scale, y - 16 * scale, x, y - 16 * scale);
+    ctx.quadraticCurveTo(x + 20 * scale, y - 16 * scale, x + 16 * scale, y + 26 * scale);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Same head shape, but the body flares out into a wider hem at the
+  // bottom -- a simple dress silhouette, used for the right figure in
+  // each pair so the two read as a man and a woman rather than two
+  // identical shapes.
+  function drawSimpleFigureDress(ctx, x, y, scale) {
+    ctx.fillStyle = '#f5f0e6';
+    ctx.beginPath();
+    ctx.arc(x, y - 34 * scale, 14 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - 26 * scale, y + 26 * scale);
+    ctx.quadraticCurveTo(x - 16 * scale, y - 16 * scale, x, y - 16 * scale);
+    ctx.quadraticCurveTo(x + 16 * scale, y - 16 * scale, x + 26 * scale, y + 26 * scale);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Two figures drawn close together, side by side -- represents "the
+  // two people" as a pair throughout the Bridge illustration, distinct
+  // from God's single larger figure. The right one uses the dress
+  // silhouette so the pair reads as a man and a woman, not two
+  // identical shapes.
+  function drawPersonPair(ctx, centerX, y, scale) {
+    drawSimpleFigure(ctx, centerX - 26 * scale, y, scale);
+    drawSimpleFigureDress(ctx, centerX + 26 * scale, y, scale);
+  }
+
+  function drawBridgeStep(canvas, series, stepIndex, format) {
+    const width = 1080;
+    const height = format === 'story' ? 1920 : 1080;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const step = series.steps[stepIndex];
+
+    const grad = ctx.createLinearGradient(0, 0, 0, height);
+    grad.addColorStop(0, '#2b2420');
+    grad.addColorStop(1, '#4a3826');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+
+    const cliffTop = height * 0.42;
+    // Wider gap than before, and the ground itself now stays perfectly
+    // flat and level on both sides -- only the inner edge facing the
+    // gap has a bit of jagged rock-face character. Previously the
+    // whole top sloped up like a mountain peak, which made figures
+    // standing at cliffTop look like they were floating above it
+    // rather than standing on solid, level ground.
+    const gapLeft = width * 0.34;
+    const gapRight = width * 0.66;
+    // Only 'together' (before any separation existed) shows one
+    // unified ground. Every other panel, including 'reunited', keeps
+    // the gap visible -- reunion happens by crossing the bridge the
+    // cross provides, not by the gap disappearing.
+    const showsGap = step.panel !== 'together';
+    ctx.fillStyle = '#1c1a17';
+    if (showsGap) {
+      ctx.beginPath();
+      ctx.moveTo(0, cliffTop);
+      ctx.lineTo(gapLeft, cliffTop);
+      ctx.lineTo(gapLeft - 22, cliffTop + 90);
+      ctx.lineTo(gapLeft, cliffTop + 180);
+      ctx.lineTo(gapLeft - 14, height);
+      ctx.lineTo(0, height);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(width, cliffTop);
+      ctx.lineTo(gapRight, cliffTop);
+      ctx.lineTo(gapRight + 22, cliffTop + 90);
+      ctx.lineTo(gapRight, cliffTop + 180);
+      ctx.lineTo(gapRight + 14, height);
+      ctx.lineTo(width, height);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      ctx.fillRect(0, cliffTop, width, height - cliffTop);
+    }
+
+    if (step.panel === 'attempts') {
+      // Short planks reaching partway into the gap from the left side,
+      // none long enough to reach the far cliff -- the visual point is
+      // simply that they stop short, not what each one represents.
+      ctx.fillStyle = 'rgba(200,155,60,0.55)';
+      [0, 1, 2].forEach(i => {
+        ctx.fillRect(gapLeft, cliffTop + 60 + i * 70, (gapRight - gapLeft) * 0.35, 26);
+      });
+    }
+
+    if (step.panel === 'cross' || step.panel === 'reunited') {
+      // A traditional cross shape: the horizontal beam sits in the
+      // upper third of the vertical one, not the middle. Its TOP edge
+      // is set exactly at ground level (cliffTop) and spans the full
+      // width of the gap, so the crossbar itself doubles as the
+      // walkway across -- one element serving both the cross shape
+      // and the bridge, rather than two separate overlapping bars.
+      ctx.fillStyle = '#c89b3c';
+      const beamW = 36;
+      const beamX = width / 2 - beamW / 2;
+      ctx.fillRect(beamX, cliffTop - 130, beamW, 420);
+      ctx.fillRect(gapLeft, cliffTop, gapRight - gapLeft, 34);
+    }
+
+    // Figure placement stays consistent with the actual story across
+    // every step, rather than only appearing in the final one: God and
+    // the two people start together, then separate to opposite sides
+    // once sin/the gap enters and stay there through the attempts and
+    // the cross itself -- only in 'reunited' do the people actually
+    // cross over, shown with a dotted walking line along the crossbar
+    // rather than standing on top of it.
+    if (step.panel === 'together') {
+      drawSimpleFigure(ctx, width / 2, cliffTop - 30, 1.3);
+      drawPersonPair(ctx, width / 2 - 70, cliffTop - 30, 0.85);
+    } else if (step.panel === 'gap' || step.panel === 'attempts' || step.panel === 'cross') {
+      drawSimpleFigure(ctx, width * 0.78, cliffTop - 40, 1.3);
+      drawPersonPair(ctx, width * 0.14, cliffTop - 40, 0.85);
+    } else if (step.panel === 'reunited') {
+      drawSimpleFigure(ctx, width * 0.78, cliffTop - 40, 1.3);
+      // Placed well clear of the chasm edge -- arrived and standing
+      // near God, not hovering right at the gap.
+      drawPersonPair(ctx, width * 0.88, cliffTop - 40, 0.85);
+      // Dotted line at crossbar height, spanning the full gap width --
+      // the path the crossbar itself provides, not people standing on
+      // top of the beam.
+      ctx.strokeStyle = 'rgba(245,240,230,0.6)';
+      ctx.lineWidth = 4;
+      ctx.setLineDash([10, 12]);
+      ctx.beginPath();
+      ctx.moveTo(gapLeft, cliffTop + 17);
+      ctx.lineTo(gapRight, cliffTop + 17);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#c89b3c';
+    ctx.font = '600 24px Archivo, sans-serif';
+    ctx.fillText(`${stepIndex + 1} OF ${series.steps.length} — ${step.title.toUpperCase()}`, width / 2, height * 0.12);
+
+    ctx.fillStyle = '#f5f0e6';
+    ctx.font = '400 40px Fraunces, serif';
+    const lines = wrapCanvasText(ctx, step.message, width - 200);
+    let ty = height * 0.72;
+    lines.forEach(line => {
+      ctx.fillText(line, width / 2, ty);
+      ty += 52;
+    });
+    if (step.ref) {
+      ctx.fillStyle = 'rgba(245,240,230,0.6)';
+      ctx.font = '600 26px Archivo, sans-serif';
+      ctx.fillText(step.ref, width / 2, ty + 20);
+    }
+
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '700 22px Archivo, sans-serif';
+    ctx.fillText('FOLLOWING JESUS', width / 2, height - 50);
+  }
+
+  // The Bridge's combined view -- the full scene (cliffs, gap, cross)
+  // drawn once, with all five short labels stacked below it rather
+  // than trying to fit five separate illustrations in one frame.
+  function drawBridgeCombined(canvas, series, format) {
+    const width = 1080;
+    const height = format === 'story' ? 1920 : 1080;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    const grad = ctx.createLinearGradient(0, 0, 0, height);
+    grad.addColorStop(0, '#2b2420');
+    grad.addColorStop(1, '#4a3826');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+
+    const cliffTop = height * 0.16;
+    const cliffBottom = height * 0.46;
+    const gapLeft = width * 0.34;
+    const gapRight = width * 0.66;
+    ctx.fillStyle = '#1c1a17';
+    ctx.beginPath();
+    ctx.moveTo(0, cliffTop);
+    ctx.lineTo(gapLeft, cliffTop);
+    ctx.lineTo(gapLeft - 18, cliffTop + 70);
+    ctx.lineTo(gapLeft, cliffTop + 140);
+    ctx.lineTo(gapLeft - 12, cliffBottom);
+    ctx.lineTo(0, cliffBottom);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(width, cliffTop);
+    ctx.lineTo(gapRight, cliffTop);
+    ctx.lineTo(gapRight + 18, cliffTop + 70);
+    ctx.lineTo(gapRight, cliffTop + 140);
+    ctx.lineTo(gapRight + 12, cliffBottom);
+    ctx.lineTo(width, cliffBottom);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = '#c89b3c';
+    ctx.fillRect(width / 2 - 18, cliffTop - 90, 36, 280);
+    ctx.fillRect(gapLeft, cliffTop, gapRight - gapLeft, 24);
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#c89b3c';
+    ctx.font = '700 32px Archivo, sans-serif';
+    ctx.fillText(series.title.toUpperCase(), width / 2, height * 0.09);
+
+    let y = height * 0.54;
+    const stepGap = (height - y - 90) / series.steps.length;
+    series.steps.forEach(step => {
+      ctx.fillStyle = '#c89b3c';
+      ctx.font = '600 24px Archivo, sans-serif';
+      ctx.fillText(step.title.toUpperCase(), width / 2, y);
+
+      ctx.fillStyle = '#f5f0e6';
+      ctx.font = '400 26px Fraunces, serif';
+      const lines = wrapCanvasText(ctx, step.message, width - 220);
+      let ly = y + 36;
+      lines.slice(0, 2).forEach(line => {
+        ctx.fillText(line, width / 2, ly);
+        ly += 32;
+      });
+      y += stepGap;
+    });
+
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '700 22px Archivo, sans-serif';
+    ctx.fillText('FOLLOWING JESUS', width / 2, height - 50);
+  }
+
+
+  async function shareGospelSeriesCard(canvas, series, format, mode, stepIndex) {
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      const fileName = mode === 'combined' ? `${series.id}-all-${format}.png` : `${series.id}-step${stepIndex + 1}-${format}.png`;
+      const file = new File([blob], fileName, { type: 'image/png' });
+      const shareText = mode === 'combined' ? series.title : `${series.steps[stepIndex].title} — ${series.steps[stepIndex].ref || ''}`;
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: series.title, text: shareText });
+          awardBadgeIfSignedIn('good_news_sharer');
+          return;
+        } catch (e) {
+          if (e && e.name === 'AbortError') return;
+        }
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      awardBadgeIfSignedIn('good_news_sharer');
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }, 'image/png', 0.95);
+  }
+
   async function shareGospelCard(card, format, backgroundStyle) {
     const canvas = document.createElement('canvas');
     await drawGospelCard(canvas, card, format, backgroundStyle);
@@ -3311,6 +3803,101 @@
     [...body.querySelectorAll('.gospel-card-preview')].forEach(btn => {
       btn.onclick = () => openGospelCardPreview(btn.dataset.card);
     });
+  }
+
+  // ---------- Share the Good News: dedicated page for fixed, structured
+  // gospel presentations (Romans Road, The Bridge, Who Is Jesus) --
+  // deliberately separate from Share The Word above, since that one is
+  // meant to feel fluid (single verses rotating weekly), while these are
+  // stable, complete sequences someone might come back to and reuse
+  // as-is.
+  function renderGoodNewsGrid() {
+    const body = document.getElementById('goodNewsModalBody');
+    body.innerHTML = `
+      <p class="dm-p">A few ready-made ways to walk someone through the whole gospel, start to finish.</p>
+      <div class="gospel-grid">
+        ${GOSPEL_SERIES_POOL.map(s => `
+          <button type="button" class="gospel-card-preview" data-series="${s.id}">
+            <div class="gospel-card-title">${escapeHtmlMain(s.title)}</div>
+            <div class="gospel-card-message">${escapeHtmlMain(s.description)}</div>
+            <div class="gospel-card-ref">${s.steps.length} STEPS</div>
+          </button>
+        `).join('')}
+      </div>
+    `;
+    [...body.querySelectorAll('.gospel-card-preview[data-series]')].forEach(btn => {
+      btn.onclick = () => openGospelSeriesPreview(btn.dataset.series);
+    });
+  }
+
+  // Same preview screen as before -- format + panel-mode toggles, step
+  // navigator for single-step mode -- just renders into the new
+  // goodNewsModalBody, and its back link returns to renderGoodNewsGrid
+  // instead of the Share The Word grid.
+  function openGospelSeriesPreview(seriesId) {
+    const series = GOSPEL_SERIES_POOL.find(s => s.id === seriesId);
+    if (!series) return;
+    let currentFormat = 'square';
+    let currentMode = 'single';
+    let currentStep = 0;
+    const body = document.getElementById('goodNewsModalBody');
+    body.innerHTML = `
+      <a class="back-link" id="gospelSeriesBackBtn">← All Presentations</a>
+      <div class="gospel-format-toggle">
+        <button type="button" class="gospel-format-btn active" data-format="square">Square</button>
+        <button type="button" class="gospel-format-btn" data-format="story">Story</button>
+      </div>
+      <div class="gospel-format-toggle" style="margin-top:8px;">
+        <button type="button" class="gospel-format-btn active" data-mode="single">Single Card</button>
+        <button type="button" class="gospel-format-btn" data-mode="combined">Combined (All Steps)</button>
+      </div>
+      <div id="gospelSeriesStepNav" style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:10px;">
+        <button type="button" class="mini-btn" id="gospelSeriesPrevBtn">← Prev</button>
+        <span id="gospelSeriesStepLabel" class="dm-p" style="margin:0;">Step 1 of ${series.steps.length}</span>
+        <button type="button" class="mini-btn" id="gospelSeriesNextBtn">Next →</button>
+      </div>
+      <canvas id="gospelSeriesPreviewCanvas" class="gospel-preview-canvas gospel-preview-square"></canvas>
+      <button class="primary-btn" id="gospelSeriesShareBtn" style="margin-top:16px;">Share This Image</button>
+    `;
+    const canvas = document.getElementById('gospelSeriesPreviewCanvas');
+    const stepNav = document.getElementById('gospelSeriesStepNav');
+    const stepLabel = document.getElementById('gospelSeriesStepLabel');
+
+    function redraw() {
+      stepNav.style.display = currentMode === 'single' ? 'flex' : 'none';
+      stepLabel.textContent = `Step ${currentStep + 1} of ${series.steps.length}`;
+      drawGospelSeriesCard(canvas, series, currentStep, currentFormat, currentMode);
+    }
+    redraw();
+
+    document.getElementById('gospelSeriesBackBtn').onclick = () => renderGoodNewsGrid();
+    body.querySelectorAll('[data-format]').forEach(btn => {
+      btn.onclick = () => {
+        body.querySelectorAll('[data-format]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFormat = btn.dataset.format;
+        canvas.classList.toggle('gospel-preview-square', currentFormat === 'square');
+        canvas.classList.toggle('gospel-preview-story', currentFormat === 'story');
+        redraw();
+      };
+    });
+    body.querySelectorAll('[data-mode]').forEach(btn => {
+      btn.onclick = () => {
+        body.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentMode = btn.dataset.mode;
+        redraw();
+      };
+    });
+    document.getElementById('gospelSeriesPrevBtn').onclick = () => {
+      currentStep = (currentStep - 1 + series.steps.length) % series.steps.length;
+      redraw();
+    };
+    document.getElementById('gospelSeriesNextBtn').onclick = () => {
+      currentStep = (currentStep + 1) % series.steps.length;
+      redraw();
+    };
+    document.getElementById('gospelSeriesShareBtn').onclick = () => shareGospelSeriesCard(canvas, series, currentFormat, currentMode, currentStep);
   }
 
   function openGospelCardPreview(cardId) {
@@ -4692,20 +5279,6 @@ async function wireLeaderQuickActions() {
       showShareModal(newCode, label.trim());
     };
   }
-  const weeklyCheckinBtn = document.getElementById('weeklyCheckinReminderToggle');
-  if (weeklyCheckinBtn) {
-    weeklyCheckinBtn.onclick = async () => {
-      const next = !weeklyCheckinBtn.classList.contains('on');
-      const { error } = await supabaseClient.from('profiles').update({ weekly_checkin_reminder_enabled: next }).eq('id', myId);
-      if (error) { console.error('Failed to update weekly check-in reminder preference:', error); return; }
-      weeklyCheckinBtn.classList.toggle('on', next);
-      weeklyCheckinBtn.querySelector('.notif-toggle-state').textContent = next ? 'On' : 'Off';
-      // Re-confirms the tag right at the moment they opt in, in case this
-      // is a session where the once-per-load backfill above hasn't run
-      // yet for some reason -- cheap, harmless to repeat.
-      if (next) setOneSignalTag('leader_user_id', myId);
-    };
-  }
 }
 
 async function removeDisciple(discipleId) {
@@ -5753,17 +6326,6 @@ async function renderDiscipleshipHub() {
   const isApprovedLeader = leaderApp && leaderApp.status === 'approved';
   checkAndCelebrateMilestones(myId, hubMilestonesData.allDone);
 
-  // Tags this leader's device with their own user id -- the only way a
-  // server-side push can target ONE SPECIFIC person rather than a
-  // broadcast group of everyone sharing a tag value (how every other
-  // push notification in this app works so far). Backfilled every load,
-  // same reasoning as Verse of the Day's own tags: harmless no-op once
-  // already set, and covers anyone who was already a leader before this
-  // shipped without needing a migration.
-  if (isApprovedLeader) {
-    setOneSignalTag('leader_user_id', myId);
-  }
-
   let stepsHtml = '';
   STEPS.forEach((title, i) => {
     const status = progress[i] || 'not_started';
@@ -5865,20 +6427,18 @@ async function renderDiscipleshipHub() {
     // of behind a separate screen — this is that merged content.
     // Same fix as the top of this function -- these 5 are independent
     // of each other, so they run together rather than one at a time.
-    const [leaderGroupsResult, disciplesResult, directGroupResult, discipledCountResult, unreadDmSenderIdsResult, myProfileResult] = await Promise.all([
+    const [leaderGroupsResult, disciplesResult, directGroupResult, discipledCountResult, unreadDmSenderIdsResult] = await Promise.all([
       getLeaderGroups(myId),
       getLeaderDisciples(myId),
       supabaseClient.from('discipleship_groups').select('invite_code').eq('leader_id', myId).eq('is_direct', true).maybeSingle(),
       computeDiscipledCount(myId),
-      getUnreadDmSenderIds(myId),
-      supabaseClient.from('profiles').select('weekly_checkin_reminder_enabled').eq('id', myId).maybeSingle()
+      getUnreadDmSenderIds(myId)
     ]);
     groups = leaderGroupsResult;
     disciples = disciplesResult;
     directCode = directGroupResult.data ? directGroupResult.data.invite_code : null;
     discipledCount = discipledCountResult;
     unreadDmSenderIds = unreadDmSenderIdsResult;
-    const weeklyCheckinReminderEnabled = !!myProfileResult.data?.weekly_checkin_reminder_enabled;
 
     leaderSectionHtml = `
       <div class="discipled-stat-card">
@@ -5889,15 +6449,6 @@ async function renderDiscipleshipHub() {
         <button class="compact-action-btn" id="inviteFriendBtn">Invite a Friend</button>
         <button class="compact-action-btn" id="newGroupBtn">Create a Group</button>
       </div>
-      <label class="notif-toggle-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0;padding:12px 14px;background:var(--bg-soft, #f5f5f5);border-radius:10px;">
-        <span style="font-size:14px;">
-          <strong>Weekly Check-In Reminder</strong>
-          <div style="font-size:12px;color:var(--ink-soft, #777);margin-top:2px;">A weekly nudge if any of your disciples still have something unfinished</div>
-        </span>
-        <button type="button" class="notif-toggle-btn${weeklyCheckinReminderEnabled ? ' on' : ''}" id="weeklyCheckinReminderToggle" style="flex-shrink:0;">
-          <span class="notif-toggle-state">${weeklyCheckinReminderEnabled ? 'On' : 'Off'}</span>
-        </button>
-      </label>
       <div class="subnav">
         <button id="tabGroups" class="${leaderTab==='groups'?'active':''}">Groups</button>
         <button id="tabDisciples" class="${leaderTab==='disciples'?'active':''}">All Disciples (${disciples.length})</button>
@@ -6400,22 +6951,10 @@ async function toggleBlockUser(blockedId, isCurrentlyBlocked) {
 }
 
 async function sendGroupMessage(code, body, isAction = false) {
-  const { data: group } = await supabaseClient.from('discipleship_groups').select('id, leader_id, label').eq('invite_code', code).maybeSingle();
+  const { data: group } = await supabaseClient.from('discipleship_groups').select('id').eq('invite_code', code).maybeSingle();
   if (!group) return { ok: false, error: 'Could not find this group.' };
   const { error } = await supabaseClient.from('discipleship_messages').insert({ group_id: group.id, sender_id: myId, body, is_action: isAction });
   if (error) { console.error('sendGroupMessage failed:', error); return { ok: false, error: error.message }; }
-  // Fire-and-forget -- never awaited, so a slow or failed notification
-  // call can't delay or break the sender's own experience of sending a
-  // message. Skipped entirely when the leader is the one sending (no
-  // point notifying yourself), same reasoning as any self-notification
-  // guard elsewhere.
-  if (group.leader_id && group.leader_id !== myId) {
-    fetch('/.netlify/functions/notify-leader-of-new-message', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ leaderId: group.leader_id, groupLabel: group.label, senderId: myId })
-    }).catch(err => console.log('[notifications] leader message alert failed to send:', err));
-  }
   return { ok: true };
 }
 
@@ -7934,6 +8473,7 @@ async function renderDiscipleshipApp() {
     document.getElementById('embedModal').classList.remove('open');
     document.getElementById('discipleModal').classList.remove('open');
     document.getElementById('gospelModal').classList.remove('open');
+    document.getElementById('goodNewsModal').classList.remove('open');
     document.getElementById('articleModal').classList.remove('open');
     const frame = document.getElementById('embedFrame');
     if (frame && frame.src) {
@@ -8025,6 +8565,12 @@ async function renderDiscipleshipApp() {
       showPageHeader('Share The Word!');
       document.getElementById('gospelModal').classList.add('open');
       renderGospelGrid();
+      return;
+    }
+    if (hash === 'good-news') {
+      showPageHeader('Share the Good News');
+      document.getElementById('goodNewsModal').classList.add('open');
+      renderGoodNewsGrid();
       return;
     }
     if (hash.startsWith('article/')) {
