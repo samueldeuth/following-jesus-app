@@ -4499,8 +4499,19 @@ function wireChurchContactSection(churchId, status, church){
   const section = document.getElementById('church-contact-section');
   if(!section) return;
 
-  const showEditableFields = () => {
-    section.innerHTML = churchContactSectionHtml(null, church);
+  // Pre-fills from whoever the CURRENT admin actually is (when editing
+  // an existing one) rather than the church's own contact_email/name --
+  // those can easily be stale or unrelated to who's actually assigned
+  // right now, and using them here was exactly why "Change" kept
+  // re-showing an old email indefinitely, no matter how many times the
+  // admin had genuinely already been changed since the page loaded.
+  // Only falls back to the church record when there's truly no current
+  // admin yet to pre-fill from.
+  const showEditableFields = (currentStatus) => {
+    const prefillSource = currentStatus
+      ? { contact_name: currentStatus.contact_name, contact_email: currentStatus.email }
+      : church;
+    section.innerHTML = churchContactSectionHtml(null, prefillSource);
     wireSendButton();
   };
 
@@ -4542,7 +4553,7 @@ function wireChurchContactSection(churchId, status, church){
       });
       showEditableFields();
     });
-    document.getElementById('change-contact-btn')?.addEventListener('click', showEditableFields);
+    document.getElementById('change-contact-btn')?.addEventListener('click', () => showEditableFields(currentStatus));
   };
 
   if(status){
