@@ -145,6 +145,15 @@ exports.handler = async function (event) {
     if (!res.ok) {
       return { statusCode: 502, body: JSON.stringify({ error: result.errors ? JSON.stringify(result.errors) : 'OneSignal rejected the request.' }) };
     }
+    // OneSignal has a documented quirk: when nothing currently matches
+    // the targeting, it returns a normal 200 OK with an EMPTY id and an
+    // errors array (most commonly "All included players are not
+    // subscribed") -- not an HTTP error. Checking res.ok alone missed
+    // this entirely, which is exactly why "Scheduled ✓" showed on
+    // screen while nothing was ever actually created.
+    if (!result.id || (result.errors && result.errors.length)) {
+      return { statusCode: 200, body: JSON.stringify({ ok: false, recipients: 0, error: (result.errors && result.errors[0]) || 'No one currently matches this send -- nothing was actually scheduled.' }) };
+    }
     if (testOnly && !result.recipients) {
       return { statusCode: 200, body: JSON.stringify({ id: result.id, recipients: 0, testOnly: true, note: "No test device found for your account -- this only works if you've personally opened the Following Jesus app on your own phone with push notifications enabled." }) };
     }
