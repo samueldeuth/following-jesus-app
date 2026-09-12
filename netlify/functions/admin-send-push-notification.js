@@ -46,6 +46,21 @@ async function getCallerInfo(userAccessToken) {
   return { role: rows[0]?.role || null, userId: user.id };
 }
 
+// The admin dashboard's <input type="time"> gives 24-hour values like
+// "09:00" or "17:30" -- OneSignal's delivery_time_of_day field
+// specifically requires 12-hour format like "9:00AM", no space. This
+// was silently mismatched before: OneSignal accepted the malformed
+// value without erroring, but never actually created a working
+// scheduled send from it, which is why "Scheduled ✓" showed on screen
+// while nothing ever appeared as scheduled or delivered.
+function to12Hour(time24) {
+  const [hourStr, minute] = time24.split(':');
+  let hour = parseInt(hourStr, 10);
+  const period = hour < 12 ? 'AM' : 'PM';
+  hour = hour % 12; if (hour === 0) hour = 12;
+  return `${hour}:${minute}${period}`;
+}
+
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) };
@@ -86,30 +101,24 @@ exports.handler = async function (event) {
     // page, not every automated send mixed in with it.
     data: { source: 'admin_composer' }
   };
+  // Median reads targetUrl from the notification's own "Additional
+  // Data" (not OneSignal's native top-level "url" field) to navigate
+  // fully inside the wrapped app when tapped, rather than opening an
+  // external browser or webview -- see
+  // https://docs.median.co/docs/open-url-from-notification.
+  if (url) notificationPayload.data.targetUrl = url;
 
   // A test send targets ONLY the caller's own device, by their own real
   // user id -- never anything sent from the client, so there's no way
   // to spoof targeting someone else's device. This relies on app.html's
   // existing median.onesignal.login(myId) call, which links every
-  // signed-in user's device to their own id in OneSignal already, for
-  // exactly this kind of targeted send. If the caller has never opened
-  // the Following Jesus app themselves (push permission granted), this
-  // will correctly find zero recipients -- there's nothing else to fall
-  // back to, since sending to everyone would defeat the entire point of
-  // a test.
+  // signed-in user's device to their own id in OneSignal already.
   if (testOnly) {
     notificationPayload.include_external_user_ids = [userId];
     notificationPayload.channel_for_external_user_ids = 'push';
   } else {
     notificationPayload.included_segments = ['Subscribed Users'];
   }
-  // Median reads targetUrl from the notification's own "Additional
-  // Data" (not OneSignal's native top-level "url" field) to navigate
-  // fully inside the wrapped app when tapped, rather than opening an
-  // external browser or webview -- see
-  // https://docs.median.co/docs/open-url-from-notification. Same
-  // mechanism already used correctly by send-daily-notifications.js.
-  if (url) notificationPayload.data.targetUrl = url;
 
   // When a delivery time is given, this becomes a one-time send that
   // OneSignal delivers to each person at their own next occurrence of
@@ -120,7 +129,7 @@ exports.handler = async function (event) {
   // as before.
   if (deliveryTime) {
     notificationPayload.delayed_option = 'timezone';
-    notificationPayload.delivery_time_of_day = deliveryTime;
+    notificationPayload.delivery_time_of_day = to12Hour(deliveryTime);
   }
 
   try {
