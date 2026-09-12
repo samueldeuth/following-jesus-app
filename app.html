@@ -607,7 +607,16 @@
     color: var(--black);
   }
   .grid-item svg { width: 24px; height: 24px; color: var(--black); }
-  .grid-item span {
+  .grid-item-text { display: flex; flex-direction: column; gap: 3px; }
+  .grid-item-label {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.01em;
+    line-height: 1.3;
+    color: rgba(10,10,10,0.45);
+  }
+  .grid-item-title {
     font-family: var(--font-display);
     font-weight: 700;
     font-size: 13px;
@@ -2034,20 +2043,32 @@
       <div class="section-label">More</div>
       <div class="icon-grid">
         <a class="grid-item" href="https://followingjesus.com/course" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="3" width="16" height="18" rx="1"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>
-          <span>Free Course</span>
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5.5v13l11-6.5-11-6.5z"/></svg>
+          <span class="grid-item-text">
+            <span class="grid-item-label">Free Online Course</span>
+            <span class="grid-item-title">Following Jesus Course</span>
+          </span>
         </a>
         <button type="button" class="grid-item" id="findChurchBannerBtn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
-          <span>Find a Church</span>
+          <span class="grid-item-text">
+            <span class="grid-item-label">Get Planted</span>
+            <span class="grid-item-title">Find a Church</span>
+          </span>
         </button>
         <button type="button" class="grid-item" onclick="goToTab('screen-blog')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 19V6a2 2 0 012-2h9l5 5v10a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M14 4v5h5"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="16.5" x2="13" y2="16.5"/></svg>
-          <span>Blog</span>
+          <span class="grid-item-text">
+            <span class="grid-item-label">Blogs and Articles</span>
+            <span class="grid-item-title">Grow Your Faith</span>
+          </span>
         </button>
         <button type="button" class="grid-item" onclick="openEmbed('https://open.spotify.com/embed/playlist/4CJLU84OYEK5CCr02l45mF?utm_source=generator&theme=0','Worship Playlist','https://open.spotify.com/playlist/4CJLU84OYEK5CCr02l45mF')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M8 15c2.5-1.2 5.5-1.2 8 0M7.5 12c3-1.5 6-1.5 9 0M7 9c3.5-1.8 6.5-1.8 10 0"/></svg>
-          <span>Worship Music</span>
+          <span class="grid-item-text">
+            <span class="grid-item-label">Encounter God</span>
+            <span class="grid-item-title">Worship Music</span>
+          </span>
         </button>
       </div>
 
