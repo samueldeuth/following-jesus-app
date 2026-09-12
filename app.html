@@ -570,7 +570,7 @@
     color: rgba(255,255,255,0.55); font-family: var(--font-display); font-size: 11.5px;
     font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;
   }
-  .disciple-app-scope .gospel-format-btn.active { background: #2fbfa8; color: var(--white); }
+  .disciple-app-scope .gospel-format-btn.active { background: var(--black); color: var(--white); }
 
   .disciple-banner svg { width: 26px; height: 26px; flex-shrink: 0; }
   .disciple-banner-title {
@@ -903,7 +903,7 @@
     text-transform: uppercase;
     cursor: pointer;
   }
-  .bible-mode-btn.active { background: var(--ember); color: var(--white); }
+  .bible-mode-btn.active { background: var(--black); color: var(--white); }
 
   .plan-bar { margin: 14px 24px 0; }
   .plan-bar-top { display: flex; align-items: center; justify-content: center; gap: 18px; }
@@ -1808,6 +1808,13 @@
 #goodNewsModal .gospel-card-message { color: rgba(10,10,10,0.75); }
 #goodNewsModal .gospel-card-ref { color: rgba(10,10,10,0.4); }
 
+/* Share This Image buttons on both Good News and Share The Word --
+   gold, not the shared .primary-btn teal, since that class is also
+   used elsewhere (e.g. the profile "Save Changes" button) where teal
+   is still correct. Scoped to each modal so only these two change. */
+#goodNewsModal .primary-btn { background: var(--ember); color: var(--black); }
+#gospelModal .primary-btn { background: var(--ember); color: var(--black); }
+
 /* ---------- Share The Word: same white-background treatment,
    applied second at Samuel's request (previously stayed black
    on purpose while Good News alone went light — both now match). */
@@ -1865,6 +1872,7 @@
 
 #screen-bible .bible-mode-toggle { background: rgba(10,10,10,0.06); }
 #screen-bible .bible-mode-btn { color: rgba(10,10,10,0.55); }
+#screen-bible .bible-mode-btn.active { color: var(--white); }
 
 #screen-bible .plan-day-label { color: var(--black); }
 #screen-bible .plan-day-of { color: rgba(10,10,10,0.4); }
@@ -2249,11 +2257,9 @@
         <div class="jesus-prayer-text">"Father, thank You for sending Jesus to die on the cross for my sins, and raising Him from the dead to give me life. I repent of my sin and turn to You. Jesus, I choose to follow You with all of my heart, for the rest of my life. I believe in You and declare that You are the leader and Lord of my life! Thank You for forgiving me and walking with me from this moment forward! Amen."</div>
       </div>
 
-      <button type="button" class="jesus-cta" id="shareGoodNewsBtn" style="background:none;border:2px solid #c89b3c;color:#c89b3c;">Share the Good News →</button>
-      <div class="jesus-cta-sub">Ready-made visuals to walk someone through the gospel</div>
+      <button type="button" class="jesus-cta" id="shareGoodNewsBtn" style="background:#c89b3c;border:none;color:#0a0a0a;">Share the Good News →</button>
 
-      <a class="jesus-cta" href="https://followingjesus.com/course" target="_blank" rel="noopener">Take Your Next Step →</a>
-      <div class="jesus-cta-sub">Start the free Following Jesus course</div>
+      <button type="button" class="jesus-cta" id="startDiscipleshipBtn">Start Your Discipleship Journey →</button>
     </section>
 
     <!-- These 4 render as additional full-height "screens" alongside the
@@ -2376,13 +2382,15 @@
     updateSyncStatusBadge();
     renderDiscipleStep();
   });
-  document.getElementById('becomeDiscipleBannerBtn').addEventListener('click', () => {
+  function openBecomeDiscipleFlow() {
     hideMainScreens();
     showPageHeader('Make Disciples');
     discipleModal.classList.add('open');
     updateSyncStatusBadge();
     renderDiscipleStep();
-  });
+  }
+  document.getElementById('becomeDiscipleBannerBtn').addEventListener('click', openBecomeDiscipleFlow);
+  document.getElementById('startDiscipleshipBtn').addEventListener('click', openBecomeDiscipleFlow);
   // Deferred via setTimeout(...,0) rather than calling getGlobalDiscipleCount
   // directly here -- this code runs during initial page setup, BEFORE the
   // 'const supabaseClient = ...' declaration further down in this same
@@ -3479,12 +3487,19 @@
   // vs 'combined', all steps stacked in one image). Kept as one entry
   // point so the preview screen below doesn't need to know these
   // details -- it just calls this the same way regardless of which
-  // series or mode is selected.
+  // series or mode is selected. Romans Road is special-cased to its
+  // own "route map" drawing functions (see below) rather than the
+  // plain text layout every other 'sequence' series still uses.
   async function drawGospelSeriesCard(canvas, series, stepIndex, format, mode) {
     if (series.type === 'illustration') {
       return mode === 'combined'
         ? drawBridgeCombined(canvas, series, format)
         : drawBridgeStep(canvas, series, stepIndex, format);
+    }
+    if (series.id === 'romans-road') {
+      return mode === 'combined'
+        ? drawRomansRoadCombined(canvas, series, format)
+        : drawRomansRoadStep(canvas, series, stepIndex, format);
     }
     return mode === 'combined'
       ? drawGospelSeriesCombined(canvas, series, format)
@@ -3595,6 +3610,296 @@
       ctx.fillText(step.ref, marginX + 30, lineY + 6);
 
       y += stepGap;
+    });
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '700 22px Archivo, sans-serif';
+    ctx.fillText('FOLLOWING JESUS', width / 2, height - 50);
+  }
+
+  // ---------- Romans Road: "route map" visual ----------
+  // Fixed proportional waypoints for a winding road through the canvas
+  // -- an S-curve rather than a straight line, so it reads as an actual
+  // route. Proportions (xf/yf) apply to whatever road area a given
+  // drawing function reserves, so the same 5 points work for both the
+  // single-step and combined views even though they use different
+  // road heights.
+  const ROMANS_ROAD_WAYPOINTS = [
+    { xf: 0.20, yf: 0.00 },
+    { xf: 0.78, yf: 0.25 },
+    { xf: 0.24, yf: 0.50 },
+    { xf: 0.76, yf: 0.75 },
+    { xf: 0.50, yf: 1.00 }
+  ];
+
+  function romansRoadPoints(width, roadTop, roadHeight) {
+    return ROMANS_ROAD_WAYPOINTS.map(p => ({
+      x: p.xf * width,
+      y: roadTop + p.yf * roadHeight
+    }));
+  }
+
+  // Smooth curve through a set of points -- not exact interpolation,
+  // but a quick, well-known technique (quadratic curve to the midpoint
+  // between each pair, using the real point as the curve's control)
+  // that reads as one winding road rather than sharp angles at each
+  // stop. Caller sets strokeStyle/lineWidth/dash before calling.
+  // Catmull-Rom-to-Bezier: unlike a quick midpoint-quadratic
+  // approximation, this passes exactly through every point in `pts`
+  // (not just the first and last) while keeping smooth tangents, so
+  // the road visibly bends all the way out to each pin instead of
+  // cutting the corner near it.
+  function drawSmoothRoute(ctx, pts) {
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[i + 2] || p2;
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = p1.y + (p2.y - p0.y) / 6;
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = p2.y - (p3.y - p1.y) / 6;
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+    }
+    ctx.stroke();
+  }
+
+  // A map-pin marker: a circular head with a number inside, and a
+  // small triangular tail pointing down to the exact waypoint on the
+  // road (y is the tip touching the road, not the head's own center).
+  // Active pins draw larger, in turquoise, with a soft outer halo (a
+  // "you are here" treatment); inactive pins are smaller and muted
+  // gray. radiusOverride lets the combined view use one shared size
+  // for every pin instead of the single-step view's active/inactive
+  // split.
+  function drawMapPin(ctx, x, y, number, active, radiusOverride) {
+    const r = radiusOverride || (active ? 34 : 21);
+    const headY = y - r * 1.5;
+    const color = active ? '#2fbfa8' : 'rgba(255,255,255,0.4)';
+
+    if (active) {
+      ctx.fillStyle = 'rgba(47,191,168,0.25)';
+      ctx.beginPath();
+      ctx.arc(x, headY, r + 14, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x - r * 0.55, headY + r * 0.7);
+    ctx.lineTo(x, y);
+    ctx.lineTo(x + r * 0.55, headY + r * 0.7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x, headY, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = active ? '#ffffff' : 'rgba(10,10,10,0.55)';
+    ctx.font = `700 ${active ? 26 : 18}px Archivo, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(number), x, headY + 1);
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  // The final stop's marker -- same tail-plus-round-head silhouette as
+  // drawMapPin (so it still reads as part of the same marker family),
+  // but with a gold cross inside a light badge instead of a number,
+  // since the road's destination is salvation through the cross itself
+  // rather than just "stop 5". Gold stays gold everywhere in this app
+  // regardless of the surrounding turquoise/gray scheme -- same
+  // convention as the Bridge illustration's own cross.
+  function drawCrossMarker(ctx, x, y, active, radiusOverride) {
+    const r = radiusOverride || (active ? 34 : 24);
+    const headY = y - r * 1.5;
+
+    if (active) {
+      ctx.fillStyle = 'rgba(47,191,168,0.25)';
+      ctx.beginPath();
+      ctx.arc(x, headY, r + 14, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = '#f5f0e6';
+    ctx.beginPath();
+    ctx.moveTo(x - r * 0.55, headY + r * 0.7);
+    ctx.lineTo(x, y);
+    ctx.lineTo(x + r * 0.55, headY + r * 0.7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x, headY, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#c89b3c';
+    const beamW = r * 0.22;
+    const beamH = r * 1.3;
+    const barW = r * 0.85;
+    const barH = r * 0.24;
+    ctx.fillRect(x - beamW / 2, headY - beamH / 2, beamW, beamH);
+    ctx.fillRect(x - barW / 2, headY - beamH * 0.16, barW, barH);
+  }
+
+  // Single-step Romans Road view -- the road with the current verse's
+  // stop enlarged and highlighted, an info card below it (stop
+  // counter, the verse's own title as the "place name", then the verse
+  // text) -- an Apple-Maps-style route callout instead of a plain text
+  // card, matching the road icon already used for this series.
+  function drawRomansRoadStep(canvas, series, stepIndex, format) {
+    const width = 1080;
+    const height = format === 'story' ? 1920 : 1080;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const step = series.steps[stepIndex];
+
+    const grad = ctx.createLinearGradient(0, 0, width, height);
+    grad.addColorStop(0, '#1c1c1c');
+    grad.addColorStop(1, '#3a3a3a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+
+    // Small heading above the road, then the road+pins block sits
+    // lower/more centered in the frame rather than crowding the very
+    // top -- and the info card below gets more breathing room too.
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#2fbfa8';
+    ctx.font = '700 26px Archivo, sans-serif';
+    ctx.fillText(series.title.toUpperCase(), width / 2, height * 0.12);
+
+    const roadTop = height * 0.20;
+    const roadHeight = height * 0.38;
+    const pts = romansRoadPoints(width, roadTop, roadHeight);
+
+    ctx.strokeStyle = '#2fbfa8';
+    ctx.lineWidth = 14;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    drawSmoothRoute(ctx, pts);
+
+    // Dashed white centerline on top of the route, like a map's own
+    // lane markings -- purely decorative.
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([14, 16]);
+    drawSmoothRoute(ctx, pts);
+    ctx.setLineDash([]);
+
+    pts.forEach((p, i) => {
+      const isLast = i === pts.length - 1;
+      const isActive = i === stepIndex;
+      if (isLast) {
+        drawCrossMarker(ctx, p.x, p.y, isActive);
+      } else {
+        drawMapPin(ctx, p.x, p.y, i + 1, isActive);
+      }
+    });
+
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '700 15px Archivo, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('START', pts[0].x - 30, pts[0].y - 100);
+    ctx.textAlign = 'right';
+    ctx.fillText('SALVATION', pts[4].x + 30, pts[4].y - 100);
+
+    // Info card below the road -- stop counter, then the stop's own
+    // name (the step title), then the verse itself, mirroring how a
+    // map app's own stop callout is laid out.
+    let y = roadTop + roadHeight + 100;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#2fbfa8';
+    ctx.font = '700 22px Archivo, sans-serif';
+    ctx.fillText(`STOP ${stepIndex + 1} OF ${series.steps.length}`, width / 2, y);
+
+    y += 56;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 42px Fraunces, serif';
+    ctx.fillText(step.title, width / 2, y);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = '400 30px Fraunces, serif';
+    const lines = wrapCanvasText(ctx, step.message, width - 200);
+    lines.forEach(line => {
+      y += 44;
+      ctx.fillText(line, width / 2, y);
+    });
+
+    y += 46;
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = '600 24px Archivo, sans-serif';
+    ctx.fillText(step.ref, width / 2, y);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '700 22px Archivo, sans-serif';
+    ctx.fillText('FOLLOWING JESUS', width / 2, height - 50);
+  }
+
+  // Combined Romans Road view -- the whole route with all 5 stops
+  // shown as reached (same size, all turquoise, since nothing is
+  // "current" when showing the whole journey at once), with a compact
+  // title + reference legend per stop below rather than the full verse
+  // text, so all five fit in one frame.
+  function drawRomansRoadCombined(canvas, series, format) {
+    const width = 1080;
+    const height = format === 'story' ? 1920 : 1080;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    const grad = ctx.createLinearGradient(0, 0, width, height);
+    grad.addColorStop(0, '#1c1c1c');
+    grad.addColorStop(1, '#3a3a3a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#2fbfa8';
+    ctx.font = '700 32px Archivo, sans-serif';
+    ctx.fillText(series.title.toUpperCase(), width / 2, height * 0.08);
+
+    const roadTop = height * 0.14;
+    const roadHeight = height * 0.40;
+    const pts = romansRoadPoints(width, roadTop, roadHeight);
+
+    ctx.strokeStyle = '#2fbfa8';
+    ctx.lineWidth = 12;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    drawSmoothRoute(ctx, pts);
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([12, 14]);
+    drawSmoothRoute(ctx, pts);
+    ctx.setLineDash([]);
+
+    pts.forEach((p, i) => {
+      if (i === pts.length - 1) {
+        drawCrossMarker(ctx, p.x, p.y, true, 24);
+      } else {
+        drawMapPin(ctx, p.x, p.y, i + 1, true, 24);
+      }
+    });
+
+    let y = roadTop + roadHeight + 80;
+    const stepGap = (height - y - 90) / series.steps.length;
+    ctx.textAlign = 'left';
+    series.steps.forEach((step, i) => {
+      const rowY = y + i * stepGap;
+      ctx.fillStyle = '#2fbfa8';
+      ctx.font = '700 24px Archivo, sans-serif';
+      ctx.fillText(String(i + 1), 110, rowY);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 24px Fraunces, serif';
+      ctx.fillText(step.title, 150, rowY);
+
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.font = '600 18px Archivo, sans-serif';
+      ctx.fillText(step.ref, 150, rowY + 26);
     });
 
     ctx.textAlign = 'center';
