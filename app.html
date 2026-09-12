@@ -1821,6 +1821,85 @@
 #gospelModal .gospel-card-preview { background: var(--white); border-color: rgba(200,155,60,0.4); }
 #gospelModal .gospel-card-message { color: rgba(10,10,10,0.75); }
 #gospelModal .gospel-card-ref { color: rgba(10,10,10,0.4); }
+
+/* ---------- Bible & Plans tabs: white background + black page header
+   ----------
+   Same light-theme pattern as #discipleModal/#goodNewsModal/#gospelModal
+   above, applied to two of the 5 main tabs instead of an overlay modal.
+   applyTab() (see script below) swaps the shared header to a black bar
+   with the tab's own title (mirroring showPageHeader, already used for
+   Share The Word/Good News) instead of the Following Jesus logo
+   whenever one of these two tabs is active — see TAB_PAGE_TITLES.
+   min-height:100% ensures the white background fills the full scroll
+   area even when a tab's own content is shorter than the viewport,
+   since .screens itself (the shared scroll container behind all 5
+   tabs) stays black. */
+#screen-bible, #screen-plans { background: var(--paper); }
+#screen-bible.active, #screen-plans.active {
+  min-height: 100%;
+  /* Prevents the classic margin-collapse gotcha: each tab's first
+     child (.bible-mode-toggle / .stack) has its own margin-top, which
+     otherwise collapses straight through this element and shows
+     .screens' own black background in that gap -- reading as the
+     black header running taller than Profile's. flow-root establishes
+     a new block formatting context so this element's own background
+     actually starts right at its top edge, no visual side effects. */
+  display: flow-root;
+}
+
+/* Plans tab: .plans-card and its contents (chips, cover grid, "view
+   all" link, the note below it) were already authored dark-text-on-
+   light — only the screen's own background and the card's own
+   background (bumped to pure white so it still pops against the new
+   paper screen background) need to change. */
+#screen-plans .plans-card { background: var(--white); }
+
+/* Bible tab: the reading-plan bar, mode toggle, and reader chrome were
+   all authored white-text-on-dark against the old black screen
+   background — every rule below exists because that element sits
+   directly on the screen's own background, not inside .bible-reader
+   (already its own light card, bumped to pure white for the same
+   contrast reason as .plans-card above). */
+#screen-bible .bible-reader { background: var(--white); }
+
+#screen-bible .bible-mode-toggle { background: rgba(10,10,10,0.06); }
+#screen-bible .bible-mode-btn { color: rgba(10,10,10,0.55); }
+
+#screen-bible .plan-day-label { color: var(--black); }
+#screen-bible .plan-day-of { color: rgba(10,10,10,0.4); }
+#screen-bible .plan-sync-label { color: rgba(10,10,10,0.4); }
+
+#screen-bible .plan-chip { background: rgba(10,10,10,0.06); border-color: rgba(10,10,10,0.14); color: rgba(10,10,10,0.65); }
+#screen-bible .plan-chip.done { color: var(--white); }
+
+#screen-bible .plan-mark-btn { background: rgba(10,10,10,0.06); border-color: rgba(10,10,10,0.14); color: var(--black); }
+#screen-bible .plan-mark-btn.done { color: var(--white); }
+
+#screen-bible .plan-day-card { background: rgba(10,10,10,0.05); color: var(--black); }
+#screen-bible .plan-day-card.viewed { background: rgba(10,10,10,0.08); }
+#screen-bible .plan-day-card-date { color: rgba(10,10,10,0.4); }
+
+#screen-bible .plan-checklist-row { border-bottom-color: rgba(10,10,10,0.1); }
+#screen-bible .plan-checklist-check { border-color: rgba(10,10,10,0.25); }
+#screen-bible .plan-checklist-label { color: var(--black); }
+#screen-bible .plan-checklist-row.done .plan-checklist-label { color: rgba(10,10,10,0.4); }
+#screen-bible .plan-checklist-chevron { color: rgba(10,10,10,0.3); }
+
+#screen-bible .plan-segment-check { border-color: rgba(10,10,10,0.25); }
+
+#screen-bible .bible-bottombar { background: var(--white); border-top-color: rgba(10,10,10,0.1); }
+#screen-bible .bible-navbtn { background: rgba(10,10,10,0.05); border-color: rgba(10,10,10,0.12); color: rgba(10,10,10,0.6); }
+#screen-bible .bible-bottombar-picker { background: rgba(10,10,10,0.05); border-color: rgba(10,10,10,0.12); }
+#screen-bible .bible-select-inline { color: var(--black); }
+#screen-bible .bible-select-chapter { border-left-color: rgba(10,10,10,0.12); }
+
+#screen-bible .bible-listen-btn { background: rgba(10,10,10,0.05); border-color: rgba(10,10,10,0.14); color: var(--black); }
+#screen-bible .bible-listen-btn.playing { color: var(--white); }
+
+#screen-bible .bible-translation-note { color: rgba(10,10,10,0.4); }
+#screen-bible .bible-translation-note a { color: rgba(10,10,10,0.55); }
+#screen-bible .voice-picker-label { color: rgba(10,10,10,0.4); }
+
 </style>
 </head>
 <body>
@@ -1889,11 +1968,11 @@
         </div>
       </div>
 
-      <button type="button" class="disciple-banner disciple-banner-tertiary" id="shareGospelBannerBtn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4v16l4-4h12V4H4z"/><path d="M8 9h8M8 12h5"/></svg>
+      <button type="button" class="disciple-banner disciple-banner-secondary" id="becomeDiscipleBannerBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v6"/><path d="M12 22v-6"/><circle cx="12" cy="12" r="4"/></svg>
         <span>
-          <span class="disciple-banner-title">Share The Word!</span>
-          <span class="disciple-banner-sub">Share custom Bible verse graphics for your social media</span>
+          <span class="disciple-banner-title">Become a Disciple of Jesus</span>
+          <span class="disciple-banner-sub">Build your life on a firm foundation | Invite a friend to join.</span>
         </span>
         <span class="disciple-banner-arrow">→</span>
       </button>
@@ -1907,20 +1986,20 @@
         <span class="disciple-banner-arrow">→</span>
       </button>
 
-      <button type="button" class="disciple-banner disciple-banner-secondary" id="becomeDiscipleBannerBtn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v6"/><path d="M12 22v-6"/><circle cx="12" cy="12" r="4"/></svg>
-        <span>
-          <span class="disciple-banner-title">Become a Disciple of Jesus</span>
-          <span class="disciple-banner-sub">Build your life on a firm foundation | Invite a friend to join.</span>
-        </span>
-        <span class="disciple-banner-arrow">→</span>
-      </button>
-
       <button type="button" class="disciple-banner" id="discipleBannerBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9" r="2.6"/><path d="M3.5 20c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5"/><path d="M14.5 15.2c2.6.2 4.5 2.2 4.5 4.8"/></svg>
         <span>
           <span class="disciple-banner-title">Make Disciples</span>
           <span class="disciple-banner-sub">Walk a friend or a group through the essentials of Faith</span>
+        </span>
+        <span class="disciple-banner-arrow">→</span>
+      </button>
+
+      <button type="button" class="disciple-banner disciple-banner-tertiary" id="shareGospelBannerBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4v16l4-4h12V4H4z"/><path d="M8 9h8M8 12h5"/></svg>
+        <span>
+          <span class="disciple-banner-title">Share The Word!</span>
+          <span class="disciple-banner-sub">Share custom Bible verse graphics for your social media</span>
         </span>
         <span class="disciple-banner-arrow">→</span>
       </button>
@@ -1972,7 +2051,7 @@
            width without fighting the grid's own 2-column track sizing. -->
           <a class="banner-slide banner-photo" href="https://followingjesusbook.com" target="_blank" rel="noopener" style="margin:12px 20px 0; min-height:110px; background-image:linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.8) 100%), url('/assets/church-resources-banner.jpg');">
         <div class="banner-eyebrow">For Your Church</div>
-        <div class="banner-title">Order Books in Bulk</div>
+        <div class="banner-title">Discipleship Resources</div>
       </a>
 
       <div class="global-count-banner" id="todayDiscipleCounterText">📣 Loading disciple count…</div>
@@ -1984,11 +2063,6 @@
 
     <!-- BIBLE -->
     <section class="screen" id="screen-bible">
-      <div class="screen-head">
-        <div class="eyebrow">Scripture</div>
-        <h1>Bible</h1>
-      </div>
-
       <div class="bible-mode-toggle">
         <button type="button" class="bible-mode-btn active" id="modeBrowseBtn">Browse</button>
         <button type="button" class="bible-mode-btn" id="modePlanBtn">365-Day Plan</button>
@@ -2090,10 +2164,6 @@
 
     <!-- PLANS -->
     <section class="screen" id="screen-plans">
-      <div class="screen-head">
-        <div class="eyebrow">Scripture</div>
-        <h1>Reading Plans</h1>
-      </div>
       <div class="stack" style="margin-top:18px;">
         <div class="plans-card">
           <div class="card-title">Plans by Samuel Deuth</div>
@@ -8555,6 +8625,14 @@ async function renderDiscipleshipApp() {
   };
   const HASH_TO_SCREEN = Object.fromEntries(Object.entries(TAB_HASH_MAP).map(([k,v]) => [v, k]));
 
+  // Bible and Plans get the same black-header/title treatment as the
+  // Share The Word / Good News page-style views, instead of the shared
+  // Following Jesus logo -- every other tab keeps the logo as before.
+  const TAB_PAGE_TITLES = {
+    'screen-bible': 'The Bible',
+    'screen-plans': 'Reading Plans'
+  };
+
   // Pure DOM update, no history side effects — shared by user-initiated
   // clicks and by restoring state from the URL, so those two paths never
   // fight each other over history entries.
@@ -8565,6 +8643,11 @@ async function renderDiscipleshipApp() {
     if (targetBtn) targetBtn.classList.add('active');
     const targetScreen = document.getElementById(screenId);
     if (targetScreen) targetScreen.classList.add('active');
+    if (TAB_PAGE_TITLES[screenId]) {
+      showPageHeader(TAB_PAGE_TITLES[screenId]);
+    } else {
+      showLogoHeader();
+    }
     panel.scrollTop = 0;
   }
 
@@ -8588,7 +8671,17 @@ async function renderDiscipleshipApp() {
       frame.src = '';
       setTimeout(() => { bannerPaused = false; }, 500);
     }
-    showLogoHeader();
+    // Restore whichever header the currently-active tab actually uses --
+    // none of today's 4 overlay views can be reached from Bible/Plans,
+    // but defaulting to the logo unconditionally would be wrong the day
+    // one is, so this checks rather than assumes.
+    const activeScreen = document.querySelector('.screen.active');
+    const activeId = activeScreen && activeScreen.id;
+    if (activeId && TAB_PAGE_TITLES[activeId]) {
+      showPageHeader(TAB_PAGE_TITLES[activeId]);
+    } else {
+      showLogoHeader();
+    }
   }
 
   // The shared top header shows either the Following Jesus logo (the 5
