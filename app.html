@@ -8028,6 +8028,7 @@ async function renderDiscipleshipApp() {
         tag: p.source,
         title: p.title,
         date: p.displayDate || '',
+        isoDate: p.date || null,
         image: p.image || '',
         excerpt: p.excerpt || '',
         body: p.bodyHtml || (p.excerpt ? `<p>${escapeHtmlMain(p.excerpt)}</p>` : ''),
@@ -8113,8 +8114,17 @@ async function renderDiscipleshipApp() {
   // ---------- Randomized blog banner (from live feed once loaded) ----------
   function setupBlogBanner() {
     if (BLOG_POSTS.length === 0) return;
-    const withImages = BLOG_POSTS.filter(p => isValidImageUrl(p.image));
-    const pool = withImages.length > 0 ? withImages : BLOG_POSTS;
+    // Only rotate through posts from roughly the last 12 months, so an
+    // old post from years back doesn't have the same odds of showing up
+    // as something recent. Falls back to the full list if none of the
+    // loaded posts have a usable date (e.g. the offline ARTICLES
+    // fallback, whose dates are display-only strings with no year) or
+    // none happen to fall in that window yet.
+    const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000;
+    const recent = BLOG_POSTS.filter(p => p.isoDate && new Date(p.isoDate).getTime() >= oneYearAgo);
+    const dated = recent.length > 0 ? recent : BLOG_POSTS;
+    const withImages = dated.filter(p => isValidImageUrl(p.image));
+    const pool = withImages.length > 0 ? withImages : dated;
     const randomIndex = Math.floor(Math.random() * pool.length);
     const a = pool[randomIndex];
     const slide = document.getElementById('blogBannerSlide');
