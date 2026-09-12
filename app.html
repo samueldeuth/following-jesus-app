@@ -1726,17 +1726,15 @@
   #modalPortal { flex: 0 0 0; height: 0; overflow: visible; }
 /* ---------- Leader/Disciple dashboard: white background ----------
    Scoped to #discipleModal specifically (an ID, not the shared
-   .disciple-modal/.disciple-app-scope classes) so this never touches
-   #gospelModal, which shares those same classes and keeps its black
-   background exactly as before. Using var(--paper) rather than pure
-   white — several cards in here (.row, .step-row, .walk-it-out-panel,
-   .action-row) are already pure white on purpose, to pop against a
-   dark backdrop; keeping that contrast intact matters more than an
-   exact color match, and the difference from pure white is barely
-   perceptible. Every rule below exists because that specific element
-   sits directly on the modal's own background, not on one of the
-   existing light cards — anything already on a var(--paper)/var(--white)
-   card needed no change at all. */
+   .disciple-modal/.disciple-app-scope classes). Using var(--paper)
+   rather than pure white — several cards in here (.row, .step-row,
+   .walk-it-out-panel, .action-row) are already pure white on purpose,
+   to pop against a dark backdrop; keeping that contrast intact
+   matters more than an exact color match, and the difference from
+   pure white is barely perceptible. Every rule below exists because
+   that specific element sits directly on the modal's own background,
+   not on one of the existing light cards — anything already on a
+   var(--paper)/var(--white) card needed no change at all. */
 #discipleModal { background: var(--paper); }
 
 #discipleModal .hub-top-row { background: rgba(10,10,10,0.045); }
@@ -1777,6 +1775,42 @@
 #discipleModal .profile-view-email { color: rgba(10,10,10,0.55); }
 #discipleModal .secondary-btn { color: var(--black); border-color: rgba(10,10,10,0.25); }
 #discipleModal .dm-note { color: rgba(10,10,10,0.5); }
+
+/* ---------- Share the Good News: white background, same pattern as
+   the #discipleModal override above ----------
+   Scoped to #goodNewsModal specifically. Both #goodNewsModal and
+   #gospelModal ("Share The Word") now use this same light treatment
+   (see block below) — they share the same
+   .disciple-modal/.disciple-app-scope/.gospel-* classes, so each gets
+   its own identical, separately-scoped copy of the same rules. The
+   page's shared black header bar (headerPageTitle) is unaffected
+   either way, since it lives outside this modal. */
+#goodNewsModal { background: var(--paper); }
+#goodNewsModal .dm-p { color: rgba(10,10,10,0.72); }
+#goodNewsModal .back-link { color: rgba(10,10,10,0.5); }
+
+#goodNewsModal .gospel-format-toggle { background: rgba(10,10,10,0.06); }
+#goodNewsModal .gospel-format-btn { color: rgba(10,10,10,0.55); }
+#goodNewsModal .gospel-format-btn.active { color: var(--white); }
+
+#goodNewsModal .gospel-card-preview { background: var(--white); border-color: rgba(200,155,60,0.4); }
+#goodNewsModal .gospel-card-message { color: rgba(10,10,10,0.75); }
+#goodNewsModal .gospel-card-ref { color: rgba(10,10,10,0.4); }
+
+/* ---------- Share The Word: same white-background treatment,
+   applied second at Samuel's request (previously stayed black
+   on purpose while Good News alone went light — both now match). */
+#gospelModal { background: var(--paper); }
+#gospelModal .dm-p { color: rgba(10,10,10,0.72); }
+#gospelModal .back-link { color: rgba(10,10,10,0.5); }
+
+#gospelModal .gospel-format-toggle { background: rgba(10,10,10,0.06); }
+#gospelModal .gospel-format-btn { color: rgba(10,10,10,0.55); }
+#gospelModal .gospel-format-btn.active { color: var(--white); }
+
+#gospelModal .gospel-card-preview { background: var(--white); border-color: rgba(200,155,60,0.4); }
+#gospelModal .gospel-card-message { color: rgba(10,10,10,0.75); }
+#gospelModal .gospel-card-ref { color: rgba(10,10,10,0.4); }
 </style>
 </head>
 <body>
@@ -3653,9 +3687,14 @@
     ctx.fillText('FOLLOWING JESUS', width / 2, height - 50);
   }
 
-  // The Bridge's combined view -- the full scene (cliffs, gap, cross)
-  // drawn once, with all five short labels stacked below it rather
-  // than trying to fit five separate illustrations in one frame.
+  // The Bridge's combined view -- now built on the exact same ground/
+  // cliff/cross template as the single-card "Reunited" step (same
+  // cliffTop position, same cross dimensions, ground filling all the
+  // way to the bottom of the canvas rather than stopping partway
+  // down), so the one combined image reads as the same physical scene
+  // as every single-card step instead of a smaller, separate
+  // illustration. The five step labels stack in the ground area below
+  // the crossbar.
   function drawBridgeCombined(canvas, series, format) {
     const width = 1080;
     const height = format === 'story' ? 1920 : 1080;
@@ -3669,53 +3708,91 @@
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
 
-    const cliffTop = height * 0.16;
-    const cliffBottom = height * 0.46;
+    // Same cliffTop position, same fixed-pixel cross/figure dimensions
+    // as drawBridgeStep, in BOTH formats -- no shrinking the
+    // illustration for Square. Square's shorter canvas naturally makes
+    // the same fixed-size cross read as proportionally larger relative
+    // to the frame, which is exactly how it looks on the single-card
+    // Square step too -- text sizing below is what adapts per format,
+    // not the illustration itself.
+    const isStory = format === 'story';
+    const cliffTop = height * 0.42;
     const gapLeft = width * 0.34;
     const gapRight = width * 0.66;
     ctx.fillStyle = '#1c1a17';
     ctx.beginPath();
     ctx.moveTo(0, cliffTop);
     ctx.lineTo(gapLeft, cliffTop);
-    ctx.lineTo(gapLeft - 18, cliffTop + 70);
-    ctx.lineTo(gapLeft, cliffTop + 140);
-    ctx.lineTo(gapLeft - 12, cliffBottom);
-    ctx.lineTo(0, cliffBottom);
+    ctx.lineTo(gapLeft - 22, cliffTop + 90);
+    ctx.lineTo(gapLeft, cliffTop + 180);
+    ctx.lineTo(gapLeft - 14, height);
+    ctx.lineTo(0, height);
     ctx.closePath();
     ctx.fill();
     ctx.beginPath();
     ctx.moveTo(width, cliffTop);
     ctx.lineTo(gapRight, cliffTop);
-    ctx.lineTo(gapRight + 18, cliffTop + 70);
-    ctx.lineTo(gapRight, cliffTop + 140);
-    ctx.lineTo(gapRight + 12, cliffBottom);
-    ctx.lineTo(width, cliffBottom);
+    ctx.lineTo(gapRight + 22, cliffTop + 90);
+    ctx.lineTo(gapRight, cliffTop + 180);
+    ctx.lineTo(gapRight + 14, height);
+    ctx.lineTo(width, height);
     ctx.closePath();
     ctx.fill();
 
+    // Same cross dimensions as drawBridgeStep's cross/reunited panels
+    // -- fixed pixel sizing, same as every single-card step, in every
+    // format.
     ctx.fillStyle = '#c89b3c';
-    ctx.fillRect(width / 2 - 18, cliffTop - 90, 36, 280);
-    ctx.fillRect(gapLeft, cliffTop, gapRight - gapLeft, 24);
+    const beamW = 36;
+    const beamX = width / 2 - beamW / 2;
+    ctx.fillRect(beamX, cliffTop - 130, beamW, 420);
+    ctx.fillRect(gapLeft, cliffTop, gapRight - gapLeft, 34);
+
+    // Reunited placement -- God and the people together on the far
+    // side, same as the single-card "Reunited" step -- plus the
+    // dotted reconciliation line along the crossbar.
+    drawSimpleFigure(ctx, width * 0.78, cliffTop - 40, 1.3);
+    drawPersonPair(ctx, width * 0.88, cliffTop - 40, 0.85);
+
+    ctx.strokeStyle = 'rgba(245,240,230,0.6)';
+    ctx.lineWidth = 4;
+    ctx.setLineDash([10, 12]);
+    ctx.beginPath();
+    ctx.moveTo(gapLeft, cliffTop + 17);
+    ctx.lineTo(gapRight, cliffTop + 17);
+    ctx.stroke();
+    ctx.setLineDash([]);
 
     ctx.textAlign = 'center';
     ctx.fillStyle = '#c89b3c';
     ctx.font = '700 32px Archivo, sans-serif';
     ctx.fillText(series.title.toUpperCase(), width / 2, height * 0.09);
 
-    let y = height * 0.54;
+    // Step labels stack in the ground area below the cross, starting
+    // just past the cross's own bottom edge (cliffTop + 290, fixed --
+    // same as the illustration above) so nothing overlaps. Story's
+    // taller canvas has plenty of room for the full two-line verse
+    // treatment; Square tightens text to one line and smaller type so
+    // five steps still fit in the shorter space below the same
+    // full-size cross.
+    let y = cliffTop + 290 + (isStory ? 60 : 24);
     const stepGap = (height - y - 90) / series.steps.length;
+    const titleFont = isStory ? 24 : 16;
+    const msgFont = isStory ? 26 : 17;
+    const msgLineHeight = isStory ? 32 : 20;
+    const maxLines = isStory ? 2 : 1;
     series.steps.forEach(step => {
       ctx.fillStyle = '#c89b3c';
-      ctx.font = '600 24px Archivo, sans-serif';
+      ctx.font = `600 ${titleFont}px Archivo, sans-serif`;
       ctx.fillText(step.title.toUpperCase(), width / 2, y);
 
       ctx.fillStyle = '#f5f0e6';
-      ctx.font = '400 26px Fraunces, serif';
+      ctx.font = `400 ${msgFont}px Fraunces, serif`;
       const lines = wrapCanvasText(ctx, step.message, width - 220);
-      let ly = y + 36;
-      lines.slice(0, 2).forEach(line => {
+      let ly = y + (isStory ? 36 : 22);
+      lines.slice(0, maxLines).forEach(line => {
         ctx.fillText(line, width / 2, ly);
-        ly += 32;
+        ly += msgLineHeight;
       });
       y += stepGap;
     });
