@@ -2018,6 +2018,8 @@ function renderPushNotifications(){
       const result = await res.json();
       if(!res.ok){
         alert('Could not send: ' + (result.error || res.statusText));
+      } else if(result.ok === false){
+        alert('Nothing was actually sent: ' + result.error);
       } else if(result.scheduled){
         alert(`Scheduled ✓ Each person will get this at ${deliveryTime} in their own local time.`);
         document.getElementById('push-title-input').value = '';
@@ -2062,7 +2064,7 @@ function renderPushNotifications(){
       if(!res.ok){
         testPushStatusEl.textContent = 'Could not send: ' + (result.error || res.statusText);
       } else if(result.recipients === 0){
-        testPushStatusEl.textContent = result.note || 'No test device found -- open the app on your own phone first, with push enabled.';
+        testPushStatusEl.textContent = result.note || result.error || 'No test device found -- open the app on your own phone first, with push enabled.';
       } else {
         testPushStatusEl.textContent = 'Test sent to your device ✓ Check your phone.';
       }
