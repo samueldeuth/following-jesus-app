@@ -1891,6 +1891,34 @@
 #screen-jesus .jesus-prayer p { color: rgba(10,10,10,0.7); }
 #screen-jesus .jesus-prayer-text { color: var(--black); }
 
+/* 52-Day Devotional Plans modal: same white-background treatment as
+   Bible/Plans/Jesus above, requested once the day-by-day click-through
+   was already working well on the dark background -- every rule below
+   exists because that element sits directly on the modal's own
+   background, not inside .bible-reader (already its own light card,
+   bumped to pure white for the same contrast reason as the Bible tab's
+   reader/plans-card above). .plan-cover-card keeps its own built-in
+   dark gradient behind its label text regardless, so it needs no
+   change here. */
+#devoPlanModal { background: var(--paper); }
+#devoPlanModal .dm-p { color: rgba(10,10,10,0.72); }
+#devoPlanModal .back-link { color: rgba(10,10,10,0.5); }
+#devoPlanModal .plan-day-label { color: var(--black); }
+#devoPlanModal .plan-day-of { color: rgba(10,10,10,0.4); }
+
+#devoPlanModal .plan-day-card { background: rgba(10,10,10,0.05); color: var(--black); }
+#devoPlanModal .plan-day-card.viewed { background: rgba(10,10,10,0.08); }
+
+#devoPlanModal .plan-checklist-row { border-bottom-color: rgba(10,10,10,0.1); }
+#devoPlanModal .plan-checklist-check { border-color: rgba(10,10,10,0.25); }
+#devoPlanModal .plan-checklist-label { color: var(--black); }
+#devoPlanModal .plan-checklist-row.done .plan-checklist-label { color: rgba(10,10,10,0.4); }
+#devoPlanModal .plan-checklist-chevron { color: rgba(10,10,10,0.3); }
+
+#devoPlanModal .bible-reader { background: var(--white); }
+#devoPlanModal .bible-navbtn { background: rgba(10,10,10,0.05); border-color: rgba(10,10,10,0.12); color: rgba(10,10,10,0.6); }
+#devoPlanModal .bible-translation-note { color: rgba(10,10,10,0.4); }
+
 /* Plans tab: .plans-card and its contents (chips, cover grid, "view
    all" link, the note below it) were already authored dark-text-on-
    light — only the screen's own background and the card's own
@@ -2591,7 +2619,15 @@
       <a class="back-link" id="devoPlanBackLink">← All 52-Day Plans</a>
       <img src="${plan.cover}" alt="${escapeHtmlMain(plan.title)}" style="display:block; width:100%; border-radius:8px; margin-top:12px;" />
       <div class="plan-day-strip" style="margin-top:16px;">${stripCards.join('')}</div>
-      <div class="plan-day-label" style="margin-top:16px;">Day ${day} of 52</div>
+      <div class="plan-bar-top" style="margin-top:16px;">
+        <button type="button" id="devoPlanPrevDay" class="bible-navbtn" aria-label="Previous day" ${day <= 1 ? 'style="visibility:hidden;"' : ''}>
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="plan-day-label">Day ${day} <span class="plan-day-of">of 52</span></div>
+        <button type="button" id="devoPlanNextDay" class="bible-navbtn" aria-label="Next day" ${day >= 52 ? 'style="visibility:hidden;"' : ''}>
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
       <div class="plan-checklist" style="margin-top:10px;">
         <div class="plan-checklist-row ${devoDone ? 'done' : ''}">
           <button type="button" class="plan-checklist-check" data-toggle="devotional"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></button>
@@ -2607,6 +2643,8 @@
     `;
 
     document.getElementById('devoPlanBackLink').addEventListener('click', renderDevoPlanGrid);
+    if (day > 1) document.getElementById('devoPlanPrevDay').addEventListener('click', () => renderDevoPlanDay(planKey, day - 1));
+    if (day < 52) document.getElementById('devoPlanNextDay').addEventListener('click', () => renderDevoPlanDay(planKey, day + 1));
     [...body.querySelectorAll('.plan-day-card[data-day]')].forEach(card => {
       card.addEventListener('click', () => renderDevoPlanDay(planKey, parseInt(card.dataset.day, 10)));
     });
