@@ -1,14 +1,30 @@
 // netlify/functions/send-daily-notifications.js
 //
 // Runs on a daily schedule (see netlify.toml) and sends pushes via
-// OneSignal's REST API for two notification types:
-//   1. "Reading reminder" — to devices tagged reading_reminder=true
-//   2. "Verse of the day"  — to devices tagged verse_of_day=true
+// OneSignal's REST API for three notification types:
+//   1. "Reading reminder"        — to devices tagged reading_reminder=true
+//   2. "Verse of the day"        — to devices tagged verse_of_day=true
+//   3. "52-Day plan reminders"   — one per plan, to devices tagged
+//                                  devo_reminder_<planKey>=true (see
+//                                  DEVOTIONAL_PLAN_TITLES below for the
+//                                  6 plan keys)
 //
-// Both pull today's reading from the same 365-day plan embedded in the
+// #1 and #2 pull today's reading from the same 365-day plan embedded in the
 // app (reading-plan-data.js), using the same Jan-1-is-Day-1 calendar math
 // as the app's "Follow the Calendar" mode — so the notification always
 // matches what someone sees if they open the app that day.
+//
+// #3 (added) is the "simple" version discussed and deliberately does NOT
+// try to know which day of that plan someone's actually on — the 52-day
+// plans are self-paced and their progress lives in each device's own
+// local/synced storage (app.html's dSafeGet/dSafeSet), not anywhere this
+// server-side function can read. So unlike #1 and #2, this is just a
+// plain "don't forget your [Plan Title] reading today" nudge, using the
+// exact same per-(hour, frequency) tag-filtered send as the other two —
+// only the tag prefix and plan title differ per plan. If per-day
+// awareness is ever wanted, that requires moving 52-day plan progress
+// somewhere server-readable first (e.g. Supabase) — a bigger change than
+// this file alone.
 //
 // PER-USER FREQUENCY + TIME (added — see app.html's notification settings
 // UI): each device carries three OneSignal tags per notification type
@@ -118,6 +134,19 @@ function calendarPlanDay() {
   return Math.min(Math.max(diff, 1), 365);
 }
 
+// The 6 devotional plan keys and titles, matching DEVOTIONAL_PLANS in
+// app.html exactly (key names must match, since the OneSignal tag for
+// each is built as `devo_reminder_${key}`) -- only the title is needed
+// here, since this reminder never quotes plan content itself.
+const DEVOTIONAL_PLAN_TITLES = {
+  hope: '52 Bible Verses on Hope',
+  miracles: '52 Bible Verses on Miracles',
+  new_believer: '52 Bible Verses for New Believers',
+  kids: '52 Bible Verses to Teach Your Kids',
+  men: '52 Bible Verses for Men',
+  youth: '52 Bible Verses for Youth'
+};
+
 // Hour options offered in the app's picker (6AM-9PM local). Keep in sync
 // with NOTIF_HOURS in app.html's notification settings script — adding an
 // hour there without adding it here means that hour silently never sends.
@@ -209,9 +238,15 @@ exports.handler = async function () {
   // to the base app URL (Today tab, the app's default landing screen).
   const READING_TARGET_URL = 'https://followingjesus.com/app#bible';
   const VERSE_TARGET_URL = 'https://followingjesus.com/app';
+  // 52-day plan reminders open the Plans tab, same hash-router pattern --
+  // there's no per-plan deep link (that would need each plan's own
+  // hash/route in app.html), so this just gets someone to the tab where
+  // all 6 plan cards live; tapping the right one is on them from there.
+  const DEVO_PLAN_TARGET_URL = 'https://followingjesus.com/app#plans';
 
   const readingTasks = [];
   const verseTasks = [];
+  const devoPlanTasks = [];
 
   for (const h of NOTIF_HOURS) {
     for (const freq of freqsToSend) {
@@ -232,16 +267,29 @@ exports.handler = async function () {
           targetUrl: VERSE_TARGET_URL
         }).catch(err => ({ ok: false, error: err.message, hour: h, freq }))
       );
+
+      for (const [planKey, planTitle] of Object.entries(DEVOTIONAL_PLAN_TITLES)) {
+        devoPlanTasks.push(
+          sendTimedPush({
+            appId, apiKey, tagKey: `devo_reminder_${planKey}`, hourValue: h, freqValue: freq,
+            title: planTitle,
+            body: `Don't forget today's reading in ${planTitle}!`,
+            targetUrl: DEVO_PLAN_TARGET_URL
+          }).catch(err => ({ ok: false, error: err.message, hour: h, freq, planKey }))
+        );
+      }
     }
   }
 
-  const [readingResults, verseResults] = await Promise.all([
+  const [readingResults, verseResults, devoPlanResults] = await Promise.all([
     Promise.all(readingTasks),
-    Promise.all(verseTasks)
+    Promise.all(verseTasks),
+    Promise.all(devoPlanTasks)
   ]);
 
   const failedReading = readingResults.filter(r => !r.ok);
   const failedVerse = verseResults.filter(r => !r.ok);
+  const failedDevoPlan = devoPlanResults.filter(r => !r.ok);
 
   return {
     statusCode: 200,
@@ -253,7 +301,8 @@ exports.handler = async function () {
       verseBody,
       isWeeklySendDay,
       readingReminder: { sent: readingResults.length, failed: failedReading.length, failures: failedReading },
-      verseOfDay: { sent: verseResults.length, failed: failedVerse.length, failures: failedVerse }
+      verseOfDay: { sent: verseResults.length, failed: failedVerse.length, failures: failedVerse },
+      devoPlanReminders: { sent: devoPlanResults.length, failed: failedDevoPlan.length, failures: failedDevoPlan }
     })
   };
 };
