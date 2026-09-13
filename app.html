@@ -2373,6 +2373,30 @@
 
     <div class="disciple-modal" id="devoPlanModal">
       <div class="disciple-modal-body disciple-app-scope" id="devoPlanModalBody"></div>
+      <!-- Shared across all 6 plans -- one modal, its title/toggle/selects
+           get re-pointed to whichever plan's bell was tapped (see
+           currentDevoReminderPlan in the script below), rather than
+           duplicating this markup 6 times. -->
+      <div class="verse-alert-modal-overlay" id="devoReminderModalOverlay">
+        <div class="verse-alert-modal-card">
+          <h3 class="verse-alert-modal-title" id="devoReminderModalTitle">Daily Reminder</h3>
+          <button type="button" class="notif-toggle" id="devoReminderToggle" style="margin:0 auto;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span>Daily Reminder</span>
+            <span class="notif-toggle-state">Off</span>
+          </button>
+          <div id="devoReminderSettingsRow">
+            <label class="verse-alert-modal-time-label">Frequency</label>
+            <select class="notif-settings-select" id="devoReminderFreqSelect" style="width:100%;">
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly (Mon)</option>
+            </select>
+            <label class="verse-alert-modal-time-label">Alert time</label>
+            <select class="notif-settings-select" id="devoReminderTimeSelect" style="width:100%;"></select>
+          </div>
+          <button type="button" class="app-alert-btn" id="devoReminderModalDoneBtn" style="width:100%;background:var(--black);color:#fff;padding:12px;border-radius:12px;font-size:14px;font-weight:600;border:none;cursor:pointer;margin-top:20px;">Done</button>
+        </div>
+      </div>
     </div>
 
     <div class="article-modal" id="articleModal">
@@ -2626,6 +2650,9 @@
         <button type="button" id="devoPlanNextDay" class="bible-navbtn" aria-label="Next day" ${day >= 52 ? 'style="visibility:hidden;"' : ''}>
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 18l6-6-6-6"/></svg>
         </button>
+        <button type="button" class="verse-alert-bell" id="devoReminderBellBtn" aria-label="Daily reminder settings for this plan" style="margin-top:0;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line class="verse-alert-bell-slash" x1="3" y1="3" x2="21" y2="21"/></svg>
+        </button>
       </div>
       <div class="plan-checklist" style="margin-top:10px;">
         <div class="plan-checklist-row ${devoDone ? 'done' : ''}">
@@ -2644,6 +2671,8 @@
     document.getElementById('devoPlanBackLink').addEventListener('click', renderDevoPlanGrid);
     if (day > 1) document.getElementById('devoPlanPrevDay').addEventListener('click', () => renderDevoPlanDay(planKey, day - 1));
     if (day < 52) document.getElementById('devoPlanNextDay').addEventListener('click', () => renderDevoPlanDay(planKey, day + 1));
+    updateDevoReminderBell(planKey);
+    document.getElementById('devoReminderBellBtn').addEventListener('click', () => openDevoReminderModal(planKey));
     [...body.querySelectorAll('.plan-day-card[data-day]')].forEach(card => {
       card.addEventListener('click', () => renderDevoPlanDay(planKey, parseInt(card.dataset.day, 10)));
     });
@@ -2708,6 +2737,76 @@
       const el = document.getElementById('devoVerseText');
       if (el) el.textContent = 'Verse unavailable right now — check your connection.';
     }
+  }
+
+  // ---------- 52-Day Plan reminders ----------
+  // One shared modal (see the static markup next to #devoPlanModalBody)
+  // re-pointed at whichever plan's bell was tapped, rather than 6
+  // separate copies of the same toggle/frequency/time UI. Reuses the
+  // exact same generic prefs/tags system the 365-day plan's own
+  // reminder already runs on (getNotifPrefs/toggleNotifPref/
+  // updateNotifSetting/applyNotifTags, defined further down) -- each
+  // plan just gets its own prefKey ("devoReminder_hope") and tagKey
+  // ("devo_reminder_hope"), so no new storage or tagging mechanism was
+  // needed, only new keys under the existing one.
+  //
+  // This is the "simple" version discussed with Samuel: a plain daily
+  // "don't forget this plan" nudge, not aware of which day someone's
+  // actually on (that would need per-plan progress to live somewhere
+  // the server-side send function can read, which it currently can't --
+  // see that conversation for the fuller tradeoff). Sending the actual
+  // push still depends on send-daily-notifications.js (a separate file,
+  // not part of this one) learning about these same 6 new tag names --
+  // this only builds the client-side toggle and tag-setting half.
+  let currentDevoReminderPlan = null;
+
+  async function updateDevoReminderBell(planKey) {
+    const bellBtn = document.getElementById('devoReminderBellBtn');
+    if (!bellBtn) return;
+    const prefs = await getNotifPrefs();
+    bellBtn.classList.toggle('off', !prefs[`devoReminder_${planKey}`]);
+  }
+
+  async function openDevoReminderModal(planKey) {
+    currentDevoReminderPlan = planKey;
+    const plan = DEVOTIONAL_PLANS[planKey];
+    const prefs = await getNotifPrefs();
+    const prefKey = `devoReminder_${planKey}`;
+    document.getElementById('devoReminderModalTitle').textContent = `${plan.title} Reminder`;
+    const toggleBtn = document.getElementById('devoReminderToggle');
+    toggleBtn.classList.toggle('on', !!prefs[prefKey]);
+    toggleBtn.querySelector('.notif-toggle-state').textContent = prefs[prefKey] ? 'On' : 'Off';
+    document.getElementById('devoReminderFreqSelect').value = prefs[`${prefKey}Freq`] || 'daily';
+    document.getElementById('devoReminderTimeSelect').innerHTML = notifHourOptionsHtml(prefs[`${prefKey}Hour`] || '07');
+    document.getElementById('devoReminderModalOverlay').classList.add('open');
+  }
+
+  function initDevoReminderModal() {
+    const overlay = document.getElementById('devoReminderModalOverlay');
+    if (!overlay) return;
+    const toggleBtn = document.getElementById('devoReminderToggle');
+    const freqSelect = document.getElementById('devoReminderFreqSelect');
+    const hourSelect = document.getElementById('devoReminderTimeSelect');
+    const doneBtn = document.getElementById('devoReminderModalDoneBtn');
+
+    toggleBtn.addEventListener('click', async () => {
+      if (!currentDevoReminderPlan) return;
+      const prefKey = `devoReminder_${currentDevoReminderPlan}`;
+      const tagKey = `devo_reminder_${currentDevoReminderPlan}`;
+      await toggleNotifPref(prefKey, tagKey, toggleBtn, toggleBtn.querySelector('.notif-toggle-state'), null);
+      updateDevoReminderBell(currentDevoReminderPlan);
+    });
+    freqSelect.addEventListener('change', () => {
+      if (!currentDevoReminderPlan) return;
+      updateNotifSetting(`devoReminder_${currentDevoReminderPlan}`, `devo_reminder_${currentDevoReminderPlan}`, 'Freq', freqSelect.value);
+    });
+    hourSelect.addEventListener('change', () => {
+      if (!currentDevoReminderPlan) return;
+      updateNotifSetting(`devoReminder_${currentDevoReminderPlan}`, `devo_reminder_${currentDevoReminderPlan}`, 'Hour', hourSelect.value);
+    });
+    const closeModal = () => overlay.classList.remove('open');
+    doneBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
   }
 
   // ---------- Find a Church ----------
@@ -8818,7 +8917,16 @@ async function renderDiscipleshipApp() {
 
   const NOTIF_DEFAULTS = {
     readingReminder: false, readingReminderFreq: 'daily', readingReminderHour: '07',
-    verseOfDay: true, verseOfDayFreq: 'daily', verseOfDayHour: '07'
+    verseOfDay: true, verseOfDayFreq: 'daily', verseOfDayHour: '07',
+    // One set per 52-day devotional plan -- see the comment above
+    // openDevoReminderModal for why these piggyback on this same
+    // generic prefs object instead of a separate mechanism.
+    devoReminder_hope: false, devoReminder_hopeFreq: 'daily', devoReminder_hopeHour: '07',
+    devoReminder_miracles: false, devoReminder_miraclesFreq: 'daily', devoReminder_miraclesHour: '07',
+    devoReminder_new_believer: false, devoReminder_new_believerFreq: 'daily', devoReminder_new_believerHour: '07',
+    devoReminder_kids: false, devoReminder_kidsFreq: 'daily', devoReminder_kidsHour: '07',
+    devoReminder_men: false, devoReminder_menFreq: 'daily', devoReminder_menHour: '07',
+    devoReminder_youth: false, devoReminder_youthFreq: 'daily', devoReminder_youthHour: '07'
   };
   async function getNotifPrefs() {
     const stored = await dSafeGet('notifPrefs');
@@ -8931,6 +9039,7 @@ async function renderDiscipleshipApp() {
     }
   }
   initNotifToggles();
+  initDevoReminderModal();
 
   // ---------- App review prompt ----------
   // Uses Median's App Review native plugin. The exact bridge method name
