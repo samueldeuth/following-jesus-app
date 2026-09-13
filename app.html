@@ -2810,10 +2810,17 @@
   }
 
   // ---------- Find a Church ----------
-  // Wires up every .info-icon-btn on the page to open/close a single
-  // shared popover showing that icon's data-info text -- one popover
-  // element reused for whichever icon was tapped, so only one is ever
-  // open at a time.
+  // Wires up every element carrying a data-info attribute (the small
+  // round "i" buttons like Find a Church's, and now the Profile page's
+  // badge tiles too) to open/close a single shared popover showing
+  // that element's data-info text -- one popover reused for whichever
+  // one was tapped, so only one is ever open at a time. Selecting on
+  // [data-info] rather than a class lets badge tiles reuse the exact
+  // same tooltip box without inheriting the "i" button's own circular
+  // look. Guarded with a dataset flag so this is safe to call again
+  // after a screen re-renders new data-info elements into the DOM
+  // (see the Profile page's badge grid) without double-binding
+  // whatever was already wired from an earlier call.
   function initInfoTooltips(){
     let popover = document.getElementById('shared-info-popover');
     if(!popover){
@@ -2823,15 +2830,17 @@
       document.body.appendChild(popover);
       document.addEventListener('click', () => {
         popover.classList.remove('open');
-        document.querySelectorAll('.info-icon-btn.open').forEach(b => b.classList.remove('open'));
+        document.querySelectorAll('[data-info].open').forEach(b => b.classList.remove('open'));
       });
     }
-    document.querySelectorAll('.info-icon-btn').forEach(btn => {
+    document.querySelectorAll('[data-info]').forEach(btn => {
+      if (btn.dataset.infoWired) return;
+      btn.dataset.infoWired = '1';
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const wasOpen = btn.classList.contains('open');
         popover.classList.remove('open');
-        document.querySelectorAll('.info-icon-btn.open').forEach(b => b.classList.remove('open'));
+        document.querySelectorAll('[data-info].open').forEach(b => b.classList.remove('open'));
         if(wasOpen) return;
         popover.textContent = btn.dataset.info;
         const rect = btn.getBoundingClientRect();
@@ -3509,7 +3518,7 @@
         ${BADGE_CATALOG.map(b => {
           const earned = earnedBadgeKeys.has(b.key);
           return `
-          <div style="text-align:center;" title="${escapeHtmlMain(b.description)}">
+          <div style="text-align:center; cursor:pointer;" data-info="${escapeHtmlMain(b.description)}">
             <svg viewBox="-58 -58 116 116" width="52" height="52" style="display:block; margin:0 auto 6px; filter:${earned ? 'none' : 'grayscale(1) opacity(0.4)'};">${b.svg}</svg>
             <div style="font-size:10px; font-weight:700; color:rgba(10,10,10,0.7); line-height:1.3;">${escapeHtmlMain(b.title)}</div>
           </div>`;
@@ -3578,6 +3587,13 @@
       topView = 'hub';
       renderDiscipleStep();
     };
+
+    // Re-wire tooltips for the badge grid rendered just above -- these
+    // are fresh [data-info] elements each time this function runs, and
+    // initInfoTooltips (see the Find a Church section) is guarded so
+    // calling it again here doesn't double-bind anything already wired
+    // elsewhere on the page.
+    initInfoTooltips();
   }
 
   function escapeHtmlMain(s) {
@@ -9009,14 +9025,14 @@ async function renderDiscipleshipApp() {
   // ---------- Randomized blog banner (from live feed once loaded) ----------
   function setupBlogBanner() {
     if (BLOG_POSTS.length === 0) return;
-    // Only rotate through posts from roughly the last 12 months, so an
+    // Only rotate through posts from roughly the last 24 months, so an
     // old post from years back doesn't have the same odds of showing up
     // as something recent. Falls back to the full list if none of the
     // loaded posts have a usable date (e.g. the offline ARTICLES
     // fallback, whose dates are display-only strings with no year) or
     // none happen to fall in that window yet.
-    const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000;
-    const recent = BLOG_POSTS.filter(p => p.isoDate && new Date(p.isoDate).getTime() >= oneYearAgo);
+    const twoYearsAgo = Date.now() - 2 * 365 * 24 * 60 * 60 * 1000;
+    const recent = BLOG_POSTS.filter(p => p.isoDate && new Date(p.isoDate).getTime() >= twoYearsAgo);
     const dated = recent.length > 0 ? recent : BLOG_POSTS;
     const withImages = dated.filter(p => isValidImageUrl(p.image));
     const pool = withImages.length > 0 ? withImages : dated;
