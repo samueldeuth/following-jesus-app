@@ -2233,28 +2233,37 @@
         <div class="plans-card">
           <div class="card-title">Plans by Samuel Deuth</div>
         <div class="plan-cover-grid">
-        <a class="plan-cover-card" href="https://www.bible.com/reading-plans/37503-12-marriage-safeguards" target="_blank" rel="noopener">
-          <img src="/assets/plan-12-marriage-safeguards.jpg" alt="12 Marriage Safeguards" />
-          <div class="plan-cover-label">12 Marriage Safeguards</div>
-        </a>
         <button type="button" class="plan-cover-card" style="grid-column: span 2; aspect-ratio: auto; height: 140px; border:none; cursor:pointer; padding:0;" onclick="openNativeReadingPlan()">
           <img src="/assets/plan-365-days-with-jesus.jpg" alt="365 Days With Jesus" />
           <div class="plan-cover-label">365 Days With Jesus &middot; Read right here in the app →</div>
         </button>
-        <button type="button" class="plan-cover-card" id="devoPlansEntryBtn" style="grid-column: span 2; aspect-ratio: auto; height: 140px; border:none; cursor:pointer; padding:0;">
-          <img src="/assets/plan-cover-hope.jpg" alt="52-Day Devotional Plans" />
-          <div class="plan-cover-label">52-Day Devotional Plans &middot; Read right here in the app →</div>
+        <button type="button" class="plan-cover-card" data-devo-plan="hope" style="border:none; cursor:pointer; padding:0;">
+          <img src="/assets/plan-square-hope.jpg" alt="52 Bible Verses on Hope" />
+          <div class="plan-cover-label">52 Verses on Hope</div>
+        </button>
+        <button type="button" class="plan-cover-card" data-devo-plan="miracles" style="border:none; cursor:pointer; padding:0;">
+          <img src="/assets/plan-square-miracles.jpg" alt="52 Bible Verses on Miracles" />
+          <div class="plan-cover-label">52 Verses on Miracles</div>
+        </button>
+        <button type="button" class="plan-cover-card" data-devo-plan="new_believer" style="border:none; cursor:pointer; padding:0;">
+          <img src="/assets/plan-square-new-believer.jpg" alt="52 Bible Verses for New Believers" />
+          <div class="plan-cover-label">52 Verses for New Believers</div>
+        </button>
+        <button type="button" class="plan-cover-card" data-devo-plan="kids" style="border:none; cursor:pointer; padding:0;">
+          <img src="/assets/plan-square-kids.jpg" alt="52 Bible Verses to Teach Your Kids" />
+          <div class="plan-cover-label">52 Verses for Kids</div>
+        </button>
+        <button type="button" class="plan-cover-card" data-devo-plan="men" style="border:none; cursor:pointer; padding:0;">
+          <img src="/assets/plan-square-men.jpg" alt="52 Bible Verses for Men" />
+          <div class="plan-cover-label">52 Verses for Men</div>
+        </button>
+        <button type="button" class="plan-cover-card" data-devo-plan="youth" style="border:none; cursor:pointer; padding:0;">
+          <img src="/assets/plan-square-youth.jpg" alt="52 Bible Verses for Youth" />
+          <div class="plan-cover-label">52 Verses for Youth</div>
         </button>
       </div>
-        <div class="plan-chips">
-            <a href="https://www.bible.com/reading-plans/69301-hope-bible-immersion" target="_blank" rel="noopener">Hope: Bible Immersion</a>
-            <a href="https://www.bible.com/reading-plans/69263-miracles-bible-immersion" target="_blank" rel="noopener">Miracles: Bible Immersion</a>
-            <a href="https://www.bible.com/reading-plans/66669-revival-a-call-back-to-god" target="_blank" rel="noopener">Revival</a>
-            <a href="https://www.bible.com/reading-plans/63457-following-jesus-at-christmas" target="_blank" rel="noopener">Following Jesus at Christmas</a>
-          </div>
-          <a class="plans-view-all" href="https://www.bible.com/organizations/f072ad1e-f59c-49b0-8310-b33f874a2d54" target="_blank" rel="noopener">View all plans →</a>
+          <a class="plans-view-all" href="https://www.bible.com/organizations/f072ad1e-f59c-49b0-8310-b33f874a2d54" target="_blank" rel="noopener">For more Bible reading plans, click here →</a>
         </div>
-        <div class="plans-note">Plans open in the YouVersion Bible App — YouVersion doesn't allow full plan content to be shown outside their app. Got cover art for more plans? Send them over and I'll add them here too.</div>
       </div>
     </section>
 
@@ -2533,7 +2542,13 @@
     });
     pushUrlHash('devo-plans');
   }
-  document.getElementById('devoPlansEntryBtn').addEventListener('click', renderDevoPlanGrid);
+  // Each of the 6 plan cards on the main Plans tab opens straight into
+  // that plan (no intermediate "pick a plan" grid) -- renderDevoPlanGrid
+  // (and its own cover cards) is kept as-is for the "← All 52-Day Plans"
+  // back link inside a plan's day view, just no longer the only way in.
+  [...document.querySelectorAll('#screen-plans [data-devo-plan]')].forEach(btn => {
+    btn.addEventListener('click', () => openDevoPlan(btn.dataset.devoPlan));
+  });
 
   async function openDevoPlan(planKey) {
     hideMainScreens();
@@ -2574,7 +2589,8 @@
 
     body.innerHTML = `
       <a class="back-link" id="devoPlanBackLink">← All 52-Day Plans</a>
-      <div class="plan-day-strip" style="margin-top:10px;">${stripCards.join('')}</div>
+      <img src="${plan.cover}" alt="${escapeHtmlMain(plan.title)}" style="display:block; width:100%; border-radius:8px; margin-top:12px;" />
+      <div class="plan-day-strip" style="margin-top:16px;">${stripCards.join('')}</div>
       <div class="plan-day-label" style="margin-top:16px;">Day ${day} of 52</div>
       <div class="plan-checklist" style="margin-top:10px;">
         <div class="plan-checklist-row ${devoDone ? 'done' : ''}">
