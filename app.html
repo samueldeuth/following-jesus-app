@@ -3960,6 +3960,51 @@
     }
   }
 
+  // Combined (all 5 steps in one frame) versions of Romans Road's
+  // Realistic and Sketch styles -- one static image per format per
+  // style rather than 5 (there's only one "whole road" composition,
+  // not a separate one per step), same already-has-its-own-text
+  // approach as everything else in this family of styles. One shared
+  // function, parameterized by which map to pull from.
+  const ROMANS_SKETCH_COMBINED = {
+    square: '/assets/romans-sketch-combined-square.jpg',
+    story: '/assets/romans-sketch-combined-story.jpg'
+  };
+  const ROMANS_PHOTO_COMBINED = {
+    square: '/assets/romans-photo-combined-square.jpg',
+    story: '/assets/romans-photo-combined-story.jpg'
+  };
+  async function drawRomansRoadImageCombined(canvas, series, format, imgMap) {
+    const width = 1080;
+    const height = format === 'story' ? 1920 : 1080;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const map = imgMap || ROMANS_SKETCH_COMBINED;
+
+    try {
+      const img = await loadImage(map[format] || map.square);
+      const imgRatio = img.width / img.height;
+      const canvasRatio = width / height;
+      let drawWidth, drawHeight, offsetX, offsetY;
+      if (imgRatio > canvasRatio) {
+        drawHeight = height;
+        drawWidth = height * imgRatio;
+        offsetX = (width - drawWidth) / 2;
+        offsetY = 0;
+      } else {
+        drawWidth = width;
+        drawHeight = width / imgRatio;
+        offsetX = 0;
+        offsetY = (height - drawHeight) / 2;
+      }
+      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+    } catch (e) {
+      ctx.fillStyle = '#1c1c1c';
+      ctx.fillRect(0, 0, width, height);
+    }
+  }
+
   async function drawGospelSeriesCard(canvas, series, stepIndex, format, mode, style) {
     if (series.type === 'illustration') {
       // Sunset and Photo styling only exist for the single-card view
@@ -3968,16 +4013,22 @@
       // are built out too.
       if (mode !== 'combined' && style === 'photo') return drawBridgePhotoStep(canvas, series, stepIndex, format);
       if (mode !== 'combined' && style === 'sketch') return drawBridgeSketchStep(canvas, series, stepIndex, format);
+      if (mode === 'combined' && style === 'photo') return drawRomansRoadImageCombined(canvas, series, format, BRIDGE_PHOTO_COMBINED);
+      if (mode === 'combined' && style === 'sketch') return drawRomansRoadImageCombined(canvas, series, format, BRIDGE_SKETCH_COMBINED);
       return mode === 'combined'
         ? drawBridgeCombined(canvas, series, format)
         : drawBridgeStep(canvas, series, stepIndex, format, style);
     }
     if (series.id === 'romans-road') {
-      // Same "Realistic"/"Sketch" scoping as the Bridge -- single-card
-      // view only, Combined keeps the drawn road-map regardless of
-      // style.
+      // Realistic and Sketch both have their own single "whole road"
+      // combined image per format now, so Combined mode honors the
+      // style toggle for either one -- only a style with no combined
+      // image at all would fall through to the drawn road-map, and
+      // there isn't one of those left currently.
       if (mode !== 'combined' && style === 'photo') return drawRomansRoadPhotoStep(canvas, series, stepIndex, format, ROMANS_PHOTO_MAP);
       if (mode !== 'combined' && style === 'sketch') return drawRomansRoadPhotoStep(canvas, series, stepIndex, format, ROMANS_SKETCH_MAP);
+      if (mode === 'combined' && style === 'sketch') return drawRomansRoadImageCombined(canvas, series, format, ROMANS_SKETCH_COMBINED);
+      if (mode === 'combined' && style === 'photo') return drawRomansRoadImageCombined(canvas, series, format, ROMANS_PHOTO_COMBINED);
       return mode === 'combined'
         ? drawRomansRoadCombined(canvas, series, format)
         : drawRomansRoadStep(canvas, series, stepIndex, format);
@@ -4622,6 +4673,20 @@
     }
   };
 
+  // Bridge's own single "whole story" combined image per format,
+  // Realistic style -- same idea as Romans Road's combined images,
+  // reusing the same generic drawRomansRoadImageCombined drawer below
+  // since it doesn't actually reference anything Romans-Road-specific.
+  const BRIDGE_PHOTO_COMBINED = {
+    square: '/assets/bridge-photo-combined-square.jpg',
+    story: '/assets/bridge-photo-combined-story.jpg'
+  };
+
+  const BRIDGE_SKETCH_COMBINED = {
+    square: '/assets/bridge-sketch-combined-square.jpg',
+    story: '/assets/bridge-sketch-combined-story.jpg'
+  };
+
   // Same idea, fourth Bridge style ("Sketch") -- a different set of
   // Samuel's own AI-generated images, hand-drawn/charcoal-and-gold-
   // marker look on cream paper. Unlike the Photo style below, these
@@ -5203,12 +5268,21 @@
           // The Bridge's card uses one of Samuel's own AI-generated
           // photos directly as a static hero image -- "Jesus Bridges
           // the Divide" specifically, since it's the single frame that
-          // most immediately reads as "a bridge" -- rather than a live
-          // render of the drawn illustration like Romans Road gets
-          // below. No canvas involved here at all.
+          // most immediately reads as "a bridge." No canvas involved.
           box.style.backgroundImage = `url(/assets/bridge-photo-square-cross.jpg)`;
           box.style.backgroundSize = 'cover';
           box.style.backgroundPosition = 'center 15%';
+          box.innerHTML = '';
+          return;
+        }
+        if (s.id === 'romans-road') {
+          // Same idea for Romans Road -- one of its own Realistic
+          // photos as a static hero (the last stop, "Call on His
+          // Name," since the cross pin there is the most immediately
+          // recognizable single frame) instead of a live render.
+          box.style.backgroundImage = `url(/assets/romans-photo-square-4.jpg)`;
+          box.style.backgroundSize = 'cover';
+          box.style.backgroundPosition = 'center';
           box.innerHTML = '';
           return;
         }
@@ -5277,7 +5351,7 @@
         <button type="button" class="gospel-format-btn active" data-format="story">Story</button>
       </div>
       <div class="gospel-format-toggle" style="margin-top:8px;">
-        <button type="button" class="gospel-format-btn active" data-mode="single">Single Card</button>
+        <button type="button" class="gospel-format-btn active" data-mode="single">5 Slides</button>
         <button type="button" class="gospel-format-btn" data-mode="combined">Combined (All Steps)</button>
       </div>
       ${styleToggleHtml}
