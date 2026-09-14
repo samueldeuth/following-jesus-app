@@ -4617,23 +4617,27 @@
       drawSimpleFigure(ctx, width * 0.78, cliffTop - 34, 1.3, true);
       drawPersonPair(ctx, width * 0.14, cliffTop - 22, 0.85);
     } else if (step.panel === 'reunited') {
-      drawSimpleFigure(ctx, width * 0.78, cliffTop - 34, 1.3, true);
-      // Placed well clear of the chasm edge -- arrived and standing
-      // near God, not hovering right at the gap.
-      drawPersonPair(ctx, width * 0.88, cliffTop - 22, 0.85);
-      // Dotted line at the crossbar's own walking surface -- the top
-      // edge of the beam, not its vertical middle. It used to sit
-      // halfway down the beam's 34px thickness, which buried half the
-      // dash inside the gold fill and made it read as barely-there;
-      // sitting right at the top edge instead keeps the full dash
-      // visible against the darker sky above, while still tracking the
-      // crossbar's exact position and width.
+      // Both figures shifted further right so the pair clears the
+      // ground/beam transition entirely (previously still sitting
+      // right at that edge, reading as half-on-the-cross) -- and
+      // brought closer to God at the same time, tightening what was a
+      // slightly wide gap between "just arrived" and "reunited."
+      const reunitedPairX = width * 0.75;
+      drawSimpleFigure(ctx, width * 0.83, cliffTop - 34, 1.3, true);
+      drawPersonPair(ctx, reunitedPairX, cliffTop - 22, 0.85);
+      // Dotted line raised a bit further above the crossbar's top edge,
+      // and its right end now tracks the pair's own left edge (minus a
+      // small gap) rather than stopping at the beam's width -- so it
+      // visibly reaches almost all the way to them instead of leaving
+      // empty ground between where the line ends and where they stand.
+      // Left end still extended ~80px past the beam's edge (roughly an
+      // inch at this canvas size) so it reads as a real path.
       ctx.strokeStyle = 'rgba(245,240,230,0.9)';
       ctx.lineWidth = 5;
       ctx.setLineDash([10, 12]);
       ctx.beginPath();
-      ctx.moveTo(gapLeft, cliffTop - 4);
-      ctx.lineTo(gapRight, cliffTop - 4);
+      ctx.moveTo(gapLeft - 80, cliffTop - 20);
+      ctx.lineTo(reunitedPairX - 26 * 0.85 - 20, cliffTop - 20);
       ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -4725,19 +4729,21 @@
     ctx.fillRect(gapLeft, cliffTop, gapRight - gapLeft, 34);
 
     // Reunited placement -- God and the people together on the far
-    // side, same as the single-card "Reunited" step -- plus the
-    // dotted reconciliation line along the crossbar's walking surface
-    // (top edge, not buried in the beam's middle -- same fix as
-    // drawBridgeStep's own version of this line, see the comment there).
-    drawSimpleFigure(ctx, width * 0.78, cliffTop - 34, 1.3, true);
-    drawPersonPair(ctx, width * 0.88, cliffTop - 22, 0.85);
+    // side, further right so the pair clears the ground/beam
+    // transition entirely, with a tighter gap between them and God --
+    // same fix as drawBridgeStep's own version, see the comment there.
+    // Walking line starts left of the beam's own edge and now reaches
+    // almost to the pair's own position, for the same reasons.
+    const reunitedPairX = width * 0.75;
+    drawSimpleFigure(ctx, width * 0.83, cliffTop - 34, 1.3, true);
+    drawPersonPair(ctx, reunitedPairX, cliffTop - 22, 0.85);
 
     ctx.strokeStyle = 'rgba(245,240,230,0.9)';
     ctx.lineWidth = 5;
     ctx.setLineDash([10, 12]);
     ctx.beginPath();
-    ctx.moveTo(gapLeft, cliffTop - 4);
-    ctx.lineTo(gapRight, cliffTop - 4);
+    ctx.moveTo(gapLeft - 80, cliffTop - 20);
+    ctx.lineTo(reunitedPairX - 26 * 0.85 - 20, cliffTop - 20);
     ctx.stroke();
     ctx.setLineDash([]);
 
