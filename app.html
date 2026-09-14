@@ -1842,7 +1842,8 @@
 #goodNewsModal .gospel-format-btn { color: rgba(10,10,10,0.55); }
 #goodNewsModal .gospel-format-btn.active { color: var(--white); }
 
-#goodNewsModal .gospel-card-preview { background: var(--white); border-color: rgba(47,191,168,0.4); }
+#goodNewsModal .gospel-card-preview { background: var(--white); border-color: var(--black); }
+#goodNewsModal .gospel-card-title { color: var(--black); }
 #goodNewsModal .gospel-card-message { color: rgba(10,10,10,0.75); }
 #goodNewsModal .gospel-card-ref { color: rgba(10,10,10,0.4); }
 
@@ -1864,7 +1865,8 @@
 #gospelModal .gospel-format-btn { color: rgba(10,10,10,0.55); }
 #gospelModal .gospel-format-btn.active { color: var(--white); }
 
-#gospelModal .gospel-card-preview { background: var(--white); border-color: rgba(47,191,168,0.4); }
+#gospelModal .gospel-card-preview { background: var(--white); border-color: var(--black); }
+#gospelModal .gospel-card-title { color: var(--ember); }
 #gospelModal .gospel-card-message { color: rgba(10,10,10,0.75); }
 #gospelModal .gospel-card-ref { color: rgba(10,10,10,0.4); }
 
@@ -3929,10 +3931,10 @@
     }
 
     const accentY = height * 0.12;
-    ctx.fillStyle = '#2fbfa8';
+    ctx.fillStyle = '#c89b3c';
     ctx.fillRect(width / 2 - 40, accentY, 80, 5);
 
-    ctx.fillStyle = '#2fbfa8';
+    ctx.fillStyle = '#c89b3c';
     ctx.font = '700 34px Archivo, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
