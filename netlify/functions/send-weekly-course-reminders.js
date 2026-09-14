@@ -93,6 +93,14 @@ async function sendReminderEmail({ resendApiKey, toEmail, studentName, courseTit
 
   if (!res.ok) {
     const errText = await res.text();
+    // Surfaces the real Resend response (rate limit, quota, invalid
+    // address, whatever it actually is) in Netlify's function log the
+    // moment it happens -- previously this only lived in the
+    // `failures` array of the handler's return body, which nothing
+    // ever read, so a failed send left no trace anywhere. status is
+    // logged separately from the body so a 429 (rate limit) is
+    // grep-able on its own.
+    console.error(`[send-weekly-course-reminders] Resend send FAILED for ${toEmail} (status ${res.status}): ${errText}`);
     throw new Error(`Resend API error (${res.status}): ${errText}`);
   }
 }
@@ -103,6 +111,7 @@ exports.handler = async function () {
 
   const missing = ['RESEND_API_KEY', 'REMINDER_FUNCTION_SECRET'].filter(name => !process.env[name]);
   if (missing.length) {
+    console.warn(`[send-weekly-course-reminders] Skipped — missing environment variables: ${missing.join(', ')}`);
     return {
       statusCode: 200,
       body: JSON.stringify({ skipped: true, reason: `Missing environment variables: ${missing.join(', ')}` })
@@ -124,10 +133,12 @@ exports.handler = async function () {
 
   if (!rpcRes.ok) {
     const errText = await rpcRes.text();
+    console.error(`[send-weekly-course-reminders] Could not look up who needs a reminder: ${errText}`);
     return { statusCode: 502, body: `Could not look up who needs a reminder: ${errText}` };
   }
 
   const students = await rpcRes.json();
+  console.log(`[send-weekly-course-reminders] ${students.length} student(s) eligible this run.`);
   const successfulIds = [];
   const failures = [];
 
@@ -155,6 +166,7 @@ exports.handler = async function () {
       // Deliberately not added to successfulIds — last_reminder_sent_at
       // stays untouched for this one, so it's picked up again next
       // week rather than silently skipped forever.
+      console.error(`[send-weekly-course-reminders] Failed for enrollment ${student.enrollment_id} (${student.student_email}): ${e.message}`);
       failures.push({ enrollment_id: student.enrollment_id, error: e.message });
     }
     await sleep(150);
@@ -174,6 +186,15 @@ exports.handler = async function () {
       body: JSON.stringify({ caller_secret: reminderSecret, enrollment_ids: successfulIds })
     });
   }
+
+  // Single summary line at the very end, so a glance at the Netlify
+  // function log answers "did this actually work?" without opening
+  // Resend at all. This is the line that was missing before -- the
+  // handler always returned this same information in its HTTP response
+  // body, but nothing was ever reading that response (it's invoked on
+  // a schedule, not from a page that displays the result), so it
+  // effectively went nowhere.
+  console.log(`[send-weekly-course-reminders] Done. totalEligible=${students.length} sent=${successfulIds.length} failed=${failures.length}${failures.length ? ' — see individual Resend error lines above' : ''}`);
 
   return {
     statusCode: 200,
