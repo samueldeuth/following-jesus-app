@@ -135,7 +135,14 @@ exports.handler = async function (event) {
   const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_students_needing_reminders`, {
     method: 'POST',
     headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ caller_secret: reminderSecret })
+    // p_respect_timezone: false is the whole point of this button --
+    // without it, "Send Weekly Reminders Now" silently inherited the
+    // same "only during this student's local 8am-Monday hour" gate as
+    // the scheduled job, meaning it almost always found 0 eligible
+    // students no matter when a super_admin actually clicked it. This
+    // is exactly the override get_students_needing_reminders's own
+    // second parameter exists for -- see its SQL definition's comment.
+    body: JSON.stringify({ caller_secret: reminderSecret, p_respect_timezone: false })
   });
   if (!rpcRes.ok) {
     const errText = await rpcRes.text();
