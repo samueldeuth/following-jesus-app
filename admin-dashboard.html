@@ -167,6 +167,7 @@
   tbody td{padding:14px 16px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle;}
   tbody tr:last-child td{border-bottom:none;}
   tbody tr.clickable{cursor:pointer;}
+  .summary-card.clickable{cursor:pointer;}
   tbody tr.clickable:hover{background:var(--bg-soft);}
   thead th.sortable-col:hover{color:var(--ink);}
   .student-name{font-weight:600;}
@@ -1250,7 +1251,7 @@ function renderChurchesOverview(){
       <div class="summary-card"><div class="num">${activeChurches}</div><div class="label">Active Churches</div><div class="sub">${totalChurches} total all-time</div></div>
       <div class="summary-card"><div class="num">${totalActive}</div><div class="label">Active Students</div><div class="sub">${totalStudents} total all-time</div></div>
       <div class="summary-card"><div class="num">${totalCompleted}</div><div class="label">Finished a course</div></div>
-      <div class="summary-card"><div class="num">${approvedLeaderCount}</div><div class="label">Disciple Makers</div></div>
+      <div class="summary-card clickable" id="disciple-makers-card"><div class="num">${approvedLeaderCount}</div><div class="label">Disciple Makers</div></div>
     </div>
     <div style="display:flex;gap:6px;margin:18px 0 10px;flex-wrap:wrap;">
       ${Object.keys(rangeLabels).map(key => `<button class="mini-btn ${key===overviewRangeKey?'active':''}" data-overview-range="${key}">${rangeLabels[key]}</button>`).join('')}
@@ -1303,6 +1304,87 @@ function renderChurchesOverview(){
 
   document.querySelectorAll('tbody tr.clickable').forEach(tr => {
     tr.addEventListener('click', () => renderChurchStudents(tr.dataset.churchId));
+  });
+
+  const discipleMakersCard = document.getElementById('disciple-makers-card');
+  if(discipleMakersCard) discipleMakersCard.addEventListener('click', renderDiscipleMakers);
+}
+
+// Lists everyone currently approved to disciple others (leader_applications
+// with status = 'approved'), with a Remove button per person -- for pulling
+// someone's disciple-maker status if word comes back of anti-biblical
+// activity. Fetched via get_approved_leader_applications() rather than a
+// direct .from('leader_applications') select, same RLS reason as
+// get_approved_leader_count() above (that table's only policy is
+// "users manage their own application").
+async function renderDiscipleMakers(){
+  const content = document.getElementById('content');
+  content.innerHTML = `<div class="back-link" id="back-to-overview-from-leaders">&larr; Back to Overview</div><h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 20px;">Disciple Makers</h2><p style="color:var(--ink-soft);font-size:13px;">Loading…</p>`;
+  document.getElementById('back-to-overview-from-leaders').addEventListener('click', renderChurchesOverview);
+
+  const { data: leaders, error } = await supabaseClient.rpc('get_approved_leader_applications');
+  if(error || !leaders){
+    document.getElementById('content').innerHTML += `<p style="color:var(--ink-soft);">Could not load the disciple makers list.</p>`;
+    return;
+  }
+
+  const rowsHtml = leaders.map(l => `
+    <tr>
+      <td class="student-name">${l.name || 'Unnamed'}</td>
+      <td>${l.church || '—'}</td>
+      <td>${l.reviewed_at ? new Date(l.reviewed_at).toLocaleDateString() : '—'}</td>
+      <td><button class="mini-btn danger" data-revoke-leader="${l.id}" data-name="${(l.name || 'this person').replace(/"/g,'&quot;')}" data-church="${(l.church || '').replace(/"/g,'&quot;')}" data-pastor-name="${(l.pastor_name || '').replace(/"/g,'&quot;')}" data-pastor-email="${(l.pastor_email || '').replace(/"/g,'&quot;')}">Remove</button></td>
+    </tr>`).join('');
+
+  content.innerHTML = `
+    <div class="back-link" id="back-to-overview-from-leaders">&larr; Back to Overview</div>
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 8px;">Disciple Makers</h2>
+    <p style="color:var(--ink-soft);font-size:13px;margin:0 0 20px;">Everyone currently approved by their pastor to disciple others. Removing someone here revokes that status immediately -- use this if word comes back of anti-biblical activity.</p>
+    <table>
+      <thead><tr><th>Name</th><th>Church</th><th>Approved</th><th></th></tr></thead>
+      <tbody>${rowsHtml || '<tr><td colspan="4" style="color:var(--ink-soft);">No one is currently approved.</td></tr>'}</tbody>
+    </table>
+  `;
+
+  document.getElementById('back-to-overview-from-leaders').addEventListener('click', renderChurchesOverview);
+
+  document.querySelectorAll('[data-revoke-leader]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!confirm(`Remove ${btn.dataset.name}'s disciple maker status? They will no longer be counted as an approved disciple maker, and the pastor who approved them will be notified by email.`)) return;
+      btn.disabled = true;
+      btn.textContent = 'Removing…';
+      const { data: result, error: revokeErr } = await supabaseClient.rpc('revoke_leader_application', { target_id: btn.dataset.revokeLeader });
+      if(revokeErr || result !== 'success'){
+        alert('Could not remove disciple maker status: ' + (revokeErr?.message || result || 'unknown error'));
+        btn.disabled = false;
+        btn.textContent = 'Remove';
+        return;
+      }
+      approvedLeaderCount = Math.max(0, approvedLeaderCount - 1);
+      // Let the pastor who originally approved this person know, since
+      // otherwise this change happens silently on their end. Best-effort --
+      // a failed notification email shouldn't undo the revoke itself or
+      // block the admin from moving on, so this is fire-and-forget with
+      // just a console note if it fails.
+      if(btn.dataset.pastorEmail){
+        try {
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          await fetch('/.netlify/functions/send-leader-revoked-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+            body: JSON.stringify({
+              pastorEmail: btn.dataset.pastorEmail,
+              pastorName: btn.dataset.pastorName,
+              applicantName: btn.dataset.name,
+              church: btn.dataset.church
+            })
+          });
+        } catch (e) {
+          console.error('Could not notify pastor of revoked disciple maker status:', e);
+        }
+      }
+      renderDiscipleMakers();
+    });
   });
 }
 
