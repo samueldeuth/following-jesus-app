@@ -97,6 +97,13 @@
     text-transform: uppercase;
     color: var(--white);
     line-height: 30px; /* matches the logo image's height so the bar's own height never shifts */
+    /* Most titles here are short static labels ("The Bible", "Articles"),
+       but an individual article's own title (see openArticle) is dynamic
+       and can run long -- this keeps it to one line instead of wrapping
+       and growing the header's height. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* ---------- Screens ---------- */
@@ -1710,6 +1717,10 @@
     border-radius:8px; color:rgba(255,255,255,0.7); text-decoration:none; font-family:var(--font-display);
     font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase;
   }
+  /* Back-link at the top of an individual article -- "All Articles" back
+     to the Blog list, same .back-link class/pattern used everywhere else
+     (52-Day Plans, Share the Good News, etc). Sits above the hero image. */
+  .article-back-row { padding: 16px 22px 0; }
 
   /* ---------- Bottom tab bar ---------- */
   nav.tabbar {
@@ -1840,10 +1851,26 @@
 #gospelModal .gospel-card-message { color: rgba(10,10,10,0.75); }
 #gospelModal .gospel-card-ref { color: rgba(10,10,10,0.4); }
 
-/* ---------- Bible, Plans & Jesus tabs: white background + black page
-   header ----------
+/* ---------- Individual article view: white background, same pattern as
+   #discipleModal/#goodNewsModal/#gospelModal above ----------
+   Scoped to #articleModal. .article-tag (the source/eyebrow line) keeps
+   its ember gold unchanged — same as the Jesus tab's gold accents, gold
+   reads fine on white or black. The hero image and its fallback gradient
+   also need no change; a photo (or the dark fallback gradient designed
+   to look intentional either way) doesn't depend on the page background. */
+#articleModal { background: var(--paper); }
+#articleModal .back-link { color: rgba(10,10,10,0.5); }
+#articleModal .article-h1 { color: var(--black); }
+#articleModal .article-date { color: rgba(10,10,10,0.4); }
+#articleModal .article-content p { color: rgba(10,10,10,0.78); }
+#articleModal .article-content .pull { color: var(--black); }
+#articleModal .article-content li { color: rgba(10,10,10,0.78); }
+#articleModal .article-source-link { border-color: rgba(10,10,10,0.18); color: rgba(10,10,10,0.6); }
+
+/* ---------- Bible, Plans, Jesus & Blog tabs: white background + black
+   page header ----------
    Same light-theme pattern as #discipleModal/#goodNewsModal/#gospelModal
-   above, applied to three of the 5 main tabs instead of an overlay modal.
+   above, applied to four of the 5 main tabs instead of an overlay modal.
    applyTab() (see script below) swaps the shared header to a black bar
    with the tab's own title (mirroring showPageHeader, already used for
    Share The Word/Good News) instead of the Following Jesus logo
@@ -1852,8 +1879,8 @@
    area even when a tab's own content is shorter than the viewport,
    since .screens itself (the shared scroll container behind all 5
    tabs) stays black. */
-#screen-bible, #screen-plans, #screen-jesus { background: var(--paper); }
-#screen-bible.active, #screen-plans.active, #screen-jesus.active {
+#screen-bible, #screen-plans, #screen-jesus, #screen-blog { background: var(--paper); }
+#screen-bible.active, #screen-plans.active, #screen-jesus.active, #screen-blog.active {
   min-height: 100%;
   /* Prevents the classic margin-collapse gotcha: each tab's first
      child (.bible-mode-toggle / .stack) has its own margin-top, which
@@ -1890,6 +1917,23 @@
 
 #screen-jesus .jesus-prayer p { color: rgba(10,10,10,0.7); }
 #screen-jesus .jesus-prayer-text { color: var(--black); }
+
+/* Blog tab: the Load More button was authored white-text-on-dark against
+   the old black screen background. The blog cards themselves
+   (.card.blog-card) were already a white card on the old black
+   background, so they need no change now that the screen behind them is
+   paper instead of black. The Read/Articles heading that used to sit
+   here is gone -- "Articles" already lives in the black header bar above
+   (see TAB_PAGE_TITLES) -- replaced with a search box instead. */
+#screen-blog .view-more-blogs { border-color: rgba(10,10,10,0.14); color: rgba(10,10,10,0.55); }
+#screen-blog .view-more-blogs:active { background: rgba(10,10,10,0.06); }
+
+.blog-search-wrap { padding: 18px 20px 0; }
+.blog-search-input {
+  width: 100%; padding: 13px 16px; border: 1px solid rgba(10,10,10,0.16); border-radius: 10px;
+  font-family: var(--font-body); font-size: 14px; background: var(--white); color: var(--black);
+}
+.blog-search-input::placeholder { color: rgba(10,10,10,0.4); }
 
 /* 52-Day Devotional Plans modal: same white-background treatment as
    Bible/Plans/Jesus above, requested once the day-by-day click-through
@@ -2296,11 +2340,10 @@
 
     <!-- BLOG -->
     <section class="screen" id="screen-blog">
-      <div class="screen-head">
-        <div class="eyebrow">Read</div>
-        <h1>Blog</h1>
+      <div class="blog-search-wrap">
+        <input type="text" id="blogSearchInput" class="blog-search-input" placeholder="Search articles…" oninput="filterBlogList(this.value)">
       </div>
-      <div class="stack" id="blogList" style="margin-top:18px;">
+      <div class="stack" id="blogList" style="margin-top:14px;">
         <div class="bible-loading" style="padding:20px 4px;">Loading posts…</div>
       </div>
       <button type="button" class="view-more-blogs" id="loadMoreBlogsBtn" onclick="loadMoreBlogs()" style="display:none;">Load More Posts ↓</button>
@@ -5677,9 +5720,9 @@ function memberAvatarHtml(name, photoUrl, sizeClass) {
         { day: 5, reference: 'Matthew 22:37-39 NIV', devotion: 'The Bible is full of simple but powerful principles like this. If you correctly follow them, it makes the rest of life work the way God intended. So, Jesus is teaching us priorities. Loving God is the main thing and source of life. Obedience to what God says in the Bible is one of the greatest ways who show God we love him. And loving your neighbor and people around you is an overflow of your relationship with God.', questions: 'What do you love the most about being a child of God? What’s one way you can show people you love them?', confession: 'I will love God and obey His Word. He will have my whole heart. And I will choose to love others even when it isn’t convenient.' },
         { day: 6, reference: 'James 4:8a NIV', devotion: 'This is one of my favorite promises in The Bible. It reminds us that God wants to be close to us. He’s not interested in just a long-distance relationship He wants to be near you. Notice also how God invites us to take that step of closeness with him. Some of the ways that we “come close to God” are by reading the Bible, spending time in worship, and taking time to pray.', questions: 'What is your favorite way to spend time with God? Prayer? Bible reading? Church? What’s your favorite worship song?', confession: 'My God wants to be close to me and invites me to talk with Him.' },
         { day: 7, reference: 'Matthew 6:9-13 NIV', devotion: 'Jesus showed His disciples to pray, so we as His disciples today can also learn from it. First, you’ll notice Jesus show them to address God more personally as Father. He then shows us to not make prayer just about what we want but about God’s kingdom. Be intentional to pray for God’s will to be done in your city and nation. Then you focus on talking to God about your needs; He wants to hear and provide. Jesus shows us how important it is to forgive others and to invite God to help us fight temptation.', questions: 'What’s something you need God to do for you? Did you pray about it? Is there anyone you need to forgive?', confession: 'I will pray with confidence knowing my Father in heaven hears me. God hears and responds to my prayers. I will pray for God’s will to be done in my city.' },
-        { day: 8, reference: 'Galatians 5:22-23 NIV', devotion: 'Life is less about forcing things to happen and more about growing into what God has for you. An orange tree doesn’t try hard to grow oranges, it’s just what an orange tree does. If the roots and soil are good, the fruit will grow. In the same way, the fruit of the Spirit isn’t something we force but something that is a normal overflow of your relationship with Jesus. The more time you spend with God, the more fruit will flow.', questions: 'Which fruit of the Spirit do you find most difficult? Which fruit of the Spirit is easiest for you to show?', confession: 'As I spend time with Jesus and study The Bible the fruit of the Spirit will grow in my life.' },
+        { day: 8, reference: 'Galatians 5:22-23 NIV', devotion: 'Life is less about forcing things to happen and more about growing into what God has for you. An orange tree doesn’t try hard to grow oranges, it’s just what an orange tree does. If the roots and soil are good, the fruit will grow. In the same way, the fruit of the Spirit isn’t something we force but something that is a normal overflow of your relationship with Jesus. The more time you spend with God, the more fruit will flow.', questions: 'Which fruit of the Spirit do you find most difficult? Which fruit of the Spirit is easiest for you to show?', confession: 'As I spend time with Jesus and study The Bible the fruit of the Spirit will grow in my life.‬‬' },
         { day: 9, reference: '1 John 3:1 NIV', devotion: 'You aren’t just partially loved or tolerated, you’re loved with an over-the-top kind of love. A love so passionate that it would move God to adopt you as a son or daughter into the family of God. You went from being an enemy of God in regards to your sin to being in the family with all of the privileges that come with being a child of the King.', questions: 'Did you know that God brought you into His family? What’s one fun thing you want to do with God when you get to heaven?', confession: 'I am a child of God who is greatly loved by my heavenly Father.' },
-        { day: 10, reference: 'Matthew 28:19-20 NIV', devotion: 'As followers of Jesus, we know that our lives are not just about living for our personal plans or dreams. But, in addition to our life goals, we have a larger vision from Jesus to share the good news to the whole world and to make disciples. Many live striving for meaning and value because all they focus on is themselves, but when you live for the greater purpose and the great commission from Jesus, you’ll find purpose, peace, and joy.', questions: 'Did you know that Jesus asked you to make disciples? How can you show your friends how to follow Jesus? Who can you invite to church?', confession: 'My mission is part of the larger mission Jesus gave us. I will live for more than just myself. I will show people how to follow Jesus.' },
+        { day: 10, reference: 'Matthew 28:19-20 NIV', devotion: 'As followers of Jesus, we know that our lives are not just about living for our personal plans or dreams. But, in addition to our life goals, we have a larger vision from Jesus to share the good news to the whole world and to make disciples. Many live striving for meaning and value because all they focus on is themselves, but when you live for the greater purpose and the great commission from Jesus, you’ll find purpose, peace, and joy.', questions: 'Did you know that Jesus asked you to make disciples? How can you show your friends how to follow Jesus? Who can you invite to church?', confession: 'My mission is part of the larger mission Jesus gave us. I will live for more than just myself. I will show people how to follow Jesus.‬‬' },
         { day: 11, reference: 'Ephesians 6:13-18 NIV', devotion: 'When a soldier goes into a battle, they make sure to put on their armor and choose their weapons. In the same way, we are in a spiritual battle and must armor up. Satan wants to stop God’s plans and cause damage to God’s people, but we have been given powerful weapons and armor. We don’t have to be pushed around by the devil, we can rise, armor up, and defeat the enemy. God gives you both armor for protection and weapons to go on the attack against the enemy.', questions: 'What’s your favorite part of the armor of God? Did you know that The Bible is your spiritual sword?', confession: 'Jesus has given me authority over the devil. God gave us armor to defend against the devil’s attacks and gave us weapons to defeat him.' },
         { day: 12, reference: 'Joshua 1:9 NIV', devotion: 'Courage comes from knowing who your heavenly father is and knowing that he’s on your side. God will be with you. No difficulty or challenge can overcome you if the Lord is on your side. This verse shows us the fact that in life you will face difficult times and even discouraging times, but those challenges don’t have to cause you to lose hope because no matter the challenge God will always be with you.', questions: 'What’s the bravest thing that you’ve ever done? What do you do when you feel afraid?', confession: 'I will be strong and courageous. I will not back down from my purpose or calling no matter the challenge. The Lord is with me!' },
         { day: 13, reference: 'Psalm 46:1 NIV', devotion: 'When a tornado comes, we look for a storm shelter that is strong enough to protect us in the storm. In the storms of life, God has promised to be that place of refuge and covering. No matter what you’re facing, run to Jesus! The last part of that verse says that He is a “present” help, which means he is right there, he’s not distracted or distant from you but close to you. Not only is God close, but he wants to help and He is able.', questions: 'The Bible tells us that God is all-powerful, He’s everywhere, He hears us and protects us. How does that give you the confidence to face life’s challenges?', confession: 'I will run to Jesus not away from him in the difficulties of life. God is my help and strength.' },
@@ -5698,7 +5741,7 @@ function memberAvatarHtml(name, photoUrl, sizeClass) {
         { day: 26, reference: '1 John 4:19 NIV', devotion: 'I’m so thankful for this truth! God didn’t come to you and love you because you earned it or proved you were good enough for His love. He came to earth and died on the cross because He loved us! Jesus went first! And the love and grace and forgiveness we have all flow because He loves us. The love I can have for others is because I’m overflowing with God’s love.', questions: 'How does that make you feel knowing that God loves you? Who is someone you can show love to today?', confession: 'I am loved by God. I will love others as Jesus loves me.' },
         { day: 27, reference: 'Luke 6:38  NIV', devotion: 'If you need to receive something or you need an increase in an area of your life, don’t focus on getting or keeping what you have, focus on giving. We must keep giving. It’s similar to farming. If you want more corn, then you need to give or plant corn into the ground. If you don’t plant then you won’t have anything to harvest. This verse reminds us as well that God always outdoes your generosity. When you give, he’ll bring it back into your life but with extra and overflowing.', questions: 'Did you know you can expect a response to your giving? How can you be more generous to God and others? What is something you’re expecting?', confession: 'I am generous like my heavenly Father is. I will give and God will multiply it.' },
         { day: 28, reference: 'Micah 6:8 NIV', devotion: 'I love it when God spells things out in the Bible very specifically for us. Often God calls us to follow in faith without always seeing, but in this verse, He gives us specific things that God desires from us. To act justly, which is to do what’s right. To love mercy, which is to have a bend towards showing grace. And to engage with God in humility. Which means to look to God as your ultimate authority. Do those simple things and watch God’s favor flow in your life.', questions: 'How do you know what the right thing to do is? Is there someone who made you mad that you need to show mercy?', confession: 'I will do what is Biblically right. I will show mercy to others. I will submit to God and His Word.' },
-        { day: 29, reference: 'Galatians 6:7 NIV', devotion: 'At first look, this verse might seem like a negative thing like God is watching and ready to make sure you reap bad things from your bad decisions. And yes, you will reap pain from the negative or sinful seeds that you sow, but this verse is also a promise. You can be confident that you will reap what you sow. When you keep sowing good, even if it takes a while,  you will reap good things. It may feel like your reward is delayed but this is a guaranteed principle that you will see the rewards of your effort.', questions: 'Is there anything in your life you want to see get better? What can you start doing or sowing to see that happen?', confession: 'I will reap what I sow. I will see good things in my life as I apply God’s good word.' },
+        { day: 29, reference: 'Galatians 6:7 NIV', devotion: 'At first look, this verse might seem like a negative thing like God is watching and ready to make sure you reap bad things from your bad decisions. And yes, you will reap pain from the negative or sinful seeds that you sow, but this verse is also a promise. You can be confident that you will reap what you sow. When you keep sowing good, even if it takes a while,  you will reap good things. It may feel like your reward is delayed but this is a guaranteed principle that you will see the rewards of your effort.', questions: 'Is there anything in your life you want to see get better? What can you start doing or sowing to see that happen?', confession: 'I will reap what I sow. I will see good things in my life as I apply God’s good word.‬‬' },
         { day: 30, reference: 'Acts 1:8 NIV', devotion: 'The most incredible news is that when Jesus left earth to take His place on the throne in heaven, He didn’t leave us alone, instead, his leaving would allow Him to send the Holy Spirit. When the follower of Jesus is baptized with the Holy Spirit there is an unleashing of new power and authority over the enemy. When you receive the Holy Spirit you’ll speak in tongues and that heavenly langue will bring you incredible closeness to God and the Holy Spirit will empower you to be His witness and to operate in the powerful gifts of the Spirit.', questions: 'Have you been filled with the power of the Holy Spirit? Have you ever told someone about Jesus?', confession: 'Thank you Holy Spirit for your power and joy. I will step out and activate the gifts you’ve given me.' },
         { day: 31, reference: 'Romans 12:2 NIV', devotion: 'This verse is one of the most important. Which pattern are you building your life on? Just like a construction worker needs blueprints and plans to build the house, in our lives, we build our lives based on blueprints. But the question is, where are you getting your plans? From the world? Or from The Bible? God’s plans will bring life but the devil’s plans or this world’s patterns will bring death. If you’ve been building with bad plans, choose today to throw those out and begin to embrace God’s plans for your life.\n\nquestionS\n\nHave you ever started doing the wrong thing because of watching a friend or show? What patterns have you seen in media/movies that are the wrong pattern?', questions: '', confession: 'I will build my life according to God’s plans, not the current culture.' },
         { day: 32, reference: 'Psalm 84:11 NIV', devotion: 'God is our protector and covering and he desires to release all of His goodness in your life. In the beginning, God created absolute perfection for Adam and Eve to live in, which gives us a window into the heart of God to always give His kids the best. God doesn’t withhold any good thing. That doesn’t mean that we won’t have trials or struggles in life but know the heart and intention of God is always for good in your life.', questions: 'What does it mean to walk blamelessly? What good things has God done for you?', confession: 'I will walk in the favor and honor the Lord provides. I will walk with integrity.' },
@@ -9360,6 +9403,7 @@ async function renderDiscipleshipApp() {
   // unreachable, or returns nothing.
   let BLOG_POSTS = [];
   let blogRenderCount = 5;
+  let blogSearchQuery = '';
 
   function stripHtmlMain(html) {
     return (html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -9437,9 +9481,29 @@ async function renderDiscipleshipApp() {
       moreBtn.style.display = 'none';
       return;
     }
+    const q = blogSearchQuery.trim().toLowerCase();
+    if (q) {
+      // get-blog-posts.js pulls up to ~80 posts into BLOG_POSTS in one
+      // shot up front -- only 5 render at a time via "Load More", but
+      // every post already fetched is searchable here, not just the
+      // ones currently on screen.
+      const matches = BLOG_POSTS.filter(p =>
+        p.title.toLowerCase().includes(q) || (p.excerpt || '').toLowerCase().includes(q)
+      );
+      list.innerHTML = matches.length
+        ? matches.map(blogCardHtml).join('')
+        : `<div class="bible-error">No articles match "${escapeHtmlMain(blogSearchQuery.trim())}".</div>`;
+      moreBtn.style.display = 'none'; // every match is already shown -- nothing more to load
+      return;
+    }
     const visible = BLOG_POSTS.slice(0, blogRenderCount);
     list.innerHTML = visible.map(blogCardHtml).join('');
     moreBtn.style.display = blogRenderCount >= BLOG_POSTS.length ? 'none' : 'block';
+  }
+
+  function filterBlogList(value) {
+    blogSearchQuery = value || '';
+    renderBlogList();
   }
 
   function loadMoreBlogs() {
@@ -9460,6 +9524,7 @@ async function renderDiscipleshipApp() {
       : `background:linear-gradient(160deg, var(--black), #2a2620); display:flex; align-items:center; justify-content:center;`;
     const heroMark = hasImage ? '' : `<span class="blog-img-fallback-mark article-hero-mark">✝</span>`;
     articleModalBody.innerHTML = `
+      <div class="article-back-row"><a class="back-link" id="articleBackLink">← All Articles</a></div>
       <div class="article-hero-img" style="${heroStyle}">${heroMark}</div>
       <div class="article-content">
         <div class="article-tag">${escapeHtmlMain(a.tag)}</div>
@@ -9469,8 +9534,12 @@ async function renderDiscipleshipApp() {
         <a class="article-source-link" href="${a.sourceUrl}" target="_blank" rel="noopener">View Original Post ↗</a>
       </div>
     `;
+    document.getElementById('articleBackLink').addEventListener('click', () => goToTab('screen-blog'));
     hideMainScreens();
-    showPageHeader('Blog');
+    // Pulls the article's own title into the shared header bar instead of
+    // a static "Articles" label — falls back to "Articles" for the rare
+    // case a post comes through with no title at all.
+    showPageHeader(a.title || 'Articles');
     articleModal.classList.add('open');
     articleModalBody.scrollTop = 0;
     if (!skipHistoryPush) pushUrlHash(`article/${id}`);
@@ -10372,7 +10441,8 @@ async function renderDiscipleshipApp() {
   const TAB_PAGE_TITLES = {
     'screen-bible': 'The Bible',
     'screen-plans': 'Reading Plans',
-    'screen-jesus': 'Who Is Jesus?'
+    'screen-jesus': 'Who Is Jesus?',
+    'screen-blog': 'Articles'
   };
 
   // Pure DOM update, no history side effects — shared by user-initiated
