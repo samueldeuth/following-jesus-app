@@ -3881,6 +3881,85 @@
   // series or mode is selected. Romans Road is special-cased to its
   // own "route map" drawing functions (see below) rather than the
   // plain text layout every other 'sequence' series still uses.
+  // Romans Road's own "Realistic" photo set -- index-based rather than
+  // panel-based like the Bridge's maps above, since Romans Road's
+  // steps are just a plain array with no named panel field. Same
+  // story/square split, same reasoning.
+  const ROMANS_PHOTO_MAP = {
+    story: [
+      '/assets/romans-photo-story-0.jpg',
+      '/assets/romans-photo-story-1.jpg',
+      '/assets/romans-photo-story-2.jpg',
+      '/assets/romans-photo-story-3.jpg',
+      '/assets/romans-photo-story-4.jpg'
+    ],
+    square: [
+      '/assets/romans-photo-square-0.jpg',
+      '/assets/romans-photo-square-1.jpg',
+      '/assets/romans-photo-square-2.jpg',
+      '/assets/romans-photo-square-3.jpg',
+      '/assets/romans-photo-square-4.jpg'
+    ]
+  };
+
+  // Same idea, Romans Road's own "Sketch" set -- hand-drawn road/pins
+  // on cream paper, matching the Bridge's Sketch style. Kept as a
+  // separate map (rather than folding into ROMANS_PHOTO_MAP) so
+  // drawRomansRoadPhotoStep below can take either one and stay a
+  // single shared function instead of two near-identical copies.
+  const ROMANS_SKETCH_MAP = {
+    story: [
+      '/assets/romans-sketch-story-0.jpg',
+      '/assets/romans-sketch-story-1.jpg',
+      '/assets/romans-sketch-story-2.jpg',
+      '/assets/romans-sketch-story-3.jpg',
+      '/assets/romans-sketch-story-4.jpg'
+    ],
+    square: [
+      '/assets/romans-sketch-square-0.jpg',
+      '/assets/romans-sketch-square-1.jpg',
+      '/assets/romans-sketch-square-2.jpg',
+      '/assets/romans-sketch-square-3.jpg',
+      '/assets/romans-sketch-square-4.jpg'
+    ]
+  };
+
+  async function drawRomansRoadPhotoStep(canvas, series, stepIndex, format, photoMap) {
+    const width = 1080;
+    const height = format === 'story' ? 1920 : 1080;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const map = photoMap || ROMANS_PHOTO_MAP;
+
+    // Same cover-fit + already-has-its-own-text approach as the
+    // Bridge's Realistic/Sketch styles above -- these images already
+    // show the road, the pins, and the day's heading/verse/reference
+    // baked in, so nothing else gets drawn on top.
+    try {
+      const photoSet = map[format] || map.story;
+      const img = await loadImage(photoSet[stepIndex] || photoSet[0]);
+      const imgRatio = img.width / img.height;
+      const canvasRatio = width / height;
+      let drawWidth, drawHeight, offsetX, offsetY;
+      if (imgRatio > canvasRatio) {
+        drawHeight = height;
+        drawWidth = height * imgRatio;
+        offsetX = (width - drawWidth) / 2;
+        offsetY = 0;
+      } else {
+        drawWidth = width;
+        drawHeight = width / imgRatio;
+        offsetX = 0;
+        offsetY = (height - drawHeight) / 2;
+      }
+      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+    } catch (e) {
+      ctx.fillStyle = '#1c1c1c';
+      ctx.fillRect(0, 0, width, height);
+    }
+  }
+
   async function drawGospelSeriesCard(canvas, series, stepIndex, format, mode, style) {
     if (series.type === 'illustration') {
       // Sunset and Photo styling only exist for the single-card view
@@ -3894,6 +3973,11 @@
         : drawBridgeStep(canvas, series, stepIndex, format, style);
     }
     if (series.id === 'romans-road') {
+      // Same "Realistic"/"Sketch" scoping as the Bridge -- single-card
+      // view only, Combined keeps the drawn road-map regardless of
+      // style.
+      if (mode !== 'combined' && style === 'photo') return drawRomansRoadPhotoStep(canvas, series, stepIndex, format, ROMANS_PHOTO_MAP);
+      if (mode !== 'combined' && style === 'sketch') return drawRomansRoadPhotoStep(canvas, series, stepIndex, format, ROMANS_SKETCH_MAP);
       return mode === 'combined'
         ? drawRomansRoadCombined(canvas, series, format)
         : drawRomansRoadStep(canvas, series, stepIndex, format);
@@ -4527,11 +4611,14 @@
       reunited: '/assets/bridge-photo-reunited.jpg'
     },
     square: {
-      together: '/assets/bridge-photo-square-together.jpg',
-      gap: '/assets/bridge-photo-square-gap.jpg',
+      // Swapped relative to Story -- the square set was uploaded in
+      // the reverse step order (see the tweak that asked for this),
+      // so each panel here points at the *other* end's square photo.
+      together: '/assets/bridge-photo-square-reunited.jpg',
+      gap: '/assets/bridge-photo-square-cross.jpg',
       attempts: '/assets/bridge-photo-square-attempts.jpg',
-      cross: '/assets/bridge-photo-square-cross.jpg',
-      reunited: '/assets/bridge-photo-square-reunited.jpg'
+      cross: '/assets/bridge-photo-square-gap.jpg',
+      reunited: '/assets/bridge-photo-square-together.jpg'
     }
   };
 
@@ -4613,9 +4700,13 @@
     const step = series.steps[stepIndex];
 
     // Cover-fit crop, identical math to drawGospelCard's own nature-
-    // photo background above -- any load failure falls through to a
-    // plain gradient rather than ever leaving the card blank.
-    let photoLoaded = false;
+    // photo background above. These images already have every piece
+    // of text (heading, verse, reference, footer) baked directly into
+    // them by whatever generated them -- same as the Sketch style --
+    // so unlike an earlier version of this function, nothing gets
+    // drawn on top; it was producing duplicate text. Any load failure
+    // falls through to a plain paper-toned fallback instead of ever
+    // leaving the card blank.
     try {
       const photoSet = BRIDGE_PHOTO_MAP[format] || BRIDGE_PHOTO_MAP.story;
       const img = await loadImage(photoSet[step.panel] || photoSet.together);
@@ -4634,57 +4725,10 @@
         offsetY = (height - drawHeight) / 2;
       }
       ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-      photoLoaded = true;
-    } catch (e) { /* fall through to the plain gradient below */ }
-
-    if (!photoLoaded) {
-      const grad = ctx.createLinearGradient(0, 0, 0, height);
-      grad.addColorStop(0, '#262626');
-      grad.addColorStop(1, '#484848');
-      ctx.fillStyle = grad;
+    } catch (e) {
+      ctx.fillStyle = '#1c1c1c';
       ctx.fillRect(0, 0, width, height);
     }
-
-    // Darkens toward the top (behind the heading) and bottom (behind
-    // the verse/reference/footer) specifically, staying clear through
-    // the middle -- the cross and valley view are the whole point of
-    // this style, so they shouldn't be dimmed the way a flat overlay
-    // across the entire frame would do.
-    const overlay = ctx.createLinearGradient(0, 0, 0, height);
-    overlay.addColorStop(0, 'rgba(10,10,10,0.55)');
-    overlay.addColorStop(0.16, 'rgba(10,10,10,0.05)');
-    overlay.addColorStop(0.62, 'rgba(10,10,10,0)');
-    overlay.addColorStop(0.78, 'rgba(10,10,10,0.78)');
-    overlay.addColorStop(1, 'rgba(10,10,10,0.92)');
-    ctx.fillStyle = overlay;
-    ctx.fillRect(0, 0, width, height);
-
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'alphabetic';
-    // No "X OF 5 --" counter prefix here, matching the reference
-    // images exactly (just the step's own title) -- unlike Classic/
-    // Sunset, which do include it.
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '700 26px Archivo, sans-serif';
-    ctx.fillText(step.title.toUpperCase(), width / 2, height * 0.1);
-
-    ctx.fillStyle = '#f5f0e6';
-    ctx.font = '400 40px Fraunces, serif';
-    const lines = wrapCanvasText(ctx, step.message, width - 200);
-    let ty = height * 0.72;
-    lines.forEach(line => {
-      ctx.fillText(line, width / 2, ty);
-      ty += 52;
-    });
-    if (step.ref) {
-      ctx.fillStyle = 'rgba(245,240,230,0.75)';
-      ctx.font = '600 26px Archivo, sans-serif';
-      ctx.fillText(step.ref, width / 2, ty + 20);
-    }
-
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.font = '700 22px Archivo, sans-serif';
-    ctx.fillText('FOLLOWING JESUS', width / 2, height - 50);
   }
 
   function drawBridgeStep(canvas, series, stepIndex, format, style) {
@@ -5164,7 +5208,7 @@
           // below. No canvas involved here at all.
           box.style.backgroundImage = `url(/assets/bridge-photo-square-cross.jpg)`;
           box.style.backgroundSize = 'cover';
-          box.style.backgroundPosition = 'center';
+          box.style.backgroundPosition = 'center 15%';
           box.innerHTML = '';
           return;
         }
@@ -5189,27 +5233,48 @@
   function openGospelSeriesPreview(seriesId) {
     const series = GOSPEL_SERIES_POOL.find(s => s.id === seriesId);
     if (!series) return;
-    let currentFormat = 'square';
+    // Defaults to Realistic + Story now, rather than Simple + Square --
+    // see the button markup just below for why "Sunset" isn't one of
+    // the choices anymore (down to the 3 options asked for: Realistic,
+    // Sketch, Simple) -- drawBridgeStep's own sunset-drawing code is
+    // untouched, just not reachable from this screen right now.
+    let currentFormat = 'story';
     let currentMode = 'single';
     let currentStep = 0;
-    let currentStyle = 'classic';
+    let currentStyle = 'photo';
     const body = document.getElementById('goodNewsModalBody');
-    // Style toggle (Classic/Sunset) only applies to the Bridge's
-    // illustration -- Romans Road and any future plain-verse series
-    // have no alternate art style, so the row is left out for them
-    // entirely rather than shown disabled.
-    const styleToggleHtml = series.type === 'illustration' ? `
+    // Style toggle only applies to the Bridge's illustration -- Romans
+    // Road and any future plain-verse series have no alternate art
+    // style, so the row is left out for them entirely rather than
+    // shown disabled. "Simple" (the original drawn scene, formerly
+    // labeled "Classic") sits last since it's the fallback/default-
+    // least-favored option now that Realistic is the default.
+    // Style toggle applies to the Bridge (Realistic/Sketch/Simple) and
+    // now Romans Road too (Realistic/Simple -- no Sketch set exists
+    // for it) -- any future plain-verse series with no alternate art
+    // style just gets the row left out entirely rather than shown
+    // disabled.
+    let styleToggleHtml = '';
+    if (series.type === 'illustration') {
+      styleToggleHtml = `
       <div class="gospel-format-toggle" style="margin-top:8px;">
-        <button type="button" class="gospel-format-btn active" data-style="classic">Classic</button>
-        <button type="button" class="gospel-format-btn" data-style="sunset">Sunset</button>
-        <button type="button" class="gospel-format-btn" data-style="photo">Photo</button>
+        <button type="button" class="gospel-format-btn active" data-style="photo">Realistic</button>
         <button type="button" class="gospel-format-btn" data-style="sketch">Sketch</button>
-      </div>` : '';
+        <button type="button" class="gospel-format-btn" data-style="classic">Simple</button>
+      </div>`;
+    } else if (series.id === 'romans-road') {
+      styleToggleHtml = `
+      <div class="gospel-format-toggle" style="margin-top:8px;">
+        <button type="button" class="gospel-format-btn active" data-style="photo">Realistic</button>
+        <button type="button" class="gospel-format-btn" data-style="sketch">Sketch</button>
+        <button type="button" class="gospel-format-btn" data-style="classic">Simple</button>
+      </div>`;
+    }
     body.innerHTML = `
       <a class="back-link" id="gospelSeriesBackBtn">← All Presentations</a>
       <div class="gospel-format-toggle">
-        <button type="button" class="gospel-format-btn active" data-format="square">Square</button>
-        <button type="button" class="gospel-format-btn" data-format="story">Story</button>
+        <button type="button" class="gospel-format-btn" data-format="square">Square</button>
+        <button type="button" class="gospel-format-btn active" data-format="story">Story</button>
       </div>
       <div class="gospel-format-toggle" style="margin-top:8px;">
         <button type="button" class="gospel-format-btn active" data-mode="single">Single Card</button>
@@ -5221,7 +5286,7 @@
         <span id="gospelSeriesStepLabel" class="dm-p" style="margin:0;">Step 1 of ${series.steps.length}</span>
         <button type="button" class="mini-btn" id="gospelSeriesNextBtn">Next →</button>
       </div>
-      <canvas id="gospelSeriesPreviewCanvas" class="gospel-preview-canvas gospel-preview-square"></canvas>
+      <canvas id="gospelSeriesPreviewCanvas" class="gospel-preview-canvas gospel-preview-story"></canvas>
       <button class="primary-btn" id="gospelSeriesShareBtn" style="margin-top:16px;">Share This Image</button>
     `;
     const canvas = document.getElementById('gospelSeriesPreviewCanvas');
