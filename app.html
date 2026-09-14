@@ -3881,11 +3881,17 @@
   // series or mode is selected. Romans Road is special-cased to its
   // own "route map" drawing functions (see below) rather than the
   // plain text layout every other 'sequence' series still uses.
-  async function drawGospelSeriesCard(canvas, series, stepIndex, format, mode) {
+  async function drawGospelSeriesCard(canvas, series, stepIndex, format, mode, style) {
     if (series.type === 'illustration') {
+      // Sunset and Photo styling only exist for the single-card view
+      // for now (see openGospelSeriesPreview) -- Combined always
+      // renders Classic regardless of the toggle until/unless those
+      // are built out too.
+      if (mode !== 'combined' && style === 'photo') return drawBridgePhotoStep(canvas, series, stepIndex, format);
+      if (mode !== 'combined' && style === 'sketch') return drawBridgeSketchStep(canvas, series, stepIndex, format);
       return mode === 'combined'
         ? drawBridgeCombined(canvas, series, format)
-        : drawBridgeStep(canvas, series, stepIndex, format);
+        : drawBridgeStep(canvas, series, stepIndex, format, style);
     }
     if (series.id === 'romans-road') {
       return mode === 'combined'
@@ -4440,8 +4446,8 @@
   // crown is optional -- only God's figure passes true for it (see call
   // sites below); drawPersonPair also calls this same function for one
   // of "the two people," so the crown can't just always be drawn here.
-  function drawSimpleFigure(ctx, x, y, scale, crown) {
-    ctx.fillStyle = '#f5f0e6';
+  function drawSimpleFigure(ctx, x, y, scale, crown, fillColor) {
+    ctx.fillStyle = fillColor || '#f5f0e6';
     ctx.beginPath();
     ctx.arc(x, y - 34 * scale, 14 * scale, 0, Math.PI * 2);
     ctx.fill();
@@ -4482,8 +4488,8 @@
   // bottom -- a simple dress silhouette, used for the right figure in
   // each pair so the two read as a man and a woman rather than two
   // identical shapes.
-  function drawSimpleFigureDress(ctx, x, y, scale) {
-    ctx.fillStyle = '#f5f0e6';
+  function drawSimpleFigureDress(ctx, x, y, scale, fillColor) {
+    ctx.fillStyle = fillColor || '#f5f0e6';
     ctx.beginPath();
     ctx.arc(x, y - 34 * scale, 14 * scale, 0, Math.PI * 2);
     ctx.fill();
@@ -4500,12 +4506,61 @@
   // from God's single larger figure. The right one uses the dress
   // silhouette so the pair reads as a man and a woman, not two
   // identical shapes.
-  function drawPersonPair(ctx, centerX, y, scale) {
-    drawSimpleFigure(ctx, centerX - 26 * scale, y, scale);
-    drawSimpleFigureDress(ctx, centerX + 26 * scale, y, scale);
+  function drawPersonPair(ctx, centerX, y, scale, fillColor) {
+    drawSimpleFigure(ctx, centerX - 26 * scale, y, scale, false, fillColor);
+    drawSimpleFigureDress(ctx, centerX + 26 * scale, y, scale, fillColor);
   }
 
-  function drawBridgeStep(canvas, series, stepIndex, format) {
+  // Panel -> photo asset for the "Photo" Bridge style (Samuel's own
+  // AI-generated reference images, one per step) -- separate sets for
+  // Story (portrait-composed) and Square (composed square, not just a
+  // cropped portrait) since the square shots properly keep both
+  // figures fully in frame, which a center-crop of the tall versions
+  // couldn't do. Falls back to 'together' if a panel name is ever
+  // missing a matching photo.
+  const BRIDGE_PHOTO_MAP = {
+    story: {
+      together: '/assets/bridge-photo-together.jpg',
+      gap: '/assets/bridge-photo-gap.jpg',
+      attempts: '/assets/bridge-photo-attempts.jpg',
+      cross: '/assets/bridge-photo-cross.jpg',
+      reunited: '/assets/bridge-photo-reunited.jpg'
+    },
+    square: {
+      together: '/assets/bridge-photo-square-together.jpg',
+      gap: '/assets/bridge-photo-square-gap.jpg',
+      attempts: '/assets/bridge-photo-square-attempts.jpg',
+      cross: '/assets/bridge-photo-square-cross.jpg',
+      reunited: '/assets/bridge-photo-square-reunited.jpg'
+    }
+  };
+
+  // Same idea, fourth Bridge style ("Sketch") -- a different set of
+  // Samuel's own AI-generated images, hand-drawn/charcoal-and-gold-
+  // marker look on cream paper. Unlike the Photo style below, these
+  // already have every piece of text (heading, verse, reference,
+  // footer) baked directly into the image itself, so
+  // drawBridgeSketchStep just draws the image full-bleed with no
+  // separate text layer at all -- there's nothing for canvas text to
+  // add. Same story/square split as BRIDGE_PHOTO_MAP, same reason.
+  const BRIDGE_SKETCH_MAP = {
+    story: {
+      together: '/assets/bridge-sketch-story-together.jpg',
+      gap: '/assets/bridge-sketch-story-gap.jpg',
+      attempts: '/assets/bridge-sketch-story-attempts.jpg',
+      cross: '/assets/bridge-sketch-story-cross.jpg',
+      reunited: '/assets/bridge-sketch-story-reunited.jpg'
+    },
+    square: {
+      together: '/assets/bridge-sketch-square-together.jpg',
+      gap: '/assets/bridge-sketch-square-gap.jpg',
+      attempts: '/assets/bridge-sketch-square-attempts.jpg',
+      cross: '/assets/bridge-sketch-square-cross.jpg',
+      reunited: '/assets/bridge-sketch-square-reunited.jpg'
+    }
+  };
+
+  async function drawBridgeSketchStep(canvas, series, stepIndex, format) {
     const width = 1080;
     const height = format === 'story' ? 1920 : 1080;
     canvas.width = width;
@@ -4513,11 +4568,176 @@
     const ctx = canvas.getContext('2d');
     const step = series.steps[stepIndex];
 
-    const grad = ctx.createLinearGradient(0, 0, 0, height);
-    grad.addColorStop(0, '#262626');
-    grad.addColorStop(1, '#484848');
-    ctx.fillStyle = grad;
+    try {
+      const photoSet = BRIDGE_SKETCH_MAP[format] || BRIDGE_SKETCH_MAP.story;
+      const img = await loadImage(photoSet[step.panel] || photoSet.together);
+      const imgRatio = img.width / img.height;
+      const canvasRatio = width / height;
+      let drawWidth, drawHeight, offsetX, offsetY;
+      if (imgRatio > canvasRatio) {
+        drawHeight = height;
+        drawWidth = height * imgRatio;
+        offsetX = (width - drawWidth) / 2;
+        offsetY = 0;
+      } else {
+        drawWidth = width;
+        drawHeight = width / imgRatio;
+        offsetX = 0;
+        offsetY = (height - drawHeight) / 2;
+      }
+      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+    } catch (e) {
+      // Plain paper-toned fallback if the image ever fails to load --
+      // matches the style's own cream background rather than the dark
+      // fallback the other two photo-based styles use, so a failed
+      // load at least doesn't look jarringly out of place.
+      ctx.fillStyle = '#f0ebe0';
+      ctx.fillRect(0, 0, width, height);
+    }
+  }
+
+  // Third Bridge style, alongside Classic and Sunset -- a real (well,
+  // AI-generated) photo per step instead of a drawn scene. Async
+  // because the photo has to load before anything can be drawn on top
+  // of it; drawGospelSeriesCard already awaits this the same way it
+  // awaits every other draw function. Only exists for the single-card
+  // view for now, same scoping as Sunset -- Combined keeps using the
+  // Classic drawn scene regardless of which single-card style is
+  // selected, see drawGospelSeriesCard.
+  async function drawBridgePhotoStep(canvas, series, stepIndex, format) {
+    const width = 1080;
+    const height = format === 'story' ? 1920 : 1080;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const step = series.steps[stepIndex];
+
+    // Cover-fit crop, identical math to drawGospelCard's own nature-
+    // photo background above -- any load failure falls through to a
+    // plain gradient rather than ever leaving the card blank.
+    let photoLoaded = false;
+    try {
+      const photoSet = BRIDGE_PHOTO_MAP[format] || BRIDGE_PHOTO_MAP.story;
+      const img = await loadImage(photoSet[step.panel] || photoSet.together);
+      const imgRatio = img.width / img.height;
+      const canvasRatio = width / height;
+      let drawWidth, drawHeight, offsetX, offsetY;
+      if (imgRatio > canvasRatio) {
+        drawHeight = height;
+        drawWidth = height * imgRatio;
+        offsetX = (width - drawWidth) / 2;
+        offsetY = 0;
+      } else {
+        drawWidth = width;
+        drawHeight = width / imgRatio;
+        offsetX = 0;
+        offsetY = (height - drawHeight) / 2;
+      }
+      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+      photoLoaded = true;
+    } catch (e) { /* fall through to the plain gradient below */ }
+
+    if (!photoLoaded) {
+      const grad = ctx.createLinearGradient(0, 0, 0, height);
+      grad.addColorStop(0, '#262626');
+      grad.addColorStop(1, '#484848');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+    }
+
+    // Darkens toward the top (behind the heading) and bottom (behind
+    // the verse/reference/footer) specifically, staying clear through
+    // the middle -- the cross and valley view are the whole point of
+    // this style, so they shouldn't be dimmed the way a flat overlay
+    // across the entire frame would do.
+    const overlay = ctx.createLinearGradient(0, 0, 0, height);
+    overlay.addColorStop(0, 'rgba(10,10,10,0.55)');
+    overlay.addColorStop(0.16, 'rgba(10,10,10,0.05)');
+    overlay.addColorStop(0.62, 'rgba(10,10,10,0)');
+    overlay.addColorStop(0.78, 'rgba(10,10,10,0.78)');
+    overlay.addColorStop(1, 'rgba(10,10,10,0.92)');
+    ctx.fillStyle = overlay;
     ctx.fillRect(0, 0, width, height);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    // No "X OF 5 --" counter prefix here, matching the reference
+    // images exactly (just the step's own title) -- unlike Classic/
+    // Sunset, which do include it.
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 26px Archivo, sans-serif';
+    ctx.fillText(step.title.toUpperCase(), width / 2, height * 0.1);
+
+    ctx.fillStyle = '#f5f0e6';
+    ctx.font = '400 40px Fraunces, serif';
+    const lines = wrapCanvasText(ctx, step.message, width - 200);
+    let ty = height * 0.72;
+    lines.forEach(line => {
+      ctx.fillText(line, width / 2, ty);
+      ty += 52;
+    });
+    if (step.ref) {
+      ctx.fillStyle = 'rgba(245,240,230,0.75)';
+      ctx.font = '600 26px Archivo, sans-serif';
+      ctx.fillText(step.ref, width / 2, ty + 20);
+    }
+
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = '700 22px Archivo, sans-serif';
+    ctx.fillText('FOLLOWING JESUS', width / 2, height - 50);
+  }
+
+  function drawBridgeStep(canvas, series, stepIndex, format, style) {
+    const width = 1080;
+    const height = format === 'story' ? 1920 : 1080;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const step = series.steps[stepIndex];
+    const sunset = style === 'sunset';
+    // Sunset figures read as backlit silhouettes rather than the pale
+    // cream used against the classic style's dark background.
+    const figColor = sunset ? '#2a1220' : undefined;
+
+    if (sunset) {
+      // Warm sunset sky: gold at the horizon-adjacent top, through
+      // orange-rose, down into a deep plum -- with a soft glowing sun
+      // (radial gradient, brightest at its own center, fading well
+      // past its visible disc so it reads as light rather than a hard
+      // circle) sitting in the upper-middle of the sky. Drawn before
+      // anything else so the cliffs/ground sit on top of it.
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, height * 0.42);
+      skyGrad.addColorStop(0, '#e6b866');
+      skyGrad.addColorStop(0.45, '#d97a52');
+      skyGrad.addColorStop(1, '#7a3350');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, width, height * 0.42);
+
+      const sunX = width / 2, sunY = height * 0.2;
+      const sunGlow = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, height * 0.28);
+      sunGlow.addColorStop(0, 'rgba(255,248,225,0.95)');
+      sunGlow.addColorStop(0.25, 'rgba(255,225,180,0.5)');
+      sunGlow.addColorStop(1, 'rgba(255,225,180,0)');
+      ctx.fillStyle = sunGlow;
+      ctx.fillRect(0, 0, width, height * 0.42);
+      ctx.fillStyle = '#fdf6e3';
+      ctx.beginPath();
+      ctx.arc(sunX, sunY, height * 0.075, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Everything at and below ground level is a solid deep plum, the
+      // same tone the sky fades into -- cliffs read as translucent
+      // silhouettes against it rather than the flat charcoal of the
+      // classic style.
+      ctx.fillStyle = '#3a1830';
+      ctx.fillRect(0, height * 0.42, width, height * 0.58);
+    } else {
+      const grad = ctx.createLinearGradient(0, 0, 0, height);
+      grad.addColorStop(0, '#262626');
+      grad.addColorStop(1, '#484848');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+    }
 
     const cliffTop = height * 0.42;
     // Wider gap than before, and the ground itself now stays perfectly
@@ -4533,7 +4753,7 @@
     // the gap visible -- reunion happens by crossing the bridge the
     // cross provides, not by the gap disappearing.
     const showsGap = step.panel !== 'together';
-    ctx.fillStyle = '#1e1e1e';
+    ctx.fillStyle = sunset ? 'rgba(122,51,80,0.7)' : '#1e1e1e';
     if (showsGap) {
       ctx.beginPath();
       ctx.moveTo(0, cliffTop);
@@ -4554,6 +4774,26 @@
       ctx.lineTo(width, height);
       ctx.closePath();
       ctx.fill();
+
+      // Sunset only: a soft light shaft shining up through the gap
+      // itself, echoing the glowing sun above -- fades out well before
+      // reaching the text below rather than running the full height,
+      // so the message stays legible on the plain plum background.
+      if (sunset) {
+        const shaftGrad = ctx.createLinearGradient(0, cliffTop, 0, cliffTop + 260);
+        shaftGrad.addColorStop(0, 'rgba(255,241,214,0.85)');
+        shaftGrad.addColorStop(1, 'rgba(255,241,214,0)');
+        ctx.fillStyle = shaftGrad;
+        ctx.beginPath();
+        ctx.moveTo(gapLeft, cliffTop);
+        ctx.lineTo(gapLeft - 22, cliffTop + 90);
+        ctx.lineTo(gapLeft, cliffTop + 180);
+        ctx.lineTo(gapRight, cliffTop + 180);
+        ctx.lineTo(gapRight + 22, cliffTop + 90);
+        ctx.lineTo(gapRight, cliffTop);
+        ctx.closePath();
+        ctx.fill();
+      }
     } else {
       ctx.fillRect(0, cliffTop, width, height - cliffTop);
     }
@@ -4611,11 +4851,11 @@
     // cross over, shown with a dotted walking line along the crossbar
     // rather than standing on top of it.
     if (step.panel === 'together') {
-      drawSimpleFigure(ctx, width / 2, cliffTop - 34, 1.3, true);
-      drawPersonPair(ctx, width / 2 - 70, cliffTop - 22, 0.85);
+      drawSimpleFigure(ctx, width / 2, cliffTop - 34, 1.3, true, figColor);
+      drawPersonPair(ctx, width / 2 - 70, cliffTop - 22, 0.85, figColor);
     } else if (step.panel === 'gap' || step.panel === 'attempts' || step.panel === 'cross') {
-      drawSimpleFigure(ctx, width * 0.78, cliffTop - 34, 1.3, true);
-      drawPersonPair(ctx, width * 0.14, cliffTop - 22, 0.85);
+      drawSimpleFigure(ctx, width * 0.78, cliffTop - 34, 1.3, true, figColor);
+      drawPersonPair(ctx, width * 0.14, cliffTop - 22, 0.85, figColor);
     } else if (step.panel === 'reunited') {
       // Both figures shifted further right so the pair clears the
       // ground/beam transition entirely (previously still sitting
@@ -4623,8 +4863,8 @@
       // brought closer to God at the same time, tightening what was a
       // slightly wide gap between "just arrived" and "reunited."
       const reunitedPairX = width * 0.75;
-      drawSimpleFigure(ctx, width * 0.83, cliffTop - 34, 1.3, true);
-      drawPersonPair(ctx, reunitedPairX, cliffTop - 22, 0.85);
+      drawSimpleFigure(ctx, width * 0.83, cliffTop - 34, 1.3, true, figColor);
+      drawPersonPair(ctx, reunitedPairX, cliffTop - 22, 0.85, figColor);
       // Dotted line raised a bit further above the crossbar's top edge,
       // and its right end now tracks the pair's own left edge (minus a
       // small gap) rather than stopping at the beam's width -- so it
@@ -4644,7 +4884,7 @@
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = '#2fbfa8';
+    ctx.fillStyle = sunset ? '#5c2740' : '#2fbfa8';
     ctx.font = '600 24px Archivo, sans-serif';
     ctx.fillText(`${stepIndex + 1} OF ${series.steps.length} — ${step.title.toUpperCase()}`, width / 2, height * 0.12);
 
@@ -4657,12 +4897,12 @@
       ty += 52;
     });
     if (step.ref) {
-      ctx.fillStyle = 'rgba(245,240,230,0.6)';
+      ctx.fillStyle = sunset ? '#e8b86d' : 'rgba(245,240,230,0.6)';
       ctx.font = '600 26px Archivo, sans-serif';
       ctx.fillText(step.ref, width / 2, ty + 20);
     }
 
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fillStyle = sunset ? 'rgba(232,184,109,0.6)' : 'rgba(255,255,255,0.35)';
     ctx.font = '700 22px Archivo, sans-serif';
     ctx.fillText('FOLLOWING JESUS', width / 2, height - 50);
   }
@@ -4879,7 +5119,7 @@
       <div class="gospel-grid">
         ${GOSPEL_SERIES_POOL.filter(s => !s.hidden).map(s => `
           <button type="button" class="gospel-card-preview" data-series="${s.id}">
-            <div class="gospel-card-icon-box">
+            <div class="gospel-card-icon-box" id="gospelCardPreview-${s.id}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">${s.icon}</svg>
             </div>
             <div class="gospel-card-title">${escapeHtmlMain(s.title)}</div>
@@ -4891,6 +5131,54 @@
     `;
     [...body.querySelectorAll('.gospel-card-preview[data-series]')].forEach(btn => {
       btn.onclick = () => openGospelSeriesPreview(btn.dataset.series);
+    });
+
+    // Render a small live preview of each sequence's own illustration
+    // into its card thumbnail, replacing the flat teal-tinted box and
+    // generic stroke icon -- reuses the exact same draw functions the
+    // shareable cards themselves use, just onto an offscreen canvas
+    // and cropped down via CSS background-size:cover, so it's always
+    // in sync with whatever those look like rather than a separate
+    // static asset that could drift out of date. One representative
+    // step per series rather than always step 1 -- Bridge's step 1 is
+    // just a lone figure on a ledge with no bridge/cross visible yet,
+    // so step 4 ("Jesus Bridges the Divide") is the frame that actually
+    // shows the visual metaphor. Romans Road's road shape is fully
+    // visible on every step already (see the screenshots this was
+    // built from), so step 1 works fine there. background-position's
+    // vertical bias (35%, not center) favors the graphic itself over
+    // the heading/verse text above and below it, which would be
+    // illegible at this size anyway.
+    const PREVIEW_STEP = { bridge: 3, 'romans-road': 0 };
+    GOSPEL_SERIES_POOL.filter(s => !s.hidden).forEach(s => {
+      const box = document.getElementById('gospelCardPreview-' + s.id);
+      if (!box) return;
+      const stepIndex = PREVIEW_STEP[s.id] ?? 0;
+      try {
+        if (s.id === 'bridge') {
+          // The Bridge's card uses one of Samuel's own AI-generated
+          // photos directly as a static hero image -- "Jesus Bridges
+          // the Divide" specifically, since it's the single frame that
+          // most immediately reads as "a bridge" -- rather than a live
+          // render of the drawn illustration like Romans Road gets
+          // below. No canvas involved here at all.
+          box.style.backgroundImage = `url(/assets/bridge-photo-square-cross.jpg)`;
+          box.style.backgroundSize = 'cover';
+          box.style.backgroundPosition = 'center';
+          box.innerHTML = '';
+          return;
+        }
+        const offscreen = document.createElement('canvas');
+        drawRomansRoadStep(offscreen, s, stepIndex, 'square');
+        box.style.backgroundImage = `url(${offscreen.toDataURL('image/png')})`;
+        box.style.backgroundSize = 'cover';
+        box.style.backgroundPosition = 'center 35%';
+        box.innerHTML = '';
+      } catch (e) {
+        // Leave the fallback icon in place (already in the DOM from
+        // the innerHTML above) if a preview render fails for any
+        // reason -- never let this block the grid itself from showing.
+      }
     });
   }
 
@@ -4904,7 +5192,19 @@
     let currentFormat = 'square';
     let currentMode = 'single';
     let currentStep = 0;
+    let currentStyle = 'classic';
     const body = document.getElementById('goodNewsModalBody');
+    // Style toggle (Classic/Sunset) only applies to the Bridge's
+    // illustration -- Romans Road and any future plain-verse series
+    // have no alternate art style, so the row is left out for them
+    // entirely rather than shown disabled.
+    const styleToggleHtml = series.type === 'illustration' ? `
+      <div class="gospel-format-toggle" style="margin-top:8px;">
+        <button type="button" class="gospel-format-btn active" data-style="classic">Classic</button>
+        <button type="button" class="gospel-format-btn" data-style="sunset">Sunset</button>
+        <button type="button" class="gospel-format-btn" data-style="photo">Photo</button>
+        <button type="button" class="gospel-format-btn" data-style="sketch">Sketch</button>
+      </div>` : '';
     body.innerHTML = `
       <a class="back-link" id="gospelSeriesBackBtn">← All Presentations</a>
       <div class="gospel-format-toggle">
@@ -4915,6 +5215,7 @@
         <button type="button" class="gospel-format-btn active" data-mode="single">Single Card</button>
         <button type="button" class="gospel-format-btn" data-mode="combined">Combined (All Steps)</button>
       </div>
+      ${styleToggleHtml}
       <div id="gospelSeriesStepNav" style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:10px;">
         <button type="button" class="mini-btn" id="gospelSeriesPrevBtn">← Prev</button>
         <span id="gospelSeriesStepLabel" class="dm-p" style="margin:0;">Step 1 of ${series.steps.length}</span>
@@ -4930,7 +5231,7 @@
     function redraw() {
       stepNav.style.display = currentMode === 'single' ? 'flex' : 'none';
       stepLabel.textContent = `Step ${currentStep + 1} of ${series.steps.length}`;
-      drawGospelSeriesCard(canvas, series, currentStep, currentFormat, currentMode);
+      drawGospelSeriesCard(canvas, series, currentStep, currentFormat, currentMode, currentStyle);
     }
     redraw();
 
@@ -4953,6 +5254,14 @@
         redraw();
       };
     });
+    body.querySelectorAll('[data-style]').forEach(btn => {
+      btn.onclick = () => {
+        body.querySelectorAll('[data-style]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentStyle = btn.dataset.style;
+        redraw();
+      };
+    });
     document.getElementById('gospelSeriesPrevBtn').onclick = () => {
       currentStep = (currentStep - 1 + series.steps.length) % series.steps.length;
       redraw();
@@ -4961,7 +5270,7 @@
       currentStep = (currentStep + 1) % series.steps.length;
       redraw();
     };
-    document.getElementById('gospelSeriesShareBtn').onclick = () => shareGospelSeriesCard(canvas, series, currentFormat, currentMode, currentStep);
+    document.getElementById('gospelSeriesShareBtn').onclick = () => shareGospelSeriesCard(canvas, series, currentFormat, currentMode, currentStep, currentStyle);
   }
 
   function openGospelCardPreview(cardId) {
