@@ -1,5 +1,3 @@
-// netlify/functions/lib/send-outreach-order-email.js
-//
 // Sends Outreach their order email ourselves, via Resend — completely
 // decoupled from Shopify's fulfillment status. This replaces Shopify's
 // built-in "Custom order fulfillment" email-on-fulfill feature, which had
@@ -12,7 +10,11 @@
 
 const OUTREACH_ORDER_EMAIL = 'CustomerService@outreach.com';
 const FROM_ADDRESS = 'Following Jesus Books <no-reply@mail.followingjesusbook.com>';
-const CC_ADDRESS = 'info@followingjesusbook.com'; // Samuel keeps a visible copy, same as before
+// No longer CC'd on every order -- Samuel asked to stop getting a copy
+// of each one (Sep 2026). Still used as reply_to, so if Outreach ever
+// hits "reply" it lands in an inbox that's actually monitored, rather
+// than the no-reply@ sending address.
+const REPLY_TO_ADDRESS = 'info@followingjesusbook.com';
 
 function escapeHtml(str) {
   return String(str || '')
@@ -37,16 +39,8 @@ function buildOrderEmailHtml(order, lineItems) {
     )
     .join('');
 
-  // Real bug fixed here: no timeZone meant this rendered in whatever
-  // timezone the Netlify server itself happens to run in (UTC), not
-  // Pacific -- confirmed from a real order email showing 8:41 PM for
-  // what was actually a different local time. Using the real IANA zone
-  // name (rather than a fixed UTC offset, like the netlify.toml cron
-  // schedules elsewhere in this project) means PST/PDT switches
-  // correctly on its own across daylight saving, with nothing to
-  // revisit twice a year.
   const placedAt = order.created_at
-    ? new Date(order.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Los_Angeles' })
+    ? new Date(order.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
     : '';
 
   return `
@@ -100,8 +94,7 @@ async function sendOutreachOrderEmail(order, outreachLineItems) {
     body: JSON.stringify({
       from: FROM_ADDRESS,
       to: [OUTREACH_ORDER_EMAIL],
-      cc: [CC_ADDRESS],
-      reply_to: CC_ADDRESS,
+      reply_to: REPLY_TO_ADDRESS,
       subject: `[Following Jesus] Order ${order.name} placed by ${customerName}`,
       html,
     }),
