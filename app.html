@@ -2578,12 +2578,12 @@
       const count = await getGlobalDiscipleCount();
       const el = document.getElementById('todayDiscipleCounterText');
       if (el) {
-        el.textContent = `📣 ${count.toLocaleString()} ${count === 1 ? 'disciple' : 'disciples'} made through this app`;
+        el.textContent = `Disciples Made ${count.toLocaleString()} 📣`;
       }
     } catch (e) {
       console.error('Failed to load global disciple count:', e);
       const el = document.getElementById('todayDiscipleCounterText');
-      if (el) el.textContent = '📣 Disciples made through this app';
+      if (el) el.textContent = 'Disciples Made 📣';
     }
   }, 0);
   // No dedicated close/Home button on this or the other 3 page-style
@@ -8118,7 +8118,7 @@ async function renderDiscipleshipHub() {
     </button>
     ${ownJourneySectionHtml(pathwayCardHtml + nestedCoursesHtml, isApprovedLeader ? discipleCardHtml + myGroupsHtml : '')}
     ${leaderSectionHtml}
-    <div class="global-count-banner">📣 ${globalCount.toLocaleString()} ${globalCount === 1 ? 'disciple' : 'disciples'} made through this app</div>
+    <div class="global-count-banner">Disciples Made ${globalCount.toLocaleString()} 📣</div>
     ${renderResourcesHtml()}
   `;
 
