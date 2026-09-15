@@ -1,12 +1,33 @@
 // netlify/functions/lib/add-church-from-order.js
 //
 // Extends the order-arrival pipeline (tag-book-order.js) with a second,
-// completely independent concern: checking whether this order's
-// shipping Company field looks like a church, and if so, adding it as
-// a new pending church_directory entry -- the same keyword-matching
-// approach originally used for the one-time historical Shopify CSV
-// import, now running live on every new order instead of just past
-// ones.
+// completely independent concern: checking whether this order looks
+// like it came from a church, and if so, adding it as a new pending
+// church_directory entry -- the same keyword-matching approach
+// originally used for the one-time historical Shopify CSV import, now
+// running live on every new order instead of just past ones.
+//
+// Two ways an order can flag as a candidate:
+//   1. Company field filled in at checkout -- used directly as the
+//      candidate name, no keyword matching required. Almost every
+//      order through this store is from a church or ministry, so if
+//      someone bothered to type a company name at all, it's assumed
+//      to be worth a look -- Samuel reviews every pending entry before
+//      anyone's ever emailed, so a false positive here just gets
+//      dismissed, not acted on.
+//   2. Company field left blank, but the order's email domain isn't
+//      one of the common personal-email providers (Gmail, Yahoo,
+//      Outlook, etc.) -- a real, custom domain on an order for a
+//      discipleship book strongly suggests a church or ministry
+//      ordering under someone's personal name rather than an org name.
+//      Confirmed real case: order #FJ8860, Sep 14 2026, blank company,
+//      email domain riversideconnect.com -- a real church, missed
+//      entirely under the old company-only, keyword-required logic.
+//      Since there's no company name to use, the purchaser's own
+//      shipping name is used as the placeholder -- a real, unguessed
+//      fact about the order, not an invented org name from the domain.
+//      Samuel renames it to the church's actual name during his own
+//      review, same as any other pending entry.
 //
 // New churches land as status='pending_confirmation', NOT immediately
 // emailed -- matches the existing review-then-send-in-batches workflow
@@ -25,7 +46,16 @@ const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
 const REMINDER_FUNCTION_SECRET = process.env.REMINDER_FUNCTION_SECRET;
 
-const CHURCH_KEYWORDS = /church|ministr|fellowship|chapel|assembly|congregation|parish|cathedral|worship\s*center|christian\s*center|tabernacle/i;
+// Personal-email providers common enough that seeing one tells us
+// nothing about whether the purchaser is ordering for a church --
+// everyone from a solo customer to a church's own admin might use one
+// of these. Anything NOT in this list is treated as a real, custom
+// domain worth flagging when the Company field is blank.
+const GENERIC_EMAIL_DOMAINS = new Set([
+  'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com',
+  'aol.com', 'live.com', 'msn.com', 'me.com', 'protonmail.com', 'mail.com',
+  'comcast.net', 'att.net', 'verizon.net', 'yahoo.co.uk', 'googlemail.com'
+]);
 
 function normalize(name) {
   return (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -56,11 +86,20 @@ async function maybeAddChurchFromOrder(order) {
 
   const shipping = order.shipping_address || {};
   const companyName = (shipping.company || '').trim();
-  if (!companyName || !CHURCH_KEYWORDS.test(companyName)) {
-    return; // Not a church-like name -- nothing to do, same as most orders.
+  const email = (order.email || order.contact_email || '').trim().toLowerCase();
+  const emailDomain = email.split('@')[1] || '';
+
+  let candidateName;
+  if (companyName) {
+    candidateName = companyName;
+  } else if (emailDomain && !GENERIC_EMAIL_DOMAINS.has(emailDomain)) {
+    candidateName = (shipping.name || '').trim()
+      || [order.customer?.first_name, order.customer?.last_name].filter(Boolean).join(' ').trim();
+    if (!candidateName) return; // no company, generic-looking situation, and no name to fall back on
+  } else {
+    return; // no company name, and either no email or a common personal-email domain -- nothing to flag
   }
 
-  const email = order.email || order.contact_email || '';
   const addressParts = [shipping.address1, shipping.city, shipping.province, shipping.zip, shipping.country]
     .filter(Boolean)
     .join(', ');
@@ -76,14 +115,14 @@ async function maybeAddChurchFromOrder(order) {
       body: JSON.stringify({ caller_secret: REMINDER_FUNCTION_SECRET })
     });
     const existingNames = new Set((await existingRes.json()).map(normalize));
-    if (existingNames.has(normalize(companyName))) {
-      console.log(`Church-directory check: "${companyName}" already exists, skipping.`);
+    if (existingNames.has(normalize(candidateName))) {
+      console.log(`Church-directory check: "${candidateName}" already exists, skipping.`);
       return;
     }
 
     const geocoded = addressParts ? await geocodeAddress(addressParts, placesApiKey) : null;
     if (!geocoded) {
-      console.log(`Church-directory check: could not geocode "${addressParts}" for "${companyName}", skipping.`);
+      console.log(`Church-directory check: could not geocode "${addressParts}" for "${candidateName}", skipping.`);
       return;
     }
 
@@ -92,7 +131,7 @@ async function maybeAddChurchFromOrder(order) {
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         caller_secret: REMINDER_FUNCTION_SECRET,
-        p_name: companyName,
+        p_name: candidateName,
         p_address: geocoded.formattedAddress,
         p_lat: geocoded.lat,
         p_lng: geocoded.lng,
@@ -101,9 +140,9 @@ async function maybeAddChurchFromOrder(order) {
     });
     const result = await insertRes.json();
     if (result === 'success') {
-      console.log(`Added "${companyName}" to church_directory as pending_confirmation, from order ${order.name}.`);
+      console.log(`Added "${candidateName}" to church_directory as pending_confirmation, from order ${order.name}${companyName ? '' : ' (via email-domain heuristic, no company field)'}.`);
     } else {
-      console.log(`Church-directory insert for "${companyName}" returned: ${result}`);
+      console.log(`Church-directory insert for "${candidateName}" returned: ${result}`);
     }
   } catch (err) {
     // Deliberately just logged, not alerted -- this is a nice-to-have
