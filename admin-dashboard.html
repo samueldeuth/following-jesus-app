@@ -1637,6 +1637,18 @@ async function loadChurchDirectoryList(){
     if(countEl) countEl.textContent = '';
     return;
   }
+  // Pending-confirmation entries sit at the top of the list (still
+  // alphabetical within that group) so a newly-added church doesn't
+  // require scrolling or searching to find and review -- everything
+  // else stays alphabetical below, exactly as the query already
+  // ordered it. Array.sort is stable in modern JS engines, so this
+  // only reorders the pending/non-pending grouping, not the
+  // alphabetical order already established within each group.
+  rows.sort((a, b) => {
+    const aPending = a.status === 'pending_confirmation' ? 0 : 1;
+    const bPending = b.status === 'pending_confirmation' ? 0 : 1;
+    return aPending - bPending;
+  });
   allDirectoryRows = rows;
   if(countEl){
     const pending = rows.filter(r => r.status === 'pending_confirmation').length;
