@@ -3605,6 +3605,16 @@
           <div class="course-card-title">Badges — ${earnedBadgeKeys.size} of ${BADGE_CATALOG.length}</div>
           <svg class="course-chevron ${badgesExpanded ? 'open' : ''}" id="profileBadgesChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
         </button>
+        ${(() => {
+          // Always-visible preview strip, same idea as the reference
+          // screenshot -- a few earned badge icons showing right under
+          // the header even while collapsed, so there's something to
+          // see before ever tapping to expand. Hidden entirely if
+          // nothing's earned yet (nothing worth previewing).
+          const previewBadges = BADGE_CATALOG.filter(b => earnedBadgeKeys.has(b.key)).slice(0, 5);
+          if (!previewBadges.length) return '';
+          return `<div style="display:flex; gap:6px; padding:0 18px 14px; flex-wrap:wrap;">${previewBadges.map(b => `<svg viewBox="-58 -58 116 116" width="44" height="44" style="flex-shrink:0;">${b.svg}</svg>`).join('')}</div>`;
+        })()}
         <div class="course-card-body ${badgesExpanded ? 'open' : ''}" id="profileBadgesBody">
           <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
             ${BADGE_CATALOG.map(b => {
