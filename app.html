@@ -3600,16 +3600,23 @@
         </button>
       </div>
 
-      <div class="section-label" style="margin-top:28px; margin-bottom:12px;">Badges — ${earnedBadgeKeys.size} of ${BADGE_CATALOG.length}</div>
-      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
-        ${BADGE_CATALOG.map(b => {
-          const earned = earnedBadgeKeys.has(b.key);
-          return `
-          <div style="text-align:center; cursor:pointer;" data-info="${escapeHtmlMain(b.description)}">
-            <svg viewBox="-58 -58 116 116" width="52" height="52" style="display:block; margin:0 auto 6px; filter:${earned ? 'none' : 'grayscale(1) opacity(0.4)'};">${b.svg}</svg>
-            <div style="font-size:10px; font-weight:700; color:rgba(10,10,10,0.7); line-height:1.3;">${escapeHtmlMain(b.title)}</div>
-          </div>`;
-        }).join('')}
+      <div class="course-card" style="margin-top:28px;">
+        <button type="button" class="course-card-header" id="profileBadgesToggle">
+          <div class="course-card-title">Badges — ${earnedBadgeKeys.size} of ${BADGE_CATALOG.length}</div>
+          <svg class="course-chevron ${badgesExpanded ? 'open' : ''}" id="profileBadgesChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="course-card-body ${badgesExpanded ? 'open' : ''}" id="profileBadgesBody">
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
+            ${BADGE_CATALOG.map(b => {
+              const earned = earnedBadgeKeys.has(b.key);
+              return `
+              <div style="text-align:center; cursor:pointer;" data-info="${escapeHtmlMain(b.description)}">
+                <svg viewBox="-58 -58 116 116" width="52" height="52" style="display:block; margin:0 auto 6px; filter:${earned ? 'none' : 'grayscale(1) opacity(0.4)'};">${b.svg}</svg>
+                <div style="font-size:10px; font-weight:700; color:rgba(10,10,10,0.7); line-height:1.3;">${escapeHtmlMain(b.title)}</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
       </div>
 
       <button class="secondary-btn" id="profLogoutBtn" style="margin-top:24px;">Log out</button>
@@ -3681,6 +3688,12 @@
     // calling it again here doesn't double-bind anything already wired
     // elsewhere on the page.
     initInfoTooltips();
+
+    document.getElementById('profileBadgesToggle').onclick = () => {
+      badgesExpanded = !badgesExpanded;
+      document.getElementById('profileBadgesChevron').classList.toggle('open', badgesExpanded);
+      document.getElementById('profileBadgesBody').classList.toggle('open', badgesExpanded);
+    };
   }
 
   function escapeHtmlMain(s) {
@@ -5757,6 +5770,11 @@ function overallProgressHtml(walkoutProgress, walkItOutData = WALK_IT_OUT) {
 // step in it is done, but can always be manually reopened to review.
 let journeyExpanded = false;
 let courseExpandState = { essentials: false, waterBaptism: false };
+// Badges grid on the Profile page starts collapsed -- same
+// open/closed pattern as the course cards below, reusing their
+// .course-chevron / .course-card-body CSS rather than introducing a
+// separate full Badges page.
+let badgesExpanded = false;
 
 function courseCardHtml(courseId, title, subtitle, stepsHtml, walkoutProgress, progress, stepsData = STEPS, walkItOutData = WALK_IT_OUT) {
   // Essentials: progress[i] is already final and real (course-derived) —
