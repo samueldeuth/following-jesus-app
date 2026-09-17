@@ -512,6 +512,13 @@ let allChurches = [];
 // checks their role server-side, same pattern as assign_group_leader and
 // the other cross-boundary RPCs already used throughout this file.
 let approvedLeaderCount = 0;
+// Sum of the one-time historical backfill (Sep 2026, see
+// legacy_course_completions) across every church/course -- added into
+// the Overview's "Finished a course" card so that all-time total
+// reflects real history, not just completions this dashboard has
+// tracked since it existed. Same blended-total approach as the app's
+// own Disciples Made counter and each church's own stat card.
+let totalLegacyCompletions = 0;
 
 // Warns before losing unsaved edits on a church's settings panel (name,
 // slug, letter content, etc.) if the page gets refreshed or closed
@@ -659,16 +666,18 @@ async function init(){
     return;
   }
 
-  const [{ data: rows, error: rowsErr }, { data: churches }, { data: leaderCount }] = await Promise.all([
+  const [{ data: rows, error: rowsErr }, { data: churches }, { data: leaderCount }, { data: legacyRows }] = await Promise.all([
     supabaseClient.from('all_student_progress').select('*').order('full_name', { ascending: true }),
     supabaseClient.from('churches').select('*').order('name', { ascending: true }),
-    supabaseClient.rpc('get_approved_leader_count')
+    supabaseClient.rpc('get_approved_leader_count'),
+    supabaseClient.from('legacy_course_completions').select('legacy_completions')
   ]);
 
   if(rowsErr || !rows){ content.textContent = 'Could not load student data.'; return; }
   allRows = rows;
   allChurches = churches || [];
   approvedLeaderCount = leaderCount || 0;
+  totalLegacyCompletions = (legacyRows || []).reduce((sum, r) => sum + (r.legacy_completions || 0), 0);
   followingJesusCourseId = (allRows.find(r => r.course_title === 'Following Jesus') || {}).course_id || null;
   renderSidebar();
   document.getElementById('sidebar-overview-link').addEventListener('click', renderChurchesOverview);
@@ -1264,7 +1273,7 @@ function renderChurchesOverview(){
     <div class="summary-row">
       <div class="summary-card"><div class="num">${activeChurches}</div><div class="label">Active Churches</div><div class="sub">${totalChurches} total all-time</div></div>
       <div class="summary-card"><div class="num">${totalActive}</div><div class="label">Active Students</div><div class="sub">${totalStudents} total all-time</div></div>
-      <div class="summary-card"><div class="num">${totalCompleted}</div><div class="label">Finished a course</div></div>
+      <div class="summary-card"><div class="num">${totalCompleted + totalLegacyCompletions}</div><div class="label">Finished a course</div>${totalLegacyCompletions ? `<div class="sub">includes ${totalLegacyCompletions} from before this dashboard tracked it</div>` : ''}</div>
       <div class="summary-card clickable" id="disciple-makers-card"><div class="num">${approvedLeaderCount}</div><div class="label">Disciple Makers</div></div>
     </div>
     <div style="display:flex;gap:6px;margin:18px 0 10px;flex-wrap:wrap;">
