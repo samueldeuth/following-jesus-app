@@ -1273,7 +1273,7 @@ function renderChurchesOverview(){
     <div class="summary-row">
       <div class="summary-card"><div class="num">${activeChurches}</div><div class="label">Active Churches</div><div class="sub">${totalChurches} total all-time</div></div>
       <div class="summary-card"><div class="num">${totalActive}</div><div class="label">Active Students</div><div class="sub">${totalStudents} total all-time</div></div>
-      <div class="summary-card"><div class="num">${totalCompleted + totalLegacyCompletions}</div><div class="label">Finished a course</div>${totalLegacyCompletions ? `<div class="sub">includes ${totalLegacyCompletions} from before this dashboard tracked it</div>` : ''}</div>
+      <div class="summary-card"><div class="num">${totalCompleted + totalLegacyCompletions}</div><div class="label">Finished a course ${totalLegacyCompletions ? `<button type="button" class="info-icon-btn" data-info="Includes ${totalLegacyCompletions} completions from before this dashboard tracked them, backfilled from the old platform's records.">i</button>` : ''}</div></div>
       <div class="summary-card clickable" id="disciple-makers-card"><div class="num">${approvedLeaderCount}</div><div class="label">Disciple Makers</div></div>
     </div>
     <div style="display:flex;gap:6px;margin:18px 0 10px;flex-wrap:wrap;">
@@ -1331,6 +1331,7 @@ function renderChurchesOverview(){
 
   const discipleMakersCard = document.getElementById('disciple-makers-card');
   if(discipleMakersCard) discipleMakersCard.addEventListener('click', renderDiscipleMakers);
+  initInfoTooltips();
 }
 
 // Lists everyone currently approved to disciple others (leader_applications
@@ -3791,7 +3792,7 @@ async function renderChurchStudents(churchId){
     ${churchId ? `
     <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
       <div class="summary-card"><div class="num">${activeCount}</div><div class="label">Active Students</div><div class="sub">${churchRows.length} total all-time</div></div>
-      <div class="summary-card"><div class="num">${liveCompletedCount + legacyCompletions}</div><div class="label">Finished a Course</div>${legacyCompletions ? `<div class="sub">includes ${legacyCompletions} from before this dashboard tracked it</div>` : ''}</div>
+      <div class="summary-card"><div class="num">${liveCompletedCount + legacyCompletions}</div><div class="label">Finished a Course ${legacyCompletions ? `<button type="button" class="info-icon-btn" data-info="Includes ${legacyCompletions} completions from before this dashboard tracked them, backfilled from the old platform's records.">i</button>` : ''}</div></div>
     </div>
     ` : ''}
     <div style="display:flex;gap:6px;margin-bottom:14px;">
@@ -4629,6 +4630,7 @@ async function renderChurchStudents(churchId){
       renderChurchStudents(churchId);
     });
   });
+  initInfoTooltips();
 }
 
 // Simplified sibling of renderChurchStudents for a NON_WHITE_LABEL_COURSES
@@ -4656,6 +4658,7 @@ async function renderCourseStudents(courseId, courseTitle){
   const rows = courseRows.filter(r => studentViewMode === 'archived' ? r.status === 'archived' : r.status !== 'archived');
   const activeCount = courseRows.filter(r => r.status !== 'archived').length;
   const archivedCount = courseRows.filter(r => r.status === 'archived').length;
+  const liveCompletedCount = courseRows.filter(r => r.completed_at).length;
 
   const sortedRows = sortStudentRows(rows, studentSortState.course);
 
@@ -4686,6 +4689,10 @@ async function renderCourseStudents(courseId, courseTitle){
     <div class="back-link" id="back-to-churches">&larr; All Churches</div>
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">${courseTitle}</h2>
     <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:14px;">${rows.length} student${rows.length===1?'':'s'} across all churches</p>
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+      <div class="summary-card"><div class="num">${activeCount}</div><div class="label">Active Students</div><div class="sub">${courseRows.length} total all-time</div></div>
+      <div class="summary-card"><div class="num">${liveCompletedCount}</div><div class="label">Finished a Course</div></div>
+    </div>
     <div style="display:flex;gap:6px;margin-bottom:14px;">
       <button class="mini-btn ${studentViewMode==='active'?'active':''}" id="student-mode-active-btn">Active (${activeCount})</button>
       <button class="mini-btn ${studentViewMode==='archived'?'active':''}" id="student-mode-archived-btn">Archived (${archivedCount})</button>
@@ -4791,6 +4798,7 @@ async function renderCourseStudents(courseId, courseTitle){
     selectedEnrollmentIds.clear();
     renderCourseStudents(courseId, courseTitle);
   });
+  initInfoTooltips();
 }
 
 async function fetchGroups(churchId){
