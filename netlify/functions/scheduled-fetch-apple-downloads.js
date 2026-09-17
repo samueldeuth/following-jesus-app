@@ -98,11 +98,15 @@ function buildAppleJwt(creds) {
   sign.update(signingInput);
   sign.end();
   // Apple wants a raw (IEEE P1363) ES256 signature, not the DER format
-  // Node produces by default. Explicitly parsing the PEM into a
-  // KeyObject first (rather than handing sign() the raw string) avoids
-  // an "unsupported" DECODER error seen on Node 24's OpenSSL when
-  // signing straight from a string key.
-  const keyObject = crypto.createPrivateKey(creds.APP_STORE_CONNECT_PRIVATE_KEY);
+  // Node produces by default. The stored credential is base64 of the
+  // whole .p8 file's contents, not the raw multi-line PEM text -- an
+  // earlier version stored the actual PEM directly, but typing real
+  // newlines into Supabase's SQL editor silently triggered its
+  // code-editor auto-indent, corrupting the key with extra whitespace
+  // on every line after the first. Base64 is a single unbroken line,
+  // so there's nothing left for an editor to "helpfully" reformat.
+  const pem = Buffer.from(creds.APP_STORE_CONNECT_PRIVATE_KEY, 'base64').toString('utf-8');
+  const keyObject = crypto.createPrivateKey(pem);
   const signature = sign.sign({ key: keyObject, dsaEncoding: 'ieee-p1363' });
   return `${signingInput}.${base64url(signature)}`;
 }
