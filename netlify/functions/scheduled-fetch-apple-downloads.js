@@ -17,9 +17,29 @@
 
 const crypto = require('crypto');
 const zlib = require('zlib');
-const { createClient } = require('@supabase/supabase-js');
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+// Talks to Supabase's REST API (PostgREST) directly with plain fetch,
+// rather than the @supabase/supabase-js package -- this repo's
+// package.json doesn't declare that dependency, so pulling it in here
+// broke Netlify's function bundling for the whole site. No dependency
+// needed at all for a single upsert call.
+async function upsertDownloadStat(row) {
+  const url = `${process.env.SUPABASE_URL}/rest/v1/app_download_stats?on_conflict=platform,stat_date`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates'
+    },
+    body: JSON.stringify(row)
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Supabase upsert failed (${response.status}): ${text}`);
+  }
+}
 
 // The numeric Apple ID for the Following Jesus app, from its App Store
 // Connect URL (appstoreconnect.apple.com/apps/1460179217/...). Sales
@@ -72,9 +92,8 @@ exports.handler = async () => {
       // Apple omits the report entirely on days with zero activity for
       // this vendor number, rather than returning a report full of
       // zeros -- so a 404 here means zero downloads, not an error.
-      await supabase.from('app_download_stats').upsert(
-        { platform: 'ios', stat_date: dateStr, downloads: 0, fetched_at: new Date().toISOString() },
-        { onConflict: 'platform,stat_date' }
+      await upsertDownloadStat(
+        { platform: 'ios', stat_date: dateStr, downloads: 0, fetched_at: new Date().toISOString() }
       );
       console.log(`No Apple sales report for ${dateStr} -- recorded 0 downloads.`);
       return { statusCode: 200, body: `No report for ${dateStr}, recorded 0.` };
@@ -104,9 +123,8 @@ exports.handler = async () => {
       }
     }
 
-    await supabase.from('app_download_stats').upsert(
-      { platform: 'ios', stat_date: dateStr, downloads: totalDownloads, fetched_at: new Date().toISOString() },
-      { onConflict: 'platform,stat_date' }
+    await upsertDownloadStat(
+      { platform: 'ios', stat_date: dateStr, downloads: totalDownloads, fetched_at: new Date().toISOString() }
     );
 
     console.log(`iOS downloads for ${dateStr}: ${totalDownloads}`);

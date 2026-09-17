@@ -17,9 +17,29 @@
 //   SUPABASE_SERVICE_ROLE_KEY
 
 const crypto = require('crypto');
-const { createClient } = require('@supabase/supabase-js');
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+// Talks to Supabase's REST API (PostgREST) directly with plain fetch,
+// rather than the @supabase/supabase-js package -- this repo's
+// package.json doesn't declare that dependency, so pulling it in here
+// broke Netlify's function bundling for the whole site. No dependency
+// needed at all for a single bulk upsert call.
+async function upsertDownloadStats(rows) {
+  const url = `${process.env.SUPABASE_URL}/rest/v1/app_download_stats?on_conflict=platform,stat_date`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates'
+    },
+    body: JSON.stringify(rows)
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Supabase upsert failed (${response.status}): ${text}`);
+  }
+}
 
 // From Play Console -> Download reports -> Statistics -> "Copy Cloud
 // Storage URI" next to Installs.
@@ -124,8 +144,7 @@ exports.handler = async () => {
     }
 
     if (rows.length) {
-      const { error } = await supabase.from('app_download_stats').upsert(rows, { onConflict: 'platform,stat_date' });
-      if (error) throw error;
+      await upsertDownloadStats(rows);
     }
 
     console.log(`Updated ${rows.length} days of Android installs for ${yearMonth}.`);
