@@ -41,6 +41,30 @@ async function upsertDownloadStats(rows) {
   }
 }
 
+// The Google service account key lives in the same locked-down
+// Supabase table as the Apple credentials, rather than as a Netlify
+// environment variable -- see the matching comment in
+// scheduled-fetch-apple-downloads.js for why (the shared 4KB Lambda
+// env var budget across every function on the site).
+async function getGoogleServiceAccountKey() {
+  const url = `${process.env.SUPABASE_URL}/rest/v1/app_store_credentials?select=credential_value&credential_name=eq.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`;
+  const response = await fetch(url, {
+    headers: {
+      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+    }
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Could not load Google Play credentials (${response.status}): ${text}`);
+  }
+  const rows = await response.json();
+  if (!rows.length) {
+    throw new Error('GOOGLE_PLAY_SERVICE_ACCOUNT_JSON not found in app_store_credentials');
+  }
+  return JSON.parse(rows[0].credential_value);
+}
+
 // From Play Console -> Download reports -> Statistics -> "Copy Cloud
 // Storage URI" next to Installs.
 const BUCKET = 'pubsite_prod_7377240062662882401';
@@ -52,8 +76,7 @@ function base64url(input) {
 
 // Exchanges the service account key for a short-lived OAuth access
 // token, per Google's standard JWT-bearer service account flow.
-async function getGoogleAccessToken() {
-  const key = JSON.parse(process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON);
+async function getGoogleAccessToken(key) {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: 'RS256', typ: 'JWT' };
   const payload = {
@@ -101,7 +124,8 @@ function parseCsvLine(line) {
 
 exports.handler = async () => {
   try {
-    const accessToken = await getGoogleAccessToken();
+    const key = await getGoogleServiceAccountKey();
+    const accessToken = await getGoogleAccessToken(key);
 
     const now = new Date();
     const yearMonth = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}`;

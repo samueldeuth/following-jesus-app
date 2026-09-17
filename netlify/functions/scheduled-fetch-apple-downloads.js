@@ -41,6 +41,37 @@ async function upsertDownloadStat(row) {
   }
 }
 
+// The four Apple credentials live in a locked-down Supabase table
+// (service-role only, no RLS policy grants it to anyone else) rather
+// than as Netlify environment variables. Netlify Functions share a
+// hard 4KB total env var budget across every function on the whole
+// site (an AWS Lambda limit) -- these four values alone (especially
+// the private key) were enough to push every one of this site's 50+
+// other functions over that limit and break the entire deploy. Fetching
+// them from the database at call time sidesteps the limit completely.
+async function getAppleCredentials() {
+  const url = `${process.env.SUPABASE_URL}/rest/v1/app_store_credentials?select=credential_name,credential_value&credential_name=in.(APP_STORE_CONNECT_KEY_ID,APP_STORE_CONNECT_ISSUER_ID,APP_STORE_CONNECT_PRIVATE_KEY,APP_STORE_CONNECT_VENDOR_NUMBER)`;
+  const response = await fetch(url, {
+    headers: {
+      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+    }
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Could not load Apple credentials (${response.status}): ${text}`);
+  }
+  const rows = await response.json();
+  const creds = {};
+  rows.forEach(r => { creds[r.credential_name] = r.credential_value; });
+  const missing = ['APP_STORE_CONNECT_KEY_ID', 'APP_STORE_CONNECT_ISSUER_ID', 'APP_STORE_CONNECT_PRIVATE_KEY', 'APP_STORE_CONNECT_VENDOR_NUMBER']
+    .filter(name => !creds[name]);
+  if (missing.length) {
+    throw new Error(`Missing Apple credentials in app_store_credentials: ${missing.join(', ')}`);
+  }
+  return creds;
+}
+
 // The numeric Apple ID for the Following Jesus app, from its App Store
 // Connect URL (appstoreconnect.apple.com/apps/1460179217/...). Sales
 // reports cover the whole vendor account, so this is what isolates
@@ -53,11 +84,11 @@ function base64url(input) {
 
 // Builds a short-lived JWT signed with the App Store Connect API key,
 // per Apple's documented auth scheme (ES256, 20-minute max lifetime).
-function buildAppleJwt() {
-  const header = { alg: 'ES256', kid: process.env.APP_STORE_CONNECT_KEY_ID, typ: 'JWT' };
+function buildAppleJwt(creds) {
+  const header = { alg: 'ES256', kid: creds.APP_STORE_CONNECT_KEY_ID, typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
   const payload = {
-    iss: process.env.APP_STORE_CONNECT_ISSUER_ID,
+    iss: creds.APP_STORE_CONNECT_ISSUER_ID,
     iat: now,
     exp: now + 1200,
     aud: 'appstoreconnect-v1'
@@ -68,7 +99,7 @@ function buildAppleJwt() {
   sign.end();
   // Apple wants a raw (IEEE P1363) ES256 signature, not the DER format
   // Node produces by default.
-  const signature = sign.sign({ key: process.env.APP_STORE_CONNECT_PRIVATE_KEY, dsaEncoding: 'ieee-p1363' });
+  const signature = sign.sign({ key: creds.APP_STORE_CONNECT_PRIVATE_KEY, dsaEncoding: 'ieee-p1363' });
   return `${signingInput}.${base64url(signature)}`;
 }
 
@@ -78,13 +109,14 @@ function formatDate(d) {
 
 exports.handler = async () => {
   try {
-    const jwt = buildAppleJwt();
+    const creds = await getAppleCredentials();
+    const jwt = buildAppleJwt(creds);
 
     const reportDate = new Date();
     reportDate.setUTCDate(reportDate.getUTCDate() - 2);
     const dateStr = formatDate(reportDate);
 
-    const url = `https://api.appstoreconnect.apple.com/v1/salesReports?filter[frequency]=DAILY&filter[reportDate]=${dateStr}&filter[reportType]=SALES&filter[reportSubType]=SUMMARY&filter[vendorNumber]=${process.env.APP_STORE_CONNECT_VENDOR_NUMBER}&filter[version]=1_0`;
+    const url = `https://api.appstoreconnect.apple.com/v1/salesReports?filter[frequency]=DAILY&filter[reportDate]=${dateStr}&filter[reportType]=SALES&filter[reportSubType]=SUMMARY&filter[vendorNumber]=${creds.APP_STORE_CONNECT_VENDOR_NUMBER}&filter[version]=1_0`;
 
     const response = await fetch(url, { headers: { Authorization: `Bearer ${jwt}` } });
 
