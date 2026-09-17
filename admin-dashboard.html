@@ -355,7 +355,7 @@
     <div id="admin-account-info"></div>
     <a class="sidebar-link" id="sidebar-overview-link">Overview</a>
     <a class="sidebar-link" id="sidebar-all-students-link">All Students</a>
-    <a class="sidebar-link" id="sidebar-push-notifications-link">Push Notifications</a>
+    <a class="sidebar-link" id="sidebar-push-notifications-link">App</a>
     <a class="sidebar-link" id="sidebar-church-directory-link">Church Directory</a>
     <div class="sidebar-section-title">Churches (<span id="sidebar-church-count">0</span>)</div>
     <div class="sidebar-status-filters" id="sidebar-status-filters">
@@ -1896,7 +1896,17 @@ function renderPushNotifications(){
 
   document.getElementById('content').innerHTML = `
     <div style="text-align:left;">
-    <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 4px;">Push Notifications</h2>
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 4px;">App</h2>
+
+    <div class="card" style="margin-bottom:24px;max-width:680px;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:6px;">Downloads
+        <button type="button" class="info-icon-btn" data-info="Pulled daily from App Store Connect and Google Play. Apple's numbers lag about 2 days before they're final; Android numbers correct themselves automatically for a day or two after each one first appears.">i</button>
+      </h3>
+      <div id="app-download-summary" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;"><span style="font-size:13px;color:var(--ink-soft);">Loading…</span></div>
+      <div id="app-download-table"></div>
+    </div>
+
+    <h3 style="font-family:'Space Grotesk',sans-serif;font-size:19px;margin:0 0 4px;">Push Notifications</h3>
     <p style="font-size:13px;margin:0 0 20px;padding:8px 12px;background:var(--bg-soft);border-radius:6px;max-width:520px;" id="push-audience-count">Checking how many people currently have push notifications enabled…</p>
     <div class="card" style="margin-bottom:20px;max-width:520px;">
       <p style="font-size:13px;color:var(--ink-soft);margin:0 0 14px;">
@@ -1986,6 +1996,7 @@ function renderPushNotifications(){
     </div>
   `;
   initInfoTooltips();
+  loadAppDownloadStats();
 
   const pushDestinationSelect = document.getElementById('push-destination-select');
   if(pushDestinationSelect) pushDestinationSelect.addEventListener('change', () => {
@@ -2345,6 +2356,68 @@ function renderPushNotifications(){
     sendTestPushBtn.disabled = false;
     sendTestPushBtn.textContent = 'Send Test (to Me Only)';
   });
+}
+
+// Pulls from app_download_stats, populated daily by two scheduled
+// Netlify functions (one per store). Shows a 30-day total plus an
+// all-time total per platform, and a day-by-day table underneath so a
+// sudden spike or drop is easy to spot at a glance.
+async function loadAppDownloadStats(){
+  const summaryEl = document.getElementById('app-download-summary');
+  const tableEl = document.getElementById('app-download-table');
+  const { data: rows, error } = await supabaseClient.from('app_download_stats').select('*').order('stat_date', { ascending: false }).limit(400);
+
+  if(error){
+    summaryEl.innerHTML = `<span style="font-size:13px;color:var(--ink-soft);">Could not load download stats right now.</span>`;
+    return;
+  }
+
+  const iosRows = (rows || []).filter(r => r.platform === 'ios');
+  const androidRows = (rows || []).filter(r => r.platform === 'android');
+
+  if(!iosRows.length && !androidRows.length){
+    summaryEl.innerHTML = `<span style="font-size:13px;color:var(--ink-soft);">No download data recorded yet -- check back after the first scheduled run.</span>`;
+    return;
+  }
+
+  const cutoff30 = new Date();
+  cutoff30.setDate(cutoff30.getDate() - 30);
+  const cutoff30Str = cutoff30.toISOString().slice(0, 10);
+  const sum = (arr) => arr.reduce((s, r) => s + (r.downloads || 0), 0);
+
+  const iosLast30 = sum(iosRows.filter(r => r.stat_date >= cutoff30Str));
+  const androidLast30 = sum(androidRows.filter(r => r.stat_date >= cutoff30Str));
+
+  summaryEl.innerHTML = `
+    <div class="summary-card"><div class="num">${iosLast30.toLocaleString()}</div><div class="label">iOS Downloads (30 days)</div><div class="sub">${sum(iosRows).toLocaleString()} all-time tracked</div></div>
+    <div class="summary-card"><div class="num">${androidLast30.toLocaleString()}</div><div class="label">Android Downloads (30 days)</div><div class="sub">${sum(androidRows).toLocaleString()} all-time tracked</div></div>
+  `;
+
+  const byDate = {};
+  (rows || []).forEach(r => {
+    byDate[r.stat_date] = byDate[r.stat_date] || {};
+    byDate[r.stat_date][r.platform] = r.downloads;
+  });
+  const recentDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a)).slice(0, 14);
+
+  tableEl.innerHTML = recentDates.length ? `
+    <table style="width:100%;font-size:13px;border-collapse:collapse;">
+      <thead><tr>
+        <th style="text-align:left;padding:6px 8px 6px 0;color:var(--ink-soft);font-weight:600;">Date</th>
+        <th style="text-align:left;padding:6px 8px;color:var(--ink-soft);font-weight:600;">iOS</th>
+        <th style="text-align:left;padding:6px 8px;color:var(--ink-soft);font-weight:600;">Android</th>
+      </tr></thead>
+      <tbody>
+        ${recentDates.map(d => `
+          <tr style="border-top:1px solid var(--border);">
+            <td style="padding:6px 8px 6px 0;">${d}</td>
+            <td style="padding:6px 8px;">${byDate[d].ios ?? '—'}</td>
+            <td style="padding:6px 8px;">${byDate[d].android ?? '—'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  ` : '';
 }
 
 /* ---------- All Students: every student across every church, one flat list ---------- */
