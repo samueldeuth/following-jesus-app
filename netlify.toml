@@ -68,3 +68,15 @@
 # for the one-time "Scheduled" push mode.
 [functions."send-recurring-push-notifications"]
   schedule = "0 8 * * *"
+
+# Runs once a day. Pulls yesterday-minus-2 from App Store Connect's
+# Sales Reports (Apple's own daily numbers aren't final until about
+# two days after the fact -- see the function's own comments).
+[functions."scheduled-fetch-apple-downloads"]
+  schedule = "0 13 * * *"
+
+# Runs once a day. Re-pulls the whole current month's installs CSV from
+# Google Play's Cloud Storage bucket each time, so Google's own 1-2 day
+# reporting lag corrects itself automatically without any extra logic.
+[functions."scheduled-fetch-android-downloads"]
+  schedule = "0 13 * * *"
