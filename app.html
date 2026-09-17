@@ -6046,22 +6046,19 @@ async function getFreeCourseId() {
 
 // "Disciples made through this app" is a live count of real Following
 // Jesus course completions (certificates), not an incrementally-
-// maintained tally. This used to increment on two different, narrower
-// events instead -- finishing the app's own internal Essentials flow, or
-// completing a leader-checked milestone checklist -- neither of which is
-// "finished the actual course." A live count against the shared
-// certificates table naturally covers every path to finishing the real
-// course: through the app's guided flow, or just going through the
-// course directly on the website, for any church (or no church), since
-// certificates is one table both surfaces write to. No church_id filter
-// here on purpose -- every completion of this course counts, regardless
-// of which church (or none) the student belongs to.
+// maintained tally, plus a one-time historical backfill (Sep 2026,
+// see legacy_course_completions) from the old platform's export --
+// every white-labeled church's own completions from before this app
+// tracked them, plus the main course's own pre-tracking history. The
+// backfilled number is a permanent floor that live completions keep
+// stacking on top of going forward, exactly as they did before the
+// backfill existed -- see get_global_disciple_count() for the actual
+// combined total.
 async function getGlobalDiscipleCount() {
   return cachedFetch('globalDiscipleCount', async () => {
-    const courseId = await getFreeCourseId();
-    if (!courseId) return 0;
-    const { count } = await supabaseClient.from('certificates').select('id', { count: 'exact', head: true }).eq('course_id', courseId);
-    return count || 0;
+    const { data, error } = await supabaseClient.rpc('get_global_disciple_count');
+    if (error) return 0;
+    return data || 0;
   });
 }
 

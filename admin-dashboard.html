@@ -3719,6 +3719,18 @@ async function renderChurchStudents(churchId){
   const currentAdmins = churchId ? await fetchChurchAdmins(churchId) : [];
   const pendingStudents = churchId ? await fetchPendingStudents(churchId) : [];
   const contactInviteStatus = churchId ? await fetchContactInviteStatus(churchId) : null;
+  // One-time historical backfill (Sep 2026, see legacy_course_completions)
+  // from the old platform's export -- only meaningful for a specific,
+  // real church, never for the "No Church Assigned" bucket (that bucket
+  // has no counterpart in the old export, so blending in any legacy
+  // number there would misattribute it). Live completions keep stacking
+  // on top of this exactly like the global Disciples Made counter does.
+  let legacyCompletions = 0;
+  if (churchId) {
+    const { data: legacyRow } = await supabaseClient.from('legacy_course_completions').select('legacy_completions').eq('church_id', churchId);
+    legacyCompletions = (legacyRow || []).reduce((sum, r) => sum + (r.legacy_completions || 0), 0);
+  }
+  const liveCompletedCount = churchRows.filter(r => r.completed_at).length;
 
   const leaderIds = groups.map(g => g.leader_id).filter(Boolean);
   let leaderNameById = {};
@@ -3767,6 +3779,12 @@ async function renderChurchStudents(churchId){
     <div class="back-link" id="back-to-churches">&larr; All Churches</div>
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">${church ? church.name : 'No Church Assigned'}</h2>
     <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:14px;">${rows.length} student${rows.length===1?'':'s'}</p>
+    ${churchId ? `
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+      <div class="summary-card"><div class="num">${activeCount}</div><div class="label">Active Students</div><div class="sub">${churchRows.length} total all-time</div></div>
+      <div class="summary-card"><div class="num">${liveCompletedCount + legacyCompletions}</div><div class="label">Finished a Course</div>${legacyCompletions ? `<div class="sub">includes ${legacyCompletions} from before this dashboard tracked it</div>` : ''}</div>
+    </div>
+    ` : ''}
     <div style="display:flex;gap:6px;margin-bottom:14px;">
       <button class="mini-btn ${studentViewMode==='active'?'active':''}" id="student-mode-active-btn">Active (${activeCount})</button>
       <button class="mini-btn ${studentViewMode==='archived'?'active':''}" id="student-mode-archived-btn">Archived (${archivedCount})</button>
