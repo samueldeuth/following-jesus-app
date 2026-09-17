@@ -90,7 +90,12 @@ async function getGoogleAccessToken(key) {
   const sign = crypto.createSign('RSA-SHA256');
   sign.update(signingInput);
   sign.end();
-  const signature = sign.sign(key.private_key);
+  // Parsing the PEM into a KeyObject first (rather than handing sign()
+  // the raw string) avoids an "unsupported" DECODER error seen on
+  // Node 24's OpenSSL when signing straight from a string key -- same
+  // fix as the Apple function's identical pattern.
+  const keyObject = crypto.createPrivateKey(key.private_key);
+  const signature = sign.sign(keyObject);
   const assertion = `${signingInput}.${base64url(signature)}`;
 
   const response = await fetch('https://oauth2.googleapis.com/token', {

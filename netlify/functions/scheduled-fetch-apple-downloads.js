@@ -98,8 +98,12 @@ function buildAppleJwt(creds) {
   sign.update(signingInput);
   sign.end();
   // Apple wants a raw (IEEE P1363) ES256 signature, not the DER format
-  // Node produces by default.
-  const signature = sign.sign({ key: creds.APP_STORE_CONNECT_PRIVATE_KEY, dsaEncoding: 'ieee-p1363' });
+  // Node produces by default. Explicitly parsing the PEM into a
+  // KeyObject first (rather than handing sign() the raw string) avoids
+  // an "unsupported" DECODER error seen on Node 24's OpenSSL when
+  // signing straight from a string key.
+  const keyObject = crypto.createPrivateKey(creds.APP_STORE_CONNECT_PRIVATE_KEY);
+  const signature = sign.sign({ key: keyObject, dsaEncoding: 'ieee-p1363' });
   return `${signingInput}.${base64url(signature)}`;
 }
 
