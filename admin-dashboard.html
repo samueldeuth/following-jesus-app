@@ -1251,7 +1251,9 @@ function renderChurchesOverview(){
   const totalActive = allRows.filter(r => r.status !== 'archived').length;
   const totalCompleted = allRows.filter(r => !!r.completed_at).length;
 
-  const churchRowsHtml = allChurches.map(ch => {
+  const liveChurches = allChurches.filter(ch => !['draft', 'archived'].includes(ch.course_status || 'live'));
+
+  const churchRowsHtml = liveChurches.map(ch => {
     const churchRows = allRows.filter(r => r.church_id === ch.id && r.status !== 'archived');
     const pct = churchRows.length
       ? Math.round(churchRows.reduce((sum,r) => sum + (r.total_items ? r.items_completed/r.total_items : 0), 0) / churchRows.length * 100)
