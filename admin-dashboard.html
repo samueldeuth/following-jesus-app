@@ -2403,25 +2403,36 @@ async function loadAppDownloadStats(){
     byDate[r.stat_date] = byDate[r.stat_date] || {};
     byDate[r.stat_date][r.platform] = r.downloads;
   });
-  const recentDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a)).slice(0, 14);
+  const recentDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a)).slice(0, 7);
 
+  // Collapsed by default, same <details>/<summary> pattern used for
+  // student session history elsewhere in this dashboard -- native
+  // browser toggle, no JS wiring needed.
   tableEl.innerHTML = recentDates.length ? `
-    <table style="width:100%;font-size:13px;border-collapse:collapse;">
-      <thead><tr>
-        <th style="text-align:left;padding:6px 8px 6px 0;color:var(--ink-soft);font-weight:600;">Date</th>
-        <th style="text-align:left;padding:6px 8px;color:var(--ink-soft);font-weight:600;">iOS</th>
-        <th style="text-align:left;padding:6px 8px;color:var(--ink-soft);font-weight:600;">Android</th>
-      </tr></thead>
-      <tbody>
-        ${recentDates.map(d => `
-          <tr style="border-top:1px solid var(--border);">
-            <td style="padding:6px 8px 6px 0;">${d}</td>
-            <td style="padding:6px 8px;">${byDate[d].ios ?? '—'}</td>
-            <td style="padding:6px 8px;">${byDate[d].android ?? '—'}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
+    <details class="session-group">
+      <summary>
+        <span>Last 7 Days</span>
+        <span class="session-progress">Daily downloads <span class="chevron">›</span></span>
+      </summary>
+      <div class="session-group-body" style="padding:12px 18px;">
+        <table style="width:100%;font-size:13px;border-collapse:collapse;">
+          <thead><tr>
+            <th style="text-align:left;padding:6px 8px 6px 0;color:var(--ink-soft);font-weight:600;">Date</th>
+            <th style="text-align:left;padding:6px 8px;color:var(--ink-soft);font-weight:600;">iOS</th>
+            <th style="text-align:left;padding:6px 8px;color:var(--ink-soft);font-weight:600;">Android</th>
+          </tr></thead>
+          <tbody>
+            ${recentDates.map(d => `
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:6px 8px 6px 0;">${d}</td>
+                <td style="padding:6px 8px;">${byDate[d].ios ?? '—'}</td>
+                <td style="padding:6px 8px;">${byDate[d].android ?? '—'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </details>
   ` : '';
 }
 
