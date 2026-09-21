@@ -168,6 +168,7 @@
   tbody tr:last-child td{border-bottom:none;}
   tbody tr.clickable{cursor:pointer;}
   .summary-card.clickable{cursor:pointer;}
+  .summary-card.emphasis{background:color-mix(in srgb, var(--blue) 10%, var(--bg-soft));}
   tbody tr.clickable:hover{background:var(--bg-soft);}
   thead th.sortable-col:hover{color:var(--ink);}
   .student-name{font-weight:600;}
@@ -2393,9 +2394,9 @@ async function loadAppDownloadStats(){
   const totalAllTime = sum(iosRows) + sum(androidRows);
 
   summaryEl.innerHTML = `
-    <div class="summary-card"><div class="num">${totalLast30.toLocaleString()}</div><div class="label">Total Downloads (30 days)</div><div class="sub">${totalAllTime.toLocaleString()} all-time tracked</div></div>
     <div class="summary-card"><div class="num">${iosLast30.toLocaleString()}</div><div class="label">iOS Downloads (30 days)</div><div class="sub">${sum(iosRows).toLocaleString()} all-time tracked</div></div>
     <div class="summary-card"><div class="num">${androidLast30.toLocaleString()}</div><div class="label">Android Downloads (30 days)</div><div class="sub">${sum(androidRows).toLocaleString()} all-time tracked</div></div>
+    <div class="summary-card emphasis"><div class="num">${totalLast30.toLocaleString()}</div><div class="label">Total Downloads (30 days)</div><div class="sub">${totalAllTime.toLocaleString()} all-time tracked</div></div>
   `;
 
   const byDate = {};
