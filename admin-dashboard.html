@@ -1909,13 +1909,11 @@ function renderPushNotifications(){
       <div id="app-download-table"></div>
     </div>
 
-    <h3 style="font-family:'Space Grotesk',sans-serif;font-size:19px;margin:0 0 4px;">Push Notifications</h3>
+    <h3 style="font-family:'Space Grotesk',sans-serif;font-size:19px;margin:0 0 4px;display:flex;align-items:center;gap:6px;">Push Notifications
+      <button type="button" class="info-icon-btn" data-info="Reaches everyone who has opened the Following Jesus app on their phone -- not people who've only ever used a course. Good for announcing new features, blog posts, or reading plans, or nudging people to turn on Verse of the Day or try Share the Gospel.">i</button>
+    </h3>
     <p style="font-size:13px;margin:0 0 20px;padding:8px 12px;background:var(--bg-soft);border-radius:6px;max-width:520px;" id="push-audience-count">Checking how many people currently have push notifications enabled…</p>
     <div class="card" style="margin-bottom:20px;max-width:520px;">
-      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 14px;">
-        Reaches everyone who has opened the Following Jesus app on their phone -- not people who've only ever used a course.
-        Good for announcing new features, blog posts, or reading plans, or nudging people to turn on Verse of the Day or try Share the Gospel.
-      </p>
       <input type="text" id="push-title-input" placeholder="Title (e.g. New reading plan available!)" maxlength="65" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg-soft);">
       <textarea id="push-message-input" placeholder="Message" maxlength="150" rows="3" style="width:100%;margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;background:var(--bg-soft);"></textarea>
       <label style="font-size:13px;color:var(--ink-soft);display:block;margin-bottom:4px;">Where should tapping this take them? (optional)</label>
