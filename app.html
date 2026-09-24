@@ -2404,6 +2404,8 @@
       <button type="button" class="jesus-cta" id="shareGoodNewsBtn" style="background:#c89b3c;border:none;color:#0a0a0a;">Share the Good News →</button>
 
       <button type="button" class="jesus-cta" id="startDiscipleshipBtn">Start Your Discipleship Journey →</button>
+
+      <button type="button" class="jesus-cta" id="shareJesusPageBtn">Share This Page →</button>
     </section>
 
     <!-- These 4 render as additional full-height "screens" alongside the
@@ -2563,6 +2565,31 @@
   }
   document.getElementById('becomeDiscipleBannerBtn').addEventListener('click', openBecomeDiscipleFlow);
   document.getElementById('startDiscipleshipBtn').addEventListener('click', openBecomeDiscipleFlow);
+  document.getElementById('shareJesusPageBtn').addEventListener('click', async () => {
+    const url = 'https://followingjesus.com/who-is-jesus.html';
+    const shareData = {
+      title: 'Who Is Jesus?',
+      text: 'A personal introduction to who Jesus is.',
+      url
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (e) {
+        // Same reasoning as the gospel card share button: AbortError just
+        // means the person closed the share sheet themselves -- nothing
+        // to fall back to for that case, only genuine failures should.
+        if (e && e.name === 'AbortError') return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      alert('Link copied! Paste it anywhere to share.');
+    } catch (e) {
+      alert(url);
+    }
+  });
   // Deferred via setTimeout(...,0) rather than calling getGlobalDiscipleCount
   // directly here -- this code runs during initial page setup, BEFORE the
   // 'const supabaseClient = ...' declaration further down in this same
