@@ -1571,10 +1571,9 @@ async function renderChurchDirectory(){
 
   document.getElementById('content').innerHTML = `
     <div style="text-align:left;">
-    <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">Church Directory</h2>
-    <p style="font-size:13px;margin:0 0 20px;padding:8px 12px;background:var(--bg-soft);border-radius:6px;max-width:640px;">
-      Every physical church location shown in the app's "Find a Church" feature. Course customers sync in here automatically once approved -- add anyone else directly below, whether they're a book customer or just a church you want to feature.
-    </p>
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;display:flex;align-items:center;gap:6px;">Church Directory
+      <button type="button" class="info-icon-btn" data-info="Every physical church location shown in the app's &quot;Find a Church&quot; feature. Course customers sync in here automatically once approved -- add anyone else directly below, whether they're a book customer or just a church you want to feature.">i</button>
+    </h2>
     <p style="font-size:13px;margin:0 0 20px;padding:8px 12px;background:var(--bg-soft);border-radius:6px;max-width:640px;" id="church-directory-count">Loading total…</p>
 
     <div class="card" style="margin-bottom:20px;max-width:640px;">
@@ -1637,6 +1636,7 @@ async function renderChurchDirectory(){
       statusEl.textContent = 'Could not add: ' + e.message;
     }
   });
+  initInfoTooltips();
 }
 
 let allDirectoryRows = [];

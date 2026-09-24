@@ -3709,72 +3709,11 @@
   }
 
   // ---------- Share the Gospel ----------
-  // Quotes are World English Bible (WEB) — the same public-domain
-  // translation used throughout the Bible tab, safe to reproduce in full.
-  // Worth a quick read-through against the actual text before this goes
-  // live, same as anything quoted from memory rather than fetched live.
-  const GOSPEL_CARDS_POOL = [
-    {
-      id: 'loved',
-      title: 'You Are Loved',
-      message: 'For God so loved the world, that he gave his one and only Son, that whoever believes in him should not perish, but have eternal life.',
-      ref: 'John 3:16'
-    },
-    {
-      id: 'hope',
-      title: 'There Is Hope',
-      message: 'If you will confess with your mouth the Lord Jesus, and believe in your heart that God raised him from the dead, you will be saved.',
-      ref: 'Romans 10:9'
-    },
-    {
-      id: 'newlife',
-      title: 'A New Life Is Possible',
-      message: 'If anyone is in Christ, he is a new creation. The old things have passed away. Behold, all things have become new.',
-      ref: '2 Corinthians 5:17'
-    },
-    {
-      id: 'calling',
-      title: "He's Calling You",
-      message: 'Come to me, all you who labor and are heavily burdened, and I will give you rest.',
-      ref: 'Matthew 11:28'
-    },
-    {
-      id: 'life',
-      title: 'Eternal Life Is a Gift',
-      message: 'One who believes in the Son has eternal life.',
-      ref: 'John 3:36'
-    },
-    {
-      id: 'grace',
-      title: 'Saved by Grace',
-      message: 'By grace you have been saved through faith, and that not of yourselves; it is the gift of God, not of works, that no one would boast.',
-      ref: 'Ephesians 2:8-9'
-    },
-    {
-      id: 'gift',
-      title: 'A Free Gift',
-      message: 'The wages of sin is death, but the free gift of God is eternal life in Christ Jesus our Lord.',
-      ref: 'Romans 6:23'
-    },
-    {
-      id: 'way',
-      title: 'The Way, the Truth, the Life',
-      message: 'I am the way, the truth, and the life. No one comes to the Father, except through me.',
-      ref: 'John 14:6'
-    },
-    {
-      id: 'forgiven',
-      title: 'Fully Forgiven',
-      message: 'If we confess our sins, he is faithful and righteous to forgive us the sins, and to cleanse us from all unrighteousness.',
-      ref: '1 John 1:9'
-    },
-    {
-      id: 'knock',
-      title: "He's Knocking",
-      message: 'Behold, I stand at the door and knock. If anyone hears my voice and opens the door, then I will come in to him.',
-      ref: 'Revelation 3:20'
-    }
-  ];
+  // The verse pool itself now lives in VERSE_OF_DAY_LIST further below
+  // (see loadTodaysGospelCards) -- this used to be its own hand-written
+  // set of 10 title+verse pairs, replaced so there's real day-to-day
+  // variety across hundreds of verses instead of the same 10 repeating
+  // every 10 days.
 
   const GOSPEL_CARDS_PER_WEEK = 5;
 
@@ -3840,15 +3779,66 @@
   ];
 
 
-  function getWeeklyGospelCards() {
-    const poolSize = GOSPEL_CARDS_POOL.length;
-    const weekIndex = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
-    const startIdx = (weekIndex * GOSPEL_CARDS_PER_WEEK) % poolSize;
-    const selected = [];
+  // Changed again from the original 10-card themed pool to the same
+  // 458-reference list Verse of the Day already uses (VERSE_OF_DAY_LIST,
+  // declared further below) -- reusing that exact array rather than
+  // copying it, so there's still only one list to ever update. Unlike
+  // the old pool, these references have no pre-written title or verse
+  // text of their own: the wording is fetched live from bible-api.com,
+  // same as Verse of the Day's own card, and there's no theme title at
+  // all anymore -- see loadTodaysGospelCards() below, which does the
+  // actual fetching and resolves each day's picks into the same
+  // {id, ref, message} shape drawGospelCard already expects.
+  //
+  // Same "slide forward by GOSPEL_CARDS_PER_WEEK each day" idea as
+  // before, but with 458 entries instead of 10 this can safely advance
+  // by a full 5 each day (no overlap needed to avoid fast repeats) --
+  // the whole list still takes about 92 days to cycle through once.
+  function todaysGospelRefIndexes() {
+    const poolSize = VERSE_OF_DAY_LIST.length;
+    const dayIndex = Math.floor(daysBetween(VERSE_OF_DAY_EPOCH, todayISODate()));
+    const startIdx = (((dayIndex * GOSPEL_CARDS_PER_WEEK) % poolSize) + poolSize) % poolSize;
+    const indexes = [];
     for (let i = 0; i < GOSPEL_CARDS_PER_WEEK; i++) {
-      selected.push(GOSPEL_CARDS_POOL[(startIdx + i) % poolSize]);
+      indexes.push((startIdx + i) % poolSize);
     }
-    return selected;
+    return indexes;
+  }
+
+  // Resolved once per day (see renderGospelGrid) and reused for the
+  // rest of that session rather than re-fetched on every interaction --
+  // openGospelCardPreview below looks cards up from here by id.
+  let todaysGospelCards = [];
+
+  async function fetchGospelVerseText(bibleRef) {
+    const [id, ...rest] = bibleRef.split(' ');
+    try {
+      const res = await fetch(`https://bible-api.com/${id}+${rest.join(' ')}?translation=web`);
+      if (!res.ok) throw new Error(`bible-api.com returned ${res.status}`);
+      const data = await res.json();
+      const text = (data.text || '').trim().replace(/\s+/g, ' ');
+      if (!text) throw new Error('empty verse text');
+      return text;
+    } catch (err) {
+      return null; // caller supplies fallback wording
+    }
+  }
+
+  async function loadTodaysGospelCards() {
+    const indexes = todaysGospelRefIndexes();
+    const cards = await Promise.all(indexes.map(async (idx) => {
+      const bibleRef = VERSE_OF_DAY_LIST[idx];
+      const [bookId, ...rest] = bibleRef.split(' ');
+      const chapterVersePart = rest.join(' ');
+      const text = await fetchGospelVerseText(bibleRef);
+      return {
+        id: bibleRef.replace(/[^A-Z0-9]/gi, '-'),
+        ref: `${bookName(bookId).toUpperCase()} ${chapterVersePart}`,
+        message: text || 'Open this reference in the Bible tab to read it in full.'
+      };
+    }));
+    todaysGospelCards = cards;
+    return cards;
   }
 
   function wrapCanvasText(ctx, text, maxWidth) {
@@ -3868,27 +3858,27 @@
     return lines;
   }
 
-  // Same-week key for everyone (not per-user) -- doesn't need to be a
-  // strictly correct ISO week number, just needs to change once a week,
-  // on the same day, for every visitor, so a given card's photo rotates
-  // in sync rather than on a rolling per-visitor basis.
-  function currentWeekKey() {
+  // Same-day key for everyone (not per-user) -- doesn't need to be
+  // anything fancy, just needs to change once a day, on the same day,
+  // for every visitor, so a given card's photo rotates in sync rather
+  // than on a rolling per-visitor basis. Still passed to the backend
+  // as the "week" query param (see natureBackgroundUrlForCard below) --
+  // that function just treats it as an opaque cache/variety key, so
+  // renaming the param itself isn't needed, only what value it holds.
+  function currentDayKey() {
     const now = new Date();
-    const jan1 = new Date(now.getFullYear(), 0, 1);
-    const days = Math.floor((now - jan1) / 86400000);
-    const week = Math.ceil((days + jan1.getDay() + 1) / 7);
-    return `${now.getFullYear()}-W${week}`;
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   }
 
   // Fetches a real nature photo from the get-nature-photo function, which
   // proxies Pexels' free API server-side — see that file's comments for
   // why this needs to be a backend function rather than loading directly
-  // from Pexels in the browser. Same seed (a card's id) + same week
+  // from Pexels in the browser. Same seed (a card's id) + same day
   // always gets the same photo, so a given verse's background stays put
-  // within a week but rotates to something new each week -- matches the
-  // same weekly cadence as the Verse of the Day notification setting.
+  // for that one day and rotates to something new the next -- matches
+  // the same daily cadence the card selection itself now uses.
   function natureBackgroundUrlForCard(cardId) {
-    return `/.netlify/functions/get-nature-photo?seed=${encodeURIComponent(cardId)}&week=${encodeURIComponent(currentWeekKey())}`;
+    return `/.netlify/functions/get-nature-photo?seed=${encodeURIComponent(cardId)}&week=${encodeURIComponent(currentDayKey())}`;
   }
 
   function loadImage(src) {
@@ -3954,13 +3944,15 @@
     const accentY = height * 0.12;
     ctx.fillStyle = '#c89b3c';
     ctx.fillRect(width / 2 - 40, accentY, 80, 5);
-
-    ctx.fillStyle = '#c89b3c';
-    ctx.font = '700 34px Archivo, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText(card.title.toUpperCase(), width / 2, accentY + 80);
 
+    // Title intentionally not drawn here -- the shared image itself now
+    // shows only the verse text, its reference, and the Following Jesus
+    // footer. The title still appears in-app on the browsing list above
+    // (see the gospel-card-title render below) so people can tell the
+    // cards apart while choosing, but the exported image stays focused
+    // on the verse itself rather than an added label.
     ctx.fillStyle = '#ffffff';
     ctx.font = '500 50px Fraunces, serif';
     const lines = wrapCanvasText(ctx, card.message, width - 160);
@@ -5279,7 +5271,7 @@
       const file = new File([blob], `${card.id}-${format}.png`, { type: 'image/png' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
-          await navigator.share({ files: [file], title: card.title, text: `${card.message} — ${card.ref}` });
+          await navigator.share({ files: [file], title: 'Following Jesus', text: `${card.message} — ${card.ref}` });
           awardBadgeIfSignedIn('gospel_sharer');
           return;
         } catch (e) {
@@ -5303,15 +5295,15 @@
     }, 'image/png', 0.95);
   }
 
-  function renderGospelGrid() {
-    const cards = getWeeklyGospelCards();
+  async function renderGospelGrid() {
     const body = document.getElementById('gospelModalBody');
+    body.innerHTML = `<p class="dm-p">Loading today's verses…</p>`;
+    const cards = await loadTodaysGospelCards();
     body.innerHTML = `
-      <p class="dm-p">This week's set — tap any card to preview and share it, in square or story size, to your social media, in a text, or wherever you'd like. New cards rotate in each week.</p>
+      <p class="dm-p">Today's set — tap any card to preview and share it, in square or story size, to your social media, in a text, or wherever you'd like. New verses rotate in each day.</p>
       <div class="gospel-grid">
         ${cards.map(c => `
           <button type="button" class="gospel-card-preview" data-card="${c.id}">
-            <div class="gospel-card-title">${escapeHtmlMain(c.title)}</div>
             <div class="gospel-card-message">${escapeHtmlMain(c.message)}</div>
             <div class="gospel-card-ref">${escapeHtmlMain(c.ref)}</div>
           </button>
@@ -5521,7 +5513,7 @@
   }
 
   function openGospelCardPreview(cardId) {
-    const card = GOSPEL_CARDS_POOL.find(c => c.id === cardId);
+    const card = todaysGospelCards.find(c => c.id === cardId);
     if (!card) return;
     let currentFormat = 'square';
     let currentBackground = 'nature';
