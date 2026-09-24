@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /leader
+Disallow: /leader-approval
+Disallow: /admin-invite
+Disallow: /course-reminder-unsubscribe
+Disallow: /general-email-unsubscribe
+
+Sitemap: https://followingjesus.com/sitemap.xml
