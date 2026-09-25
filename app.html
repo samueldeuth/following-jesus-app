@@ -6718,8 +6718,35 @@ document.addEventListener('visibilitychange', async () => {
 // it right now", never a guarantee, and the checks below are about being
 // a good citizen about when to ask, not about forcing a prompt through.
 const REVIEW_MIN_INTERVAL_DAYS = 90;
+
+// Median injects its native bridge object asynchronously -- it isn't
+// necessarily present the instant this script starts running, especially
+// on a cold launch straight from tapping a notification. The existing
+// badge-celebration trigger never hit this, since it only ever checks for
+// median.appreview after several awaited Supabase calls plus its own
+// 900ms delay, by which point the bridge has always had time to load. The
+// two open-count/recurring triggers and the admin-review-reminder tap
+// handler below all run right at script start with no such natural
+// delay, so they poll for up to a few seconds before concluding the
+// plugin genuinely isn't there, rather than checking once, instantly, and
+// giving up.
+function waitForMedianAppReview(maxWaitMs) {
+  return new Promise(resolve => {
+    const start = Date.now();
+    (function poll() {
+      if (typeof median !== 'undefined' && median && median.appreview && typeof median.appreview.prompt === 'function') {
+        resolve(true);
+        return;
+      }
+      if (Date.now() - start >= maxWaitMs) { resolve(false); return; }
+      setTimeout(poll, 250);
+    })();
+  });
+}
+
 async function maybeTriggerReviewPrompt(milestoneKey) {
-  if (typeof median === 'undefined' || !median || !median.appreview || typeof median.appreview.prompt !== 'function') return;
+  const medianReady = await waitForMedianAppReview(4000);
+  if (!medianReady) return;
 
   const lastShown = await dSafeGet('reviewPromptLastShown');
   const daysSinceLastShown = lastShown ? (Date.now() - new Date(lastShown).getTime()) / 86400000 : Infinity;
@@ -6758,9 +6785,10 @@ async function maybeTriggerReviewPrompt(milestoneKey) {
 // reviewPromptLastShown afterward so the *automatic* system doesn't turn
 // around and immediately pile on with a milestone prompt right after
 // this one already asked.
-(function checkAdminReviewReminderTap() {
+(async function checkAdminReviewReminderTap() {
   if (!window.pendingReviewPrompt) return;
-  if (typeof median === 'undefined' || !median || !median.appreview || typeof median.appreview.prompt !== 'function') return;
+  const medianReady = await waitForMedianAppReview(4000);
+  if (!medianReady) return;
   dSafeSet('reviewPromptLastShown', new Date().toISOString());
   median.appreview.prompt();
   // Tags this device with when it last acted on one of these
