@@ -6789,22 +6789,17 @@ async function maybeTriggerReviewPrompt(milestoneKey) {
 async function triggerAdminReviewReminderTap() {
   const medianReady = await waitForMedianAppReview(4000);
   if (!medianReady) {
-    // TEMPORARY diagnostic -- every theory so far (cold launch vs. warm
-    // resume, hash vs. query string) has failed to explain a silent
-    // no-op here, which points at median.appreview simply not existing
-    // in the currently-installed build (e.g. the App Review plugin was
-    // never added/enabled in Median App Studio, or was added after this
-    // build was compiled -- a native capability, not something a web
-    // file update can retroactively add). This alert turns that silent
-    // failure into an on-device answer instead of another guess. Safe
-    // to remove once median.appreview is confirmed present.
-    if (typeof median === 'undefined' || !median) {
-      alert('[Review Prompt Debug] The median object was not found at all after waiting 4 seconds.');
-    } else if (!median.appreview) {
-      alert('[Review Prompt Debug] median exists, but median.appreview is missing -- the App Review plugin likely needs to be added/enabled in Median App Studio, then the app rebuilt.');
-    } else {
-      alert('[Review Prompt Debug] median.appreview exists, but .prompt is not a function.');
-    }
+    // Confirmed root cause (2026-09): median.appreview doesn't exist on
+    // the currently-installed build because the App Review plugin was
+    // never added in Median App Studio -- a native capability gap, not a
+    // code bug, and not something this web file can fix on its own. That
+    // plugin requires an Essential-tier Median plan (we're on Starter);
+    // upgrading is on hold until the subscriber base grows (see project
+    // notes). Until then this silently no-ops for real users instead of
+    // showing a debug alert -- log only, so a tap on the admin-sent
+    // reminder just does nothing visible rather than surfacing internal
+    // diagnostics on someone's phone.
+    console.log('[review-prompt] median.appreview unavailable -- App Review plugin not yet added in Median App Studio (Essential tier required, currently on Starter).');
     return;
   }
   dSafeSet('reviewPromptLastShown', new Date().toISOString());
