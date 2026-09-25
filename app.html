@@ -10510,6 +10510,18 @@ async function renderDiscipleshipApp() {
   }
 
   window.addEventListener('popstate', restoreTabFromUrl);
+  // popstate alone misses one real case: Median resuming an already-
+  // running/backgrounded app (not a fresh reload) by navigating straight
+  // to a new hash on the URL that's already loaded. Setting location.hash
+  // like that fires 'hashchange', never 'popstate' -- so without this,
+  // tapping a push notification while the app was merely backgrounded
+  // (not fully closed) silently updated the address bar and did nothing
+  // else, for every hash-based push destination (#good-news, #gospel,
+  // #review-prompt, etc.), not just one of them. Both listeners calling
+  // the same function is safe -- restoreTabFromUrl always reads the
+  // current hash fresh each time, so a redundant call is a no-op, not a
+  // double-fire.
+  window.addEventListener('hashchange', restoreTabFromUrl);
   restoreTabFromUrl(); // Picks up a bookmarked/refreshed hash on initial load
 
   buttons.forEach(btn => {
