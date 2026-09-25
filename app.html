@@ -3065,6 +3065,11 @@
   // again every time afterward (completeOAuthIfPending, which
   // actually finishes saving the account, never got the chance to run).
   window.pendingJoinCode = new URLSearchParams(window.location.search).get('join');
+  // Same query-string convention as pendingJoinCode above -- set by
+  // Median's targetUrl navigation when someone taps the admin-triggered
+  // "Rate & Review Reminder" push (admin-dashboard.html's App page).
+  // Actually acted on further down, once median/dSafeSet are available.
+  window.pendingReviewPrompt = new URLSearchParams(window.location.search).get('reviewPrompt') === '1';
   if (window.pendingJoinCode) {
     setTimeout(() => {
       hideMainScreens();
@@ -6740,6 +6745,35 @@ async function maybeTriggerReviewPrompt(milestoneKey) {
   await dSafeSet('appOpenCount', count);
   if (count === 3) maybeTriggerReviewPrompt('open3');
   maybeTriggerReviewPrompt('recurring');
+})();
+
+// Fires when this specific push (the one-click "Rate & Review Reminder"
+// button on admin-dashboard.html's App page) is tapped -- Median loads
+// this exact query string via the notification's own targetUrl, so this
+// runs on the resulting cold load (window.pendingReviewPrompt, set
+// above). Deliberately bypasses maybeTriggerReviewPrompt's 90-day
+// cooldown and one-time-milestone bookkeeping: this is Samuel choosing
+// to ask everyone right now, not one of the automatic triggers, so it
+// always calls the native prompt directly. It still records
+// reviewPromptLastShown afterward so the *automatic* system doesn't turn
+// around and immediately pile on with a milestone prompt right after
+// this one already asked.
+(function checkAdminReviewReminderTap() {
+  if (!window.pendingReviewPrompt) return;
+  if (typeof median === 'undefined' || !median || !median.appreview || typeof median.appreview.prompt !== 'function') return;
+  dSafeSet('reviewPromptLastShown', new Date().toISOString());
+  median.appreview.prompt();
+  // Tags this device with when it last acted on one of these
+  // admin-sent reminders, so admin-send-push-notification.js's
+  // reviewReminder mode can filter it out of the *next* send for 7
+  // days. There's no recipient list returned from a broadcast send to
+  // tag people from the server side afterward -- this is why the 7-day
+  // check tracks actual opens of the reminder, not just inclusion in a
+  // past send. median.onesignal only exists in the real wrapped app,
+  // same guard as elsewhere in this file.
+  if (median.onesignal && median.onesignal.tags && typeof median.onesignal.tags.setTags === 'function') {
+    median.onesignal.tags.setTags({ tags: { rate_reminder_sent_at: String(Math.floor(Date.now() / 1000)) } }).catch(() => {});
+  }
 })();
 
 // Badges are awarded from several different places -- some client-
