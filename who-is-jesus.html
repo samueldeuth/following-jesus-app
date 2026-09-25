@@ -53,6 +53,9 @@
     --white: #ffffff;
     --ink-soft: #57534d;
     --ember: #c89b3c;
+    --ink-heavy: rgba(10,10,10,0.82);
+    --ink-mid: rgba(10,10,10,0.75);
+    --ink-light: rgba(10,10,10,0.7);
     --font-display: 'Archivo', sans-serif;
     --font-serif: 'Fraunces', serif;
     --font-body: 'Inter', sans-serif;
@@ -112,7 +115,8 @@
   .pull {
     margin: 32px 0 0;
     padding: 26px 24px;
-    background: var(--white);
+    background: rgba(200,155,60,0.08);
+    border: 1px solid rgba(200,155,60,0.25);
     border-radius: 10px;
     font-family: var(--font-serif);
     font-style: italic;
@@ -135,7 +139,7 @@
     margin-top: 12px;
     font-size: 15px;
     line-height: 1.7;
-    color: rgba(10,10,10,0.82);
+    color: var(--ink-heavy);
   }
   .verse {
     margin-top: 18px;
@@ -145,7 +149,7 @@
     font-style: italic;
     font-size: 15.5px;
     line-height: 1.55;
-    color: rgba(10,10,10,0.7);
+    color: var(--ink-light);
   }
   .verse span { display: block; font-family: var(--font-body); font-style: normal; font-size: 11.5px; font-weight: 600; color: var(--ink-soft); margin-top: 8px; }
 
@@ -156,7 +160,7 @@
     border: 1px solid rgba(200,155,60,0.25);
     border-radius: 10px;
   }
-  .prayer p { margin: 0; font-size: 14.5px; color: rgba(10,10,10,0.75); line-height: 1.55; }
+  .prayer p { margin: 0; font-size: 14.5px; color: var(--ink-mid); line-height: 1.55; }
   .prayer-text {
     margin-top: 16px;
     font-family: var(--font-serif);
@@ -169,7 +173,7 @@
   .app-cta {
     margin-top: 44px;
     padding: 32px 24px;
-    background: var(--black);
+    background: #0a0a0a;
     border-radius: 12px;
     text-align: center;
   }
@@ -177,7 +181,7 @@
     font-family: var(--font-serif);
     font-weight: 500;
     font-size: 22px;
-    color: var(--white);
+    color: #ffffff;
     margin: 0 0 10px;
   }
   .app-cta p {
@@ -206,7 +210,7 @@
   }
   .store-links a.secondary {
     background: transparent;
-    color: var(--white);
+    color: #ffffff;
     border: 1px solid rgba(255,255,255,0.3);
   }
 
@@ -224,6 +228,9 @@
       --black: #f6f4ef;
       --white: #232230;
       --ink-soft: #a39f96;
+      --ink-heavy: rgba(246,244,239,0.82);
+      --ink-mid: rgba(246,244,239,0.75);
+      --ink-light: rgba(246,244,239,0.7);
     }
   }
   :root[data-theme="dark"] {
@@ -231,6 +238,9 @@
     --black: #f6f4ef;
     --white: #232230;
     --ink-soft: #a39f96;
+    --ink-heavy: rgba(246,244,239,0.82);
+    --ink-mid: rgba(246,244,239,0.75);
+    --ink-light: rgba(246,244,239,0.7);
   }
 </style>
 </head>
