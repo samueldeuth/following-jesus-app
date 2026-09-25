@@ -2387,13 +2387,16 @@ function renderPushNotifications(){
       body: JSON.stringify({
         title: 'Enjoying Following Jesus?',
         message: 'Would you take a minute to rate us? It really helps other people find the app.',
-        // ?reviewPrompt=1 is what app.html's checkAdminReviewReminderTap
-        // watches for on load -- see that function's own comment for why
-        // this doesn't route through the app's own automatic review
-        // system. Included on the test send too, so tapping it on your
-        // own phone exercises the exact same code path a real recipient
-        // would hit.
-        url: 'https://followingjesus.com/app?reviewPrompt=1',
+        // #review-prompt (a hash, not a query string -- Median's targetUrl
+        // navigation only reliably preserves the hash-based destinations
+        // this app already uses everywhere else, like #good-news) is what
+        // app.html's restoreTabFromUrl watches for on load, which calls
+        // triggerAdminReviewReminderTap -- see that function's own comment
+        // for why this doesn't route through the app's automatic review
+        // system. Included on the test send too, so tapping it on your own
+        // phone exercises the exact same code path a real recipient would
+        // hit.
+        url: 'https://followingjesus.com/app#review-prompt',
         reviewReminder: true,
         testOnly: !!testOnly
       })

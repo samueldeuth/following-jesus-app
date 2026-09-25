@@ -3065,11 +3065,6 @@
   // again every time afterward (completeOAuthIfPending, which
   // actually finishes saving the account, never got the chance to run).
   window.pendingJoinCode = new URLSearchParams(window.location.search).get('join');
-  // Same query-string convention as pendingJoinCode above -- set by
-  // Median's targetUrl navigation when someone taps the admin-triggered
-  // "Rate & Review Reminder" push (admin-dashboard.html's App page).
-  // Actually acted on further down, once median/dSafeSet are available.
-  window.pendingReviewPrompt = new URLSearchParams(window.location.search).get('reviewPrompt') === '1';
   if (window.pendingJoinCode) {
     setTimeout(() => {
       hideMainScreens();
@@ -6775,18 +6770,23 @@ async function maybeTriggerReviewPrompt(milestoneKey) {
 })();
 
 // Fires when this specific push (the one-click "Rate & Review Reminder"
-// button on admin-dashboard.html's App page) is tapped -- Median loads
-// this exact query string via the notification's own targetUrl, so this
-// runs on the resulting cold load (window.pendingReviewPrompt, set
-// above). Deliberately bypasses maybeTriggerReviewPrompt's 90-day
+// button on admin-dashboard.html's App page) is tapped. Called from the
+// #review-prompt case in restoreTabFromUrl, near the bottom of this file
+// -- NOT read from a query string. An earlier version used
+// ?reviewPrompt=1, but every other push destination in this app
+// (#good-news, #gospel, #player, etc.) uses a URL hash, never a query
+// string, and that's the one mechanism actually confirmed to survive
+// Median's targetUrl in-app navigation -- the query-string version
+// landed on the plain default screen with the param silently dropped,
+// which is exactly the "it just opens the app" symptom that showed this
+// was wrong. Deliberately bypasses maybeTriggerReviewPrompt's 90-day
 // cooldown and one-time-milestone bookkeeping: this is Samuel choosing
 // to ask everyone right now, not one of the automatic triggers, so it
 // always calls the native prompt directly. It still records
 // reviewPromptLastShown afterward so the *automatic* system doesn't turn
 // around and immediately pile on with a milestone prompt right after
 // this one already asked.
-(async function checkAdminReviewReminderTap() {
-  if (!window.pendingReviewPrompt) return;
+async function triggerAdminReviewReminderTap() {
   const medianReady = await waitForMedianAppReview(4000);
   if (!medianReady) return;
   dSafeSet('reviewPromptLastShown', new Date().toISOString());
@@ -6802,7 +6802,7 @@ async function maybeTriggerReviewPrompt(milestoneKey) {
   if (median.onesignal && median.onesignal.tags && typeof median.onesignal.tags.setTags === 'function') {
     median.onesignal.tags.setTags({ tags: { rate_reminder_sent_at: String(Math.floor(Date.now() / 1000)) } }).catch(() => {});
   }
-})();
+}
 
 // Badges are awarded from several different places -- some client-
 // triggered (reading plan progress, gospel sharing), most entirely
@@ -10452,6 +10452,16 @@ async function renderDiscipleshipApp() {
       document.getElementById('goodNewsModal').classList.add('open');
       renderGoodNewsGrid();
       return;
+    }
+    if (hash === 'review-prompt') {
+      // No modal of its own -- fire the side effect (see
+      // triggerAdminReviewReminderTap's own comment for why this is a
+      // hash, not a query string), clear it from the visible URL so a
+      // later refresh on this same load doesn't retrigger it, and fall
+      // through to the normal default screen below like any other
+      // unrecognized hash would.
+      triggerAdminReviewReminderTap();
+      history.replaceState({}, '', window.location.pathname);
     }
     if (hash.startsWith('article/')) {
       const articleId = hash.slice('article/'.length);
