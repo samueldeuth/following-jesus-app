@@ -6788,7 +6788,25 @@ async function maybeTriggerReviewPrompt(milestoneKey) {
 // this one already asked.
 async function triggerAdminReviewReminderTap() {
   const medianReady = await waitForMedianAppReview(4000);
-  if (!medianReady) return;
+  if (!medianReady) {
+    // TEMPORARY diagnostic -- every theory so far (cold launch vs. warm
+    // resume, hash vs. query string) has failed to explain a silent
+    // no-op here, which points at median.appreview simply not existing
+    // in the currently-installed build (e.g. the App Review plugin was
+    // never added/enabled in Median App Studio, or was added after this
+    // build was compiled -- a native capability, not something a web
+    // file update can retroactively add). This alert turns that silent
+    // failure into an on-device answer instead of another guess. Safe
+    // to remove once median.appreview is confirmed present.
+    if (typeof median === 'undefined' || !median) {
+      alert('[Review Prompt Debug] The median object was not found at all after waiting 4 seconds.');
+    } else if (!median.appreview) {
+      alert('[Review Prompt Debug] median exists, but median.appreview is missing -- the App Review plugin likely needs to be added/enabled in Median App Studio, then the app rebuilt.');
+    } else {
+      alert('[Review Prompt Debug] median.appreview exists, but .prompt is not a function.');
+    }
+    return;
+  }
   dSafeSet('reviewPromptLastShown', new Date().toISOString());
   median.appreview.prompt();
   // Tags this device with when it last acted on one of these
