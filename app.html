@@ -6687,6 +6687,61 @@ document.addEventListener('visibilitychange', async () => {
   } catch (e) { /* best effort -- next foreground or next cold load will catch it */ }
 });
 
+// ---------- App review prompt -- consolidated (Samuel's own trigger list) ----------
+// Every trigger below funnels through this one function, which owns two
+// pieces of device-local state (via dSafeGet/dSafeSet, so it works for
+// anyone using the real wrapped app, signed in or not):
+//   - reviewPromptLastShown: when we last actually called the native
+//     prompt. Nothing fires again inside REVIEW_MIN_INTERVAL_DAYS of
+//     that, regardless of which trigger asks -- this is what turns
+//     "every 3 months" into a real reminder cadence instead of a flood
+//     of prompts if several milestones land close together.
+//   - reviewMilestonesFired: which one-time milestone keys have already
+//     used their single shot, so e.g. "3rd app open" can never fire
+//     twice for the same person. The 'recurring' key deliberately
+//     skips this set, since it's meant to re-fire every ~90 days for as
+//     long as someone keeps using the app.
+// median.appreview only exists inside the real wrapped native app
+// (confirmed against docs.median.co/docs/app-review: the bridge call is
+// median.appreview.prompt(), lowercase) -- never in a plain browser tab
+// -- so this checks for it up front and does nothing outside the real
+// app, rather than throwing or burning a milestone's one-time slot on a
+// prompt that could never have shown anyway. Apple and Google also
+// apply their own OS-level rate limits on top of this (Apple: roughly 3
+// times per 365 days system-wide; Android: a Play-enforced quota) -- so
+// calling median.appreview.prompt() is always "ask if the OS will show
+// it right now", never a guarantee, and the checks below are about being
+// a good citizen about when to ask, not about forcing a prompt through.
+const REVIEW_MIN_INTERVAL_DAYS = 90;
+async function maybeTriggerReviewPrompt(milestoneKey) {
+  if (typeof median === 'undefined' || !median || !median.appreview || typeof median.appreview.prompt !== 'function') return;
+
+  const lastShown = await dSafeGet('reviewPromptLastShown');
+  const daysSinceLastShown = lastShown ? (Date.now() - new Date(lastShown).getTime()) / 86400000 : Infinity;
+  if (daysSinceLastShown < REVIEW_MIN_INTERVAL_DAYS) return;
+
+  if (milestoneKey !== 'recurring') {
+    const fired = new Set((await dSafeGet('reviewMilestonesFired')) || []);
+    if (fired.has(milestoneKey)) return;
+    fired.add(milestoneKey);
+    await dSafeSet('reviewMilestonesFired', [...fired]);
+  }
+
+  await dSafeSet('reviewPromptLastShown', new Date().toISOString());
+  try { median.appreview.prompt(); } catch (e) { console.log('[review-prompt] failed', e); }
+}
+
+// Trigger 1 of 6: after the 3rd time opening the app, and (independently)
+// re-checked on every open for trigger 6, the every-~3-months reminder --
+// device-local count, not gated on sign-in, so it works the same for
+// someone browsing anonymously.
+(async function checkOpenCountReviewTrigger() {
+  const count = ((await dSafeGet('appOpenCount')) || 0) + 1;
+  await dSafeSet('appOpenCount', count);
+  if (count === 3) maybeTriggerReviewPrompt('open3');
+  maybeTriggerReviewPrompt('recurring');
+})();
+
 // Badges are awarded from several different places -- some client-
 // triggered (reading plan progress, gospel sharing), most entirely
 // server-side via database triggers (course completion, leader
@@ -6698,7 +6753,9 @@ document.addEventListener('visibilitychange', async () => {
 // riding on events that already happen anyway, not a new recurring
 // page-load trigger -- and celebrates whatever's new since last time by
 // comparing against a locally-remembered set of already-seen badge
-// keys.
+// keys. Triggers 2-5 of the review-prompt list (first share, complete
+// the discipleship journey, become a leader, first badge ever) all ride
+// on this same badge-diffing check, just below.
 async function celebrateNewBadgesIfAny(userId) {
   const { data: rows } = await supabaseClient.from('badges_earned').select('badge_key').eq('user_id', userId);
   if (!rows) return;
@@ -6732,20 +6789,22 @@ async function celebrateNewBadgesIfAny(userId) {
       buttonLabel: 'Nice'
     });
 
-    // Prompts for an App Store rating/review right after one of three
-    // specific, genuine accomplishments -- Samuel's own choice, and it
-    // matches Apple's own guidance against tying this to an arbitrary
-    // visit count instead. currentKeys is a fixed snapshot taken before
-    // this loop started, so currentKeys.length === 1 here means this is
-    // truly the very first badge this person has ever earned, not just
-    // the first one processed in this batch. median.appreview only
-    // exists inside the actual wrapped app (never in a plain browser
-    // tab), so this checks for it before calling -- doing nothing
-    // outside the real app, rather than throwing.
+    // Triggers 2, 3, 4, and 5 of the review-prompt list: first badge
+    // ever earned, first successful share (gospel_sharer/good_news_sharer),
+    // completing the discipleship journey (course_graduate), and becoming
+    // a leader (disciple_maker). currentKeys is a fixed snapshot taken
+    // before this loop started, so currentKeys.length === 1 here means
+    // this is truly the very first badge this person has ever earned,
+    // not just the first one processed in this batch.
     const isFirstBadgeEver = currentKeys.length === 1;
-    const isMilestoneBadge = key === 'disciple_maker' || key === 'course_graduate';
-    if ((isFirstBadgeEver || isMilestoneBadge) && typeof median !== 'undefined' && median.appreview) {
-      median.appreview.prompt();
+    if (isFirstBadgeEver) {
+      maybeTriggerReviewPrompt('badge');
+    } else if (key === 'disciple_maker') {
+      maybeTriggerReviewPrompt('leader');
+    } else if (key === 'course_graduate') {
+      maybeTriggerReviewPrompt('journey');
+    } else if (key === 'gospel_sharer' || key === 'good_news_sharer') {
+      maybeTriggerReviewPrompt('share');
     }
   }
 }
@@ -9505,29 +9564,17 @@ async function renderDiscipleshipApp() {
   initNotifToggles();
   initDevoReminderModal();
 
-  // ---------- App review prompt ----------
-  // Uses Median's App Review native plugin. The exact bridge method name
-  // should be double-checked against docs.median.co/docs/app-review once
-  // the plugin is actually installed in the Median App Studio — this call
-  // matches Median's documented naming convention as of when this was built.
-  function triggerAppReviewPrompt() {
-    if (typeof median === 'undefined' || !median) return;
-    try {
-      if (median.appReview && typeof median.appReview.requestReview === 'function') {
-        median.appReview.requestReview();
-      }
-    } catch (e) {
-      console.log('[review-prompt] not available', e);
-    }
-  }
-
-  async function maybeTriggerReviewPrompt() {
-    const already = await dSafeGet('reviewPromptShown');
-    if (already) return;
-    if (!planCompletedDays || planCompletedDays.length < 3) return;
-    await dSafeSet('reviewPromptShown', true);
-    triggerAppReviewPrompt();
-  }
+  // App review prompt: consolidated into one system, defined near
+  // celebrateNewBadgesIfAny above (search "App review prompt --
+  // consolidated"). This old copy called `median.appReview.requestReview()`
+  // -- wrong casing, not a real Median bridge method (confirmed against
+  // docs.median.co/docs/app-review: the actual call is
+  // `median.appreview.prompt()`, lowercase, which the badge-celebration
+  // code already used correctly) -- so it was silently doing nothing on
+  // every reading-plan day completed. Removed rather than fixed in place,
+  // since Samuel's requested trigger list doesn't include a reading-plan
+  // milestone and having two separate review-prompt systems with two
+  // different cooldown/one-time-flag schemes was the harder problem.
 
   // ---------- Embed modal ----------
   const embedModal = document.getElementById('embedModal');
@@ -9981,7 +10028,6 @@ async function renderDiscipleshipApp() {
     const wasComplete = planCompletedDays.includes(planDay);
     if (allDone && !wasComplete) {
       planCompletedDays.push(planDay);
-      maybeTriggerReviewPrompt();
       if (planDay === 1) awardBadgeIfSignedIn('reading_plan_day1');
       if (planCompletedDays.length === 365) awardBadgeIfSignedIn('reading_plan_complete');
     }
