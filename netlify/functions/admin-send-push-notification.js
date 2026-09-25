@@ -84,7 +84,7 @@ exports.handler = async function (event) {
   } catch (e) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON body.' }) };
   }
-  const { title, message, url, deliveryTime, testOnly } = body;
+  const { title, message, url, deliveryTime, testOnly, reviewReminder } = body;
   if (!title || !message) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Missing title or message.' }) };
   }
@@ -116,6 +116,30 @@ exports.handler = async function (event) {
   if (testOnly) {
     notificationPayload.include_external_user_ids = [userId];
     notificationPayload.channel_for_external_user_ids = 'push';
+  } else if (reviewReminder) {
+    // The one-click "Rate & Review Reminder" button on admin-dashboard.html's
+    // App page. Confirmed against OneSignal's own Create Notification docs:
+    // `filters` and `included_segments` are mutually exclusive on the same
+    // request ("Only one targeting method is allowed per message"), so this
+    // branch uses filters instead of the 'Total Subscriptions' segment above.
+    //
+    // Excludes anyone tagged rate_reminder_sent_at within the last 7 days.
+    // That tag is set CLIENT-SIDE, in app.html, the moment someone actually
+    // opens one of these reminders (see checkAdminReviewReminderTap) -- not
+    // set from here after sending. OneSignal's broadcast response gives back
+    // only a recipient COUNT, never a list of which devices were actually
+    // included, so there's no way to tag people from the server side after a
+    // broadcast send. This means the 7-day window tracks actual opens of a
+    // reminder, not just having been included in a past send -- someone who
+    // never taps the notification stays eligible for the next one, which is
+    // the honest tradeoff of not having OneSignal's recipient list to work
+    // with, not an oversight.
+    const cutoffEpochSeconds = Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000);
+    notificationPayload.filters = [
+      { field: 'tag', key: 'rate_reminder_sent_at', relation: 'not_exists' },
+      { operator: 'OR' },
+      { field: 'tag', key: 'rate_reminder_sent_at', relation: '<', value: String(cutoffEpochSeconds) }
+    ];
   } else {
     // 'Subscribed Users' is a commonly-used OneSignal segment name in
     // general, but this specific app's actual "everyone subscribed"
