@@ -1979,7 +1979,10 @@ function renderPushNotifications(){
         <button type="button" class="info-icon-btn" data-info="One click, sends right now to everyone with push enabled -- except anyone who's already opened one of these reminders in the last 7 days, so no one gets asked twice in a week. Tapping the notification opens the app and triggers Apple's or Google's own native rate/review popup directly (which the OS itself may or may not actually show, per its own rate limits).">i</button>
       </h3>
       <p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;">Asks everyone eligible to rate the app on the App Store / Google Play.</p>
-      <button class="mini-btn gold" id="send-review-reminder-btn">Send Rate &amp; Review Reminder</button>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <button class="mini-btn gold" id="send-review-reminder-btn">Send Rate &amp; Review Reminder</button>
+        <button class="mini-btn" id="send-test-review-reminder-btn" type="button" title="Sends only to your own device -- only works if you've personally opened the Following Jesus app on your phone with push enabled">Send Test (to Me Only)</button>
+      </div>
       <span id="review-reminder-status" style="font-size:12.5px;color:var(--ink-soft);display:block;margin-top:8px;"></span>
     </div>
 
@@ -2368,29 +2371,43 @@ function renderPushNotifications(){
   });
 
   const sendReviewReminderBtn = document.getElementById('send-review-reminder-btn');
+  const sendTestReviewReminderBtn = document.getElementById('send-test-review-reminder-btn');
   const reviewReminderStatusEl = document.getElementById('review-reminder-status');
+
+  // Shared by both buttons below -- testOnly targets only the caller's
+  // own device (via admin-send-push-notification.js's existing testOnly
+  // branch, unchanged), so this is the safe way to confirm the native
+  // rate/review popup actually fires on a real device before firing the
+  // real send at everyone eligible.
+  async function sendReviewReminderRequest(testOnly) {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const res = await fetch('/.netlify/functions/admin-send-push-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+      body: JSON.stringify({
+        title: 'Enjoying Following Jesus?',
+        message: 'Would you take a minute to rate us? It really helps other people find the app.',
+        // ?reviewPrompt=1 is what app.html's checkAdminReviewReminderTap
+        // watches for on load -- see that function's own comment for why
+        // this doesn't route through the app's own automatic review
+        // system. Included on the test send too, so tapping it on your
+        // own phone exercises the exact same code path a real recipient
+        // would hit.
+        url: 'https://followingjesus.com/app?reviewPrompt=1',
+        reviewReminder: true,
+        testOnly: !!testOnly
+      })
+    });
+    return { res, result: await res.json() };
+  }
+
   if (sendReviewReminderBtn) sendReviewReminderBtn.addEventListener('click', async () => {
     if (!confirm('Send the Rate & Review reminder to everyone eligible right now?\n\nAnyone who already opened one of these reminders in the last 7 days is automatically skipped.')) return;
     sendReviewReminderBtn.disabled = true;
     sendReviewReminderBtn.textContent = 'Sending…';
     reviewReminderStatusEl.textContent = '';
     try {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      const res = await fetch('/.netlify/functions/admin-send-push-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
-        body: JSON.stringify({
-          title: 'Enjoying Following Jesus?',
-          message: 'Would you take a minute to rate us? It really helps other people find the app.',
-          // ?reviewPrompt=1 is what app.html's checkAdminReviewReminderTap
-          // watches for on load -- see that function's own comment for why
-          // this doesn't route through the app's own automatic review
-          // system.
-          url: 'https://followingjesus.com/app?reviewPrompt=1',
-          reviewReminder: true
-        })
-      });
-      const result = await res.json();
+      const { res, result } = await sendReviewReminderRequest(false);
       if (!res.ok) {
         reviewReminderStatusEl.textContent = 'Could not send: ' + (result.error || res.statusText);
       } else if (result.ok === false) {
@@ -2403,6 +2420,26 @@ function renderPushNotifications(){
     }
     sendReviewReminderBtn.disabled = false;
     sendReviewReminderBtn.textContent = 'Send Rate & Review Reminder';
+  });
+
+  if (sendTestReviewReminderBtn) sendTestReviewReminderBtn.addEventListener('click', async () => {
+    sendTestReviewReminderBtn.disabled = true;
+    sendTestReviewReminderBtn.textContent = 'Sending test…';
+    reviewReminderStatusEl.textContent = '';
+    try {
+      const { res, result } = await sendReviewReminderRequest(true);
+      if (!res.ok) {
+        reviewReminderStatusEl.textContent = 'Could not send: ' + (result.error || res.statusText);
+      } else if (result.recipients === 0) {
+        reviewReminderStatusEl.textContent = result.note || result.error || 'No test device found -- open the app on your own phone first, with push enabled.';
+      } else {
+        reviewReminderStatusEl.textContent = 'Test sent to your device ✓ Tap it on your phone to confirm the rate/review popup actually appears.';
+      }
+    } catch (e) {
+      reviewReminderStatusEl.textContent = 'Could not send: ' + e.message;
+    }
+    sendTestReviewReminderBtn.disabled = false;
+    sendTestReviewReminderBtn.textContent = 'Send Test (to Me Only)';
   });
 }
 
