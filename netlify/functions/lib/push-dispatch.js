@@ -136,6 +136,7 @@ async function runReminders({ now, store, fcm, fetchVerseText = defaultFetchVers
     const res = await fcm.sendMany(items, { concurrency: SEND_CONCURRENCY, deadlineMs });
     stats.sent += res.sent; stats.failed += res.failed;
     for (const [k, v] of Object.entries(res.errors)) stats.errors[k] = (stats.errors[k] || 0) + v;
+    if (res.sample && !stats.sample) stats.sample = res.sample;
     if (res.dead.length) {
       stats.dead += res.dead.length;
       await store.rpc('push_delete_tokens', { p_tokens: res.dead }).catch((e) => log('[push] dead-token cleanup failed:', e.message));
@@ -193,6 +194,7 @@ async function processCampaign(c, { now, store, fcm, deadlineMs, log = console.l
     }));
     const res = await fcm.sendMany(items, { concurrency: SEND_CONCURRENCY, deadlineMs });
     out.sent += res.sent; out.failed += res.failed; out.dead += res.dead.length;
+    if (res.failed && !out.error) out.error = res.sample || JSON.stringify(res.errors);
     if (res.okRefs.length) await store.rpc('push_record_campaign_sends', { p_campaign: c.id, p_device_ids: res.okRefs, p_ok: true });
     if (res.failedRefs.length) await store.rpc('push_record_campaign_sends', { p_campaign: c.id, p_device_ids: res.failedRefs, p_ok: false });
     if (res.dead.length) await store.rpc('push_delete_tokens', { p_tokens: res.dead }).catch((e) => log('[push] dead-token cleanup failed:', e.message));

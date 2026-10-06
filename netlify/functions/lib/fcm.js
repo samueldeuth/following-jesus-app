@@ -179,6 +179,7 @@ async function sendMany(items, { concurrency = 40, fetchImpl, sleepImpl, sa, dea
         out.failedRefs.push(item.ref);
         if (r.dead) out.dead.push(item.token);
         out.errors[r.code] = (out.errors[r.code] || 0) + 1;
+        if (!out.sample) out.sample = String(r.code) + ': ' + String(r.message || '').slice(0, 300);
       }
     }
   }
