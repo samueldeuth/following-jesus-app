@@ -9662,9 +9662,19 @@ async function renderDiscipleshipApp() {
   // app's existing hash router (restoreTabFromUrl) does the rest.
   function handlePushTap(data) {
     try {
-      const d = data && (data.data || data);
-      const url = d && (d.targetUrl || d.targeturl);
-      if (!url || typeof url !== 'string' || !/^https:\/\/followingjesus\.com\/app/i.test(url)) return;
+      pushDiag('TAP received -> ' + pushShape(data) + (data && data.data && typeof data.data === 'object' ? ' data=' + pushShape(data.data) : ''));
+      // The destination can arrive under different names/nesting depending on the
+      // platform and how the push was delivered -- check every likely place.
+      const KEYS = ['targetUrl', 'targeturl', 'target_url', 'url', 'link', 'deeplink', 'deepLink'];
+      const holders = [data, data && data.data, data && data.notification && data.notification.data, data && data.payload, data && data.userInfo, data && data.extras];
+      let url = null;
+      for (const h of holders) {
+        if (!h || typeof h !== 'object') continue;
+        for (const k of KEYS) { if (typeof h[k] === 'string' && h[k]) { url = h[k]; break; } }
+        if (url) break;
+      }
+      pushDiag('TAP url=' + url);
+      if (!url || !/^https:\/\/followingjesus\.com\/app/i.test(url)) return;
       const i = url.indexOf('#');
       if (i === -1) return;
       const hash = url.slice(i);
@@ -9673,7 +9683,7 @@ async function renderDiscipleshipApp() {
       } else {
         window.location.hash = hash;
       }
-    } catch (e) { console.log('[notifications] tap handling failed', e); }
+    } catch (e) { console.log('[notifications] tap handling failed', e); pushDiag('TAP error ' + (e && e.message)); }
   }
   // The Median bridge can finish loading after this script runs, so this is
   // attempted both now and again from initPush (it only ever attaches once).
@@ -9682,7 +9692,7 @@ async function renderDiscipleshipApp() {
     if (pushTapListenerAttached || !medianBridgeAvailable()) return;
     const clicked = median.firebaseMessaging.notificationClicked;
     if (clicked && typeof clicked.addListener === 'function') {
-      try { clicked.addListener(handlePushTap); pushTapListenerAttached = true; } catch (e) { /* ignore */ }
+      try { clicked.addListener(handlePushTap); pushTapListenerAttached = true; pushDiag('tap listener attached'); } catch (e) { pushDiag('tap listener FAILED ' + (e && e.message)); }
     }
   }
   ensurePushTapListener();
