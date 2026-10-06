@@ -1,322 +1,38 @@
 // netlify/functions/send-daily-notifications.js
 //
-// Runs on a daily schedule (see netlify.toml) and sends pushes via
-// OneSignal's REST API for three notification types:
-//   1. "Reading reminder"        — to devices tagged reading_reminder=true
-//   2. "Verse of the day"        — to devices tagged verse_of_day=true
-//   3. "52-Day plan reminders"   — one per plan, to devices tagged
-//                                  devo_reminder_<planKey>=true (see
-//                                  DEVOTIONAL_PLAN_TITLES below for the
-//                                  6 plan keys)
+// Scheduled every 15 minutes (see netlify.toml). This used to send the
+// reading / verse / 52-day-plan pushes through OneSignal once a day.
+// Now it only KICKS OFF the real work, which lives in
+// push-dispatch-background.js (a background function that can run for up to
+// 15 minutes, enough for 100,000+ devices) -- scheduled functions themselves
+// are cut off after ~30 seconds.
 //
-// #1 and #2 pull today's reading from the same 365-day plan embedded in the
-// app (reading-plan-data.js), using the same Jan-1-is-Day-1 calendar math
-// as the app's "Follow the Calendar" mode — so the notification always
-// matches what someone sees if they open the app that day.
+// If the kick-off request fails for any reason, it falls back to doing a
+// time-boxed run right here so a reminder slot is never silently lost.
 //
-// #3 (added) is the "simple" version discussed and deliberately does NOT
-// try to know which day of that plan someone's actually on — the 52-day
-// plans are self-paced and their progress lives in each device's own
-// local/synced storage (app.html's dSafeGet/dSafeSet), not anywhere this
-// server-side function can read. So unlike #1 and #2, this is just a
-// plain "don't forget your [Plan Title] reading today" nudge, using the
-// exact same per-(hour, frequency) tag-filtered send as the other two —
-// only the tag prefix and plan title differ per plan. If per-day
-// awareness is ever wanted, that requires moving 52-day plan progress
-// somewhere server-readable first (e.g. Supabase) — a bigger change than
-// this file alone.
-//
-// PER-USER FREQUENCY + TIME (added — see app.html's notification settings
-// UI): each device carries three OneSignal tags per notification type
-// instead of one, e.g. for the reading reminder:
-//   reading_reminder        'true' | 'false'  (existing on/off)
-//   reading_reminder_freq   'daily' | 'weekly' (weekly = every Monday)
-//   reading_reminder_hour   '06'..'21'         (2-digit 24h, device-local)
-// This function loops every supported hour (NOTIF_HOURS below) and fires
-// one OneSignal call per (hour, frequency) combination, using
-// delayed_option: 'timezone' + delivery_time_of_day so OneSignal delivers
-// each push at that hour in each recipient's OWN device timezone — someone
-// in one timezone and someone in another both get "7AM" at their actual
-// 7AM, from a single daily trigger of this function.
-//
-// REAL VERSE TEXT (added): the "Verse of the Day" push shows actual
-// verse words in the body, not just a citation + "open the app" prompt.
-// Pulled from bible-api.com — the same public API app.html already uses
-// for its Bible reader — using the same default translation ('web', the
-// first/default option in app.html's translationSelect) for consistency.
-//
-// CURATED LIST (replaces the old reading-plan stand-in): the verse shown
-// now comes from verse-of-day-data.js — a hand-curated list of 458
-// unique references pulled from Samuel's own six "52 Bible Verses"
-// devotionals plus additional hand-picked verses, deduplicated. This
-// replaces the previous pragmatic stand-in (first verse of the day's
-// first reading-plan passage), which often produced verses that read
-// oddly in isolation since the reading plan wasn't curated with
-// standalone readability in mind. See verse-of-day-data.js for the full
-// list, the day-index formula, and why it's a single source of truth
-// shared with app.html's Today-tab card — the two MUST stay in sync, or
-// this reintroduces the exact "card doesn't match the notification" bug
-// this feature was originally built to fix. The reading-plan-based
-// "Reading reminder" push (a separate notification type, below) is
-// untouched by this change and still uses READING_PLAN as before.
-// If bible-api.com is unreachable or the reference can't be parsed,
-// falls back to a citation-only body rather than failing the whole send.
-//
-// KNOWN TRADEOFF (not a bug): OneSignal's timezone delivery skips a
-// recipient to the next day if their chosen local hour has already
-// passed by the time this function's daily trigger actually runs. For a
-// once-a-day cron this is unavoidable for someone at an extreme enough
-// UTC offset — OneSignal's own guidance is to trigger at least 24h ahead
-// of the target window. Not worth engineering around for this app's
-// mostly-US-timezone audience; documented here so it isn't mistaken for
-// a bug if someone's reminder is occasionally a day late.
-//
-// REQUIRES two environment variables to be set in the Netlify dashboard
-// (Site settings -> Environment variables) before this will actually send
-// anything — see the bottom of this file for exactly what to enter:
-//   ONESIGNAL_APP_ID
-//   ONESIGNAL_REST_API_KEY
+// REQUIRES env vars: REMINDER_FUNCTION_SECRET, FIREBASE_SERVICE_ACCOUNT_JSON,
+// SUPABASE_SERVICE_ROLE_KEY.
 
-const { READING_PLAN, BOOKS } = require('./reading-plan-data.js');
-const { todaysVerseRef } = require('./verse-of-day-data.js');
-
-function bookName(id) {
-  const b = BOOKS.find(x => x[0] === id);
-  return b ? b[1] : id;
-}
-function refLabel(ref) {
-  const [id, ...rest] = ref.split(' ');
-  return `${bookName(id)} ${rest.join(' ')}`;
-}
-
-// Pulls just the first verse's text for a reading-plan ref like
-// 'jhn 15:1-8' or 'jhn 15' (no verse given, defaults to verse 1). Returns
-// null (not a throw) on any failure, so the caller can cleanly fall back
-// to the citation-only body instead of the whole send failing.
-async function fetchFirstVerseText(ref, translation) {
-  const [id, ...rest] = ref.split(' ');
-  const chapterVersePart = rest.join(' ');
-  const match = chapterVersePart.match(/^(\d+)(?::(\d+))?/);
-  if (!match) return null;
-  const chapter = match[1];
-  const verse = match[2] || '1';
-  try {
-    const res = await fetch(`https://bible-api.com/${id}+${chapter}:${verse}?translation=${translation}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    const text = (data.text || '').trim().replace(/\s+/g, ' ');
-    return text || null;
-  } catch (err) {
-    return null;
-  }
-}
-
-// Push notification bodies get cut off by the OS anyway, but truncating
-// ourselves keeps it clean (cuts on a word boundary, adds an ellipsis)
-// rather than leaving that entirely up to however each platform clips it.
-function truncateForPush(text, maxLen) {
-  if (!text || text.length <= maxLen) return text;
-  return text.slice(0, maxLen).replace(/\s+\S*$/, '') + '…';
-}
-
-function todayISODate() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-function daysBetween(isoA, isoB) {
-  const a = new Date(isoA + 'T00:00:00Z');
-  const b = new Date(isoB + 'T00:00:00Z');
-  return Math.round((b - a) / 86400000);
-}
-function calendarPlanDay() {
-  const jan1 = `${new Date().getUTCFullYear()}-01-01`;
-  const diff = daysBetween(jan1, todayISODate()) + 1;
-  return Math.min(Math.max(diff, 1), 365);
-}
-
-// The 6 devotional plan keys and titles, matching DEVOTIONAL_PLANS in
-// app.html exactly (key names must match, since the OneSignal tag for
-// each is built as `devo_reminder_${key}`) -- only the title is needed
-// here, since this reminder never quotes plan content itself.
-const DEVOTIONAL_PLAN_TITLES = {
-  hope: '52 Bible Verses on Hope',
-  miracles: '52 Bible Verses on Miracles',
-  new_believer: '52 Bible Verses for New Believers',
-  kids: '52 Bible Verses to Teach Your Kids',
-  men: '52 Bible Verses for Men',
-  youth: '52 Bible Verses for Youth'
-};
-
-// Hour options offered in the app's picker (6AM-9PM local). Keep in sync
-// with NOTIF_HOURS in app.html's notification settings script — adding an
-// hour there without adding it here means that hour silently never sends.
-const NOTIF_HOURS = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
-
-function hourTo12Label(h) {
-  // OneSignal's delivery_time_of_day expects e.g. "9:00AM" (no space).
-  const period = h < 12 ? 'AM' : 'PM';
-  let h12 = h % 12; if (h12 === 0) h12 = 12;
-  return `${h12}:00${period}`;
-}
-
-async function sendTimedPush({ appId, apiKey, tagKey, hourValue, freqValue, title, body, targetUrl }) {
-  const hourStr = String(hourValue).padStart(2, '0');
-  const res = await fetch('https://onesignal.com/api/v1/notifications', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Authorization': `Basic ${apiKey}`
-    },
-    body: JSON.stringify({
-      app_id: appId,
-      filters: [
-        { field: 'tag', key: tagKey, relation: '=', value: 'true' },
-        { field: 'tag', key: `${tagKey}_freq`, relation: '=', value: freqValue },
-        { field: 'tag', key: `${tagKey}_hour`, relation: '=', value: hourStr }
-      ],
-      delayed_option: 'timezone',
-      delivery_time_of_day: hourTo12Label(hourValue),
-      headings: { en: title },
-      contents: { en: body },
-      // Median reads this from the notification's "Additional Data" to
-      // fully navigate the app (not a popup browser) when tapped -- see
-      // https://docs.median.co/docs/open-url-from-notification. The
-      // Bible tab URL relies on app.html's existing hash router
-      // (TAB_HASH_MAP/restoreTabFromUrl), which already runs on a fresh
-      // cold-start load, so no client-side changes were needed for this.
-      data: targetUrl ? { targetUrl } : undefined
-    })
-  });
-  const data = await res.json().catch(() => ({}));
-  return { ok: res.ok, status: res.status, hour: hourStr, freq: freqValue, data };
-}
+const { triggerBackground } = require('./lib/push-admin');
 
 exports.handler = async function () {
-  const appId = process.env.ONESIGNAL_APP_ID;
-  const apiKey = process.env.ONESIGNAL_REST_API_KEY;
-
-  if (!appId || !apiKey) {
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        skipped: true,
-        reason: 'ONESIGNAL_APP_ID / ONESIGNAL_REST_API_KEY not set yet in Netlify environment variables.'
-      })
-    };
+  if (!process.env.REMINDER_FUNCTION_SECRET) {
+    return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'REMINDER_FUNCTION_SECRET not set' }) };
   }
-
-  const day = calendarPlanDay();
-  const refs = READING_PLAN[day - 1] || [];
-  const readingText = refs.map(refLabel).join(', ');
-
-  // Verse of the Day now comes from the curated list (verse-of-day-data.js),
-  // NOT from the reading plan -- this is a deliberately separate reference
-  // from `refs` above, which still only feeds the Reading Reminder push.
-  const verseOfDayRef = todaysVerseRef(); // e.g. "PSA 91:1"
-  const verseOfDayLabel = refLabel(verseOfDayRef);
-
-  // 'web' matches app.html's translationSelect default (first/no explicit
-  // "selected" option) so the verse text matches what someone would see
-  // in-app if they opened today's verse themselves.
-  const verseText = await fetchFirstVerseText(verseOfDayRef, 'web');
-  // Reference is appended after truncation so it's never itself cut off --
-  // knowing *which verse* this is matters more than a few extra words of
-  // the quote, especially since the full text is one tap away in the app.
-  const verseBody = verseText
-    ? `${truncateForPush(verseText, 130)} \u2014 ${verseOfDayLabel}`
-    : `Open today's verse from ${verseOfDayLabel} →`;
-
-  // Weekly-cadence users only get included on the day their weekly send
-  // is due. Fixed to Monday (UTC calendar day) for now — no per-user
-  // day-of-week choice yet, just daily vs weekly.
-  const isWeeklySendDay = new Date().getUTCDay() === 1; // 1 = Monday
-  const freqsToSend = isWeeklySendDay ? ['daily', 'weekly'] : ['daily'];
-
-  // Deep-link destinations for each notification type, via the app's
-  // existing hash router -- reading reminder opens straight to the
-  // Bible tab (where the reading plan lives), verse notification opens
-  // to the base app URL (Today tab, the app's default landing screen).
-  const READING_TARGET_URL = 'https://followingjesus.com/app#bible';
-  const VERSE_TARGET_URL = 'https://followingjesus.com/app';
-  // 52-day plan reminders open the Plans tab, same hash-router pattern --
-  // there's no per-plan deep link (that would need each plan's own
-  // hash/route in app.html), so this just gets someone to the tab where
-  // all 6 plan cards live; tapping the right one is on them from there.
-  const DEVO_PLAN_TARGET_URL = 'https://followingjesus.com/app#plans';
-
-  const readingTasks = [];
-  const verseTasks = [];
-  const devoPlanTasks = [];
-
-  for (const h of NOTIF_HOURS) {
-    for (const freq of freqsToSend) {
-      readingTasks.push(
-        sendTimedPush({
-          appId, apiKey, tagKey: 'reading_reminder', hourValue: h, freqValue: freq,
-          title: `Day ${day} of 365`,
-          body: `Today's reading: ${readingText}`,
-          targetUrl: READING_TARGET_URL
-        }).catch(err => ({ ok: false, error: err.message, hour: h, freq }))
-      );
-
-      verseTasks.push(
-        sendTimedPush({
-          appId, apiKey, tagKey: 'verse_of_day', hourValue: h, freqValue: freq,
-          title: 'Verse of the Day',
-          body: verseBody,
-          targetUrl: VERSE_TARGET_URL
-        }).catch(err => ({ ok: false, error: err.message, hour: h, freq }))
-      );
-
-      for (const [planKey, planTitle] of Object.entries(DEVOTIONAL_PLAN_TITLES)) {
-        devoPlanTasks.push(
-          sendTimedPush({
-            appId, apiKey, tagKey: `devo_reminder_${planKey}`, hourValue: h, freqValue: freq,
-            title: planTitle,
-            body: `Don't forget today's reading in ${planTitle}!`,
-            targetUrl: DEVO_PLAN_TARGET_URL
-          }).catch(err => ({ ok: false, error: err.message, hour: h, freq, planKey }))
-        );
-      }
+  try {
+    const status = await triggerBackground({});
+    return { statusCode: 200, body: JSON.stringify({ started: true, status }) };
+  } catch (err) {
+    console.error('[send-daily-notifications] background start failed, running inline:', err.message);
+    try {
+      const fcm = require('./lib/fcm');
+      const store = require('./lib/push-store');
+      const { runSlot } = require('./lib/push-dispatch');
+      const result = await runSlot({ store, fcm, budgetMs: 22 * 1000 });
+      return { statusCode: 200, body: JSON.stringify({ started: false, inline: true, result }) };
+    } catch (e2) {
+      console.error('[send-daily-notifications] inline run failed:', e2);
+      return { statusCode: 200, body: JSON.stringify({ started: false, error: e2.message }) };
     }
   }
-
-  const [readingResults, verseResults, devoPlanResults] = await Promise.all([
-    Promise.all(readingTasks),
-    Promise.all(verseTasks),
-    Promise.all(devoPlanTasks)
-  ]);
-
-  const failedReading = readingResults.filter(r => !r.ok);
-  const failedVerse = verseResults.filter(r => !r.ok);
-  const failedDevoPlan = devoPlanResults.filter(r => !r.ok);
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify({
-      day,
-      readingText,
-      verseOfDayRef,
-      verseTextUsed: !!verseText,
-      verseBody,
-      isWeeklySendDay,
-      readingReminder: { sent: readingResults.length, failed: failedReading.length, failures: failedReading },
-      verseOfDay: { sent: verseResults.length, failed: failedVerse.length, failures: failedVerse },
-      devoPlanReminders: { sent: devoPlanResults.length, failed: failedDevoPlan.length, failures: failedDevoPlan }
-    })
-  };
 };
-
-// ---------------------------------------------------------------
-// SETUP CHECKLIST (do this once OneSignal + Median are connected):
-// 1. In your OneSignal dashboard: Settings -> Keys & IDs
-//    - Copy the "OneSignal App ID"      -> Netlify env var ONESIGNAL_APP_ID
-//    - Copy the "REST API Key"          -> Netlify env var ONESIGNAL_REST_API_KEY
-// 2. In Netlify: Site settings -> Environment variables -> add both above
-// 3. Redeploy the site so the function picks up the new env vars
-// 4. This function is scheduled via netlify.toml (see the [functions] block)
-//    -- the exact trigger time matters less now than it used to, since
-//    delivery time is computed per-recipient via delayed_option:
-//    'timezone'. Any consistent once-daily trigger works; see the "KNOWN
-//    TRADEOFF" note above the handler for the one edge case worth knowing.
-// ---------------------------------------------------------------

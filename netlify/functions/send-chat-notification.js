@@ -14,17 +14,21 @@
 // Looks up who should be notified (group leader + members, or the 1:1
 // recipient), excluding the sender and anyone who's turned chat
 // notifications off (profiles.chat_notifications_enabled), then sends a
-// single push targeting exactly those people by their linked external ID
-// -- set client-side via median.onesignal.login(myId) at app start, see
-// app.html's ensureRealIdentity(). This is deliberately NOT a broad
-// tag-filtered send like the verse/reading reminders -- it needs to
-// reach specific people, not a preference segment.
+// single push to every enabled device registered to exactly those people
+// (push_devices.user_id, set by the app's register_push_device call at
+// start). This is deliberately NOT a broad preference-based send like the
+// verse/reading reminders -- it needs to reach specific people.
 //
 // REQUIRES (Netlify env vars):
 //   SUPABASE_ANON_KEY        (hardcoded below, same public key already
 //                             embedded client-side -- not actually secret)
-//   CHAT_NOTIFICATION_SECRET (new -- see add-chat-notifications.sql)
-//   ONESIGNAL_APP_ID, ONESIGNAL_REST_API_KEY (already set)
+//   CHAT_NOTIFICATION_SECRET (already set)
+//   FIREBASE_SERVICE_ACCOUNT_JSON, SUPABASE_SERVICE_ROLE_KEY (new, push via
+//   Firebase Cloud Messaging instead of OneSignal)
+
+const fcm = require('./lib/fcm');
+const store = require('./lib/push-store');
+const { sendToUsers } = require('./lib/push-send-users');
 
 const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
@@ -106,24 +110,20 @@ exports.handler = async (event) => {
     ? `📋 New action: ${truncateForPush(body, 100)}`
     : truncateForPush(body, 140);
 
-  const pushRes = await fetch('https://onesignal.com/api/v1/notifications', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      Authorization: `Basic ${process.env.ONESIGNAL_REST_API_KEY}`,
-    },
-    body: JSON.stringify({
-      app_id: process.env.ONESIGNAL_APP_ID,
-      include_aliases: { external_id: targets.map((t) => t.profile_id) },
-      target_channel: 'push',
-      headings: { en: title },
-      contents: { en: messageBody },
-    }),
-  });
-
-  const pushData = await pushRes.json().catch(() => ({}));
+  let summary;
+  try {
+    summary = await sendToUsers(
+      targets.map((t) => t.profile_id),
+      { title, body: messageBody, data: { targetUrl: 'https://followingjesus.com/app', source: 'chat' } },
+      { store, fcm }
+    );
+  } catch (err) {
+    console.error('Chat push failed:', err);
+    // 200 so Supabase's webhook doesn't keep retrying a message that is already saved.
+    return { statusCode: 200, body: JSON.stringify({ ok: false, notified: targets.length, error: err.message }) };
+  }
   return {
     statusCode: 200,
-    body: JSON.stringify({ ok: pushRes.ok, notified: targets.length, pushData }),
+    body: JSON.stringify({ ok: true, notified: targets.length, devices: summary.devices, sent: summary.sent, failed: summary.failed }),
   };
 };
