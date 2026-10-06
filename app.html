@@ -9560,15 +9560,45 @@ async function renderDiscipleshipApp() {
   }
 
   // askPermission: show the OS "Allow notifications?" prompt if not yet decided.
+  // TEMPORARY on-screen diagnostics (remove once push is confirmed working).
+  function pushDiag(msg) {
+    try {
+      window.__pushDiag = window.__pushDiag || [];
+      window.__pushDiag.push(String(msg));
+      let el = document.getElementById('pushDiagBanner');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'pushDiagBanner';
+        el.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483647;background:#111;color:#0f0;font:11px/1.35 monospace;padding:8px 10px;max-height:40vh;overflow:auto;white-space:pre-wrap;';
+        el.onclick = function () { el.remove(); };
+        document.body.appendChild(el);
+      }
+      el.textContent = 'PUSH DEBUG (tap to hide)\n' + window.__pushDiag.join('\n');
+    } catch (e) {}
+  }
+  function pushShape(r) {
+    try {
+      if (r === null || r === undefined) return String(r);
+      if (typeof r !== 'object') return typeof r + ':' + String(r).slice(0, 8);
+      return '{' + Object.keys(r).map(function (k) {
+        const v = r[k];
+        return k + ':' + (typeof v === 'string' ? (v.length > 12 ? 'str(' + v.length + ')' : JSON.stringify(v)) : JSON.stringify(v));
+      }).join(', ') + '}';
+    } catch (e) { return 'unprintable'; }
+  }
+
   async function registerPushDevice(askPermission) {
     if (!medianBridgeAvailable() || typeof supabaseClient === 'undefined' || !supabaseClient) return false;
     if (pushRegistering) return pushRegistering;
     pushRegistering = (async () => {
       try {
+        pushDiag('start ask=' + askPermission + ' bridge=ok');
         const perm = await fcmCall('checkPermission');
+        pushDiag('checkPermission -> ' + pushShape(perm));
         let granted = !!(perm && perm.granted);
         if (!granted && askPermission) {
           const asked = await fcmCall('requestPermission', {}, 120000);
+          pushDiag('requestPermission -> ' + pushShape(asked));
           granted = !!(asked && asked.granted);
         }
         const previous = await getStoredPushToken();
@@ -9580,10 +9610,12 @@ async function renderDiscipleshipApp() {
           return false;
         }
         let tokenRes = await fcmCall('register');
+        pushDiag('register -> ' + pushShape(tokenRes));
         let token = tokenRes && tokenRes.token;
-        if (!token) { tokenRes = await fcmCall('getToken'); token = tokenRes && tokenRes.token; }
-        if (!token) return false;
+        if (!token) { tokenRes = await fcmCall('getToken'); pushDiag('getToken -> ' + pushShape(tokenRes)); token = tokenRes && tokenRes.token; }
+        if (!token) { pushDiag('NO TOKEN - stopping'); return false; }
         const { error } = await supabaseClient.rpc('register_push_device', { p_token: token, p_platform: pushPlatform(), p_timezone: pushTimezone(), p_enabled: true });
+        pushDiag('register_push_device rpc -> ' + (error ? 'ERROR ' + error.message : 'ok'));
         if (error) { console.log('[notifications] device registration failed', error.message); return false; }
         if (previous && previous !== token) {
           // Token rotated: retire the old row so it can't double-send.
@@ -9593,6 +9625,7 @@ async function renderDiscipleshipApp() {
         await syncPushPrefsNow();
         return true;
       } catch (e) {
+        pushDiag('EXCEPTION ' + (e && e.message));
         console.log('[notifications] registration error', e);
         return false;
       } finally {
@@ -9607,6 +9640,7 @@ async function renderDiscipleshipApp() {
   // OneSignal prompt used to appear); later runs only refresh the token,
   // timezone (follows people who travel) and settings, silently.
   async function initPush() {
+    pushDiag('initPush called; median=' + (typeof median !== 'undefined') + ' fcm=' + (typeof median !== 'undefined' && !!(median && median.firebaseMessaging)) + ' supabase=' + (typeof supabaseClient !== 'undefined' && !!supabaseClient));
     if (!medianBridgeAvailable()) return false;
     ensurePushTapListener();
     const alreadyAsked = await dSafeGet('pushPermissionAsked');
