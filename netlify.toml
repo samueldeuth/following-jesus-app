@@ -12,22 +12,18 @@
   [headers.values]
     Access-Control-Allow-Origin = "*"
 
-# Runs once a day at 8:00 UTC. This is NOT what determines when anyone
-# actually receives their notification -- send-daily-notifications.js
-# uses OneSignal's delayed_option: 'timezone', so each person's push
-# arrives at their own chosen local hour regardless of when this
-# trigger fires. What this trigger's OWN time actually controls is
-# simpler: it just needs to run early enough, in UTC, that OneSignal
-# has same-day lead time for every supported local hour (6am-9pm) across
-# the app's US-timezone audience. The earliest of those, 6am Eastern,
-# falls at 10:00 UTC during EDT -- 8:00 UTC gives a comfortable 2-hour
-# margin ahead of that, so nobody's early-hour choice gets silently
-# pushed to the next day. International users choosing very early local
-# hours (parts of Australia, South Africa) aren't covered by any single
-# fixed trigger time -- see send-daily-notifications.js's own comments
-# for the fuller, options-based fix if that ever becomes worth doing.
+# Runs every 15 minutes. This is the push-notification heartbeat (Firebase
+# Cloud Messaging). Each run asks the database "whose own local clock just
+# reached the hour they chose for their verse / reading / 52-day-plan
+# reminder?" and sends to those phones -- so every person gets their
+# reminder at their OWN local time, same result OneSignal's timezone
+# delivery used to give, from a single trigger. The same run also handles
+# admin-composer pushes (scheduled "deliver at 9:30 in everyone's timezone"
+# sends, and the 08:00 UTC conversion of recurring pushes). This function
+# only STARTS the work (send-daily-notifications.js -> push-dispatch-
+# background.js, which can run up to 15 minutes for very large audiences).
 [functions."send-daily-notifications"]
-  schedule = "0 8 * * *"
+  schedule = "*/15 * * * *"
 
 # Runs once a day -- checks for any church_directory entry that's now
 # 7+ days past its original confirmation email with no response, and
@@ -60,14 +56,9 @@
 [functions."send-weekly-course-reminders"]
   schedule = "0 * * * *"
 
-# Runs once a day, checking which recurring push notifications (see the
-# admin Push Notifications page's "Recurring" mode) are due today.
-# Doesn't need to run more than once a day -- OneSignal's own
-# delayed_option:'timezone' resolves each recipient's own local
-# delivery time from a single daily trigger, same as it already does
-# for the one-time "Scheduled" push mode.
-[functions."send-recurring-push-notifications"]
-  schedule = "0 8 * * *"
+# (send-recurring-push-notifications used to be scheduled here. It is retired:
+# recurring admin pushes are now converted into scheduled campaigns by the
+# 15-minute push heartbeat above, at the 08:00 UTC slot.)
 
 # Runs once a day. Pulls yesterday-minus-2 from App Store Connect's
 # Sales Reports (Apple's own daily numbers aren't final until about

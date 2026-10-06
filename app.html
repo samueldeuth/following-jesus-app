@@ -3681,7 +3681,7 @@
       const btn = document.getElementById('profileVerseOfDayToggle');
       // Reuses the same toggleNotifPref used by the Today tab's own
       // verse-of-day toggle -- both write to the identical notifPrefs
-      // record and OneSignal tag, so this stays correct no matter which
+      // record and server-side reminder settings, so this stays correct no matter which
       // toggle someone actually uses. toggleNotifPref is a window-scoped
       // function declaration from the other <script> block, callable
       // here directly.
@@ -6804,17 +6804,15 @@ async function triggerAdminReviewReminderTap() {
   }
   dSafeSet('reviewPromptLastShown', new Date().toISOString());
   median.appreview.prompt();
-  // Tags this device with when it last acted on one of these
+  // Records on this device's push row when it last acted on one of these
   // admin-sent reminders, so admin-send-push-notification.js's
   // reviewReminder mode can filter it out of the *next* send for 7
   // days. There's no recipient list returned from a broadcast send to
   // tag people from the server side afterward -- this is why the 7-day
   // check tracks actual opens of the reminder, not just inclusion in a
-  // past send. median.onesignal only exists in the real wrapped app,
-  // same guard as elsewhere in this file.
-  if (median.onesignal && median.onesignal.tags && typeof median.onesignal.tags.setTags === 'function') {
-    median.onesignal.tags.setTags({ tags: { rate_reminder_sent_at: String(Math.floor(Date.now() / 1000)) } }).catch(() => {});
-  }
+  // past send. The marker is saved on this device's push_devices row
+  // (see markPushRateReminderTapped, push system below).
+  if (typeof markPushRateReminderTapped === 'function') markPushRateReminderTapped();
 }
 
 // Badges are awarded from several different places -- some client-
@@ -9123,13 +9121,13 @@ async function ensureRealIdentity() {
 // ---------- Entry point: called from renderDiscipleStep() once intent is known ----------
 async function renderDiscipleshipApp() {
   myId = await ensureRealIdentity();
-  // Links this device to the person's real identity in OneSignal so
-  // server-side sends (chat activity push) can target them specifically
-  // by external ID, not just a broad preference-tag segment like the
-  // verse/reading reminders use. Safe to call on every app start, not
-  // just first sign-in -- see Median's own guidance on this.
-  if (typeof median !== 'undefined' && median && median.onesignal && myId) {
-    median.onesignal.login(myId).catch(() => {});
+  // Registers this phone's push token with the server, linked to this
+  // person's real identity, so server-side sends (chat activity push,
+  // leader alerts) can target them specifically and the daily reminders
+  // can fire at their own local time. Safe to call on every app start --
+  // see the push system in the Notifications script block below.
+  if (typeof initPush === 'function' && myId) {
+    initPush().catch(() => {});
   }
   if (window.pendingJoinCode) { topView = 'disciple'; }
   await render();
@@ -9475,31 +9473,189 @@ async function renderDiscipleshipApp() {
 </script>
 
 <script>
-  // ---------- Notifications (Median.co JS Bridge + OneSignal) ----------
+  // ---------- Notifications (Median.co JS Bridge + Firebase Cloud Messaging) ----------
   // These calls only do anything once the app has actually been wrapped by
-  // Median.co with the OneSignal plugin connected. Outside that (this
-  // browser preview, or before that setup is done), they safely no-op.
+  // Median.co with the Firebase Cloud Messaging plugin enabled. Outside that
+  // (this browser preview, or an older app build) they safely no-op.
+  //
+  // How push works now (replaces the old OneSignal tags):
+  //   1. registerPushDevice() asks the OS for permission, gets this phone's
+  //      FCM token from Median, and saves it to Supabase (register_push_device)
+  //      together with the phone's timezone and the signed-in/anonymous user id.
+  //   2. Every reminder choice (on/off, daily/weekly, hour) is also saved to
+  //      Supabase (sync_push_prefs) -- a 15-minute server job sends each
+  //      reminder when the phone's OWN clock reaches the chosen hour.
+  //   3. Tapping a notification opens the screen in its targetUrl hash.
   function medianBridgeAvailable() {
-    return typeof median !== 'undefined' && median && median.onesignal;
+    return typeof median !== 'undefined' && median && median.firebaseMessaging;
   }
 
-  async function setOneSignalTag(tagName, value) {
-    if (!medianBridgeAvailable()) {
-      console.log('[notifications] Median bridge not available yet — tag not sent:', tagName, value);
-      return false;
-    }
+  // Calls a Median firebaseMessaging method that reports back through
+  // {callback}; resolves with its result, or null if the bridge is missing,
+  // errors, or doesn't answer in time (so push problems can never block the app).
+  function fcmCall(method, args, timeoutMs) {
+    return new Promise((resolve) => {
+      if (!medianBridgeAvailable() || typeof median.firebaseMessaging[method] !== 'function') return resolve(null);
+      let finished = false;
+      const finish = (v) => { if (!finished) { finished = true; clearTimeout(timer); resolve(v || null); } };
+      const timer = setTimeout(() => finish(null), timeoutMs || 8000);
+      try {
+        const ret = median.firebaseMessaging[method](Object.assign({}, args || {}, { callback: (r) => finish(r) }));
+        if (ret && typeof ret.then === 'function') ret.then((r) => finish(r)).catch(() => finish(null));
+      } catch (e) {
+        console.log('[notifications] bridge call failed', method, e);
+        finish(null);
+      }
+    });
+  }
+
+  function pushPlatform() {
+    const ua = navigator.userAgent || '';
+    if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
+    if (/Android/i.test(ua)) return 'android';
+    return 'unknown';
+  }
+  function pushTimezone() {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; }
+  }
+
+  const PUSH_PLAN_KEYS = ['hope', 'miracles', 'new_believer', 'kids', 'men', 'youth'];
+  // Turns the saved notifPrefs object into the {kind: {on, freq, hour}} shape
+  // the server stores. Kinds must match send-daily-notifications' kinds.
+  function prefsToServerShape(prefs) {
+    const out = {};
+    const add = (kind, key) => {
+      out[kind] = { on: !!prefs[key], freq: prefs[`${key}Freq`] === 'weekly' ? 'weekly' : 'daily', hour: parseInt(prefs[`${key}Hour`] || '7', 10) };
+    };
+    add('reading_reminder', 'readingReminder');
+    add('verse_of_day', 'verseOfDay');
+    PUSH_PLAN_KEYS.forEach((k) => add(`devo_reminder_${k}`, `devoReminder_${k}`));
+    return out;
+  }
+
+  let pushRegistering = null;
+  let pushPrefsTimer = null;
+
+  async function getStoredPushToken() {
+    try { const v = await dSafeGet('pushToken'); return (typeof v === 'string' && v) ? v : null; } catch (e) { return null; }
+  }
+
+  // Sends all reminder settings to the server (replaces this phone's whole set).
+  async function syncPushPrefsNow() {
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) return false;
+    const token = await getStoredPushToken();
+    if (!token) return false;               // not registered (permission off / not in the app) -- nothing to attach prefs to
     try {
-      const result = await median.onesignal.tags.setTags({ tags: { [tagName]: String(value) } });
-      return !!(result && result.success);
-    } catch (e) {
-      console.log('[notifications] failed to set tag', tagName, e);
-      return false;
+      const prefs = await getNotifPrefs();
+      const { error } = await supabaseClient.rpc('sync_push_prefs', { p_token: token, p_prefs: prefsToServerShape(prefs) });
+      if (error) { console.log('[notifications] prefs sync failed', error.message); return false; }
+      return true;
+    } catch (e) { console.log('[notifications] prefs sync error', e); return false; }
+  }
+  // Settings changes arrive in bursts (toggle + time + frequency) -- wait a
+  // moment and send one update.
+  function schedulePushPrefsSync() {
+    clearTimeout(pushPrefsTimer);
+    pushPrefsTimer = setTimeout(() => { syncPushPrefsNow(); }, 700);
+  }
+
+  // askPermission: show the OS "Allow notifications?" prompt if not yet decided.
+  async function registerPushDevice(askPermission) {
+    if (!medianBridgeAvailable() || typeof supabaseClient === 'undefined' || !supabaseClient) return false;
+    if (pushRegistering) return pushRegistering;
+    pushRegistering = (async () => {
+      try {
+        const perm = await fcmCall('checkPermission');
+        let granted = !!(perm && perm.granted);
+        if (!granted && askPermission) {
+          const asked = await fcmCall('requestPermission', {}, 120000);
+          granted = !!(asked && asked.granted);
+        }
+        const previous = await getStoredPushToken();
+        if (!granted) {
+          // Permission is off: tell the server to stop sending to the token we know about.
+          if (previous) {
+            await supabaseClient.rpc('register_push_device', { p_token: previous, p_platform: pushPlatform(), p_timezone: pushTimezone(), p_enabled: false });
+          }
+          return false;
+        }
+        let tokenRes = await fcmCall('register');
+        let token = tokenRes && tokenRes.token;
+        if (!token) { tokenRes = await fcmCall('getToken'); token = tokenRes && tokenRes.token; }
+        if (!token) return false;
+        const { error } = await supabaseClient.rpc('register_push_device', { p_token: token, p_platform: pushPlatform(), p_timezone: pushTimezone(), p_enabled: true });
+        if (error) { console.log('[notifications] device registration failed', error.message); return false; }
+        if (previous && previous !== token) {
+          // Token rotated: retire the old row so it can't double-send.
+          supabaseClient.rpc('unregister_push_device', { p_token: previous }).then(() => {}, () => {});
+        }
+        await dSafeSet('pushToken', token);
+        await syncPushPrefsNow();
+        return true;
+      } catch (e) {
+        console.log('[notifications] registration error', e);
+        return false;
+      } finally {
+        pushRegistering = null;
+      }
+    })();
+    return pushRegistering;
+  }
+
+  // Called once per app start after the person's identity is known.
+  // First run on a device asks for permission (the same moment the old
+  // OneSignal prompt used to appear); later runs only refresh the token,
+  // timezone (follows people who travel) and settings, silently.
+  async function initPush() {
+    if (!medianBridgeAvailable()) return false;
+    ensurePushTapListener();
+    const alreadyAsked = await dSafeGet('pushPermissionAsked');
+    if (!alreadyAsked) await dSafeSet('pushPermissionAsked', true);
+    return registerPushDevice(!alreadyAsked);
+  }
+
+  // Records that this phone acted on an admin rate/review reminder (used to
+  // skip it in the next reminder for 7 days).
+  async function markPushRateReminderTapped() {
+    try {
+      const token = await getStoredPushToken();
+      if (!token || typeof supabaseClient === 'undefined' || !supabaseClient) return;
+      await supabaseClient.rpc('mark_push_rate_reminder_tapped', { p_token: token });
+    } catch (e) { /* non-critical */ }
+  }
+
+  // Notification tap -> open the screen named in its targetUrl hash. The
+  // app's existing hash router (restoreTabFromUrl) does the rest.
+  function handlePushTap(data) {
+    try {
+      const d = data && (data.data || data);
+      const url = d && (d.targetUrl || d.targeturl);
+      if (!url || typeof url !== 'string' || !/^https:\/\/followingjesus\.com\/app/i.test(url)) return;
+      const i = url.indexOf('#');
+      if (i === -1) return;
+      const hash = url.slice(i);
+      if (window.location.hash === hash) {
+        if (typeof restoreTabFromUrl === 'function') restoreTabFromUrl();
+      } else {
+        window.location.hash = hash;
+      }
+    } catch (e) { console.log('[notifications] tap handling failed', e); }
+  }
+  // The Median bridge can finish loading after this script runs, so this is
+  // attempted both now and again from initPush (it only ever attaches once).
+  let pushTapListenerAttached = false;
+  function ensurePushTapListener() {
+    if (pushTapListenerAttached || !medianBridgeAvailable()) return;
+    const clicked = median.firebaseMessaging.notificationClicked;
+    if (clicked && typeof clicked.addListener === 'function') {
+      try { clicked.addListener(handlePushTap); pushTapListenerAttached = true; } catch (e) { /* ignore */ }
     }
   }
+  ensurePushTapListener();
 
   // Hour options for the time picker, 6AM-9PM local (whatever "local" is
-  // on the device) -- send-daily-notifications.js loops this same range
-  // server-side, so a new hour added here needs adding there too.
+  // on the device). The server accepts any hour 0-23, so adding an hour
+  // here needs no server change.
   const NOTIF_HOURS = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21];
   function notifHourLabel(h) {
     const period = h < 12 ? 'AM' : 'PM';
@@ -9534,16 +9690,12 @@ async function renderDiscipleshipApp() {
     await dSafeSet('notifPrefs', prefs);
   }
 
-  // Pushes all three OneSignal tags for one notification type at once
-  // (enabled bool, frequency, hour) -- called both on every toggle/select
-  // change AND unconditionally on every app load (see initNotifToggles),
-  // so anyone who already had a reminder on before this feature shipped
-  // gets backfilled with the daily/7AM defaults the next time they open
-  // the app, without needing any server-side migration.
+  // Called on every toggle/select change AND unconditionally on every app
+  // load (see initNotifToggles). Settings now live on the server, so this
+  // just schedules one combined sync of ALL reminder settings (the
+  // arguments are kept so none of the existing call sites had to change).
   async function applyNotifTags(prefKey, tagKey, prefs) {
-    await setOneSignalTag(tagKey, prefs[prefKey] ? 'true' : 'false');
-    await setOneSignalTag(`${tagKey}_freq`, prefs[`${prefKey}Freq`]);
-    await setOneSignalTag(`${tagKey}_hour`, prefs[`${prefKey}Hour`]);
+    schedulePushPrefsSync();
   }
 
   async function toggleNotifPref(prefKey, tagKey, btnEl, labelOnEl, settingsRowEl) {
@@ -9552,6 +9704,9 @@ async function renderDiscipleshipApp() {
     prefs[prefKey] = next;
     await saveNotifPrefs(prefs);
     await applyNotifTags(prefKey, tagKey, prefs);
+    // Turning a reminder ON is the natural moment to make sure the OS
+    // permission is granted and this phone is registered.
+    if (next) registerPushDevice(true);
     if (btnEl) btnEl.classList.toggle('on', next);
     if (labelOnEl) labelOnEl.textContent = next ? 'On' : 'Off';
     if (settingsRowEl) settingsRowEl.classList.toggle('show', next);
