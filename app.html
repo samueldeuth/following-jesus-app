@@ -9560,11 +9560,16 @@ async function renderDiscipleshipApp() {
   }
 
   // askPermission: show the OS "Allow notifications?" prompt if not yet decided.
-  // TEMPORARY on-screen diagnostics (remove once push is confirmed working).
+  // Push diagnostics: always recorded in memory (window.__pushDiag); the on-screen
+  // green panel only appears when localStorage.pushDebug === '1' (support use).
   function pushDiag(msg) {
     try {
       window.__pushDiag = window.__pushDiag || [];
       window.__pushDiag.push(String(msg));
+      if (window.__pushDiag.length > 60) window.__pushDiag.shift();
+      let debugOn = false;
+      try { debugOn = window.localStorage && window.localStorage.getItem('pushDebug') === '1'; } catch (e) {}
+      if (!debugOn) return;
       let el = document.getElementById('pushDiagBanner');
       if (!el) {
         el = document.createElement('div');
