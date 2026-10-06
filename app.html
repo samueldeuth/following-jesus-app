@@ -9687,6 +9687,33 @@ async function renderDiscipleshipApp() {
   }
   ensurePushTapListener();
 
+  // Everyone who opens the app registers for push -- signed in or not. The
+  // Median bridge and the database client can finish loading a moment after
+  // this script runs, so wait (up to ~20s) for both. First launch on a phone
+  // shows the system permission prompt; later launches only refresh quietly.
+  (function startPushOnLaunch() {
+    let tries = 0;
+    const attempt = async () => {
+      tries++;
+      if (typeof supabaseClient !== 'undefined' && supabaseClient && medianBridgeAvailable()) {
+        try { await initPush(); } catch (e) { pushDiag('launch init failed: ' + (e && e.message)); }
+        return;
+      }
+      if (tries < 20) { setTimeout(attempt, 1000); }
+      else if (typeof median !== 'undefined') { pushDiag('gave up waiting: fcm=' + !!(median && median.firebaseMessaging) + ' supabase=' + (typeof supabaseClient !== 'undefined' && !!supabaseClient)); }
+    };
+    attempt();
+  })();
+
+  // Coming back to the app: refresh the token/timezone quietly (at most every 6 hours).
+  let lastPushRefreshAt = Date.now();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (Date.now() - lastPushRefreshAt < 6 * 3600 * 1000) return;
+    lastPushRefreshAt = Date.now();
+    if (typeof supabaseClient !== 'undefined' && supabaseClient && medianBridgeAvailable()) registerPushDevice(false).catch(() => {});
+  });
+
   // Hour options for the time picker, 6AM-9PM local (whatever "local" is
   // on the device). The server accepts any hour 0-23, so adding an hour
   // here needs no server change.
