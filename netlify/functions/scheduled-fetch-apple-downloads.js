@@ -1,6 +1,17 @@
 // Runs daily. Pulls the daily Sales Report from App Store Connect
 // (the same report shown in Payments and Financial Reports) and stores
-// this app's total download count for the day in app_download_stats.
+// this app's numbers for the day in app_download_stats:
+//   new_installs = first-time downloads only (what the admin dashboard shows)
+//   reinstalls   = re-downloads (someone installing again, e.g. a new phone)
+//   downloads    = every unit Apple reports, including app updates (legacy column)
+// Apple's "Units" column counts first-time downloads, re-downloads AND
+// updates together, which is what inflated the old numbers. The
+// "Product Type Identifier" column tells them apart: 1/1F/1T/F1 = first-time
+// download, 3/3F/3T/F3 = re-download, 7/7F/7T = update.
+//
+// Each run also fills in older days (BACKFILL_DAYS_PER_RUN at a time,
+// walking backward from the oldest day already done, up to one year back)
+// so the all-time total fills in over the first couple of weeks.
 //
 // Apple's daily sales data isn't considered final until roughly two
 // days after the fact, so this always fetches (and overwrites) the
@@ -115,60 +126,108 @@ function formatDate(d) {
   return d.toISOString().slice(0, 10);
 }
 
+const FIRST_TIME_TYPES = new Set(['1', '1F', '1T', 'F1']);
+const REDOWNLOAD_TYPES = new Set(['3', '3F', '3T', 'F3']);
+const BACKFILL_DAYS_PER_RUN = 15;
+const MAX_HISTORY_DAYS = 360;     // Apple only keeps daily reports for about a year
+const RECENT_DAYS_TO_REFRESH = 3; // re-fetch the last few finalized days so corrections land
+
+async function oldestDoneDate() {
+  const url = `${process.env.SUPABASE_URL}/rest/v1/app_download_stats?platform=eq.ios&new_installs=not.is.null&select=stat_date&order=stat_date.asc&limit=1`;
+  const response = await fetch(url, {
+    headers: {
+      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+    }
+  });
+  if (!response.ok) return null;
+  const rows = await response.json();
+  return rows.length ? rows[0].stat_date : null;
+}
+
+// Fetches one day's report and returns the row to store, or null if Apple
+// returned something unexpected for that day (so one bad day can't stop the rest).
+async function fetchDay(jwt, vendor, dateStr) {
+  const url = `https://api.appstoreconnect.apple.com/v1/salesReports?filter[frequency]=DAILY&filter[reportDate]=${dateStr}&filter[reportType]=SALES&filter[reportSubType]=SUMMARY&filter[vendorNumber]=${vendor}&filter[version]=1_0`;
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${jwt}` } });
+  const now = new Date().toISOString();
+
+  // Apple omits the report entirely on days with zero activity, so a 404
+  // means zero downloads, not an error.
+  if (response.status === 404) {
+    return { platform: 'ios', stat_date: dateStr, downloads: 0, new_installs: 0, reinstalls: 0, fetched_at: now };
+  }
+  if (!response.ok) {
+    const text = await response.text();
+    console.error(`Apple API error ${response.status} for ${dateStr}: ${text}`);
+    return null;
+  }
+
+  const tsv = zlib.gunzipSync(Buffer.from(await response.arrayBuffer())).toString('utf-8');
+  const lines = tsv.split('\n').filter(Boolean);
+  const headers = lines[0].split('\t');
+  const appleIdCol = headers.indexOf('Apple Identifier');
+  const unitsCol = headers.indexOf('Units');
+  const typeCol = headers.indexOf('Product Type Identifier');
+  if (appleIdCol === -1 || unitsCol === -1 || typeCol === -1) {
+    console.error(`Unexpected sales report columns for ${dateStr}: ${headers.join(', ')}`);
+    return null;
+  }
+
+  let total = 0, firstTime = 0, reDownloads = 0;
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split('\t');
+    if (cols[appleIdCol] !== OUR_APPLE_ID) continue;
+    const units = parseInt(cols[unitsCol], 10) || 0;
+    const type = (cols[typeCol] || '').trim();
+    total += units;
+    if (FIRST_TIME_TYPES.has(type)) firstTime += units;
+    else if (REDOWNLOAD_TYPES.has(type)) reDownloads += units;
+  }
+  return { platform: 'ios', stat_date: dateStr, downloads: total, new_installs: firstTime, reinstalls: reDownloads, fetched_at: now };
+}
+
 exports.handler = async () => {
   try {
     const creds = await getAppleCredentials();
     const jwt = buildAppleJwt(creds);
+    const vendor = creds.APP_STORE_CONNECT_VENDOR_NUMBER;
 
-    const reportDate = new Date();
-    reportDate.setUTCDate(reportDate.getUTCDate() - 2);
-    const dateStr = formatDate(reportDate);
+    const dayOffset = (n) => {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() - n);
+      return formatDate(d);
+    };
 
-    const url = `https://api.appstoreconnect.apple.com/v1/salesReports?filter[frequency]=DAILY&filter[reportDate]=${dateStr}&filter[reportType]=SALES&filter[reportSubType]=SUMMARY&filter[vendorNumber]=${creds.APP_STORE_CONNECT_VENDOR_NUMBER}&filter[version]=1_0`;
+    // Recent days (Apple's numbers settle about two days after the fact).
+    const dates = [];
+    for (let n = 2; n < 2 + RECENT_DAYS_TO_REFRESH; n++) dates.push(dayOffset(n));
 
-    const response = await fetch(url, { headers: { Authorization: `Bearer ${jwt}` } });
-
-    if (response.status === 404) {
-      // Apple omits the report entirely on days with zero activity for
-      // this vendor number, rather than returning a report full of
-      // zeros -- so a 404 here means zero downloads, not an error.
-      await upsertDownloadStat(
-        { platform: 'ios', stat_date: dateStr, downloads: 0, fetched_at: new Date().toISOString() }
-      );
-      console.log(`No Apple sales report for ${dateStr} -- recorded 0 downloads.`);
-      return { statusCode: 200, body: `No report for ${dateStr}, recorded 0.` };
+    // Backfill: keep walking backward from the oldest day already done.
+    const oldest = await oldestDoneDate();
+    let startOffset = 2 + RECENT_DAYS_TO_REFRESH;
+    if (oldest) {
+      const msPerDay = 24 * 3600 * 1000;
+      const now = new Date();
+      const todayMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      const oldestOffset = Math.round((todayMidnight - new Date(oldest + 'T00:00:00Z').getTime()) / msPerDay);
+      startOffset = Math.max(startOffset, oldestOffset + 1);
+    }
+    for (let n = startOffset; n < startOffset + BACKFILL_DAYS_PER_RUN && n <= MAX_HISTORY_DAYS; n++) {
+      dates.push(dayOffset(n));
     }
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Apple API error ${response.status}: ${text}`);
+    const rows = [];
+    for (const dateStr of dates) {
+      const row = await fetchDay(jwt, vendor, dateStr);
+      if (row) rows.push(row);
     }
 
-    const gzipped = Buffer.from(await response.arrayBuffer());
-    const tsv = zlib.gunzipSync(gzipped).toString('utf-8');
-    const lines = tsv.split('\n').filter(Boolean);
-    const headers = lines[0].split('\t');
-    const appleIdCol = headers.indexOf('Apple Identifier');
-    const unitsCol = headers.indexOf('Units');
+    if (rows.length) await upsertDownloadStat(rows);
 
-    if (appleIdCol === -1 || unitsCol === -1) {
-      throw new Error(`Unexpected sales report columns: ${headers.join(', ')}`);
-    }
-
-    let totalDownloads = 0;
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split('\t');
-      if (cols[appleIdCol] === OUR_APPLE_ID) {
-        totalDownloads += parseInt(cols[unitsCol], 10) || 0;
-      }
-    }
-
-    await upsertDownloadStat(
-      { platform: 'ios', stat_date: dateStr, downloads: totalDownloads, fetched_at: new Date().toISOString() }
-    );
-
-    console.log(`iOS downloads for ${dateStr}: ${totalDownloads}`);
-    return { statusCode: 200, body: `iOS downloads for ${dateStr}: ${totalDownloads}` };
+    const summary = rows.map(r => `${r.stat_date}: ${r.new_installs} new / ${r.reinstalls} re / ${r.downloads} units`).join('; ');
+    console.log(`iOS stats updated for ${rows.length} days. ${summary}`);
+    return { statusCode: 200, body: `iOS stats updated for ${rows.length} days.` };
   } catch (err) {
     console.error('Apple downloads fetch failed:', err);
     return { statusCode: 500, body: err.message };

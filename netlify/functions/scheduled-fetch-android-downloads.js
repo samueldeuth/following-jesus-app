@@ -1,7 +1,10 @@
-// Runs daily. Downloads this month's install-stats CSV from the
+// Runs daily. Downloads the last 12 months of install-stats CSVs from the
 // private Cloud Storage bucket Google Play automatically maintains for
 // this developer account, and stores one row per day into
-// app_download_stats. Re-fetching the whole month each run (rather
+// app_download_stats (downloads = Daily Device Installs, which includes
+// re-installs; new_installs = Daily User Installs, i.e. people rather than
+// devices; active_installs = how many users have the app installed right
+// now, accounting for uninstalls). Re-fetching the whole month each run (rather
 // than just "today") is deliberate -- Google backfills/corrects a day
 // or two after the fact, and upserting the full month lets those
 // corrections land automatically without any extra logic.
@@ -127,57 +130,104 @@ function parseCsvLine(line) {
   return line.split(',').map(cell => cell.replace(/^"|"$/g, ''));
 }
 
+const MONTHS_TO_FETCH = 12;
+
+// Returns the index of the first header that matches any candidate name,
+// or -1. Lets the function keep working if Google renames a column slightly.
+function findCol(headers, candidates) {
+  for (const name of candidates) {
+    const idx = headers.indexOf(name);
+    if (idx !== -1) return idx;
+  }
+  return -1;
+}
+
+function parseIntSafe(v) {
+  const n = parseInt(String(v || '').replace(/[^0-9-]/g, ''), 10);
+  return Number.isNaN(n) ? null : n;
+}
+
+// Turns one month's CSV text into rows ready for app_download_stats.
+function rowsFromCsv(csv) {
+  const lines = csv.split('\n').map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return [];
+  const headers = parseCsvLine(lines[0]);
+  const dateCol = headers.indexOf('Date');
+  const installsCol = headers.indexOf('Daily Device Installs');
+  const newUsersCol = findCol(headers, ['Daily User Installs']);
+  const currentCol = findCol(headers, ['Total User Installs', 'Active Device Installs']);
+
+  if (dateCol === -1 || installsCol === -1) {
+    throw new Error(`Unexpected installs report columns: ${headers.join(', ')}`);
+  }
+
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvLine(lines[i]);
+    const dateStr = cols[dateCol];
+    if (!dateStr) continue;
+    const row = {
+      platform: 'android',
+      stat_date: dateStr,
+      downloads: parseIntSafe(cols[installsCol]) || 0,
+      fetched_at: new Date().toISOString()
+    };
+    // Only include the new columns when the report actually has them, so a
+    // missing column never overwrites good data with zeros.
+    if (newUsersCol !== -1) row.new_installs = parseIntSafe(cols[newUsersCol]) || 0;
+    if (currentCol !== -1) {
+      const current = parseIntSafe(cols[currentCol]);
+      if (current !== null) row.active_installs = current;
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
 exports.handler = async () => {
   try {
     const key = await getGoogleServiceAccountKey();
     const accessToken = await getGoogleAccessToken(key);
 
     const now = new Date();
-    const yearMonth = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
-    const objectName = `stats/installs/installs_${PACKAGE_NAME}_${yearMonth}_overview.csv`;
+    const allRows = [];
+    const monthsDone = [];
 
-    const fileUrl = `https://storage.googleapis.com/storage/v1/b/${BUCKET}/o/${encodeURIComponent(objectName)}?alt=media`;
-    const response = await fetch(fileUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
+    for (let m = 0; m < MONTHS_TO_FETCH; m++) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - m, 1));
+      const yearMonth = `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      const objectName = `stats/installs/installs_${PACKAGE_NAME}_${yearMonth}_overview.csv`;
+      const fileUrl = `https://storage.googleapis.com/storage/v1/b/${BUCKET}/o/${encodeURIComponent(objectName)}?alt=media`;
+      const response = await fetch(fileUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
 
-    if (response.status === 404) {
-      console.log(`No installs report yet for ${yearMonth}.`);
-      return { statusCode: 200, body: `No installs report yet for ${yearMonth}.` };
-    }
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Google Cloud Storage error ${response.status}: ${text}`);
-    }
+      if (response.status === 404) continue; // no report that month (older than the app, or not generated yet)
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Google Cloud Storage error ${response.status} (${yearMonth}): ${text}`);
+      }
 
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const csv = decodeReportBuffer(buffer);
-    const lines = csv.split('\n').map(l => l.trim()).filter(Boolean);
-    const headers = parseCsvLine(lines[0]);
-    const dateCol = headers.indexOf('Date');
-    const installsCol = headers.indexOf('Daily Device Installs');
-
-    if (dateCol === -1 || installsCol === -1) {
-      throw new Error(`Unexpected installs report columns: ${headers.join(', ')}`);
+      const csv = decodeReportBuffer(Buffer.from(await response.arrayBuffer()));
+      const rows = rowsFromCsv(csv);
+      allRows.push(...rows);
+      monthsDone.push(`${yearMonth}:${rows.length}`);
     }
 
-    const rows = [];
-    for (let i = 1; i < lines.length; i++) {
-      const cols = parseCsvLine(lines[i]);
-      const dateStr = cols[dateCol];
-      if (!dateStr) continue;
-      rows.push({
-        platform: 'android',
-        stat_date: dateStr,
-        downloads: parseInt(cols[installsCol], 10) || 0,
-        fetched_at: new Date().toISOString()
+    if (allRows.length) {
+      // PostgREST needs every object in one bulk request to have the same
+      // keys, so only send the new columns if every row has them.
+      const hasNew = allRows.every(r => 'new_installs' in r);
+      const hasCur = allRows.every(r => 'active_installs' in r);
+      const cleaned = allRows.map(r => {
+        const o = { platform: r.platform, stat_date: r.stat_date, downloads: r.downloads, fetched_at: r.fetched_at };
+        if (hasNew) o.new_installs = r.new_installs;
+        if (hasCur) o.active_installs = r.active_installs;
+        return o;
       });
+      await upsertDownloadStats(cleaned);
     }
 
-    if (rows.length) {
-      await upsertDownloadStats(rows);
-    }
-
-    console.log(`Updated ${rows.length} days of Android installs for ${yearMonth}.`);
-    return { statusCode: 200, body: `Updated ${rows.length} days of Android installs for ${yearMonth}.` };
+    console.log(`Updated ${allRows.length} days of Android installs (${monthsDone.join(', ')}).`);
+    return { statusCode: 200, body: `Updated ${allRows.length} days of Android installs.` };
   } catch (err) {
     console.error('Android downloads fetch failed:', err);
     return { statusCode: 500, body: err.message };
