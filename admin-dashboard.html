@@ -504,6 +504,34 @@ function extractYoutubeId(input){
 }
 let allRows = [];
 let allChurches = [];
+
+// ---- Active vs. inactive students ----------------------------------------
+// "Active" = enrolled, not archived, and with some sign of life in the last
+// INACTIVE_AFTER_DAYS days (signing in, using the app, or finishing a lesson;
+// see get_student_last_activity in the SQL). Anyone quieter than that shows
+// as "Inactive" and flips back to active by itself the moment they come back --
+// nothing is archived or changed in the database. If the activity lookup is
+// unavailable, nobody is treated as inactive (the old behavior).
+const INACTIVE_AFTER_DAYS = 180;
+function isInactiveRow(r){
+  if(r.status === 'archived' || !r.last_activity_at) return false;
+  return (Date.now() - new Date(r.last_activity_at).getTime()) > INACTIVE_AFTER_DAYS * 86400000;
+}
+function isActiveStudentRow(r){
+  return r.status !== 'archived' && !isInactiveRow(r);
+}
+// Which students the Active / Inactive / Archived toggle shows.
+function matchesStudentMode(r){
+  if(studentViewMode === 'archived') return r.status === 'archived';
+  if(studentViewMode === 'inactive') return isInactiveRow(r);
+  return isActiveStudentRow(r);
+}
+// A phone-width-friendly third button, only shown when there's someone to see
+// (or when you're already looking at that list).
+function inactiveModeButtonHtml(inactiveCount){
+  if(!inactiveCount && studentViewMode !== 'inactive') return '';
+  return `<button class="mini-btn ${studentViewMode==='inactive'?'active':''}" id="student-mode-inactive-btn">Inactive (${inactiveCount})</button>`;
+}
 // Count of leader_applications with status = 'approved' -- i.e. people a
 // church's pastor has approved to disciple others. Fetched via
 // get_approved_leader_count() rather than a direct .from('leader_applications')
@@ -676,6 +704,15 @@ async function init(){
 
   if(rowsErr || !rows){ content.textContent = 'Could not load student data.'; return; }
   allRows = rows;
+  // Last activity per student, for the 6-month inactive rule. If this fails
+  // (say, the SQL hasn't been run yet) everyone just counts as active, like before.
+  try {
+    const { data: activity, error: activityErr } = await supabaseClient.rpc('get_student_last_activity');
+    if(!activityErr && Array.isArray(activity)){
+      const lastActiveByStudent = new Map(activity.map(a => [a.out_student_id, a.out_last_activity_at]));
+      allRows.forEach(r => { r.last_activity_at = lastActiveByStudent.get(r.student_id) || null; });
+    }
+  } catch(e){ console.warn('last-activity lookup failed', e); }
   allChurches = churches || [];
   approvedLeaderCount = leaderCount || 0;
   totalLegacyCompletions = (legacyRows || []).reduce((sum, r) => sum + (r.legacy_completions || 0), 0);
@@ -1059,10 +1096,10 @@ function renderSidebar(){
   document.getElementById('sidebar-church-count').textContent = allChurches.length;
 
   const courseListEl = document.getElementById('sidebar-course-list');
-  const followingJesusCount = followingJesusCourseId ? allRows.filter(r => r.course_id === followingJesusCourseId && r.status !== 'archived').length : 0;
+  const followingJesusCount = followingJesusCourseId ? allRows.filter(r => r.course_id === followingJesusCourseId && isActiveStudentRow(r)).length : 0;
   const followingJesusItemHtml = followingJesusCourseId ? `<div class="sidebar-church-item ${followingJesusCourseId === activeCourseId ? 'active' : ''}" data-course-id="${followingJesusCourseId}" data-course-title="Following Jesus" style="border-bottom:1px solid var(--line);margin-bottom:6px;padding-bottom:10px;"><span>Following Jesus <span style="color:var(--ink-soft);font-weight:400;">(General Course)</span></span><span class="count">${followingJesusCount}</span></div>` : '';
   courseListEl.innerHTML = followingJesusItemHtml + NON_WHITE_LABEL_COURSES.map(c => {
-    const count = allRows.filter(r => r.course_id === c.id && r.status !== 'archived').length;
+    const count = allRows.filter(r => r.course_id === c.id && isActiveStudentRow(r)).length;
     return `<div class="sidebar-church-item ${c.id === activeCourseId ? 'active' : ''}" data-course-id="${c.id}" data-course-title="${c.title.replace(/"/g,'&quot;')}"><span>${c.title}</span><span class="count">${count}</span></div>`;
   }).join('');
   courseListEl.querySelectorAll('.sidebar-church-item[data-course-id]').forEach(el => {
@@ -1077,7 +1114,7 @@ function renderSidebar(){
   churchLeadersLinkEl.innerHTML = `<div class="sidebar-church-item ${viewingSubscriberList && currentSubscriberAudience === 'church_leader' ? 'active' : ''}" id="sidebar-church-leaders-item"><span>Church Leaders</span></div>`;
   document.getElementById('sidebar-church-leaders-item').addEventListener('click', () => renderSubscriberList('church_leader'));
 
-  const noChurchCount = allRows.filter(r => !r.church_id && r.status !== 'archived').length;
+  const noChurchCount = allRows.filter(r => !r.church_id && isActiveStudentRow(r)).length;
   const noChurchItemHtml = `<div class="sidebar-church-item ${viewingNoChurch ? 'active' : ''}" id="sidebar-no-church-item" style="border-bottom:1px solid var(--line);margin-bottom:6px;padding-bottom:10px;"><span>Following Jesus <span style="color:var(--ink-soft);font-weight:400;">(Primary)</span></span><span class="count">${noChurchCount}</span></div>`;
 
   let filtered = query ? allChurches.filter(c => c.name.toLowerCase().includes(query)) : allChurches;
@@ -1085,7 +1122,7 @@ function renderSidebar(){
     filtered = filtered.filter(c => (c.course_status || 'live') === sidebarStatusFilter);
   }
   listEl.innerHTML = noChurchItemHtml + (filtered.map(ch => {
-    const count = allRows.filter(r => r.church_id === ch.id && r.status !== 'archived').length;
+    const count = allRows.filter(r => r.church_id === ch.id && isActiveStudentRow(r)).length;
     const status = ch.course_status || 'live';
     return `<div class="sidebar-church-item ${ch.id === activeChurchId ? 'active' : ''}" data-church-id="${ch.id}"><span><span class="status-dot ${status}" title="${status}"></span>${ch.name}</span><span class="count">${count}</span></div>`;
   }).join('') || '<p style="font-size:12px;color:var(--ink-soft);padding:8px 10px;">No matches.</p>');
@@ -1249,13 +1286,14 @@ function renderChurchesOverview(){
   const totalChurches = allChurches.length;
   const activeChurches = allChurches.filter(ch => !['draft', 'archived'].includes(ch.course_status || 'live')).length;
   const totalStudents = allRows.length;
-  const totalActive = allRows.filter(r => r.status !== 'archived').length;
+  const totalActive = allRows.filter(isActiveStudentRow).length;
+  const totalInactive = allRows.filter(isInactiveRow).length;
   const totalCompleted = allRows.filter(r => !!r.completed_at).length;
 
   const liveChurches = allChurches.filter(ch => !['draft', 'archived'].includes(ch.course_status || 'live'));
 
   const churchRowsHtml = liveChurches.map(ch => {
-    const churchRows = allRows.filter(r => r.church_id === ch.id && r.status !== 'archived');
+    const churchRows = allRows.filter(r => r.church_id === ch.id && isActiveStudentRow(r));
     const pct = churchRows.length
       ? Math.round(churchRows.reduce((sum,r) => sum + (r.total_items ? r.items_completed/r.total_items : 0), 0) / churchRows.length * 100)
       : 0;
@@ -1275,7 +1313,7 @@ function renderChurchesOverview(){
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 20px;">Following Jesus Dashboard</h2>
     <div class="summary-row">
       <div class="summary-card"><div class="num">${activeChurches}</div><div class="label">Active Churches</div><div class="sub">${totalChurches} total all-time</div></div>
-      <div class="summary-card"><div class="num">${totalActive}</div><div class="label">Active Students</div><div class="sub">${totalStudents} total all-time</div></div>
+      <div class="summary-card"><div class="num">${totalActive}</div><div class="label">Active Students <button type="button" class="info-icon-btn" data-info="Active means enrolled, not archived, and signed in, used the app, or finished a lesson within the last 6 months. Anyone quiet longer than that is counted as Inactive (see the Inactive tab under All Students) and moves back to Active on their own the next time they come back.">i</button></div><div class="sub">${totalInactive ? `${totalInactive} inactive (6+ months) · ` : ''}${totalStudents} total all-time</div></div>
       <div class="summary-card"><div class="num">${totalCompleted + totalLegacyCompletions}</div><div class="label">Finished a course ${totalLegacyCompletions ? `<button type="button" class="info-icon-btn" data-info="Includes ${totalLegacyCompletions} completions from before this dashboard tracked them, backfilled from the old platform's records.">i</button>` : ''}</div></div>
       <div class="summary-card clickable" id="disciple-makers-card"><div class="num">${approvedLeaderCount}</div><div class="label">Disciple Makers</div></div>
     </div>
@@ -1902,8 +1940,8 @@ function renderPushNotifications(){
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 4px;">App</h2>
 
     <div class="card" style="margin-bottom:24px;max-width:680px;">
-      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:6px;">Downloads
-        <button type="button" class="info-icon-btn" data-info="Pulled daily from App Store Connect and Google Play. Apple's numbers lag about 2 days before they're final; Android numbers correct themselves automatically for a day or two after each one first appears.">i</button>
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:6px;">Installs
+        <button type="button" class="info-icon-btn" data-info="Pulled daily from App Store Connect and Google Play. New installs counts people installing for the first time: re-downloads (a new phone, delete and reinstall) and app updates are not counted. Installed now is how many Android users have the app installed today, after uninstalls; Apple doesn't share that number. Apple's numbers lag about 2 days, and older iPhone history fills in gradually over the first couple of weeks.">i</button>
       </h3>
       <div id="app-download-summary" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;"><span style="font-size:13px;color:var(--ink-soft);">Loading…</span></div>
       <div id="app-download-table"></div>
@@ -2447,13 +2485,14 @@ function renderPushNotifications(){
 }
 
 // Pulls from app_download_stats, populated daily by two scheduled
-// Netlify functions (one per store). Shows a 30-day total plus an
-// all-time total per platform, and a day-by-day table underneath so a
-// sudden spike or drop is easy to spot at a glance.
+// Netlify functions (one per store). Shows 30-day NEW installs (first-time
+// only, so re-installs and updates don't inflate it) plus an all-time total
+// per platform, Android's current installed count, and a day-by-day table
+// underneath so a sudden spike or drop is easy to spot at a glance.
 async function loadAppDownloadStats(){
   const summaryEl = document.getElementById('app-download-summary');
   const tableEl = document.getElementById('app-download-table');
-  const { data: rows, error } = await supabaseClient.from('app_download_stats').select('*').order('stat_date', { ascending: false }).limit(400);
+  const { data: rows, error } = await supabaseClient.from('app_download_stats').select('*').order('stat_date', { ascending: false }).limit(1000);
 
   if(error){
     summaryEl.innerHTML = `<span style="font-size:13px;color:var(--ink-soft);">Could not load download stats right now.</span>`;
@@ -2471,23 +2510,37 @@ async function loadAppDownloadStats(){
   const cutoff30 = new Date();
   cutoff30.setDate(cutoff30.getDate() - 30);
   const cutoff30Str = cutoff30.toISOString().slice(0, 10);
-  const sum = (arr) => arr.reduce((s, r) => s + (r.downloads || 0), 0);
+  const sumOf = (arr, field) => arr.reduce((s, r) => s + (r[field] || 0), 0);
+  // "New installs" = first-time installs only (no re-downloads or updates).
+  // Days recorded before that was tracked fall back to the old raw count.
+  const newOf = (r) => (r.new_installs != null ? r.new_installs : (r.downloads || 0));
+  const sumNew = (arr) => arr.reduce((s, r) => s + newOf(r), 0);
 
-  const iosLast30 = sum(iosRows.filter(r => r.stat_date >= cutoff30Str));
-  const androidLast30 = sum(androidRows.filter(r => r.stat_date >= cutoff30Str));
-  const totalLast30 = iosLast30 + androidLast30;
-  const totalAllTime = sum(iosRows) + sum(androidRows);
+  const ios30 = iosRows.filter(r => r.stat_date >= cutoff30Str);
+  const android30 = androidRows.filter(r => r.stat_date >= cutoff30Str);
+  const iosNew30 = sumNew(ios30);
+  const androidNew30 = sumNew(android30);
+  const totalNew30 = iosNew30 + androidNew30;
+  const totalNewAllTime = sumNew(iosRows) + sumNew(androidRows);
+  const iosRe30 = sumOf(ios30, 'reinstalls');
+
+  // Most recent Android "installed now" figure (rows are newest-first).
+  const latestInstalled = androidRows.find(r => r.active_installs != null);
+  const installedNowHtml = latestInstalled
+    ? `<div class="summary-card"><div class="num">${latestInstalled.active_installs.toLocaleString()}</div><div class="label">Android Installed Now</div><div class="sub">as of ${latestInstalled.stat_date}</div></div>`
+    : '';
 
   summaryEl.innerHTML = `
-    <div class="summary-card"><div class="num">${iosLast30.toLocaleString()}</div><div class="label">iOS Downloads (30 days)</div><div class="sub">${sum(iosRows).toLocaleString()} all-time tracked</div></div>
-    <div class="summary-card"><div class="num">${androidLast30.toLocaleString()}</div><div class="label">Android Downloads (30 days)</div><div class="sub">${sum(androidRows).toLocaleString()} all-time tracked</div></div>
-    <div class="summary-card emphasis"><div class="num">${totalLast30.toLocaleString()}</div><div class="label">Total Downloads (30 days)</div><div class="sub">${totalAllTime.toLocaleString()} all-time tracked</div></div>
+    <div class="summary-card"><div class="num">${iosNew30.toLocaleString()}</div><div class="label">iOS New Installs (30 days)</div><div class="sub">${sumNew(iosRows).toLocaleString()} tracked all-time${iosRe30 ? ` · ${iosRe30.toLocaleString()} re-downloads not counted` : ''}</div></div>
+    <div class="summary-card"><div class="num">${androidNew30.toLocaleString()}</div><div class="label">Android New Installs (30 days)</div><div class="sub">${sumNew(androidRows).toLocaleString()} tracked all-time</div></div>
+    ${installedNowHtml}
+    <div class="summary-card emphasis"><div class="num">${totalNew30.toLocaleString()}</div><div class="label">Total New Installs (30 days)</div><div class="sub">${totalNewAllTime.toLocaleString()} tracked all-time</div></div>
   `;
 
   const byDate = {};
   (rows || []).forEach(r => {
     byDate[r.stat_date] = byDate[r.stat_date] || {};
-    byDate[r.stat_date][r.platform] = r.downloads;
+    byDate[r.stat_date][r.platform] = newOf(r);
   });
   const recentDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a)).slice(0, 7);
 
@@ -2498,7 +2551,7 @@ async function loadAppDownloadStats(){
     <details class="session-group">
       <summary>
         <span>Last 7 Days</span>
-        <span class="session-progress">Daily downloads <span class="chevron">›</span></span>
+        <span class="session-progress">Daily new installs <span class="chevron">›</span></span>
       </summary>
       <div class="session-group-body" style="padding:12px 18px;">
         <table style="width:100%;font-size:13px;border-collapse:collapse;">
@@ -2532,7 +2585,7 @@ let allStudentsFilteredRows = [];
 // Shared across both the All Students view and any single church's
 // student list, so switching between "Active" and "Archived" sticks as
 // you navigate around rather than resetting on every click.
-let studentViewMode = 'active'; // 'active' | 'archived'
+let studentViewMode = 'active'; // 'active' | 'inactive' | 'archived'
 let selectedEnrollmentIds = new Set();
 
 // Sort state for each of the three student tables (All Students, a
@@ -2643,7 +2696,8 @@ function startedCompletedCellHtml(r){
   const fmt = d => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   const started = r.enrolled_at ? `<div class="date-started">Started ${fmt(r.enrolled_at)}</div>` : '';
   const completed = r.completed_at ? `<div class="date-completed">Completed ${fmt(r.completed_at)}</div>` : '';
-  return started + completed || '<span style="color:var(--ink-soft);">—</span>';
+  const lastActive = r.last_activity_at ? `<div class="date-started">Last active ${fmt(r.last_activity_at)}</div>` : '';
+  return started + completed + lastActive || '<span style="color:var(--ink-soft);">—</span>';
 }
 
 function studentActionButtonsHtml(r, isComplete){
@@ -3510,7 +3564,8 @@ function renderAllStudents(){
   setViewHash('all-students');
   renderSidebar();
 
-  const activeCount = allRows.filter(r => r.status !== 'archived').length;
+  const activeCount = allRows.filter(isActiveStudentRow).length;
+  const inactiveCount = allRows.filter(isInactiveRow).length;
   const archivedCount = allRows.filter(r => r.status === 'archived').length;
   // Distinct churches actually represented among these students -- not
   // allChurches.length, which is every church record that exists
@@ -3523,6 +3578,7 @@ function renderAllStudents(){
     <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:14px;">${allRows.length} student${allRows.length===1?'':'s'} across ${churchesWithStudents} church${churchesWithStudents===1?'':'es'}</p>
     <div style="display:flex;gap:6px;margin-bottom:14px;">
       <button class="mini-btn ${studentViewMode==='active'?'active':''}" id="student-mode-active-btn">Active (${activeCount})</button>
+      ${inactiveModeButtonHtml(inactiveCount)}
       <button class="mini-btn ${studentViewMode==='archived'?'active':''}" id="student-mode-archived-btn">Archived (${archivedCount})</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;">
@@ -3553,6 +3609,11 @@ function renderAllStudents(){
     selectedEnrollmentIds.clear();
     renderAllStudents();
   });
+  document.getElementById('student-mode-inactive-btn').addEventListener('click', () => {
+    studentViewMode = 'inactive';
+    selectedEnrollmentIds.clear();
+    renderAllStudents();
+  });
   document.getElementById('student-mode-archived-btn').addEventListener('click', () => {
     studentViewMode = 'archived';
     selectedEnrollmentIds.clear();
@@ -3562,7 +3623,7 @@ function renderAllStudents(){
 
 function renderAllStudentsRows(){
   const query = (document.getElementById('all-students-search')?.value || '').trim().toLowerCase();
-  const modeRows = allRows.filter(r => studentViewMode === 'archived' ? r.status === 'archived' : r.status !== 'archived');
+  const modeRows = allRows.filter(matchesStudentMode);
   const searchedRows = query
     ? modeRows.filter(r =>
         (r.full_name || '').toLowerCase().includes(query) ||
@@ -3608,7 +3669,7 @@ function renderAllStudentsRows(){
       </tr>`;
   }).join('');
 
-  document.getElementById('all-students-tbody').innerHTML = rowsHtml || `<tr><td colspan="7" style="color:var(--ink-soft);">${query ? 'No students match.' : (studentViewMode==='archived' ? 'No archived students.' : 'No students yet.')}</td></tr>`;
+  document.getElementById('all-students-tbody').innerHTML = rowsHtml || `<tr><td colspan="7" style="color:var(--ink-soft);">${query ? 'No students match.' : (studentViewMode==='archived' ? 'No archived students.' : studentViewMode==='inactive' ? 'No inactive students.' : 'No students yet.')}</td></tr>`;
   document.getElementById('all-students-batch-bar').innerHTML = batchActionBarHtml();
 
   document.querySelectorAll('#all-students-tbody td.clickable-cell').forEach(td => {
@@ -3897,8 +3958,9 @@ async function renderChurchStudents(churchId){
   renderSidebar();
   const church = allChurches.find(c => c.id === churchId);
   const churchRows = allRows.filter(r => churchId ? r.church_id === churchId : !r.church_id);
-  const rows = churchRows.filter(r => studentViewMode === 'archived' ? r.status === 'archived' : r.status !== 'archived');
-  const activeCount = churchRows.filter(r => r.status !== 'archived').length;
+  const rows = churchRows.filter(matchesStudentMode);
+  const activeCount = churchRows.filter(isActiveStudentRow).length;
+  const inactiveCount = churchRows.filter(isInactiveRow).length;
   const archivedCount = churchRows.filter(r => r.status === 'archived').length;
   const groups = churchId ? await fetchGroups(churchId) : [];
   const currentAdmins = churchId ? await fetchChurchAdmins(churchId) : [];
@@ -3972,6 +4034,7 @@ async function renderChurchStudents(churchId){
     ` : ''}
     <div style="display:flex;gap:6px;margin-bottom:14px;">
       <button class="mini-btn ${studentViewMode==='active'?'active':''}" id="student-mode-active-btn">Active (${activeCount})</button>
+      ${inactiveModeButtonHtml(inactiveCount)}
       <button class="mini-btn ${studentViewMode==='archived'?'active':''}" id="student-mode-archived-btn">Archived (${archivedCount})</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
@@ -3994,7 +4057,7 @@ async function renderChurchStudents(churchId){
       <div class="table-scroll" id="church-students-table-wrap">
         <table>
           <thead><tr><th style="width:34px;"><input type="checkbox" id="church-students-select-all" /></th><th>Student</th><th>Course</th>${sortableHeaderHtml('Progress', 'progress', studentSortState.church)}${sortableHeaderHtml('Dates', 'started', studentSortState.church)}<th>Group</th><th>Actions</th></tr></thead>
-          <tbody id="church-students-tbody">${rowsHtml || '<tr><td colspan="7" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : 'No students here yet.') + '</td></tr>'}</tbody>
+          <tbody id="church-students-tbody">${rowsHtml || '<tr><td colspan="7" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : studentViewMode==='inactive' ? 'No inactive students.' : 'No students here yet.') + '</td></tr>'}</tbody>
         </table>
       </div>
     </div>
@@ -4550,6 +4613,11 @@ async function renderChurchStudents(churchId){
     selectedEnrollmentIds.clear();
     renderChurchStudents(churchId);
   });
+  document.getElementById('student-mode-inactive-btn')?.addEventListener('click', () => {
+    studentViewMode = 'inactive';
+    selectedEnrollmentIds.clear();
+    renderChurchStudents(churchId);
+  });
   document.getElementById('student-mode-archived-btn')?.addEventListener('click', () => {
     studentViewMode = 'archived';
     selectedEnrollmentIds.clear();
@@ -4830,8 +4898,9 @@ async function renderCourseStudents(courseId, courseTitle){
   const courseConfig = NON_WHITE_LABEL_COURSES.find(c => c.id === courseId);
 
   const courseRows = allRows.filter(r => r.course_id === courseId);
-  const rows = courseRows.filter(r => studentViewMode === 'archived' ? r.status === 'archived' : r.status !== 'archived');
-  const activeCount = courseRows.filter(r => r.status !== 'archived').length;
+  const rows = courseRows.filter(matchesStudentMode);
+  const activeCount = courseRows.filter(isActiveStudentRow).length;
+  const inactiveCount = courseRows.filter(isInactiveRow).length;
   const archivedCount = courseRows.filter(r => r.status === 'archived').length;
   const liveCompletedCount = courseRows.filter(r => r.completed_at).length;
 
@@ -4870,6 +4939,7 @@ async function renderCourseStudents(courseId, courseTitle){
     </div>
     <div style="display:flex;gap:6px;margin-bottom:14px;">
       <button class="mini-btn ${studentViewMode==='active'?'active':''}" id="student-mode-active-btn">Active (${activeCount})</button>
+      ${inactiveModeButtonHtml(inactiveCount)}
       <button class="mini-btn ${studentViewMode==='archived'?'active':''}" id="student-mode-archived-btn">Archived (${archivedCount})</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:16px;">
@@ -4893,7 +4963,7 @@ async function renderCourseStudents(courseId, courseTitle){
     <div class="table-scroll" id="course-students-table-wrap">
       <table>
         <thead><tr><th style="width:34px;"><input type="checkbox" id="course-students-select-all" /></th><th>Student</th><th>Church</th>${sortableHeaderHtml('Progress', 'progress', studentSortState.course)}${sortableHeaderHtml('Dates', 'started', studentSortState.course)}<th>Actions</th></tr></thead>
-        <tbody id="course-students-tbody">${rowsHtml || '<tr><td colspan="6" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : 'No students enrolled yet.') + '</td></tr>'}</tbody>
+        <tbody id="course-students-tbody">${rowsHtml || '<tr><td colspan="6" style="color:var(--ink-soft);">' + (studentViewMode==='archived' ? 'No archived students.' : studentViewMode==='inactive' ? 'No inactive students.' : 'No students enrolled yet.') + '</td></tr>'}</tbody>
       </table>
     </div>
   `;
@@ -4918,6 +4988,11 @@ async function renderCourseStudents(courseId, courseTitle){
 
   document.getElementById('student-mode-active-btn').addEventListener('click', () => {
     studentViewMode = 'active';
+    selectedEnrollmentIds.clear();
+    renderCourseStudents(courseId, courseTitle);
+  });
+  document.getElementById('student-mode-inactive-btn').addEventListener('click', () => {
+    studentViewMode = 'inactive';
     selectedEnrollmentIds.clear();
     renderCourseStudents(courseId, courseTitle);
   });
