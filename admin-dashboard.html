@@ -1941,7 +1941,7 @@ function renderPushNotifications(){
 
     <div class="card" style="margin-bottom:24px;max-width:680px;">
       <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:6px;">Installs
-        <button type="button" class="info-icon-btn" data-info="Pulled daily from App Store Connect and Google Play. New installs counts people installing for the first time: re-downloads (a new phone, delete and reinstall) and app updates are not counted. Installed now is how many Android users have the app installed today, after uninstalls; Apple doesn't share that number. Apple's numbers lag about 2 days, and older iPhone history fills in gradually over the first couple of weeks.">i</button>
+        <button type="button" class="info-icon-btn" data-info="Pulled daily from App Store Connect and Google Play. New installs counts people installing for the first time: re-downloads (a new phone, delete and reinstall) and app updates are not counted. Apple's numbers lag about 2 days, and older iPhone history fills in gradually over the first few weeks. Open More stats for the month-by-month history and active users."">i</button>
       </h3>
       <div id="app-download-summary" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;"><span style="font-size:13px;color:var(--ink-soft);">Loading…</span></div>
       <div id="app-download-table"></div>
@@ -2485,10 +2485,11 @@ function renderPushNotifications(){
 }
 
 // Pulls from app_download_stats, populated daily by two scheduled
-// Netlify functions (one per store). Shows 30-day NEW installs (first-time
-// only, so re-installs and updates don't inflate it) plus an all-time total
-// per platform, Android's current installed count, and a day-by-day table
-// underneath so a sudden spike or drop is easy to spot at a glance.
+// Netlify functions (one per store). Headline numbers are NEW installs
+// (first-time only, so re-installs and updates don't inflate them), shown
+// per calendar month and for the calendar year so far. A collapsed
+// "More stats" section holds the extras: month-by-month history, re-downloads,
+// total downloads, and how many people are actually using the app.
 async function loadAppDownloadStats(){
   const summaryEl = document.getElementById('app-download-summary');
   const tableEl = document.getElementById('app-download-table');
@@ -2507,72 +2508,119 @@ async function loadAppDownloadStats(){
     return;
   }
 
-  const cutoff30 = new Date();
-  cutoff30.setDate(cutoff30.getDate() - 30);
-  const cutoff30Str = cutoff30.toISOString().slice(0, 10);
   const sumOf = (arr, field) => arr.reduce((s, r) => s + (r[field] || 0), 0);
   // "New installs" = first-time installs only (no re-downloads or updates).
   // Days recorded before that was tracked fall back to the old raw count.
   const newOf = (r) => (r.new_installs != null ? r.new_installs : (r.downloads || 0));
   const sumNew = (arr) => arr.reduce((s, r) => s + newOf(r), 0);
+  const fmt = (n) => (n || 0).toLocaleString();
 
-  const ios30 = iosRows.filter(r => r.stat_date >= cutoff30Str);
-  const android30 = androidRows.filter(r => r.stat_date >= cutoff30Str);
-  const iosNew30 = sumNew(ios30);
-  const androidNew30 = sumNew(android30);
-  const totalNew30 = iosNew30 + androidNew30;
-  const totalNewAllTime = sumNew(iosRows) + sumNew(androidRows);
-  const iosRe30 = sumOf(ios30, 'reinstalls');
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const thisMonth = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+  const thisYear = String(now.getFullYear());
+  const inMonth = (arr, m) => arr.filter(r => r.stat_date.slice(0, 7) === m);
+  const inYear = (arr, y) => arr.filter(r => r.stat_date.slice(0, 4) === y);
 
-  // Most recent Android "installed now" figure (rows are newest-first).
-  const latestInstalled = androidRows.find(r => r.active_installs != null);
-  const installedNowHtml = latestInstalled
-    ? `<div class="summary-card"><div class="num">${latestInstalled.active_installs.toLocaleString()}</div><div class="label">Android Installed Now</div><div class="sub">as of ${latestInstalled.stat_date}</div></div>`
-    : '';
+  const iosMonth = sumNew(inMonth(iosRows, thisMonth));
+  const andMonth = sumNew(inMonth(androidRows, thisMonth));
+  const iosYear = sumNew(inYear(iosRows, thisYear));
+  const andYear = sumNew(inYear(androidRows, thisYear));
+  const monthName = now.toLocaleString('en-US', { month: 'long' });
+
+  // Oldest day we have for each store, so the yearly total can be honest
+  // when history doesn't reach back to January yet.
+  const oldestOf = (arr) => arr.reduce((m, r) => (m === null || r.stat_date < m ? r.stat_date : m), null);
+  const oldestAll = [oldestOf(iosRows), oldestOf(androidRows)].filter(Boolean).sort()[0];
+  const yearIncomplete = oldestAll && oldestAll > `${thisYear}-01-02`;
 
   summaryEl.innerHTML = `
-    <div class="summary-card"><div class="num">${iosNew30.toLocaleString()}</div><div class="label">iOS New Installs (30 days)</div><div class="sub">${sumNew(iosRows).toLocaleString()} tracked all-time${iosRe30 ? ` · ${iosRe30.toLocaleString()} re-downloads not counted` : ''}</div></div>
-    <div class="summary-card"><div class="num">${androidNew30.toLocaleString()}</div><div class="label">Android New Installs (30 days)</div><div class="sub">${sumNew(androidRows).toLocaleString()} tracked all-time</div></div>
-    ${installedNowHtml}
-    <div class="summary-card emphasis"><div class="num">${totalNew30.toLocaleString()}</div><div class="label">Total New Installs (30 days)</div><div class="sub">${totalNewAllTime.toLocaleString()} tracked all-time</div></div>
+    <div class="summary-card"><div class="num">${fmt(iosMonth)}</div><div class="label">iOS New Installs</div><div class="sub">${monthName} so far</div></div>
+    <div class="summary-card"><div class="num">${fmt(andMonth)}</div><div class="label">Android New Installs</div><div class="sub">${monthName} so far</div></div>
+    <div class="summary-card emphasis"><div class="num">${fmt(iosMonth + andMonth)}</div><div class="label">Total New Installs</div><div class="sub">${monthName} so far</div></div>
+    <div class="summary-card"><div class="num">${fmt(iosYear + andYear)}</div><div class="label">New Installs in ${thisYear}</div><div class="sub">${fmt(iosYear)} iOS · ${fmt(andYear)} Android${yearIncomplete ? ` · tracked since ${oldestAll}` : ''}</div></div>
   `;
 
-  const byDate = {};
-  (rows || []).forEach(r => {
-    byDate[r.stat_date] = byDate[r.stat_date] || {};
-    byDate[r.stat_date][r.platform] = newOf(r);
-  });
-  const recentDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a)).slice(0, 7);
+  // ---- Month-by-month table (newest first, last 12 months) ----
+  const monthSet = new Set((rows || []).map(r => r.stat_date.slice(0, 7)));
+  const months = Array.from(monthSet).sort((a, b) => b.localeCompare(a)).slice(0, 12);
+  const labelOf = (m) => new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1, 1).toLocaleString('en-US', { month: 'short', year: 'numeric' });
+  const th = (t, left) => `<th style="text-align:${left ? 'left' : 'right'};padding:6px 8px;color:var(--ink-soft);font-weight:600;">${t}</th>`;
+  const monthRows = months.map(m => {
+    const i = sumNew(inMonth(iosRows, m));
+    const a = sumNew(inMonth(androidRows, m));
+    return `<tr style="border-top:1px solid var(--border);">
+      <td style="padding:6px 8px 6px 0;">${labelOf(m)}</td>
+      <td style="padding:6px 8px;text-align:right;">${fmt(i)}</td>
+      <td style="padding:6px 8px;text-align:right;">${fmt(a)}</td>
+      <td style="padding:6px 8px;text-align:right;font-weight:600;">${fmt(i + a)}</td>
+    </tr>`;
+  }).join('');
 
-  // Collapsed by default, same <details>/<summary> pattern used for
-  // student session history elsewhere in this dashboard -- native
-  // browser toggle, no JS wiring needed.
-  tableEl.innerHTML = recentDates.length ? `
+  // ---- Extra numbers ----
+  const iosReAll = sumOf(iosRows, 'reinstalls');
+  const iosDownAll = sumOf(iosRows, 'downloads');
+  const androidDownAll = sumOf(androidRows, 'downloads');
+  const stat = (label, value, sub) => `<div style="flex:1 1 150px;min-width:140px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;">
+      <div style="font-size:18px;font-weight:700;">${value}</div>
+      <div style="font-size:12px;color:var(--ink-soft);">${label}</div>
+      ${sub ? `<div style="font-size:11px;color:var(--ink-soft);margin-top:2px;">${sub}</div>` : ''}
+    </div>`;
+
+  tableEl.innerHTML = `
     <details class="session-group">
       <summary>
-        <span>Last 7 Days</span>
-        <span class="session-progress">Daily new installs <span class="chevron">›</span></span>
+        <span>More stats</span>
+        <span class="session-progress">Monthly history, re-downloads, active users <span class="chevron">›</span></span>
       </summary>
       <div class="session-group-body" style="padding:12px 18px;">
-        <table style="width:100%;font-size:13px;border-collapse:collapse;">
-          <thead><tr>
-            <th style="text-align:left;padding:6px 8px 6px 0;color:var(--ink-soft);font-weight:600;">Date</th>
-            <th style="text-align:left;padding:6px 8px;color:var(--ink-soft);font-weight:600;">iOS</th>
-            <th style="text-align:left;padding:6px 8px;color:var(--ink-soft);font-weight:600;">Android</th>
-          </tr></thead>
-          <tbody>
-            ${recentDates.map(d => `
-              <tr style="border-top:1px solid var(--border);">
-                <td style="padding:6px 8px 6px 0;">${d}</td>
-                <td style="padding:6px 8px;">${byDate[d].ios ?? '—'}</td>
-                <td style="padding:6px 8px;">${byDate[d].android ?? '—'}</td>
-              </tr>
-            `).join('')}
-          </tbody>
+        <div style="font-size:13px;font-weight:600;margin-bottom:6px;">New installs by month</div>
+        <table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:16px;">
+          <thead><tr>${th('Month', true)}${th('iOS')}${th('Android')}${th('Total')}</tr></thead>
+          <tbody>${monthRows}</tbody>
         </table>
+
+        <div style="font-size:13px;font-weight:600;margin-bottom:6px;">All downloads, including repeats</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+          ${stat('iOS total downloads', fmt(iosDownAll), 'tracked days, includes re-downloads')}
+          ${stat('iOS re-downloads', fmt(iosReAll), 'new phone, delete and reinstall')}
+          ${stat('Android installs', fmt(androidDownAll), 'tracked days, device installs')}
+        </div>
+
+        <div style="font-size:13px;font-weight:600;margin-bottom:6px;">People using the app</div>
+        <div id="app-active-users" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;"><span style="font-size:12px;color:var(--ink-soft);">Loading…</span></div>
+
+        <div style="font-size:12px;color:var(--ink-soft);line-height:1.5;">Store impressions, page views and app opens aren't in this view yet -- Apple and Google share those through separate reports.</div>
       </div>
     </details>
-  ` : '';
+  `;
+
+  loadAppActiveUsers().catch(() => {
+    const el = document.getElementById('app-active-users');
+    if (el) el.innerHTML = `<span style="font-size:12px;color:var(--ink-soft);">Couldn't load active users right now.</span>`;
+  });
+}
+
+// Counts accounts that have been active in the app recently. Uses each
+// account's last_active_date, the same field the student "last active"
+// rule already relies on. Head-only count queries, so no rows are pulled.
+async function loadAppActiveUsers(){
+  const el = document.getElementById('app-active-users');
+  if (!el) return;
+  const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString(); };
+  const countSince = async (iso) => {
+    let q = supabaseClient.from('profiles').select('id', { count: 'exact', head: true });
+    if (iso) q = q.gte('last_active_date', iso);
+    const { count, error } = await q;
+    if (error) throw error;
+    return count || 0;
+  };
+  const [d7, d30, all] = await Promise.all([countSince(daysAgo(7)), countSince(daysAgo(30)), countSince(null)]);
+  const stat = (label, value) => `<div style="flex:1 1 150px;min-width:140px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;">
+      <div style="font-size:18px;font-weight:700;">${value.toLocaleString()}</div>
+      <div style="font-size:12px;color:var(--ink-soft);">${label}</div>
+    </div>`;
+  el.innerHTML = stat('Active in last 7 days', d7) + stat('Active in last 30 days', d30) + stat('Total accounts', all);
 }
 
 /* ---------- All Students: every student across every church, one flat list ---------- */
