@@ -1975,6 +1975,8 @@ function renderPushNotifications(){
         <option value="https://followingjesus.com/app#good-news">Share the Good News</option>
         <option value="https://followingjesus.com/app#profile">Profile</option>
         <option value="https://followingjesus.com/app#player">Worship Playlist</option>
+        <option value="https://followingjesus.com/spiritual-gifts-assessment">Spiritual Gifts Assessment</option>
+        <option value="https://followingjesus.com/five-fold-office-assessment">Five-Fold Office Assessment</option>
       </select>
       <input type="text" id="push-url-input" placeholder="Optional: link to open when tapped (e.g. https://followingjesus.com/app#gospel)" style="width:100%;margin-bottom:14px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg-soft);">
 
@@ -5440,9 +5442,18 @@ async function loadGiftsAdminData(){
   const userIds = [...new Set(results.map(r => r.user_id))];
   const profilesById = {};
   for(let i = 0; i < userIds.length; i += 200){
-    const { data } = await supabaseClient.from('profiles').select('id, full_name, email, church_id').in('id', userIds.slice(i, i + 200));
+    // profiles has no email column -- email comes from all_student_progress
+    // (already loaded as allRows) below, when the person is enrolled anywhere.
+    const { data, error } = await supabaseClient.from('profiles').select('id, full_name, church_id').in('id', userIds.slice(i, i + 200));
+    if(error) console.warn('profile lookup failed', error);
     (data || []).forEach(p => { profilesById[p.id] = p; });
   }
+  (allRows || []).forEach(r => {
+    const p = profilesById[r.student_id];
+    if(!p) return;
+    if(!p.email && r.student_email) p.email = r.student_email;
+    if(!p.full_name && r.full_name) p.full_name = r.full_name;
+  });
   const shareById = {};
   try {
     const shares = await fetchAllRows(() => supabaseClient.from('gift_assessment_sharing').select('user_id, share_with_church'));

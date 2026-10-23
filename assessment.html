@@ -215,16 +215,24 @@
   function renderIntro(){
     const n = answeredCount();
     const inProgress = n > 0 && !state.finished;
-    const startLabel = inProgress ? 'Continue (' + n + ' of ' + ORDER.length + ' answered)' : 'Start the assessment';
+    // Retakes are allowed; the newest result is what shows everywhere.
+    // Someone who's already taken it sees their results first, then Retake.
+    const startLabel = inProgress ? 'Continue (' + n + ' of ' + ORDER.length + ' answered)'
+      : (lastResult ? 'Retake the assessment' : 'Start the assessment');
+    const takenOn = lastResult ? new Date(lastResult.created_at).toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' }) : '';
     app.innerHTML =
       '<div class="hero"><div class="wrap">' +
         '<div class="eyebrow">Free assessment</div>' +
         '<h1>' + esc(A.title) + '</h1>' +
         '<p>' + esc(A.intro) + '</p>' +
         '<div class="meta"><span>' + ORDER.length + ' statements</span><span>About ' + A.minutes + ' minutes</span><span>Free · sign in to see results</span></div>' +
+        (lastResult && !inProgress ? '<p class="small" style="color:#a8a399;margin:-10px 0 18px">You took this on ' + esc(takenOn) + '. Retaking it replaces those as your latest results, which is a great way to see how God has grown you.</p>' : '') +
         '<div class="btn-row">' +
-          '<button class="btn btn-ember" id="startBtn">' + esc(startLabel) + '</button>' +
-          (lastResult ? '<button class="btn btn-ghost" id="viewLastBtn">See your latest results</button>' : '') +
+          (lastResult && !inProgress
+            ? '<button class="btn btn-ember" id="viewLastBtn">See your results</button>' +
+              '<button class="btn btn-ghost" id="startBtn">' + esc(startLabel) + '</button>'
+            : '<button class="btn btn-ember" id="startBtn">' + esc(startLabel) + '</button>' +
+              (lastResult ? '<button class="btn btn-ghost" id="viewLastBtn">See your latest results</button>' : '')) +
           (inProgress ? '<button class="btn btn-ghost" id="restartBtn">Start over</button>' : '') +
         '</div>' +
       '</div></div>' +
