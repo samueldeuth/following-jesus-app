@@ -11,6 +11,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Gift/office names for the Spiritual Gifts page (same file the assessments use) -->
+<script src="/assessment-data.js"></script>
 <style>
   :root{
     --ink:#17191D; --ink-soft:#6B7280; --blue:#3E82F7; --red:#C0392B;
@@ -358,6 +360,7 @@
     <a class="sidebar-link" id="sidebar-all-students-link">All Students</a>
     <a class="sidebar-link" id="sidebar-push-notifications-link">App</a>
     <a class="sidebar-link" id="sidebar-church-directory-link">Church Directory</a>
+    <a class="sidebar-link" id="sidebar-spiritual-gifts-link">Spiritual Gifts</a>
     <div class="sidebar-section-title">Churches (<span id="sidebar-church-count">0</span>)</div>
     <div class="sidebar-status-filters" id="sidebar-status-filters">
       <button class="status-filter-btn" data-status-filter="all">All</button>
@@ -469,6 +472,7 @@ function restoreViewFromHash(){
   if(hash === '#all-students'){ renderAllStudents(); return; }
   if(hash === '#push-notifications'){ renderPushNotifications(); return; }
   if(hash === '#church-directory'){ renderChurchDirectory(); return; }
+  if(hash === '#spiritual-gifts'){ renderSpiritualGifts(); return; }
   renderChurchesOverview();
 }
 
@@ -484,7 +488,7 @@ function restoreViewFromHash(){
 // whole point of what lets a page refresh land back where the admin
 // actually was (a specific church or course) instead of always
 // bouncing to Overview.
-if(window.location.hash && !window.location.hash.includes('access_token') && !/^#(church|course|all-students|push-notifications):?/.test(window.location.hash)){
+if(window.location.hash && !window.location.hash.includes('access_token') && !/^#(church|course|all-students|push-notifications|church-directory|spiritual-gifts):?/.test(window.location.hash)){
   history.replaceState(null, '', window.location.pathname + window.location.search);
 }
 
@@ -577,7 +581,7 @@ window.addEventListener('beforeunload', (e) => {
 // click handler -- stopImmediatePropagation on cancel is what actually
 // prevents that handler from ever firing and discarding the edit.
 document.querySelector('.admin-sidebar').addEventListener('click', (e) => {
-  const navTarget = e.target.closest('#sidebar-overview-link, #sidebar-all-students-link, #sidebar-push-notifications-link, #sidebar-church-directory-link, .sidebar-church-item');
+  const navTarget = e.target.closest('#sidebar-overview-link, #sidebar-all-students-link, #sidebar-push-notifications-link, #sidebar-church-directory-link, #sidebar-spiritual-gifts-link, .sidebar-church-item');
   if(!navTarget || !hasUnsavedChurchEdits) return;
   if(!confirm('You have unsaved changes on this page. Leave without saving?')){
     e.preventDefault();
@@ -624,6 +628,9 @@ const SUBSCRIBER_AUDIENCE_CONFIG = {
 // highlighting pattern as the other standalone views above.
 let viewingPushNotifications = false;
 let viewingChurchDirectory = false;
+let viewingSpiritualGifts = false;
+let giftsAdminType = 'gifts';
+let giftsAdminCache = null; // { results, profilesById, shareById }
 // Which status tab is active in the church sidebar list — 'all' shows
 // everything, otherwise only churches matching that course_status.
 let sidebarStatusFilter = 'live';
@@ -722,6 +729,7 @@ async function init(){
   document.getElementById('sidebar-all-students-link').addEventListener('click', renderAllStudents);
   document.getElementById('sidebar-push-notifications-link').addEventListener('click', renderPushNotifications);
   document.getElementById('sidebar-church-directory-link').addEventListener('click', renderChurchDirectory);
+  document.getElementById('sidebar-spiritual-gifts-link').addEventListener('click', renderSpiritualGifts);
   document.getElementById('sidebar-church-search').addEventListener('input', renderSidebar);
   wireAddChurchForm();
   restoreViewFromHash();
@@ -1137,10 +1145,11 @@ function renderSidebar(){
     btn.onclick = () => { sidebarStatusFilter = btn.dataset.statusFilter; renderSidebar(); };
   });
 
-  document.getElementById('sidebar-overview-link').classList.toggle('active', activeChurchId === null && activeCourseId === null && !viewingNoChurch && !viewingAllStudents && !viewingPushNotifications && !viewingChurchDirectory);
+  document.getElementById('sidebar-overview-link').classList.toggle('active', activeChurchId === null && activeCourseId === null && !viewingNoChurch && !viewingAllStudents && !viewingPushNotifications && !viewingChurchDirectory && !viewingSpiritualGifts);
   document.getElementById('sidebar-all-students-link').classList.toggle('active', viewingAllStudents);
   document.getElementById('sidebar-push-notifications-link').classList.toggle('active', viewingPushNotifications);
   document.getElementById('sidebar-church-directory-link').classList.toggle('active', viewingChurchDirectory);
+  document.getElementById('sidebar-spiritual-gifts-link').classList.toggle('active', viewingSpiritualGifts);
 
   positionSidebarToggleBtn();
 }
@@ -1280,7 +1289,7 @@ function renderChurchesOverview(){
   viewingAllStudents = false;
   viewingSubscriberList = false;
   viewingPushNotifications = false;
-  viewingChurchDirectory = false;
+  viewingChurchDirectory = false; viewingSpiritualGifts = false;
   setViewHash(null);
   renderSidebar();
   const totalChurches = allChurches.length;
@@ -1931,7 +1940,7 @@ function renderPushNotifications(){
   viewingAllStudents = false;
   viewingSubscriberList = false;
   viewingPushNotifications = true;
-  viewingChurchDirectory = false;
+  viewingChurchDirectory = false; viewingSpiritualGifts = false;
   setViewHash('push-notifications');
   renderSidebar();
 
@@ -3607,7 +3616,7 @@ function renderAllStudents(){
   viewingAllStudents = true;
   viewingSubscriberList = false;
   viewingPushNotifications = false;
-  viewingChurchDirectory = false;
+  viewingChurchDirectory = false; viewingSpiritualGifts = false;
   selectedEnrollmentIds.clear();
   setViewHash('all-students');
   renderSidebar();
@@ -3815,7 +3824,7 @@ function renderMergeAccounts(){
   viewingAllStudents = true;
   viewingSubscriberList = false;
   viewingPushNotifications = false;
-  viewingChurchDirectory = false;
+  viewingChurchDirectory = false; viewingSpiritualGifts = false;
   renderSidebar();
 
   // Local-only selection state for this view -- doesn't need to persist
@@ -4000,7 +4009,7 @@ async function renderChurchStudents(churchId){
   viewingAllStudents = false;
   viewingSubscriberList = false;
   viewingPushNotifications = false;
-  viewingChurchDirectory = false;
+  viewingChurchDirectory = false; viewingSpiritualGifts = false;
   selectedEnrollmentIds.clear();
   setViewHash('church:' + (churchId === null ? 'none' : encodeURIComponent(churchId)));
   renderSidebar();
@@ -4938,7 +4947,7 @@ async function renderCourseStudents(courseId, courseTitle){
   viewingAllStudents = false;
   viewingSubscriberList = false;
   viewingPushNotifications = false;
-  viewingChurchDirectory = false;
+  viewingChurchDirectory = false; viewingSpiritualGifts = false;
   selectedEnrollmentIds.clear();
   setViewHash('course:' + encodeURIComponent(courseId));
   renderSidebar();
@@ -5307,10 +5316,13 @@ async function renderStudentDetail(studentId, courseId){
     <h2 style="font-family:'Space Grotesk',sans-serif;margin-bottom:4px;">${row?.full_name || 'Student'}</h2>
     <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:16px;">${row?.student_email || ''}</p>
     ${enrollmentsTableHtml}
+    <div id="student-gifts-panel"></div>
     <h3 style="font-family:'Space Grotesk',sans-serif;font-size:15px;margin:0 0 12px;">${row?.course_title || 'This course'} — Discussion Answers</h3>
     ${sessionGroups.length ? `<div style="margin-bottom:14px;"><button class="mini-btn" id="expand-all-btn">Expand All</button> <button class="mini-btn" id="collapse-all-btn">Collapse All</button></div>` : ''}
     ${sessionsHtml || '<p style="color:var(--ink-soft);">No discussion questions found for this course.</p>'}
   `;
+
+  renderStudentGiftsPanel(studentId);
 
   document.getElementById('back-to-list').addEventListener('click', () => {
     if(viewingAllStudents) renderAllStudents();
@@ -5396,6 +5408,248 @@ async function renderStudentDetail(studentId, courseId){
       setTimeout(() => { btn.textContent = 'Send Reply'; }, 1500);
     });
   });
+}
+
+// ============================================================
+// Spiritual Gifts page -- results from both free assessments
+// (/spiritual-gifts-assessment and /five-fold-office-assessment).
+// Reads gift_assessment_results directly (super_admin has a read-all
+// RLS policy), then profiles separately and merges client-side -- no
+// embedded join, since results point at auth.users, not profiles.
+// Gift/office names come from assessment-data.js (loaded in <head>),
+// the same file the assessment pages use, so renames stay in sync.
+// ============================================================
+
+async function fetchAllRows(buildQuery){
+  const pageSize = 1000;
+  let from = 0, out = [];
+  for(;;){
+    const { data, error } = await buildQuery().range(from, from + pageSize - 1);
+    if(error) throw error;
+    out = out.concat(data || []);
+    if(!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+  return out;
+}
+
+async function loadGiftsAdminData(){
+  const results = await fetchAllRows(() => supabaseClient.from('gift_assessment_results')
+    .select('id, user_id, assessment_type, scores, ranked, created_at')
+    .order('created_at', { ascending: false }));
+  const userIds = [...new Set(results.map(r => r.user_id))];
+  const profilesById = {};
+  for(let i = 0; i < userIds.length; i += 200){
+    const { data } = await supabaseClient.from('profiles').select('id, full_name, email, church_id').in('id', userIds.slice(i, i + 200));
+    (data || []).forEach(p => { profilesById[p.id] = p; });
+  }
+  const shareById = {};
+  try {
+    const shares = await fetchAllRows(() => supabaseClient.from('gift_assessment_sharing').select('user_id, share_with_church'));
+    shares.forEach(s => { shareById[s.user_id] = !!s.share_with_church; });
+  } catch(e){ console.warn('sharing table not available yet', e); }
+  return { results, profilesById, shareById };
+}
+
+function giftName(type, key){
+  const c = window.FJ_ASSESSMENT && window.FJ_ASSESSMENT.categoryByKey(type, key);
+  return c ? c.name : key;
+}
+
+// Latest result per person for one assessment type (results arrive newest first).
+function latestPerPerson(results, type){
+  const seen = new Set(), out = [];
+  results.forEach(r => {
+    if(r.assessment_type !== type || seen.has(r.user_id)) return;
+    seen.add(r.user_id); out.push(r);
+  });
+  return out;
+}
+
+async function renderSpiritualGifts(){
+  activeChurchId = null;
+  activeCourseId = null;
+  viewingNoChurch = false;
+  viewingAllStudents = false;
+  viewingSubscriberList = false;
+  viewingPushNotifications = false;
+  viewingChurchDirectory = false;
+  viewingSpiritualGifts = true;
+  setViewHash('spiritual-gifts');
+  renderSidebar();
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="loading">Loading assessment results…</div>';
+  if(!window.FJ_ASSESSMENT){ content.innerHTML = '<p>Could not load assessment-data.js — make sure it\'s uploaded to the repo root.</p>'; return; }
+  try { giftsAdminCache = await loadGiftsAdminData(); }
+  catch(e){ content.innerHTML = `<p>Could not load assessment results: ${escapeHtmlReport(e.message || String(e))}</p>`; return; }
+  renderSpiritualGiftsBody();
+}
+
+function renderSpiritualGiftsBody(){
+  const FJ = window.FJ_ASSESSMENT;
+  const { results, profilesById, shareById } = giftsAdminCache;
+  const content = document.getElementById('content');
+  const type = giftsAdminType;
+  const A = FJ.ASSESSMENTS[type];
+  const max = FJ.maxScore(type);
+  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+
+  const giftsPeople = latestPerPerson(results, 'gifts');
+  const ffPeople = latestPerPerson(results, 'fivefold');
+  const thisMonth = results.filter(r => new Date(r.created_at) >= monthStart).length;
+  const sharedCount = Object.values(shareById).filter(Boolean).length;
+  const latest = type === 'gifts' ? giftsPeople : ffPeople;
+
+  // How often each gift/office lands as someone's #1, and in their top 3/top 2.
+  const topN = A.topCount;
+  const firstCounts = {}, topCounts = {};
+  A.categories.forEach(c => { firstCounts[c.key] = 0; topCounts[c.key] = 0; });
+  latest.forEach(r => {
+    const ranked = r.ranked || [];
+    if(ranked[0] in firstCounts) firstCounts[ranked[0]]++;
+    ranked.slice(0, topN).forEach(k => { if(k in topCounts) topCounts[k]++; });
+  });
+  const dist = A.categories.slice().sort((a, b) => (topCounts[b.key] - topCounts[a.key]) || (firstCounts[b.key] - firstCounts[a.key]));
+  const maxTop = Math.max(1, ...dist.map(c => topCounts[c.key]));
+  const distHtml = dist.map(c => {
+    const pct = Math.round(topCounts[c.key] / maxTop * 100);
+    return `<tr>
+      <td style="font-weight:600;">${escapeHtmlReport(c.name)}</td>
+      <td style="width:45%;"><div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-text">${topCounts[c.key]}</span></div></td>
+      <td>${firstCounts[c.key]}</td>
+    </tr>`;
+  }).join('');
+
+  const churchNameById = {};
+  (allChurches || []).forEach(ch => { churchNameById[ch.id] = ch.name; });
+
+  content.innerHTML = `
+    <div style="text-align:left;">
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;display:flex;align-items:center;gap:6px;">Spiritual Gifts
+      <button type="button" class="info-icon-btn" data-info="Results from the free Spiritual Gifts and Five-Fold Office assessments. Counts use each person's most recent result; retakes replace the older one here.">i</button>
+    </h2>
+    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 20px;">
+      <a href="/spiritual-gifts-assessment" target="_blank" rel="noopener">Spiritual Gifts assessment</a> ·
+      <a href="/five-fold-office-assessment" target="_blank" rel="noopener">Five-Fold Office assessment</a>
+    </p>
+    <div class="summary-row">
+      <div class="summary-card"><div class="num">${giftsPeople.length}</div><div class="label">Took Spiritual Gifts</div></div>
+      <div class="summary-card"><div class="num">${ffPeople.length}</div><div class="label">Took Five-Fold</div></div>
+      <div class="summary-card"><div class="num">${thisMonth}</div><div class="label">Completed this month</div><div class="sub">${results.length} completions all-time, incl. retakes</div></div>
+      <div class="summary-card"><div class="num">${sharedCount}</div><div class="label">Sharing with their church</div></div>
+    </div>
+
+    <div style="display:flex;gap:6px;margin-bottom:16px;">
+      <button class="mini-btn" data-gifts-type="gifts" ${type === 'gifts' ? 'style="background:var(--ink);color:#fff;border-color:var(--ink);"' : ''}>Spiritual Gifts</button>
+      <button class="mini-btn" data-gifts-type="fivefold" ${type === 'fivefold' ? 'style="background:var(--ink);color:#fff;border-color:var(--ink);"' : ''}>Five-Fold Office</button>
+    </div>
+
+    <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 10px;">Most common ${type === 'gifts' ? 'gifts' : 'offices'}</h3>
+    <div class="table-scroll"><table>
+      <thead><tr><th>${type === 'gifts' ? 'Gift' : 'Office'}</th><th>In someone's top ${topN}</th><th>#1 for</th></tr></thead>
+      <tbody>${latest.length ? distHtml : `<tr><td colspan="3" style="color:var(--ink-soft);">No one has taken this assessment yet.</td></tr>`}</tbody>
+    </table></div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:8px 0 10px;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0;">Who's taken it (${latest.length})</h3>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" class="field-input" id="gifts-search" placeholder="Search name, email, church…" style="width:240px;" />
+        <button class="mini-btn" id="gifts-export-btn">Export (CSV)</button>
+      </div>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Person</th><th>Church</th><th>Top ${type === 'gifts' ? 'gifts' : 'offices'}</th><th>Taken</th><th>Shared</th></tr></thead>
+      <tbody id="gifts-takers-tbody"></tbody>
+    </table></div>
+    </div>`;
+
+  const rowsData = latest.map(r => {
+    const p = profilesById[r.user_id] || {};
+    return {
+      r, name: p.full_name || 'Unnamed', email: p.email || '',
+      church: p.church_id ? (churchNameById[p.church_id] || '') : '',
+      top: (r.ranked || []).slice(0, topN).map(k => giftName(type, k)),
+      shared: !!shareById[r.user_id]
+    };
+  });
+
+  const tbody = document.getElementById('gifts-takers-tbody');
+  function drawRows(){
+    const q = (document.getElementById('gifts-search').value || '').trim().toLowerCase();
+    const shown = q ? rowsData.filter(d => (d.name + ' ' + d.email + ' ' + d.church).toLowerCase().includes(q)) : rowsData;
+    if(!shown.length){ tbody.innerHTML = `<tr><td colspan="5" style="color:var(--ink-soft);">${q ? 'No matches.' : 'No one yet.'}</td></tr>`; return; }
+    tbody.innerHTML = shown.map(d => `
+      <tr class="clickable" data-gifts-result="${d.r.id}">
+        <td><div class="student-name">${escapeHtmlReport(d.name)}</div><div class="student-email">${escapeHtmlReport(d.email)}</div></td>
+        <td>${escapeHtmlReport(d.church || '—')}</td>
+        <td>${d.top.map(escapeHtmlReport).join(', ')}</td>
+        <td class="date-started">${new Date(d.r.created_at).toLocaleDateString()}</td>
+        <td>${d.shared ? 'Yes' : '—'}</td>
+      </tr>
+      <tr class="gifts-detail-row" data-gifts-detail="${d.r.id}" style="display:none;"><td colspan="5" style="background:var(--bg-soft);">${giftScoresHtml(type, d.r)}</td></tr>`).join('');
+    tbody.querySelectorAll('[data-gifts-result]').forEach(tr => {
+      tr.addEventListener('click', () => {
+        const detail = tbody.querySelector(`[data-gifts-detail="${tr.dataset.giftsResult}"]`);
+        detail.style.display = detail.style.display === 'none' ? '' : 'none';
+      });
+    });
+  }
+  drawRows();
+  document.getElementById('gifts-search').addEventListener('input', drawRows);
+  content.querySelectorAll('[data-gifts-type]').forEach(btn => {
+    btn.addEventListener('click', () => { giftsAdminType = btn.dataset.giftsType; renderSpiritualGiftsBody(); });
+  });
+  document.getElementById('gifts-export-btn').addEventListener('click', () => {
+    const keys = (FJ.ASSESSMENTS[type].categories).map(c => c.key);
+    const headers = ['Name', 'Email', 'Church', 'Taken', 'Shared with church', 'Top', ...keys.map(k => giftName(type, k))];
+    const lines = [headers.map(csvEscape).join(',')];
+    rowsData.forEach(d => {
+      lines.push([d.name, d.email, d.church, new Date(d.r.created_at).toLocaleDateString(), d.shared ? 'Yes' : 'No', d.top.join('; '),
+        ...keys.map(k => (d.r.scores || {})[k] ?? '')].map(csvEscape).join(','));
+    });
+    const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${type === 'gifts' ? 'spiritual-gifts' : 'five-fold'}-results-${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  });
+  if(typeof initInfoTooltips === 'function') initInfoTooltips();
+}
+
+// Every gift/office score for one result, strongest first, as bars.
+function giftScoresHtml(type, r){
+  const FJ = window.FJ_ASSESSMENT;
+  if(!FJ) return '';
+  const max = FJ.maxScore(type);
+  const topN = FJ.ASSESSMENTS[type].topCount;
+  return `<div style="display:grid;gap:6px;max-width:560px;padding:4px 0;">${(r.ranked || []).map((k, i) => {
+    const s = (r.scores || {})[k] || 0;
+    return `<div style="display:grid;grid-template-columns:170px 1fr 120px;gap:10px;align-items:center;font-size:13px;">
+      <span style="${i < topN ? 'font-weight:700;' : ''}">${escapeHtmlReport(giftName(type, k))}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(s / max * 100)}%;${i < topN ? '' : 'opacity:.35;'}"></div></div>
+      <span class="bar-text">${s}/${max} · ${escapeHtmlReport(FJ.bandFor(type, s))}</span>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// Student detail page: their latest result for each assessment, if any.
+async function renderStudentGiftsPanel(studentId){
+  const slot = document.getElementById('student-gifts-panel');
+  if(!slot || !window.FJ_ASSESSMENT) return;
+  const { data, error } = await supabaseClient.from('gift_assessment_results')
+    .select('assessment_type, scores, ranked, created_at').eq('user_id', studentId)
+    .order('created_at', { ascending: false });
+  if(error || !document.getElementById('student-gifts-panel')) return;
+  const byType = {};
+  (data || []).forEach(r => { if(!byType[r.assessment_type]) byType[r.assessment_type] = r; });
+  const part = (type, label) => {
+    const r = byType[type];
+    if(!r) return `<p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;"><strong>${label}:</strong> not taken yet</p>`;
+    return `<details style="margin-bottom:12px;"><summary style="cursor:pointer;font-size:13.5px;"><strong>${label}:</strong> ${(r.ranked || []).slice(0, window.FJ_ASSESSMENT.ASSESSMENTS[type].topCount).map(k => escapeHtmlReport(giftName(type, k))).join(', ')} <span style="color:var(--ink-soft);font-size:12px;">· ${new Date(r.created_at).toLocaleDateString()}</span></summary>${giftScoresHtml(type, r)}</details>`;
+  };
+  slot.innerHTML = `<div class="panel" style="margin-bottom:20px;"><h3>Spiritual Gifts</h3>${part('gifts', 'Spiritual Gifts')}${part('fivefold', 'Five-Fold Office')}</div>`;
 }
 
 init();

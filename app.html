@@ -3636,6 +3636,9 @@
         <span class="disciple-banner-arrow">→</span>
       </button>
 
+      <!-- Spiritual Gifts results, filled in by fillProfileGifts() after render -->
+      <div id="profileGiftsSlot"></div>
+
       <div class="section-label" style="margin-top:24px; margin-bottom:12px;">Notifications</div>
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <button type="button" class="notif-toggle ${chatNotifsEnabled ? 'on' : ''}" id="chatNotifToggle" style="margin-top:0;">
@@ -3681,6 +3684,7 @@
       <p class="dm-note">Logging out signs you out on this device entirely — including the course site, since they share the same account. Nothing you've built (groups, disciples, progress) is deleted. Sign back in anytime with the same Google account to pick right back up.</p>
     `;
     document.getElementById('goToDiscipleshipBtn').onclick = () => { topView = 'hub'; renderDiscipleStep(); };
+    fillProfileGifts(account);
     document.getElementById('profEditBtn').onclick = () => renderProfileSettings(true);
     document.getElementById('chatNotifToggle').onclick = async () => {
       const btn = document.getElementById('chatNotifToggle');
@@ -3752,6 +3756,70 @@
       document.getElementById('profileBadgesChevron').classList.toggle('open', badgesExpanded);
       document.getElementById('profileBadgesBody').classList.toggle('open', badgesExpanded);
     };
+  }
+
+  // ---------- Spiritual Gifts on the Profile screen ----------
+  // Loads the person's latest Spiritual Gifts + Five-Fold results after
+  // the profile has rendered (so it never slows the screen down), and
+  // shows their top results with a link straight to the full results page.
+  // Gift names come from /assessment-data.js, loaded on demand the first
+  // time -- the same file the assessment pages use.
+  let assessmentDataPromise = null;
+  function loadAssessmentData() {
+    if (window.FJ_ASSESSMENT) return Promise.resolve(window.FJ_ASSESSMENT);
+    if (!assessmentDataPromise) {
+      assessmentDataPromise = new Promise((resolve, reject) => {
+        const el = document.createElement('script');
+        el.src = '/assessment-data.js';
+        el.onload = () => window.FJ_ASSESSMENT ? resolve(window.FJ_ASSESSMENT) : reject(new Error('assessment data missing'));
+        el.onerror = () => { assessmentDataPromise = null; reject(new Error('assessment data failed to load')); };
+        document.head.appendChild(el);
+      });
+    }
+    return assessmentDataPromise;
+  }
+  async function fillProfileGifts(account) {
+    const slot = document.getElementById('profileGiftsSlot');
+    if (!slot) return;
+    const giftIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12v9H4v-9"/><path d="M2 7h20v5H2z"/><path d="M12 21V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>';
+    const ffIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20c4-1 6-4 9-8s5-7 9-8"/><circle cx="5" cy="19" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="5" r="1.4"/></svg>';
+    let byType = {};
+    let FJ = null;
+    if (account && supabaseClient) {
+      try {
+        const [res, data] = await Promise.all([
+          supabaseClient.from('gift_assessment_results').select('assessment_type, ranked, created_at')
+            .eq('user_id', account.id).order('created_at', { ascending: false }).limit(20),
+          loadAssessmentData().catch(() => null)
+        ]);
+        FJ = data;
+        ((res && res.data) || []).forEach(r => { if (!byType[r.assessment_type]) byType[r.assessment_type] = r; });
+      } catch (e) { /* show the "take it" links below instead */ }
+    }
+    if (!document.getElementById('profileGiftsSlot')) return; // navigated away meanwhile
+    const banner = (type, cls, icon, title, emptySub, path) => {
+      const r = byType[type];
+      let sub = emptySub, href = path, heading = title;
+      if (r && FJ) {
+        const topN = FJ.ASSESSMENTS[type].topCount;
+        sub = (r.ranked || []).slice(0, topN).map(k => { const c = FJ.categoryByKey(type, k); return c ? c.name : k; }).join(' · ');
+        href = path + '?view=results';
+        heading = type === 'gifts' ? 'Your Spiritual Gifts' : 'Your Five-Fold Office';
+      }
+      return `<a class="disciple-banner ${cls}" href="${href}" style="text-decoration:none; width:100%;">
+        ${icon}
+        <span>
+          <span class="disciple-banner-title">${escapeHtmlMain(heading)}</span>
+          <span class="disciple-banner-sub">${escapeHtmlMain(sub)}</span>
+        </span>
+        <span class="disciple-banner-arrow">→</span>
+      </a>`;
+    };
+    slot.innerHTML = `
+      <div class="section-label" style="margin-top:24px; margin-bottom:2px;">Spiritual Gifts</div>
+      ${banner('gifts', 'disciple-banner-white', giftIcon, 'Discover Your Spiritual Gifts', 'Take the free assessment', '/spiritual-gifts-assessment')}
+      ${banner('fivefold', 'disciple-banner-white', ffIcon, 'Five-Fold Ministry Assessment', 'Apostle, prophet, evangelist, pastor, or teacher?', '/five-fold-office-assessment')}
+    `;
   }
 
   function escapeHtmlMain(s) {

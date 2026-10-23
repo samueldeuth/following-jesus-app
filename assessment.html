@@ -114,6 +114,10 @@
   .band-key{display:flex; flex-wrap:wrap; gap:8px 16px; font-size:13px; color:var(--ink-soft); margin:0 0 18px;}
   .soon{background:var(--black); color:var(--white); border:0;}
   .soon p{color:#d8d4cb;}
+  .share-row{display:flex; gap:12px; align-items:flex-start; margin-top:18px; padding:14px; border:1px solid rgba(255,255,255,.2); border-radius:10px; cursor:pointer;}
+  .share-row input{width:20px; height:20px; margin:2px 0 0; accent-color:var(--ember); flex:none;}
+  .share-row small{color:#a8a399; font-size:13px;}
+  .share-status{font-size:13px; color:var(--ember); margin-top:8px; min-height:18px;}
   .save-warn{background:#fff4e5; border:1px solid #f0c27b; color:#7a4b00; border-radius:10px; padding:12px 14px; font-size:14px; margin-bottom:16px;}
   .loading{padding:80px 0; text-align:center; color:var(--ink-soft);}
   .hidden{display:none !important;}
@@ -448,6 +452,7 @@
             ? 'Soon you\'ll be able to ask your pastor or a mature Christian leader to answer a short version of this assessment about you. Their view matters more than any score.'
             : 'Calling is delegated by the Holy Spirit, affirmed in community, and confirmed or released by those who already serve in the five-fold offices. Soon you\'ll be able to invite your pastor or a leader serving in these offices to weigh in.') + '</p>' +
           '<p style="margin-bottom:0">Until then, share these results with your pastor and ask what they see in you.</p>' +
+          '<div id="shareSlot"></div>' +
         '</div>' +
       '</div></section>' +
       '<section style="padding-top:0"><div class="wrap">' +
@@ -467,10 +472,49 @@
         '</div>' +
       '</div></section>';
 
+    fillShareSlot();
     document.getElementById('retakeBtn').onclick = () => { clearState(); renderQuiz(); };
     const sh = document.getElementById('shareBtn');
     if (sh) sh.onclick = () => navigator.share({ title:A.title, text:'Take the free ' + A.title + ' from Following Jesus', url:window.location.origin + A.path }).catch(() => {});
     scrollTop();
+  }
+
+  // ---------- "Share with my church" ----------
+  // Only shown when the person belongs to a church (profiles.church_id).
+  // One setting covers both assessments. Pastors only ever see results
+  // through a church-scoped security-definer function, never this table.
+  async function fillShareSlot(){
+    const slot = document.getElementById('shareSlot');
+    if (!slot || !user) return;
+    try {
+      const { data: prof } = await sb.from('profiles').select('church_id').eq('id', user.id).maybeSingle();
+      if (!prof || !prof.church_id) return;
+      const [{ data: church }, { data: share }] = await Promise.all([
+        sb.from('churches').select('name').eq('id', prof.church_id).maybeSingle(),
+        sb.from('gift_assessment_sharing').select('share_with_church').eq('user_id', user.id).maybeSingle()
+      ]);
+      const churchName = (church && church.name) || 'my church';
+      let on = !!(share && share.share_with_church);
+      slot.innerHTML =
+        '<label class="share-row">' +
+          '<input type="checkbox" id="shareToggle"' + (on ? ' checked' : '') + '>' +
+          '<span><b>Share my results with ' + esc(churchName) + '</b><br>' +
+          '<small>Your pastor and church leaders will be able to see your spiritual gifts and five-fold results. You can turn this off anytime.</small></span>' +
+        '</label><div class="share-status" id="shareStatus"></div>';
+      const box = document.getElementById('shareToggle');
+      box.onchange = async () => {
+        const next = box.checked;
+        const status = document.getElementById('shareStatus');
+        status.textContent = 'Saving…';
+        const { error } = await sb.from('gift_assessment_sharing').upsert(
+          { user_id: user.id, share_with_church: next, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id' }
+        );
+        if (error) { box.checked = on; status.textContent = "Couldn't save that. Please try again."; return; }
+        on = next;
+        status.textContent = next ? 'Shared with ' + churchName + '.' : 'No longer shared.';
+      };
+    } catch (e) { console.error('Share setting failed to load', e); }
   }
 
   // ---------- Boot ----------
@@ -502,6 +546,11 @@
     if (user && state.finished && FJ.scoreAnswers(TYPE, state.answers).complete) { finish(); return; }
 
     await loadLastResult();
+    // Profile pages link here with ?view=results to jump straight to them.
+    if (lastResult && new URLSearchParams(window.location.search).get('view') === 'results') {
+      renderResults({ scores:lastResult.scores, ranked:lastResult.ranked, created_at:lastResult.created_at });
+      return;
+    }
     renderIntro();
   }
 

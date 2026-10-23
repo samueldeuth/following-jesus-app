@@ -912,6 +912,63 @@ async function handleSignOut(){
   renderHero();
 }
 
+// ---------- Spiritual Gifts on the profile page ----------
+// Latest Spiritual Gifts + Five-Fold results, loaded after the profile
+// renders. Names come from /assessment-data.js (the same file the
+// assessment pages use), loaded on demand the first time.
+let assessmentDataPromise = null;
+function loadAssessmentData(){
+  if(window.FJ_ASSESSMENT) return Promise.resolve(window.FJ_ASSESSMENT);
+  if(!assessmentDataPromise){
+    assessmentDataPromise = new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = '/assessment-data.js';
+      el.onload = () => window.FJ_ASSESSMENT ? resolve(window.FJ_ASSESSMENT) : reject(new Error('assessment data missing'));
+      el.onerror = () => { assessmentDataPromise = null; reject(new Error('assessment data failed to load')); };
+      document.head.appendChild(el);
+    });
+  }
+  return assessmentDataPromise;
+}
+async function fillProfileGifts(){
+  const slot = document.getElementById('profile-gifts-slot');
+  if(!slot || !currentUser) return;
+  const byType = {};
+  let FJ = null;
+  try {
+    const [res, data] = await Promise.all([
+      supabaseClient.from('gift_assessment_results').select('assessment_type, ranked, created_at')
+        .eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(20),
+      loadAssessmentData().catch(() => null)
+    ]);
+    FJ = data;
+    ((res && res.data) || []).forEach(r => { if(!byType[r.assessment_type]) byType[r.assessment_type] = r; });
+  } catch(e){ /* fall through to the "take it" rows */ }
+  const target = document.getElementById('profile-gifts-slot');
+  if(!target) return;
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const row = (type, title, path) => {
+    const r = byType[type];
+    let status = 'Not taken yet — free, about ' + (type === 'gifts' ? '15' : '8') + ' minutes';
+    let href = path, enrolled = false;
+    if(r && FJ){
+      const topN = FJ.ASSESSMENTS[type].topCount;
+      status = (r.ranked || []).slice(0, topN).map(k => { const c = FJ.categoryByKey(type, k); return c ? c.name : k; }).join(' · ');
+      href = path + '?view=results';
+      enrolled = true;
+    }
+    return `<a class="profile-course-row" href="${href}" style="text-decoration:none;color:inherit;">
+      <div>
+        <div class="profile-course-name">${esc(title)}</div>
+        <div class="profile-course-status ${enrolled ? 'enrolled' : ''}">${esc(status)}</div>
+      </div>
+      <span>&rarr;</span>
+    </a>`;
+  };
+  target.innerHTML = row('gifts', 'Spiritual Gifts Assessment', '/spiritual-gifts-assessment') +
+                     row('fivefold', 'Five-Fold Office Assessment', '/five-fold-office-assessment');
+}
+
 async function renderProfile(){
   const { data: allCourses } = await supabaseClient.from('courses').select('id, title, subtitle, sessions(session_items(id))').order('created_at');
   const { data: myEnrollments } = await supabaseClient.from('enrollments').select('course_id').eq('student_id', currentUser.id);
@@ -970,6 +1027,9 @@ async function renderProfile(){
 
       <div class="profile-courses-title">Your Courses</div>
       ${coursesHtml || '<p style="color:var(--ink-soft);font-size:14px;">No courses available yet.</p>'}
+
+      <div class="profile-courses-title">Your Spiritual Gifts</div>
+      <div id="profile-gifts-slot"><p style="color:var(--ink-soft);font-size:14px;">Loading…</p></div>
     </div>
   `;
 
@@ -988,6 +1048,7 @@ async function renderProfile(){
     renderProfile();
   });
   document.getElementById('profile-signout-btn').addEventListener('click', handleSignOut);
+  fillProfileGifts();
   document.getElementById('profile-delete-btn').addEventListener('click', async () => {
     const sure = confirm(
       "Delete your account?\n\nThis permanently removes your enrollments, course progress, discussion answers, and certificates — on both the course site and the app. This cannot be undone."
