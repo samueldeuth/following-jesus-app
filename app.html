@@ -2141,6 +2141,29 @@
         <span class="disciple-banner-arrow">→</span>
       </button>
 
+      <!-- Spiritual Gifts + Five-Fold assessments. These live on their own
+           pages (/spiritual-gifts-assessment, /five-fold-office-assessment -> assessment.html), same domain, so the
+           Supabase sign-in is shared. Plain links (not a modal) on purpose:
+           assessment.html shows a "Home" link back to /app when it detects
+           it's running inside the Median app. -->
+      <a class="disciple-banner disciple-banner-white" href="/spiritual-gifts-assessment" style="text-decoration:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12v9H4v-9"/><path d="M2 7h20v5H2z"/><path d="M12 21V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+        <span>
+          <span class="disciple-banner-title">Discover Your Spiritual Gifts</span>
+          <span class="disciple-banner-sub">A free assessment of how God has gifted you to serve</span>
+        </span>
+        <span class="disciple-banner-arrow">→</span>
+      </a>
+
+      <a class="disciple-banner disciple-banner-secondary" href="/five-fold-office-assessment" style="text-decoration:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20c4-1 6-4 9-8s5-7 9-8"/><circle cx="5" cy="19" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="5" r="1.4"/></svg>
+        <span>
+          <span class="disciple-banner-title">Five-Fold Ministry Assessment</span>
+          <span class="disciple-banner-sub">Apostle, prophet, evangelist, pastor, or teacher?</span>
+        </span>
+        <span class="disciple-banner-arrow">→</span>
+      </a>
+
       <div class="verse-alert-modal-overlay" id="findChurchModalOverlay">
         <div class="verse-alert-modal-card" style="max-width:440px;max-height:82vh;overflow-y:auto;text-align:left;position:relative;">
           <button type="button" id="findChurchCloseBtn" aria-label="Close" style="position:absolute;top:14px;right:14px;background:none;border:none;font-size:20px;color:var(--ink-soft);cursor:pointer;line-height:1;">×</button>
