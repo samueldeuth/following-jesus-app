@@ -81,6 +81,8 @@
   .scale input:focus-visible + span{outline:2px solid var(--ember); outline-offset:2px;}
   .scale-ends{display:flex; justify-content:space-between; font-size:12px; color:var(--ink-soft); margin-top:6px;}
   .legend{font-size:14px; color:var(--ink-soft); margin:14px 0 0;}
+  .scale-key{display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin-top:10px; text-align:center; font-size:11.5px; color:var(--ink-soft); line-height:1.25;}
+  .scale-key b{display:block; font-size:14px; color:var(--ink);}
   .legend b{color:var(--ink);}
   .quiz-nav{display:flex; justify-content:space-between; gap:12px; margin:22px 0 40px;}
   .quiz-error{color:#c0392b; font-size:14px; margin-top:-8px; min-height:20px;}
@@ -121,6 +123,17 @@
   .save-warn{background:#fff4e5; border:1px solid #f0c27b; color:#7a4b00; border-radius:10px; padding:12px 14px; font-size:14px; margin-bottom:16px;}
   .loading{padding:80px 0; text-align:center; color:var(--ink-soft);}
   .hidden{display:none !important;}
+  .keep-card{margin-top:14px; background:var(--paper-2); border-color:var(--paper-2);}
+  @media print{
+    .topbar, footer, .no-print, .soon, .btn, .btn-row{display:none !important;}
+    html, body{background:#fff;}
+    .hero{background:#fff; color:#000; padding:0 0 10px;}
+    .hero p{color:#333;}
+    section{padding:12px 0;}
+    .card{break-inside:avoid; border-color:#ccc;}
+    .bar-fill.top{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+    .bar-fill, .bar-track{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+  }
   footer{padding:30px 0 50px; color:var(--ink-soft); font-size:13px; text-align:center;}
   footer a{color:var(--ink-soft);}
 </style>
@@ -163,6 +176,8 @@
   const MAX = FJ.maxScore(TYPE);
   const STORE_KEY = 'fj-assessment-' + TYPE + '-v' + FJ.QUESTION_VERSION;
   const IN_APP = navigator.userAgent.indexOf('median') > -1;
+  // Short versions of the scale labels for the always-visible answer key.
+  const KEY_LABELS = { 1:'Never', 2:'Rarely', 3:'Sometimes', 4:'Often', 5:'Always' };
 
   document.title = A.title + ' | Following Jesus';
 
@@ -281,10 +296,11 @@
       '<div class="progress-shell"><div class="wrap">' +
         '<div class="progress-text"><span>' + esc(A.shortTitle) + ' · Page ' + (state.page + 1) + ' of ' + PAGES + '</span><span id="pct"></span></div>' +
         '<div class="progress"><div id="bar"></div></div>' +
+        // Answer key, on every page, lined up with the 1–5 buttons below.
+        '<div class="scale-key" aria-hidden="true">' + FJ.SCALE.map(s => '<span><b>' + s.value + '</b>' + esc(KEY_LABELS[s.value] || s.label) + '</span>').join('') + '</div>' +
       '</div></div>' +
       '<div class="wrap">' +
-        (state.page === 0 ? '<p class="legend">Answer based on what\'s true of you <b>now</b>, not what you hope will be true. ' +
-          FJ.SCALE.map(s => '<b>' + s.value + '</b> = ' + esc(s.label)).join(' · ') + '</p>' : '') +
+        (state.page === 0 ? '<p class="legend">Answer based on what\'s true of you <b>now</b>, not what you hope will be true. The key at the top stays with you on every page.</p>' : '') +
         qs +
         '<div class="quiz-error" id="quizErr"></div>' +
         '<div class="quiz-nav">' +
@@ -446,6 +462,15 @@
         (saveFailed ? '<div class="save-warn">We couldn\'t save these results to your account just now. Your answers are still on this device, so refresh the page to try again.</div>' : '') +
         topHtml +
         (tie ? '<p class="small muted" style="margin-top:12px">Some of your top scores were tied. Where that happened, we ranked higher the one others have most often confirmed in you.</p>' : '') +
+        '<div class="card keep-card no-print">' +
+          '<h3>Keep a copy of your results</h3>' +
+          '<p class="small muted" style="margin:0 0 14px">Email them to yourself to forward to your pastor, or save them as a PDF.</p>' +
+          '<div class="btn-row">' +
+            (user && user.email ? '<button class="btn btn-dark" id="emailBtn">Email my results</button>' : '') +
+            (IN_APP ? '' : '<button class="btn btn-light" id="pdfBtn">Save as PDF</button>') +
+          '</div>' +
+          '<div class="small" id="emailStatus" style="margin-top:10px; min-height:20px; color:var(--ember-dark)"></div>' +
+        '</div>' +
       '</div></section>' +
       '<section style="padding-top:0"><div class="wrap">' +
         '<h2>All your scores</h2>' +
@@ -474,17 +499,60 @@
       '</div></section>' +
       '<section style="padding-top:0"><div class="wrap">' +
         '<h2>Remember</h2>' + bestUseHtml() +
-        '<div class="btn-row" style="margin-top:22px">' +
+        '<div class="card invite-card no-print" style="margin-top:22px">' +
+          '<h3>Invite a friend to take the assessment</h3>' +
+          '<p class="small muted" style="margin:0 0 14px">This sends them a link to the free ' + esc(A.title) + ' so they can discover their own gifts. Your results are not shared.</p>' +
+          '<button class="btn btn-light" id="inviteBtn">Invite a friend</button>' +
+          '<div class="small" id="inviteStatus" style="margin-top:10px; min-height:20px; color:var(--ember-dark)"></div>' +
+        '</div>' +
+        '<div class="btn-row no-print" style="margin-top:22px">' +
           '<button class="btn btn-dark" id="retakeBtn">Retake the assessment</button>' +
-          (navigator.share ? '<button class="btn btn-light" id="shareBtn">Share with a friend</button>' : '') +
         '</div>' +
       '</div></section>';
 
     fillShareSlot();
     document.getElementById('retakeBtn').onclick = () => { clearState(); renderQuiz(); };
-    const sh = document.getElementById('shareBtn');
-    if (sh) sh.onclick = () => navigator.share({ title:A.title, text:'Take the free ' + A.title + ' from Following Jesus', url:window.location.origin + A.path }).catch(() => {});
+    document.getElementById('inviteBtn').onclick = inviteFriend;
+    const eb = document.getElementById('emailBtn');
+    if (eb) eb.onclick = emailResults;
+    const pb = document.getElementById('pdfBtn');
+    if (pb) pb.onclick = () => window.print();
     scrollTop();
+  }
+
+  // ---------- Invite a friend (shares the assessment link only) ----------
+  async function inviteFriend(){
+    const url = window.location.origin + A.path;
+    const text = "I just took the free " + A.title + " from Following Jesus. It helps you discover how God has gifted you to serve. Take it here:";
+    const status = document.getElementById('inviteStatus');
+    if (navigator.share) {
+      try { await navigator.share({ title: A.title, text, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    try { await navigator.clipboard.writeText(text + ' ' + url); status.textContent = 'Link copied. Paste it into a text or email to a friend.'; }
+    catch (e) { status.textContent = 'Share this link: ' + url; }
+  }
+
+  // ---------- Email my results (sent to the signed-in email address) ----------
+  async function emailResults(){
+    const btn = document.getElementById('emailBtn');
+    const status = document.getElementById('emailStatus');
+    btn.disabled = true; status.textContent = 'Sending…';
+    try {
+      const { data } = await sb.auth.getSession();
+      const token = data && data.session && data.session.access_token;
+      const res = await fetch('/.netlify/functions/email-assessment-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (token || '') },
+        body: JSON.stringify({ type: TYPE })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Something went wrong');
+      status.textContent = 'Sent to ' + (body.to || user.email) + '. Check your inbox (and spam folder) in a minute.';
+      btn.textContent = 'Sent ✓';
+    } catch (e) {
+      status.textContent = "Couldn't send the email: " + e.message;
+      btn.disabled = false;
+    }
   }
 
   // ---------- "Share with my church" ----------
