@@ -11,6 +11,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Gift/office names for the Spiritual Gifts tab (same file the assessments use) -->
+<script src="/assessment-data.js"></script>
 <style>
   :root{
     --ink:#17191D; --ink-soft:#6B7280; --blue:#3E82F7;
@@ -827,6 +829,7 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
       ${pendingStudents.length ? `<button class="church-tab-btn" data-tab="pending">Not Yet Signed Up (${pendingStudents.length})</button>` : ''}
       <button class="church-tab-btn" data-tab="settings">Settings</button>
       <button class="church-tab-btn" data-tab="groups">Groups</button>
+      <button class="church-tab-btn" data-tab="gifts">Spiritual Gifts</button>
     </div>
 
     <div class="church-tab-panel active" data-tab-panel="students">
@@ -933,6 +936,10 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
       <span id="save-status" style="font-size:12.5px;color:var(--ink-soft);margin-left:10px;"></span>
     </div>
 
+    <div class="church-tab-panel" data-tab-panel="gifts" id="church-gifts-panel" style="text-align:left;">
+      <div class="loading">Loading…</div>
+    </div>
+
     <div class="church-tab-panel" data-tab-panel="groups">
       <div id="groups-list">${myGroups.map(g => `
         <div class="group-row" style="flex-direction:column;align-items:stretch;gap:8px;">
@@ -967,6 +974,7 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
       document.querySelectorAll('.church-tab-panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
       document.querySelector(`.church-tab-panel[data-tab-panel="${btn.dataset.tab}"]`).classList.add('active');
+      if(btn.dataset.tab === 'gifts') renderChurchGiftsTab();
     });
   });
 
@@ -1320,6 +1328,145 @@ async function renderStudentDetail(studentId, courseId){
       btn.textContent = 'Sent ✓';
       setTimeout(() => { btn.textContent = 'Send Reply'; }, 1500);
     });
+  });
+}
+
+// ============================================================
+// Spiritual Gifts tab -- results from the free Spiritual Gifts and
+// Five-Fold Office assessments for people connected to this church who
+// are sharing them (on by default; each person can turn it off on their
+// results page). Data comes from get_my_church_gift_results(), which works
+// out the church on the server from the signed-in admin -- this page never
+// sends a church id. Names come from assessment-data.js.
+// ============================================================
+let churchGiftsLoaded = false;
+let churchGiftsType = 'gifts';
+let churchGiftsRows = [];
+
+function churchGiftName(type, key){
+  const c = window.FJ_ASSESSMENT && window.FJ_ASSESSMENT.categoryByKey(type, key);
+  return c ? c.name : key;
+}
+
+async function renderChurchGiftsTab(){
+  const panel = document.getElementById('church-gifts-panel');
+  if(!panel) return;
+  if(!window.FJ_ASSESSMENT){ panel.innerHTML = '<p style="color:var(--ink-soft);font-size:13px;">Could not load the assessment details. Please refresh the page.</p>'; return; }
+  if(!churchGiftsLoaded){
+    panel.innerHTML = '<div class="loading">Loading…</div>';
+    await supabaseClient.auth.getSession(); // refresh a stale token before an RLS-protected call
+    const { data, error } = await supabaseClient.rpc('get_my_church_gift_results');
+    if(error){ panel.innerHTML = `<p style="color:var(--ink-soft);font-size:13px;">Could not load results: ${escapeHtmlReport(error.message)}</p>`; return; }
+    churchGiftsRows = data || [];
+    churchGiftsLoaded = true;
+  }
+  drawChurchGiftsTab();
+}
+
+function drawChurchGiftsTab(){
+  const FJ = window.FJ_ASSESSMENT;
+  const panel = document.getElementById('church-gifts-panel');
+  const type = churchGiftsType;
+  const A = FJ.ASSESSMENTS[type];
+  const max = FJ.maxScore(type);
+  const rows = churchGiftsRows.filter(r => r.out_assessment_type === type)
+    .sort((a, b) => (a.out_full_name || '').localeCompare(b.out_full_name || ''));
+  const giftsCount = churchGiftsRows.filter(r => r.out_assessment_type === 'gifts').length;
+  const ffCount = churchGiftsRows.filter(r => r.out_assessment_type === 'fivefold').length;
+
+  const topCounts = {}, firstCounts = {};
+  A.categories.forEach(c => { topCounts[c.key] = 0; firstCounts[c.key] = 0; });
+  rows.forEach(r => {
+    const ranked = r.out_ranked || [];
+    if(ranked[0] in firstCounts) firstCounts[ranked[0]]++;
+    ranked.slice(0, A.topCount).forEach(k => { if(k in topCounts) topCounts[k]++; });
+  });
+  const dist = A.categories.filter(c => topCounts[c.key] > 0)
+    .sort((a, b) => (topCounts[b.key] - topCounts[a.key]) || (firstCounts[b.key] - firstCounts[a.key]));
+  const maxTop = Math.max(1, ...dist.map(c => topCounts[c.key]));
+
+  const link = window.location.origin + A.path;
+  panel.innerHTML = `
+    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 16px;max-width:680px;">
+      Results from the free assessments for people connected to your church. Results are shared with you automatically; anyone can turn sharing off on their results page. Use these as a starting point for conversation — your voice matters more than any score.
+    </p>
+    <div class="summary-row">
+      <div class="summary-card"><div class="num">${giftsCount}</div><div class="label">Spiritual Gifts results</div></div>
+      <div class="summary-card"><div class="num">${ffCount}</div><div class="label">Five-Fold results</div></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;">
+      <button class="mini-btn" data-church-gifts-type="gifts" ${type === 'gifts' ? 'style="background:var(--ink);color:#fff;border-color:var(--ink);"' : ''}>Spiritual Gifts</button>
+      <button class="mini-btn" data-church-gifts-type="fivefold" ${type === 'fivefold' ? 'style="background:var(--ink);color:#fff;border-color:var(--ink);"' : ''}>Five-Fold Office</button>
+    </div>
+    <div class="panel">
+      <div style="font-weight:600;font-size:14px;margin-bottom:4px;">Invite your people to take the ${escapeHtmlReport(A.title)}</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <code style="font-size:12.5px;background:var(--bg-soft);padding:6px 10px;border-radius:6px;">${escapeHtmlReport(link)}</code>
+        <button class="mini-btn" id="church-gifts-copy-link">Copy Link</button>
+        <span id="church-gifts-copy-status" style="font-size:12.5px;color:var(--ink-soft);"></span>
+      </div>
+    </div>
+    ${rows.length ? `
+      <div style="font-weight:600;font-size:14px;margin:4px 0 10px;">Most common ${type === 'gifts' ? 'gifts' : 'offices'} in your church</div>
+      <div class="panel" style="max-width:620px;">
+        ${dist.map(c => `<div style="display:grid;grid-template-columns:190px 1fr 40px;gap:10px;align-items:center;font-size:13px;margin:5px 0;">
+          <span>${escapeHtmlReport(c.name)}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${Math.round(topCounts[c.key] / maxTop * 100)}%"></div></div>
+          <span class="bar-text">${topCounts[c.key]}</span></div>`).join('')}
+        <p class="field-hint" style="margin-top:8px;">How many people have each one in their top ${A.topCount}.</p>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 10px;">
+        <div style="font-weight:600;font-size:14px;">People (${rows.length})</div>
+        <button class="mini-btn" id="church-gifts-export">Export (CSV)</button>
+      </div>
+      <div style="overflow-x:auto;"><table>
+        <thead><tr><th>Person</th><th>Top ${type === 'gifts' ? 'gifts' : 'offices'}</th><th>Taken</th></tr></thead>
+        <tbody>${rows.map((r, i) => `
+          <tr data-church-gift-row="${i}">
+            <td><div class="student-name">${escapeHtmlReport(r.out_full_name || 'Unnamed')}</div><div style="font-size:12px;color:var(--ink-soft);">${escapeHtmlReport(r.out_email || '')}</div></td>
+            <td>${(r.out_ranked || []).slice(0, A.topCount).map(k => escapeHtmlReport(churchGiftName(type, k))).join(', ')}</td>
+            <td style="font-size:12.5px;color:var(--ink-soft);white-space:nowrap;">${new Date(r.out_created_at).toLocaleDateString()}</td>
+          </tr>
+          <tr data-church-gift-detail="${i}" style="display:none;cursor:default;"><td colspan="3" style="background:var(--bg-soft);">
+            <div style="display:grid;gap:6px;max-width:560px;">${(r.out_ranked || []).map((k, j) => {
+              const sc = (r.out_scores || {})[k] || 0;
+              return `<div style="display:grid;grid-template-columns:170px 1fr 120px;gap:10px;align-items:center;font-size:13px;">
+                <span style="${j < A.topCount ? 'font-weight:700;' : ''}">${escapeHtmlReport(churchGiftName(type, k))}</span>
+                <div class="bar-track"><div class="bar-fill" style="width:${Math.round(sc / max * 100)}%;${j < A.topCount ? '' : 'opacity:.35;'}"></div></div>
+                <span class="bar-text">${sc}/${max} · ${escapeHtmlReport(FJ.bandFor(type, sc))}</span></div>`;
+            }).join('')}</div>
+          </td></tr>`).join('')}</tbody>
+      </table></div>
+    ` : `<p style="color:var(--ink-soft);font-size:13.5px;">No one connected to your church has shared ${type === 'gifts' ? 'Spiritual Gifts' : 'Five-Fold'} results yet. Share the link above to get started.</p>`}
+  `;
+
+  panel.querySelectorAll('[data-church-gifts-type]').forEach(btn => {
+    btn.addEventListener('click', () => { churchGiftsType = btn.dataset.churchGiftsType; drawChurchGiftsTab(); });
+  });
+  panel.querySelectorAll('[data-church-gift-row]').forEach(tr => {
+    tr.addEventListener('click', () => {
+      const d = panel.querySelector(`[data-church-gift-detail="${tr.dataset.churchGiftRow}"]`);
+      d.style.display = d.style.display === 'none' ? '' : 'none';
+    });
+  });
+  document.getElementById('church-gifts-copy-link').addEventListener('click', async () => {
+    const status = document.getElementById('church-gifts-copy-status');
+    try { await navigator.clipboard.writeText(link); status.textContent = 'Copied!'; }
+    catch(e){ status.textContent = 'Copy the link above.'; }
+  });
+  const exp = document.getElementById('church-gifts-export');
+  if(exp) exp.addEventListener('click', () => {
+    const keys = A.categories.map(c => c.key);
+    const cell = v => { const t = String(v == null ? '' : v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+    const lines = [['Name', 'Email', 'Taken', 'Top', ...keys.map(k => churchGiftName(type, k))].map(cell).join(',')];
+    rows.forEach(r => lines.push([r.out_full_name || '', r.out_email || '', new Date(r.out_created_at).toLocaleDateString(),
+      (r.out_ranked || []).slice(0, A.topCount).map(k => churchGiftName(type, k)).join('; '),
+      ...keys.map(k => (r.out_scores || {})[k] ?? '')].map(cell).join(',')));
+    const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${type === 'gifts' ? 'spiritual-gifts' : 'five-fold'}-results-${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
   });
 }
 
