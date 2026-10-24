@@ -236,7 +236,8 @@
           '<button class="btn btn-light" id="googleBtn">' + gSvg + 'Continue with Google</button>' +
           '<button class="btn btn-dark" id="appleBtn">' + appleSvg + 'Continue with Apple</button>' +
         '</div>' +
-        '<p class="small muted" style="margin-top:18px"><button type="button" id="editBtn" style="background:none;border:0;color:var(--ember-dark);cursor:pointer;text-decoration:underline;font-size:14px;padding:0">Go back and review my answers</button></p>' +
+        '<p class="small muted" style="margin-top:16px; max-width:360px; margin-left:auto; margin-right:auto">By signing in, you\'ll also get occasional emails from Following Jesus with encouragement and resources to grow in your gifts. You can unsubscribe anytime.</p>' +
+        '<p class="small muted" style="margin-top:12px"><button type="button" id="editBtn" style="background:none;border:0;color:var(--ember-dark);cursor:pointer;text-decoration:underline;font-size:14px;padding:0">Go back and review my answers</button></p>' +
       '</div></div></section>';
     // No hash or query in redirectTo, so the OAuth return lands cleanly.
     const redirectTo = window.location.origin + window.location.pathname;
