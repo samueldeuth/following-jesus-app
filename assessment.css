@@ -172,3 +172,12 @@
 .notyet input:focus-visible + span{outline:2px solid var(--ember); outline-offset:2px;}
 .thin-note{font-size:13.5px; color:var(--ember-dark); background:var(--ember-soft); border-radius:8px; padding:8px 12px; margin:0 0 12px;}
 .notyet-card{margin-bottom:14px; background:var(--ember-soft); border-color:var(--ember-soft);}
+
+/* Five-Fold "which role do you take in a group" question */
+.role-opts{display:grid; gap:8px;}
+.role-opt{position:relative; cursor:pointer; display:block;}
+.role-opt input{position:absolute; opacity:0; pointer-events:none;}
+.role-opt span{display:block; padding:12px 14px; border:1.5px solid var(--line); border-radius:10px; background:var(--paper); font-size:15px; font-weight:500; transition:all .12s;}
+.role-opt input:checked + span{background:var(--black); border-color:var(--black); color:var(--white);}
+.role-opt input:focus-visible + span{outline:2px solid var(--ember); outline-offset:2px;}
+.role-card{margin-top:14px;}

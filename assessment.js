@@ -163,6 +163,17 @@
             '</fieldset>';
     });
     const isLast = state.page === PAGES - 1;
+    // Five-Fold only: "which role do you take in a group?" on the last page.
+    const GR = A.groupRole;
+    const roleHtml = (isLast && GR) ?
+      '<fieldset class="q role-q" id="q-' + GR.id + '" style="border:1px solid var(--line)">' +
+        '<legend class="hidden">Last question</legend>' +
+        '<span class="q-num">One last question</span>' +
+        '<p class="q-text">' + esc(GR.prompt) + '</p>' +
+        '<div class="role-opts">' + GR.options.map(o =>
+          '<label class="role-opt"><input type="radio" name="' + GR.id + '" value="' + o.key + '"' + (state.answers[GR.id] === o.key ? ' checked' : '') + '><span>' + esc(o.label) + '</span></label>').join('') +
+        '</div>' +
+      '</fieldset>' : '';
     app.innerHTML =
       '<div class="progress-shell"><div class="wrap">' +
         '<div class="progress-text"><span>' + esc(A.shortTitle) + ' · Page ' + (state.page + 1) + ' of ' + PAGES + '</span><span id="pct"></span></div>' +
@@ -172,7 +183,7 @@
       '</div></div>' +
       '<div class="wrap">' +
         (state.page === 0 ? '<p class="legend">Answer based on what\'s true of you <b>now</b>, not what you hope will be true. The key at the top stays with you on every page. If a statement is about something you haven\'t had the opportunity to do, choose <b>' + esc(FJ.NOT_YET_LABEL) + '</b>. It won\'t count against you.</p>' : '') +
-        qs +
+        qs + roleHtml +
         '<div class="quiz-error" id="quizErr"></div>' +
         '<div class="quiz-nav">' +
           '<button class="btn btn-light" id="backBtn">' + (state.page === 0 ? 'Back to intro' : 'Back') + '</button>' +
@@ -183,7 +194,7 @@
 
     app.querySelectorAll('.q input[type=radio]').forEach(inp => {
       inp.addEventListener('change', () => {
-        state.answers[inp.name] = parseInt(inp.value, 10);
+        state.answers[inp.name] = (GR && inp.name === GR.id) ? inp.value : parseInt(inp.value, 10);
         saveState();
         const box = document.getElementById('q-' + inp.name);
         if (box) box.classList.remove('missing');
@@ -197,6 +208,7 @@
     };
     document.getElementById('nextBtn').onclick = () => {
       const missing = slice.filter(q => !FJ.isValidAnswer(state.answers[q.id]));
+      if (isLast && GR && !GR.options.some(o => o.key === state.answers[GR.id])) missing.push({ id: GR.id });
       if (missing.length) {
         missing.forEach(q => document.getElementById('q-' + q.id).classList.add('missing'));
         document.getElementById('quizErr').textContent = 'Please answer every statement on this page.';
@@ -208,7 +220,7 @@
       if (!result.complete) {
         // Shouldn't happen, but if an earlier page has a gap, jump to it.
         const firstGap = ORDER.findIndex(q => !FJ.isValidAnswer(state.answers[q.id]));
-        state.page = Math.floor(firstGap / PER_PAGE); saveState(); renderQuiz(); scrollTop();
+        state.page = firstGap < 0 ? PAGES - 1 : Math.floor(firstGap / PER_PAGE); saveState(); renderQuiz(); scrollTop();
         return;
       }
       state.finished = true; saveState();
@@ -329,6 +341,16 @@
     }).join('');
 
     const tie = top.length > 1 && (res.scores[top[0]] === res.scores[top[1]]);
+    // Five-Fold: the role they said they take in a group.
+    let roleNoteHtml = '';
+    if (A.groupRole && res.answers && res.answers[A.groupRole.id]) {
+      const opt = A.groupRole.options.find(o => o.key === res.answers[A.groupRole.id]);
+      if (opt) {
+        const inTop = top.indexOf(opt.key) > -1;
+        roleNoteHtml = '<div class="card role-card"><h3>The role you take in a group</h3><p style="margin:0">You said: <b>' + esc(opt.label.replace(/\.$/, '')) + '</b> (' + esc(FJ.categoryByKey(TYPE, opt.key).name) + '). ' +
+          (inTop ? 'That lines up with your results.' : 'That\'s different from your top results, which is worth talking through with your pastor. Sometimes the role we take is the one that was needed, and sometimes it shows a calling that\'s still emerging.') + '</p></div>';
+      }
+    }
 
     app.innerHTML =
       '<div class="hero"><div class="wrap">' +
@@ -340,6 +362,7 @@
         (saveFailed ? '<div class="save-warn">We couldn\'t save these results to your account just now. Your answers are still on this device, so refresh the page to try again.</div>' : '') +
         (naTotal >= Math.ceil(ORDER.length * 0.2) ? '<div class="card notyet-card"><h3>Still discovering</h3><p style="margin:0">You answered <b>' + esc(FJ.NOT_YET_LABEL) + '</b> to ' + naTotal + ' of ' + ORDER.length + ' statements. That\'s completely okay! Gifts often show up as you step out and serve. Try serving in a few different areas at your church, then come back and retake this to see what God is growing in you.</p></div>' : '') +
         topHtml +
+        roleNoteHtml +
         (tie ? '<p class="small muted" style="margin-top:12px">Some of your top scores were tied. Where that happened, we ranked higher the one others have most often confirmed in you.</p>' : '') +
         '<div class="card keep-card no-print">' +
           '<h3>Keep a copy of your results</h3>' +

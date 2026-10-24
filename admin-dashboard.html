@@ -5577,6 +5577,7 @@ function renderSpiritualGiftsBody(){
       <thead><tr><th>Person</th><th>Church</th><th>Top ${type === 'gifts' ? 'gifts' : 'offices'}</th><th>Taken</th><th>Shared</th><th>Accuracy</th></tr></thead>
       <tbody id="gifts-takers-tbody"></tbody>
     </table></div>
+    ${giftQuestionBankHtml(type)}
     </div>`;
 
   const rowsData = latest.map(r => {
@@ -5678,6 +5679,36 @@ function giftFeedbackSummaryHtml(type, results, feedbackByResult, profilesById){
 function giftFeedbackLineHtml(f){
   if(!f) return '<p style="font-size:12.5px;color:var(--ink-soft);margin:10px 0 0;">No feedback left on this result.</p>';
   return `<p style="font-size:13px;margin:10px 0 0;"><strong>Feedback:</strong> ${f.accuracy}/5 (${GIFT_FEEDBACK_ACCURACY[f.accuracy]}) · top results: ${escapeHtmlReport(GIFT_FEEDBACK_TOPFIT[f.top_fit] || f.top_fit)}${f.comment ? `<br><span style="white-space:pre-wrap;">“${escapeHtmlReport(f.comment)}”</span>` : ''}</p>`;
+}
+
+// Question Bank: every statement in the current version of an assessment,
+// grouped by gift/office, with the Scripture each one comes from. Reads
+// assessment-data.js directly, so it always matches what people see.
+function giftQuestionBankHtml(type){
+  const FJ = window.FJ_ASSESSMENT;
+  const A = FJ.ASSESSMENTS[type];
+  const total = A.categories.reduce((n, c) => n + c.questions.length, 0) + (A.groupRole ? 1 : 0);
+  const groups = A.categories.map(c => `
+    <details style="border-bottom:1px solid var(--line);padding:10px 0;">
+      <summary style="cursor:pointer;font-weight:600;font-size:14px;">${escapeHtmlReport(c.name)} <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px;">· ${escapeHtmlReport(c.scripture)} · ${c.questions.length} statements</span></summary>
+      <div class="table-scroll" style="margin-top:8px;"><table style="margin-bottom:0;">
+        <thead><tr><th style="width:70px;">ID</th><th>Statement</th><th style="width:190px;">Scripture</th></tr></thead>
+        <tbody>${c.questions.map((q, i) => `<tr style="cursor:default;">
+          <td style="font-size:12px;color:var(--ink-soft);white-space:nowrap;">${c.key}-${i + 1}${i === A.confirmIndex ? '<br><span title="Others-confirm statement, used to break ties">confirm</span>' : ''}</td>
+          <td style="font-size:13.5px;">${escapeHtmlReport(q)}</td>
+          <td style="font-size:12.5px;">${escapeHtmlReport((c.refs || [])[i] || '—')}</td></tr>`).join('')}</tbody>
+      </table></div>
+    </details>`).join('');
+  const role = A.groupRole ? `
+    <details style="padding:10px 0;">
+      <summary style="cursor:pointer;font-weight:600;font-size:14px;">Group role question <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px;">· ${escapeHtmlReport(A.groupRole.ref)} · last page, breaks exact ties</span></summary>
+      <p style="font-size:13.5px;margin:8px 0;">${escapeHtmlReport(A.groupRole.prompt)}</p>
+      <ul style="font-size:13.5px;margin:0;">${A.groupRole.options.map(o => `<li>${escapeHtmlReport(o.label)} <span style="color:var(--ink-soft);">→ ${escapeHtmlReport(giftName(type, o.key))}</span></li>`).join('')}</ul>
+    </details>` : '';
+  return `
+    <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:28px 0 4px;">Question bank &amp; Scripture</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px;">Every statement in the ${escapeHtmlReport(A.title)} (version ${FJ.QUESTION_VERSION}, ${total} questions) with the passage it's drawn from. Edit wording in assessment-data.js.</p>
+    <div class="panel" style="padding-top:4px;padding-bottom:4px;">${groups}${role}</div>`;
 }
 
 // Every gift/office score for one result, strongest first, as bars.
