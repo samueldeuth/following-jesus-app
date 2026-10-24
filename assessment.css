@@ -137,6 +137,29 @@
 .feedback-card textarea{width:100%; border:1.5px solid var(--line); border-radius:10px; padding:10px 12px; font:inherit; font-size:15px; background:var(--paper); resize:vertical;}
 @media print{ .feedback-card{display:none !important;} }
 
-/* Intro header image (same artwork as the link preview) */
-.hero-img{display:block; width:100%; height:auto; border-radius:14px; border:1px solid rgba(255,255,255,.12); margin:0 0 26px; box-shadow:0 12px 40px rgba(0,0,0,.45);}
-.sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;}
+/* Start-page header, laid out to match the link-preview artwork */
+.hero-intro{position:relative; overflow:hidden; padding:44px 0 46px;}
+.hero-intro .wrap{position:relative;}
+.hero-glow{position:absolute; left:-220px; top:-280px; width:820px; height:820px; background:radial-gradient(circle, rgba(200,155,60,.26), rgba(200,155,60,0) 62%); pointer-events:none;}
+.hero-grid{display:grid; grid-template-columns:1fr 200px; gap:44px; align-items:center;}
+.hero-rule{width:56px; height:3px; background:var(--ember); margin:16px 0 18px;}
+.hero-intro h1{margin:0; font-size:clamp(36px, 8vw, 52px); line-height:1.04;}
+.hero-intro h1 span{display:block; color:var(--ember);}
+.hero-sub{color:#d8d4cb; font-size:18px; margin:16px 0 0 !important; font-weight:500;}
+.chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:20px;}
+.chips span{border:1.5px solid rgba(200,155,60,.55); color:#f3e7cc; border-radius:99px; padding:6px 13px; font-size:14px; font-weight:600;}
+.hero-art{position:relative; width:200px; height:200px; color:var(--ember); display:flex; align-items:center; justify-content:center;}
+.hero-art svg{width:136px; height:136px;}
+.hero-ring{position:absolute; inset:0; border:1.5px solid rgba(200,155,60,.3); border-radius:50%;}
+.hero-ring2{position:absolute; inset:-14px; border:1px dashed rgba(200,155,60,.2); border-radius:50%;}
+.hero-verse{position:absolute; bottom:-34px; left:0; right:0; text-align:center; font-size:11px; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:rgba(200,155,60,.8);}
+.hero-intro-text{margin:34px 0 0 !important; max-width:640px;}
+.hero-signin{color:#a8a399 !important; font-size:14px !important; margin:12px 0 22px !important;}
+@media (max-width:620px){
+  .hero-grid{grid-template-columns:1fr 92px; gap:12px; align-items:start;}
+  .hero-art{width:92px; height:92px; margin-top:6px;}
+  .hero-art svg{width:58px; height:58px;}
+  .hero-ring2{inset:-8px;}
+  .hero-verse{display:none;}
+  .hero-intro-text{margin-top:24px !important;}
+}

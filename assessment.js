@@ -22,7 +22,20 @@
   const MAX = FJ.maxScore(TYPE);
   const STORE_KEY = 'fj-assessment-' + TYPE + '-v' + FJ.QUESTION_VERSION;
   const IN_APP = navigator.userAgent.indexOf('median') > -1;
-  const HERO_IMG = TYPE === 'fivefold' ? '/assets/og-five-fold.png' : '/assets/og-spiritual-gifts.png';
+  // Start-page header content (matches the link-preview images in /assets).
+  const HERO = TYPE === 'fivefold' ? {
+    title: ['Five-Fold Office', 'Assessment'],
+    sub: 'Apostle · Prophet · Evangelist · Pastor · Teacher',
+    chips: ['5 offices', ORDER.length + ' statements', 'About ' + A.minutes + ' minutes'],
+    verse: 'Ephesians 4:11–13',
+    icon: '<path d="M12 2v4"/><path d="M10 4h4"/><path d="M12 6l-5 4v11h10V10z"/><path d="M7 13l-4 2.5V21h4"/><path d="M17 13l4 2.5V21h-4"/><path d="M10.5 21v-3.5a1.5 1.5 0 0 1 3 0V21"/>'
+  } : {
+    title: ['Discover Your', 'Spiritual Gifts'],
+    sub: '',
+    chips: [A.categories.length + ' gifts', ORDER.length + ' statements', 'About ' + A.minutes + ' minutes'],
+    verse: '1 Peter 4:10',
+    icon: '<path d="M12 2.5c.6 3.2 2.6 5 4.4 7.1 1.4 1.6 2.6 3.4 2.6 5.9a7 7 0 0 1-14 0c0-2.6 1.3-4.6 2.9-6.1.2 1.9 1.1 3.1 2.4 3.6-.6-3.9.4-7.6 1.7-10.5z"/><path d="M12 21.5a3 3 0 0 1-3-3c0-1.7 1.3-2.8 3-4.5 1.7 1.7 3 2.8 3 4.5a3 3 0 0 1-3 3z"/>'
+  };
   // Short versions of the scale labels for the always-visible answer key.
   const KEY_LABELS = { 1:'Never', 2:'Rarely', 3:'Sometimes', 4:'Often', 5:'Always' };
 
@@ -83,13 +96,21 @@
       : (lastResult ? 'Retake the assessment' : 'Start the assessment');
     const takenOn = lastResult ? new Date(lastResult.created_at).toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' }) : '';
     app.innerHTML =
-      '<div class="hero"><div class="wrap">' +
-        // Header image (same artwork as the link preview); the title stays
-        // in the page as a hidden heading for screen readers and search.
-        '<img class="hero-img" src="' + HERO_IMG + '" width="1200" height="630" alt="' + esc(A.title) + ' from Following Jesus">' +
-        '<h1 class="sr-only">' + esc(A.title) + '</h1>' +
-        '<p>' + esc(A.intro) + '</p>' +
-        '<div class="meta"><span>' + ORDER.length + ' statements</span><span>About ' + A.minutes + ' minutes</span><span>Free · sign in to see results</span></div>' +
+      // Header laid out to match the link-preview artwork (assets/og-*.png).
+      '<div class="hero hero-intro"><div class="hero-glow"></div><div class="wrap">' +
+        '<div class="hero-grid">' +
+          '<div class="hero-text">' +
+            '<div class="eyebrow">Free assessment</div><div class="hero-rule"></div>' +
+            '<h1>' + esc(HERO.title[0]) + '<span>' + esc(HERO.title[1]) + '</span></h1>' +
+            (HERO.sub ? '<p class="hero-sub">' + esc(HERO.sub) + '</p>' : '') +
+            '<div class="chips">' + HERO.chips.map(c => '<span>' + esc(c) + '</span>').join('') + '</div>' +
+          '</div>' +
+          '<div class="hero-art" aria-hidden="true"><div class="hero-ring2"></div><div class="hero-ring"></div>' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round">' + HERO.icon + '</svg>' +
+            '<div class="hero-verse">' + esc(HERO.verse) + '</div></div>' +
+        '</div>' +
+        '<p class="hero-intro-text">' + esc(A.intro) + '</p>' +
+        '<p class="hero-signin">Free · sign in to see your results</p>' +
         (lastResult && !inProgress ? '<p class="small" style="color:#a8a399;margin:-10px 0 18px">You took this on ' + esc(takenOn) + '. Retaking it replaces those as your latest results, which is a great way to see how God has grown you.</p>' : '') +
         '<div class="btn-row">' +
           (lastResult && !inProgress
