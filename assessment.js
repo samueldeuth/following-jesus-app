@@ -109,7 +109,7 @@
       renderQuiz();
     };
     const vl = document.getElementById('viewLastBtn');
-    if (vl) vl.onclick = () => renderResults({ scores:lastResult.scores, ranked:lastResult.ranked, created_at:lastResult.created_at });
+    if (vl) vl.onclick = () => renderResults({ id:lastResult.id, scores:lastResult.scores, ranked:lastResult.ranked, created_at:lastResult.created_at });
     const rs = document.getElementById('restartBtn');
     if (rs) rs.onclick = () => { clearState(); renderIntro(); };
     scrollTop();
@@ -213,7 +213,7 @@
         answers: state.answers,
         scores: result.scores,
         ranked: result.ranked
-      }).select('scores, ranked, created_at').single();
+      }).select('id, scores, ranked, created_at').single();
       if (error) throw error;
       lastResult = data;
       clearState();
@@ -221,7 +221,7 @@
       console.error('Saving assessment failed', e);
       saveFailed = true; // keep answers in this browser so nothing is lost
     }
-    renderResults({ scores:result.scores, ranked:result.ranked, created_at:new Date().toISOString() }, saveFailed);
+    renderResults({ id: saveFailed ? null : (lastResult && lastResult.id), scores:result.scores, ranked:result.ranked, created_at:new Date().toISOString() }, saveFailed);
   }
 
   function renderWall(){
@@ -322,6 +322,7 @@
         '<h2>All your scores</h2>' +
         '<div class="band-key">' + bandKey + '</div>' +
         '<div class="card"><div class="bars">' + barsHtml + '</div></div>' +
+        (res.id ? '<div id="feedbackSlot"></div>' : '') +
       '</div></section>' +
       '<section style="padding-top:0"><div class="wrap">' +
         '<div class="card soon">' +
@@ -357,6 +358,7 @@
       '</div></section>';
 
     fillShareSlot();
+    if (res.id) fillFeedbackSlot(res.id, top);
     document.getElementById('retakeBtn').onclick = () => { clearState(); renderQuiz(); };
     document.getElementById('inviteBtn').onclick = inviteFriend;
     const eb = document.getElementById('emailBtn');
@@ -364,6 +366,56 @@
     const pb = document.getElementById('pdfBtn');
     if (pb) pb.onclick = () => window.print();
     scrollTop();
+  }
+
+  // ---------- "How accurate was this?" feedback ----------
+  // One response per saved result. Shown until answered, then a thank-you.
+  // Wording lives here (not assessment-data.js) since it isn't part of scoring.
+  const FEEDBACK_ACCURACY = [
+    { v:1, label:'Not at all' }, { v:2, label:'A little' }, { v:3, label:'Somewhat' }, { v:4, label:'Mostly' }, { v:5, label:'Very accurate' }
+  ];
+  const FEEDBACK_TOPFIT = [
+    { v:'yes', label:'Yes, that\'s me' }, { v:'somewhat', label:'Somewhat' }, { v:'no', label:'Not really' }
+  ];
+  async function fillFeedbackSlot(resultId, topKeys){
+    const slot = document.getElementById('feedbackSlot');
+    if (!slot || !user) return;
+    try {
+      const { data: existing } = await sb.from('gift_assessment_feedback').select('id').eq('result_id', resultId).maybeSingle();
+      if (existing) { slot.innerHTML = '<div class="card feedback-card"><p style="margin:0">Thanks for your feedback on these results.</p></div>'; return; }
+    } catch (e) { return; } // table not there yet: just don't show the box
+    const noun = TYPE === 'gifts' ? 'gifts' : (topKeys.length > 1 ? 'offices' : 'office');
+    const topNames = topKeys.map(k => FJ.categoryByKey(TYPE, k).name).join(', ');
+    const pills = (name, opts) => '<div class="pill-row" role="radiogroup">' + opts.map(o =>
+      '<label class="pill"><input type="radio" name="' + name + '" value="' + o.v + '"><span>' + esc(o.label) + '</span></label>').join('') + '</div>';
+    slot.innerHTML =
+      '<div class="card feedback-card">' +
+        '<h3>How accurate was this?</h3>' +
+        '<p class="small muted" style="margin:0 0 16px">Three quick questions. Your answers help us improve the assessment.</p>' +
+        '<p class="fb-q">1. How well did these results describe you?</p>' + pills('fbAccuracy', FEEDBACK_ACCURACY) +
+        '<p class="fb-q">2. Do your top ' + noun + ' (' + esc(topNames) + ') feel right?</p>' + pills('fbTopFit', FEEDBACK_TOPFIT) +
+        '<p class="fb-q">3. Anything that felt off, or questions that were confusing? <span class="muted">(optional)</span></p>' +
+        '<textarea id="fbComment" rows="3" maxlength="2000" placeholder="For example, a gift you expected to see, or a statement that was hard to answer"></textarea>' +
+        '<div style="margin-top:14px"><button class="btn btn-dark" id="fbSubmit" disabled>Send feedback</button></div>' +
+        '<div class="small" id="fbStatus" style="margin-top:10px; min-height:20px; color:var(--ember-dark)"></div>' +
+      '</div>';
+    const submit = document.getElementById('fbSubmit');
+    const val = name => { const el = slot.querySelector('input[name="' + name + '"]:checked'); return el ? el.value : null; };
+    slot.querySelectorAll('input[type=radio]').forEach(r => r.addEventListener('change', () => { submit.disabled = !(val('fbAccuracy') && val('fbTopFit')); }));
+    submit.onclick = async () => {
+      const status = document.getElementById('fbStatus');
+      submit.disabled = true; status.textContent = 'Sending…';
+      const { error } = await sb.from('gift_assessment_feedback').insert({
+        result_id: resultId,
+        user_id: user.id,
+        assessment_type: TYPE,
+        accuracy: parseInt(val('fbAccuracy'), 10),
+        top_fit: val('fbTopFit'),
+        comment: (document.getElementById('fbComment').value || '').trim() || null
+      });
+      if (error && !/duplicate|unique/i.test(error.message || '')) { status.textContent = "Couldn't send that. Please try again."; submit.disabled = false; return; }
+      slot.innerHTML = '<div class="card feedback-card"><h3>Thank you!</h3><p style="margin:0">Your feedback helps us make this assessment better for everyone.</p></div>';
+    };
   }
 
   // ---------- Invite a friend (shares the assessment link only) ----------
@@ -444,7 +496,7 @@
     if (!user) { lastResult = null; return; }
     try {
       const { data, error } = await sb.from('gift_assessment_results')
-        .select('scores, ranked, created_at')
+        .select('id, scores, ranked, created_at')
         .eq('user_id', user.id).eq('assessment_type', TYPE)
         .order('created_at', { ascending:false }).limit(1);
       if (error) throw error;
@@ -470,7 +522,7 @@
     await loadLastResult();
     // Profile pages link here with ?view=results to jump straight to them.
     if (lastResult && new URLSearchParams(window.location.search).get('view') === 'results') {
-      renderResults({ scores:lastResult.scores, ranked:lastResult.ranked, created_at:lastResult.created_at });
+      renderResults({ id:lastResult.id, scores:lastResult.scores, ranked:lastResult.ranked, created_at:lastResult.created_at });
       return;
     }
     renderIntro();

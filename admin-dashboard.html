@@ -5459,7 +5459,12 @@ async function loadGiftsAdminData(){
     const shares = await fetchAllRows(() => supabaseClient.from('gift_assessment_sharing').select('user_id, share_with_church'));
     shares.forEach(s => { shareById[s.user_id] = !!s.share_with_church; });
   } catch(e){ console.warn('sharing table not available yet', e); }
-  return { results, profilesById, shareById };
+  const feedbackByResult = {};
+  try {
+    const fb = await fetchAllRows(() => supabaseClient.from('gift_assessment_feedback').select('result_id, assessment_type, accuracy, top_fit, comment, created_at').order('created_at', { ascending: false }));
+    fb.forEach(f => { feedbackByResult[f.result_id] = f; });
+  } catch(e){ console.warn('feedback table not available yet', e); }
+  return { results, profilesById, shareById, feedbackByResult };
 }
 
 function giftName(type, key){
@@ -5498,7 +5503,7 @@ async function renderSpiritualGifts(){
 
 function renderSpiritualGiftsBody(){
   const FJ = window.FJ_ASSESSMENT;
-  const { results, profilesById, shareById } = giftsAdminCache;
+  const { results, profilesById, shareById, feedbackByResult = {} } = giftsAdminCache;
   const content = document.getElementById('content');
   const type = giftsAdminType;
   const A = FJ.ASSESSMENTS[type];
@@ -5561,6 +5566,8 @@ function renderSpiritualGiftsBody(){
       <tbody>${latest.length ? distHtml : `<tr><td colspan="3" style="color:var(--ink-soft);">No one has taken this assessment yet.</td></tr>`}</tbody>
     </table></div>
 
+    ${giftFeedbackSummaryHtml(type, results, feedbackByResult, profilesById)}
+
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:8px 0 10px;">
       <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0;">Who's taken it (${latest.length})</h3>
       <div style="display:flex;gap:8px;align-items:center;">
@@ -5569,7 +5576,7 @@ function renderSpiritualGiftsBody(){
       </div>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Person</th><th>Church</th><th>Top ${type === 'gifts' ? 'gifts' : 'offices'}</th><th>Taken</th><th>Shared</th></tr></thead>
+      <thead><tr><th>Person</th><th>Church</th><th>Top ${type === 'gifts' ? 'gifts' : 'offices'}</th><th>Taken</th><th>Shared</th><th>Accuracy</th></tr></thead>
       <tbody id="gifts-takers-tbody"></tbody>
     </table></div>
     </div>`;
@@ -5588,7 +5595,7 @@ function renderSpiritualGiftsBody(){
   function drawRows(){
     const q = (document.getElementById('gifts-search').value || '').trim().toLowerCase();
     const shown = q ? rowsData.filter(d => (d.name + ' ' + d.email + ' ' + d.church).toLowerCase().includes(q)) : rowsData;
-    if(!shown.length){ tbody.innerHTML = `<tr><td colspan="5" style="color:var(--ink-soft);">${q ? 'No matches.' : 'No one yet.'}</td></tr>`; return; }
+    if(!shown.length){ tbody.innerHTML = `<tr><td colspan="6" style="color:var(--ink-soft);">${q ? 'No matches.' : 'No one yet.'}</td></tr>`; return; }
     tbody.innerHTML = shown.map(d => `
       <tr class="clickable" data-gifts-result="${d.r.id}">
         <td><div class="student-name">${escapeHtmlReport(d.name)}</div><div class="student-email">${escapeHtmlReport(d.email)}</div></td>
@@ -5596,8 +5603,9 @@ function renderSpiritualGiftsBody(){
         <td>${d.top.map(escapeHtmlReport).join(', ')}</td>
         <td class="date-started">${new Date(d.r.created_at).toLocaleDateString()}</td>
         <td>${d.shared ? 'Yes' : '—'}</td>
+        <td>${feedbackByResult[d.r.id] ? feedbackByResult[d.r.id].accuracy + '/5' : '—'}</td>
       </tr>
-      <tr class="gifts-detail-row" data-gifts-detail="${d.r.id}" style="display:none;"><td colspan="5" style="background:var(--bg-soft);">${giftScoresHtml(type, d.r)}</td></tr>`).join('');
+      <tr class="gifts-detail-row" data-gifts-detail="${d.r.id}" style="display:none;"><td colspan="6" style="background:var(--bg-soft);">${giftScoresHtml(type, d.r)}${giftFeedbackLineHtml(feedbackByResult[d.r.id])}</td></tr>`).join('');
     tbody.querySelectorAll('[data-gifts-result]').forEach(tr => {
       tr.addEventListener('click', () => {
         const detail = tbody.querySelector(`[data-gifts-detail="${tr.dataset.giftsResult}"]`);
@@ -5612,10 +5620,12 @@ function renderSpiritualGiftsBody(){
   });
   document.getElementById('gifts-export-btn').addEventListener('click', () => {
     const keys = (FJ.ASSESSMENTS[type].categories).map(c => c.key);
-    const headers = ['Name', 'Email', 'Church', 'Taken', 'Shared with church', 'Top', ...keys.map(k => giftName(type, k))];
+    const headers = ['Name', 'Email', 'Church', 'Taken', 'Shared with church', 'Top', 'Accuracy (1-5)', 'Top felt right', 'Feedback comment', ...keys.map(k => giftName(type, k))];
     const lines = [headers.map(csvEscape).join(',')];
     rowsData.forEach(d => {
+      const f = feedbackByResult[d.r.id];
       lines.push([d.name, d.email, d.church, new Date(d.r.created_at).toLocaleDateString(), d.shared ? 'Yes' : 'No', d.top.join('; '),
+        f ? f.accuracy : '', f ? (GIFT_FEEDBACK_TOPFIT[f.top_fit] || f.top_fit) : '', f ? (f.comment || '') : '',
         ...keys.map(k => (d.r.scores || {})[k] ?? '')].map(csvEscape).join(','));
     });
     const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
@@ -5627,6 +5637,49 @@ function renderSpiritualGiftsBody(){
     URL.revokeObjectURL(url);
   });
   if(typeof initInfoTooltips === 'function') initInfoTooltips();
+}
+
+const GIFT_FEEDBACK_ACCURACY = { 1: 'Not at all', 2: 'A little', 3: 'Somewhat', 4: 'Mostly', 5: 'Very accurate' };
+const GIFT_FEEDBACK_TOPFIT = { yes: "Yes, that's me", somewhat: 'Somewhat', no: 'Not really' };
+
+// "How accurate was this?" summary for one assessment type.
+function giftFeedbackSummaryHtml(type, results, feedbackByResult, profilesById){
+  const resultById = {};
+  results.forEach(r => { resultById[r.id] = r; });
+  const fb = Object.values(feedbackByResult).filter(f => f.assessment_type === type);
+  const head = `<h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:8px 0 10px;">How accurate people say it is</h3>`;
+  if(!fb.length) return head + `<p style="font-size:13px;color:var(--ink-soft);margin:0 0 24px;">No feedback yet. People see three quick questions under their scores on the results page.</p>`;
+  const avg = fb.reduce((a, f) => a + f.accuracy, 0) / fb.length;
+  const pct = k => Math.round(fb.filter(f => f.top_fit === k).length / fb.length * 100);
+  const dist = [5, 4, 3, 2, 1].map(v => {
+    const n = fb.filter(f => f.accuracy === v).length;
+    return `<div style="display:grid;grid-template-columns:110px 1fr 30px;gap:10px;align-items:center;font-size:13px;margin:4px 0;">
+      <span>${GIFT_FEEDBACK_ACCURACY[v]}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(n / fb.length * 100)}%"></div></div>
+      <span class="bar-text">${n}</span></div>`;
+  }).join('');
+  const comments = fb.filter(f => f.comment).slice(0, 50).map(f => {
+    const r = resultById[f.result_id];
+    const p = r ? (profilesById[r.user_id] || {}) : {};
+    const top = r ? (r.ranked || []).slice(0, window.FJ_ASSESSMENT.ASSESSMENTS[type].topCount).map(k => giftName(type, k)).join(', ') : '';
+    return `<div class="row" style="align-items:flex-start;">
+      <div class="info">
+        <div class="name">${escapeHtmlReport(p.full_name || 'Unnamed')} <span style="font-weight:400;color:var(--ink-soft);font-size:12px;">· ${new Date(f.created_at).toLocaleDateString()} · ${f.accuracy}/5 · top: ${escapeHtmlReport(top)}</span></div>
+        <div style="font-size:13.5px;margin-top:4px;white-space:pre-wrap;">${escapeHtmlReport(f.comment)}</div>
+      </div></div>`;
+  }).join('');
+  return head + `
+    <div class="summary-row">
+      <div class="summary-card"><div class="num">${avg.toFixed(1)}<span style="font-size:15px;color:var(--ink-soft);"> / 5</span></div><div class="label">Average accuracy</div><div class="sub">${fb.length} ${fb.length === 1 ? 'response' : 'responses'}</div></div>
+      <div class="summary-card"><div class="num">${pct('yes')}%</div><div class="label">Top results felt right</div><div class="sub">${pct('somewhat')}% somewhat · ${pct('no')}% not really</div></div>
+    </div>
+    <div class="panel" style="max-width:560px;">${dist}</div>
+    ${comments ? `<h3 style="font-family:'Space Grotesk',sans-serif;font-size:15px;margin:0 0 6px;">Comments</h3><div class="panel">${comments}</div>` : ''}`;
+}
+
+function giftFeedbackLineHtml(f){
+  if(!f) return '<p style="font-size:12.5px;color:var(--ink-soft);margin:10px 0 0;">No feedback left on this result.</p>';
+  return `<p style="font-size:13px;margin:10px 0 0;"><strong>Feedback:</strong> ${f.accuracy}/5 (${GIFT_FEEDBACK_ACCURACY[f.accuracy]}) · top results: ${escapeHtmlReport(GIFT_FEEDBACK_TOPFIT[f.top_fit] || f.top_fit)}${f.comment ? `<br><span style="white-space:pre-wrap;">“${escapeHtmlReport(f.comment)}”</span>` : ''}</p>`;
 }
 
 // Every gift/office score for one result, strongest first, as bars.

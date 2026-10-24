@@ -124,3 +124,15 @@
   }
   footer{padding:30px 0 50px; color:var(--ink-soft); font-size:13px; text-align:center;}
   footer a{color:var(--ink-soft);}
+
+/* "How accurate was this?" feedback */
+.feedback-card{margin-top:14px;}
+.fb-q{font-weight:600; margin:16px 0 8px; font-size:15px;}
+.pill-row{display:flex; flex-wrap:wrap; gap:8px;}
+.pill{position:relative; cursor:pointer;}
+.pill input{position:absolute; opacity:0; pointer-events:none;}
+.pill span{display:inline-block; padding:9px 14px; border:1.5px solid var(--line); border-radius:99px; background:var(--paper); font-size:14px; font-weight:500; color:var(--ink-soft); transition:all .12s;}
+.pill input:checked + span{background:var(--black); border-color:var(--black); color:var(--white);}
+.pill input:focus-visible + span{outline:2px solid var(--ember); outline-offset:2px;}
+.feedback-card textarea{width:100%; border:1.5px solid var(--line); border-radius:10px; padding:10px 12px; font:inherit; font-size:15px; background:var(--paper); resize:vertical;}
+@media print{ .feedback-card{display:none !important;} }
