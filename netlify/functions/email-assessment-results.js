@@ -39,6 +39,10 @@ function buildEmail(type, result, name) {
   const top = ranked.slice(0, A.topCount);
   const date = new Date(result.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   const first = (name || '').trim().split(/\s+/)[0];
+  const perCat = A.categories[0].questions.length;
+  const na = result.answers ? FJ.notYetCounts(type, result.answers) : {};
+  const naTotal = Object.values(na).reduce((t, v) => t + v, 0);
+  const totalQs = A.categories.length * perCat;
 
   const topHtml = top.map((key, i) => {
     const c = FJ.categoryByKey(type, key);
@@ -50,6 +54,7 @@ function buildEmail(type, result, name) {
         <div style="font-size:22px;font-weight:bold;margin:6px 0 4px;color:#0a0a0a;">${esc(c.name)}</div>
         <div style="font-size:13px;color:#57534d;margin-bottom:10px;">${score} of ${max} · ${esc(FJ.bandFor(type, score))} · ${esc(c.scripture)}</div>
         ${c.path ? `<div style="font-size:14px;font-weight:bold;color:#8f6a1f;margin-bottom:8px;">${esc(c.path)}</div>` : ''}
+        ${FJ.isThin(type, na[key] || 0) ? `<div style="font-size:13px;color:#8f6a1f;background:#f3e7cc;border-radius:8px;padding:8px 12px;margin-bottom:10px;">Based on fewer statements: you hadn't had the chance yet for ${na[key]} of ${perCat}. As you get more chances to serve, retake this to see how it grows.</div>` : ''}
         <div style="font-size:15px;line-height:1.55;color:#1c1a17;">${esc(c.description)}</div>
         <div style="font-size:14px;font-weight:bold;margin:14px 0 4px;">How it often shows up</div>
         <ul style="margin:0;padding-left:20px;font-size:14px;line-height:1.55;color:#1c1a17;">${c.functions.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>
@@ -65,7 +70,7 @@ function buildEmail(type, result, name) {
     return `<tr>
       <td style="padding:6px 0;font-size:14px;${i < A.topCount ? 'font-weight:bold;' : ''}width:42%;">${esc(FJ.categoryByKey(type, key).name)}</td>
       <td style="padding:6px 8px;width:38%;"><div style="background:#ece8df;border-radius:6px;height:9px;"><div style="background:${i < A.topCount ? '#c89b3c' : '#b9b2a4'};width:${pct}%;height:9px;border-radius:6px;"></div></div></td>
-      <td style="padding:6px 0;font-size:12px;color:#57534d;text-align:right;white-space:nowrap;">${score}/${max} · ${esc(FJ.bandFor(type, score))}</td>
+      <td style="padding:6px 0;font-size:12px;color:#57534d;text-align:right;white-space:nowrap;">${score < perCat ? 'No answers yet' : `${score}/${max} · ${esc(FJ.bandFor(type, score))}`}</td>
     </tr>`;
   }).join('');
 
@@ -81,6 +86,7 @@ function buildEmail(type, result, name) {
       <div style="font-size:28px;font-weight:bold;margin:8px 0 10px;">${esc(A.shortTitle)} results</div>
       <div style="font-size:15px;line-height:1.5;color:#d8d4cb;">${first ? 'Hi ' + esc(first) + ', here' : 'Here'}'s where you lean right now. This is a starting point for prayer and conversation with your pastor, not a final word.</div>
     </td></tr>
+    ${naTotal >= Math.ceil(totalQs * 0.2) ? `<tr><td style="padding:20px 0 0;"><div style="background:#f3e7cc;border-radius:10px;padding:16px 20px;font-size:14px;line-height:1.55;"><b>Still discovering.</b> You answered "${esc(FJ.NOT_YET_LABEL)}" to ${naTotal} of ${totalQs} statements. That's completely okay! Gifts often show up as you step out and serve. Try serving in a few different areas at your church, then come back and retake this to see what God is growing in you.</div></td></tr>` : ''}
     <tr><td style="padding:20px 0 0;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${topHtml}</table>
     </td></tr>
@@ -140,7 +146,7 @@ exports.handler = async (event) => {
   if (!user || !user.id || user.is_anonymous || !user.email) return json(401, { error: 'Please sign in to email your results.' });
 
   // Their latest saved result for this assessment.
-  const q = `${SUPABASE_URL}/rest/v1/gift_assessment_results?select=scores,ranked,created_at&user_id=eq.${encodeURIComponent(user.id)}&assessment_type=eq.${type}&order=created_at.desc&limit=1`;
+  const q = `${SUPABASE_URL}/rest/v1/gift_assessment_results?select=answers,scores,ranked,created_at&user_id=eq.${encodeURIComponent(user.id)}&assessment_type=eq.${type}&order=created_at.desc&limit=1`;
   const rRes = await fetch(q, { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } });
   if (!rRes.ok) return json(500, { error: 'Could not load your results.' });
   const rows = await rRes.json();
