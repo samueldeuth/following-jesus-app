@@ -395,35 +395,67 @@
     return order;
   }
 
-  function isValidAnswer(v) { return Number.isInteger(v) && v >= 1 && v <= 5; }
+  // 0 = "Haven't had the chance yet" (NOT_YET); 1–5 = the rating scale.
+  const NOT_YET = 0;
+  const NOT_YET_LABEL = "Haven't had the chance yet";
+  function isValidAnswer(v) { return Number.isInteger(v) && v >= 0 && v <= 5; }
+  function isRated(v) { return Number.isInteger(v) && v >= 1 && v <= 5; }
 
-  // answers: { "ADM-1": 4, ... }. Returns per-category totals, the
-  // ranked category keys (strongest first), and whether every
-  // question has a valid answer.
+  // answers: { "ADM-1": 4, "ADM-2": 0, ... }.
+  // Each category is scored from the statements the person could rate,
+  // then scaled to the full range (5–25 gifts, 10–50 five-fold), so a
+  // "Haven't had the chance yet" never counts against them. A category
+  // with nothing rated scores 0 and ranks last ("Not enough answers yet").
+  // Ranking uses the unrounded average, then the "others confirm" item,
+  // then definition order. Returns notYet counts per category too.
   function scoreAnswers(type, answers) {
     const a = ASSESSMENTS[type];
     const scores = {};
+    const avg = {};
     const confirm = {};
+    const notYet = {};
     let answered = 0;
     let total = 0;
     a.categories.forEach((cat) => {
-      let sum = 0;
+      let sum = 0, rated = 0, na = 0;
       cat.questions.forEach((_, qi) => {
         total++;
         const v = answers ? answers[questionId(cat.key, qi)] : undefined;
-        if (isValidAnswer(v)) { sum += v; answered++; }
+        if (isValidAnswer(v)) answered++;
+        if (isRated(v)) { sum += v; rated++; }
+        else if (v === NOT_YET) na++;
       });
-      scores[cat.key] = sum;
+      const n = cat.questions.length;
+      avg[cat.key] = rated ? sum / rated : -1;
+      scores[cat.key] = rated ? Math.round((sum / rated) * n) : 0;
+      notYet[cat.key] = na;
       const c = answers ? answers[questionId(cat.key, a.confirmIndex)] : undefined;
-      confirm[cat.key] = isValidAnswer(c) ? c : 0;
+      confirm[cat.key] = isRated(c) ? c : 0;
     });
     const definitionOrder = a.categories.map((c) => c.key);
     const ranked = definitionOrder.slice().sort((x, y) =>
-      (scores[y] - scores[x]) ||
+      (avg[y] - avg[x]) ||
       (confirm[y] - confirm[x]) ||
       (definitionOrder.indexOf(x) - definitionOrder.indexOf(y))
     );
-    return { scores, ranked, answered, total, complete: answered === total };
+    const notYetTotal = Object.values(notYet).reduce((t, v) => t + v, 0);
+    return { scores, ranked, answered, total, complete: answered === total, notYet, notYetTotal };
+  }
+
+  // How many "Haven't had the chance yet" answers per category (for notes on saved results).
+  function notYetCounts(type, answers) {
+    const out = {};
+    ASSESSMENTS[type].categories.forEach((cat) => {
+      out[cat.key] = cat.questions.filter((_, qi) => answers && answers[questionId(cat.key, qi)] === NOT_YET).length;
+    });
+    return out;
+  }
+
+  // A score is "thin" when at least 40% of that category's statements were
+  // answered "Haven't had the chance yet" (2 of 5 gifts, 4 of 10 five-fold).
+  function isThin(type, naCount) {
+    const n = ASSESSMENTS[type].categories[0].questions.length;
+    return naCount >= Math.ceil(n * 0.4);
   }
 
   function maxScore(type) {
@@ -433,6 +465,8 @@
 
   function bandFor(type, score) {
     const bands = ASSESSMENTS[type].bands;
+    // Below the lowest possible rated score = nothing could be rated yet.
+    if (score < ASSESSMENTS[type].categories[0].questions.length) return 'Not enough answers yet';
     for (const b of bands) if (score >= b.min) return b.label;
     return bands[bands.length - 1].label;
   }
@@ -444,8 +478,8 @@
   function resourcesFor(key) { return RESOURCES_BY_KEY[key] || []; }
 
   const api = {
-    QUESTION_VERSION, SCALE, BEST_USE_NOTE, LINKS, ASSESSMENTS,
-    questionId, buildQuestionOrder, isValidAnswer, scoreAnswers, maxScore,
+    QUESTION_VERSION, SCALE, BEST_USE_NOTE, LINKS, ASSESSMENTS, NOT_YET, NOT_YET_LABEL,
+    questionId, buildQuestionOrder, isValidAnswer, isRated, scoreAnswers, notYetCounts, isThin, maxScore,
     bandFor, categoryByKey, resourcesFor
   };
 

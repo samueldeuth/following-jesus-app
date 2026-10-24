@@ -133,7 +133,7 @@
       renderQuiz();
     };
     const vl = document.getElementById('viewLastBtn');
-    if (vl) vl.onclick = () => renderResults({ id:lastResult.id, scores:lastResult.scores, ranked:lastResult.ranked, created_at:lastResult.created_at });
+    if (vl) vl.onclick = () => renderResults({ id:lastResult.id, answers:lastResult.answers, scores:lastResult.scores, ranked:lastResult.ranked, created_at:lastResult.created_at });
     const rs = document.getElementById('restartBtn');
     if (rs) rs.onclick = () => { clearState(); renderIntro(); };
     scrollTop();
@@ -159,6 +159,7 @@
               '<p class="q-text">' + esc(q.text) + '</p>' +
               '<div class="scale" role="radiogroup">' + opts + '</div>' +
               '<div class="scale-ends"><span>Never true</span><span>Consistently true</span></div>' +
+              '<label class="notyet"><input type="radio" name="' + q.id + '" value="' + FJ.NOT_YET + '"' + (state.answers[q.id] === FJ.NOT_YET ? ' checked' : '') + '><span>' + esc(FJ.NOT_YET_LABEL) + '</span></label>' +
             '</fieldset>';
     });
     const isLast = state.page === PAGES - 1;
@@ -170,7 +171,7 @@
         '<div class="scale-key" aria-hidden="true">' + FJ.SCALE.map(s => '<span><b>' + s.value + '</b>' + esc(KEY_LABELS[s.value] || s.label) + '</span>').join('') + '</div>' +
       '</div></div>' +
       '<div class="wrap">' +
-        (state.page === 0 ? '<p class="legend">Answer based on what\'s true of you <b>now</b>, not what you hope will be true. The key at the top stays with you on every page.</p>' : '') +
+        (state.page === 0 ? '<p class="legend">Answer based on what\'s true of you <b>now</b>, not what you hope will be true. The key at the top stays with you on every page. If a statement is about something you haven\'t had the opportunity to do, choose <b>' + esc(FJ.NOT_YET_LABEL) + '</b>. It won\'t count against you.</p>' : '') +
         qs +
         '<div class="quiz-error" id="quizErr"></div>' +
         '<div class="quiz-nav">' +
@@ -180,7 +181,7 @@
       '</div>';
     updateProgress();
 
-    app.querySelectorAll('.scale input').forEach(inp => {
+    app.querySelectorAll('.q input[type=radio]').forEach(inp => {
       inp.addEventListener('change', () => {
         state.answers[inp.name] = parseInt(inp.value, 10);
         saveState();
@@ -227,6 +228,7 @@
   async function finish(){
     if (!user) { renderWall(); return; }
     const result = FJ.scoreAnswers(TYPE, state.answers);
+    const result_answers = Object.assign({}, state.answers);
     app.innerHTML = '<div class="loading">Saving your results…</div>';
     let saveFailed = false;
     try {
@@ -237,7 +239,7 @@
         answers: state.answers,
         scores: result.scores,
         ranked: result.ranked
-      }).select('id, scores, ranked, created_at').single();
+      }).select('id, answers, scores, ranked, created_at').single();
       if (error) throw error;
       lastResult = data;
       clearState();
@@ -245,7 +247,7 @@
       console.error('Saving assessment failed', e);
       saveFailed = true; // keep answers in this browser so nothing is lost
     }
-    renderResults({ id: saveFailed ? null : (lastResult && lastResult.id), scores:result.scores, ranked:result.ranked, created_at:new Date().toISOString() }, saveFailed);
+    renderResults({ id: saveFailed ? null : (lastResult && lastResult.id), answers:result_answers, scores:result.scores, ranked:result.ranked, created_at:new Date().toISOString() }, saveFailed);
   }
 
   function renderWall(){
@@ -284,6 +286,10 @@
     const top = ranked.slice(0, A.topCount);
     const dateStr = res.created_at ? new Date(res.created_at).toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' }) : '';
     const noun = TYPE === 'gifts' ? 'gift' : 'office';
+    // "Haven't had the chance yet" answers, per gift/office (older results have none).
+    const na = res.answers ? FJ.notYetCounts(TYPE, res.answers) : {};
+    const naTotal = Object.values(na).reduce((t, v) => t + v, 0);
+    const perCat = A.categories[0].questions.length;
 
     let topHtml = '';
     top.forEach((key, i) => {
@@ -295,6 +301,7 @@
           '<h2>' + esc(c.name) + '</h2>' +
           '<p class="score-line">' + score + ' of ' + MAX + ' · ' + esc(FJ.bandFor(TYPE, score)) + ' · ' + esc(c.scripture) + '</p>' +
           (c.path ? '<p class="path-line">' + esc(c.path) + '</p>' : '') +
+          (FJ.isThin(TYPE, na[key] || 0) ? '<p class="thin-note">Based on fewer statements: you hadn\'t had the chance yet for ' + na[key] + ' of ' + perCat + '. As you get more chances to serve, retake this to see how it grows.</p>' : '') +
           '<p>' + esc(c.description) + '</p>' +
           '<h3 style="margin-top:14px">How it often shows up</h3>' +
           '<ul class="functions">' + c.functions.map(f => '<li>' + esc(f) + '</li>').join('') + '</ul>' +
@@ -311,7 +318,7 @@
       barsHtml +=
         '<div class="bar-row">' +
           '<span class="bar-name">' + esc(c.name) + '</span>' +
-          '<span class="bar-score">' + score + '/' + MAX + ' · ' + esc(FJ.bandFor(TYPE, score)) + '</span>' +
+          '<span class="bar-score">' + (score < perCat ? 'No answers yet' : score + '/' + MAX + ' · ' + esc(FJ.bandFor(TYPE, score)) + (FJ.isThin(TYPE, na[key] || 0) ? ' · fewer answers' : '')) + '</span>' +
           '<div class="bar-track"><div class="bar-fill' + (i < A.topCount ? ' top' : '') + '" style="width:' + pct + '%"></div></div>' +
         '</div>';
     });
@@ -331,6 +338,7 @@
       '</div></div>' +
       '<section><div class="wrap">' +
         (saveFailed ? '<div class="save-warn">We couldn\'t save these results to your account just now. Your answers are still on this device, so refresh the page to try again.</div>' : '') +
+        (naTotal >= Math.ceil(ORDER.length * 0.2) ? '<div class="card notyet-card"><h3>Still discovering</h3><p style="margin:0">You answered <b>' + esc(FJ.NOT_YET_LABEL) + '</b> to ' + naTotal + ' of ' + ORDER.length + ' statements. That\'s completely okay! Gifts often show up as you step out and serve. Try serving in a few different areas at your church, then come back and retake this to see what God is growing in you.</p></div>' : '') +
         topHtml +
         (tie ? '<p class="small muted" style="margin-top:12px">Some of your top scores were tied. Where that happened, we ranked higher the one others have most often confirmed in you.</p>' : '') +
         '<div class="card keep-card no-print">' +
@@ -533,7 +541,7 @@
     if (!user) { lastResult = null; return; }
     try {
       const { data, error } = await sb.from('gift_assessment_results')
-        .select('id, scores, ranked, created_at')
+        .select('id, answers, scores, ranked, created_at')
         .eq('user_id', user.id).eq('assessment_type', TYPE)
         .order('created_at', { ascending:false }).limit(1);
       if (error) throw error;
@@ -559,7 +567,7 @@
     await loadLastResult();
     // Profile pages link here with ?view=results to jump straight to them.
     if (lastResult && new URLSearchParams(window.location.search).get('view') === 'results') {
-      renderResults({ id:lastResult.id, scores:lastResult.scores, ranked:lastResult.ranked, created_at:lastResult.created_at });
+      renderResults({ id:lastResult.id, answers:lastResult.answers, scores:lastResult.scores, ranked:lastResult.ranked, created_at:lastResult.created_at });
       return;
     }
     renderIntro();

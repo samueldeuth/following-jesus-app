@@ -163,3 +163,12 @@
   .hero-verse{display:none;}
   .hero-intro-text{margin-top:24px !important;}
 }
+
+/* "Haven't had the chance yet" */
+.notyet{display:inline-flex; align-items:center; gap:8px; margin-top:12px; cursor:pointer; position:relative;}
+.notyet input{position:absolute; opacity:0; pointer-events:none;}
+.notyet span{display:inline-block; padding:7px 14px; border:1.5px dashed var(--line); border-radius:99px; font-size:13.5px; font-weight:500; color:var(--ink-soft); background:transparent; transition:all .12s;}
+.notyet input:checked + span{background:var(--ink-soft); border-style:solid; border-color:var(--ink-soft); color:var(--white);}
+.notyet input:focus-visible + span{outline:2px solid var(--ember); outline-offset:2px;}
+.thin-note{font-size:13.5px; color:var(--ember-dark); background:var(--ember-soft); border-radius:8px; padding:8px 12px; margin:0 0 12px;}
+.notyet-card{margin-bottom:14px; background:var(--ember-soft); border-color:var(--ember-soft);}
