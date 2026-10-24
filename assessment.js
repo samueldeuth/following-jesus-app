@@ -22,6 +22,7 @@
   const MAX = FJ.maxScore(TYPE);
   const STORE_KEY = 'fj-assessment-' + TYPE + '-v' + FJ.QUESTION_VERSION;
   const IN_APP = navigator.userAgent.indexOf('median') > -1;
+  const HERO_IMG = TYPE === 'fivefold' ? '/assets/og-five-fold.png' : '/assets/og-spiritual-gifts.png';
   // Short versions of the scale labels for the always-visible answer key.
   const KEY_LABELS = { 1:'Never', 2:'Rarely', 3:'Sometimes', 4:'Often', 5:'Always' };
 
@@ -83,8 +84,10 @@
     const takenOn = lastResult ? new Date(lastResult.created_at).toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' }) : '';
     app.innerHTML =
       '<div class="hero"><div class="wrap">' +
-        '<div class="eyebrow">Free assessment</div>' +
-        '<h1>' + esc(A.title) + '</h1>' +
+        // Header image (same artwork as the link preview); the title stays
+        // in the page as a hidden heading for screen readers and search.
+        '<img class="hero-img" src="' + HERO_IMG + '" width="1200" height="630" alt="' + esc(A.title) + ' from Following Jesus">' +
+        '<h1 class="sr-only">' + esc(A.title) + '</h1>' +
         '<p>' + esc(A.intro) + '</p>' +
         '<div class="meta"><span>' + ORDER.length + ' statements</span><span>About ' + A.minutes + ' minutes</span><span>Free · sign in to see results</span></div>' +
         (lastResult && !inProgress ? '<p class="small" style="color:#a8a399;margin:-10px 0 18px">You took this on ' + esc(takenOn) + '. Retaking it replaces those as your latest results, which is a great way to see how God has grown you.</p>' : '') +
