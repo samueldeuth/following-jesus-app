@@ -5513,7 +5513,6 @@ function renderSpiritualGiftsBody(){
   const giftsPeople = latestPerPerson(results, 'gifts');
   const ffPeople = latestPerPerson(results, 'fivefold');
   const thisMonth = results.filter(r => new Date(r.created_at) >= monthStart).length;
-  const sharedCount = Object.values(shareById).filter(Boolean).length;
   const latest = type === 'gifts' ? giftsPeople : ffPeople;
 
   // How often each gift/office lands as someone's #1, and in their top 3/top 2.
@@ -5552,7 +5551,6 @@ function renderSpiritualGiftsBody(){
       <div class="summary-card"><div class="num">${giftsPeople.length}</div><div class="label">Took Spiritual Gifts</div></div>
       <div class="summary-card"><div class="num">${ffPeople.length}</div><div class="label">Took Five-Fold</div></div>
       <div class="summary-card"><div class="num">${thisMonth}</div><div class="label">Completed this month</div><div class="sub">${results.length} completions all-time, incl. retakes</div></div>
-      <div class="summary-card"><div class="num">${sharedCount}</div><div class="label">Sharing with their church</div></div>
     </div>
 
     <div style="display:flex;gap:6px;margin-bottom:16px;">
