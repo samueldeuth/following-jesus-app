@@ -468,12 +468,24 @@
         sb.from('gift_assessment_sharing').select('share_with_church').eq('user_id', user.id).maybeSingle()
       ]);
       const churchName = (church && church.name) || 'my church';
-      let on = !!(share && share.share_with_church);
+      // Sharing is ON by default for anyone connected to a church: the first
+      // time we see them, save it as shared. If they've ever turned it off,
+      // that choice (a saved false) is respected and never flipped back.
+      let on;
+      if (!share) {
+        const { error: autoErr } = await sb.from('gift_assessment_sharing').upsert(
+          { user_id: user.id, share_with_church: true, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id' }
+        );
+        on = !autoErr;
+      } else {
+        on = !!share.share_with_church;
+      }
       slot.innerHTML =
         '<label class="share-row">' +
           '<input type="checkbox" id="shareToggle"' + (on ? ' checked' : '') + '>' +
           '<span><b>Share my results with ' + esc(churchName) + '</b><br>' +
-          '<small>Your pastor and church leaders will be able to see your spiritual gifts and five-fold results. You can turn this off anytime.</small></span>' +
+          '<small>Your pastor and church leaders can see your spiritual gifts and five-fold results, so they can help you grow and serve. Uncheck this anytime to keep them private.</small></span>' +
         '</label><div class="share-status" id="shareStatus"></div>';
       const box = document.getElementById('shareToggle');
       box.onchange = async () => {
