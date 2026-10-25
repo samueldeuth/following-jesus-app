@@ -9762,7 +9762,20 @@ async function renderDiscipleshipApp() {
         if (url) break;
       }
       pushDiag('TAP url=' + url);
-      if (!url || !/^https:\/\/followingjesus\.com\/app/i.test(url)) return;
+      if (!url) return;
+      // Only ever follow our own site (exact host, https) -- a push can't
+      // send someone to another domain.
+      let u;
+      try { u = new URL(url); } catch (e) { return; }
+      if (u.protocol !== 'https:' || u.hostname !== 'followingjesus.com') return;
+      if (!/^\/app(\.html)?\/?$/i.test(u.pathname)) {
+        // A different page on our site (e.g. /spiritual-gifts-assessment):
+        // open it directly. Same domain, so the sign-in carries over.
+        pushDiag('TAP -> opening page ' + u.pathname);
+        window.location.href = u.href;
+        return;
+      }
+      // A screen inside the app: open it via the hash router.
       const i = url.indexOf('#');
       if (i === -1) return;
       const hash = url.slice(i);
