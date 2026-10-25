@@ -21,6 +21,7 @@ const { tagOrderAwaitingOutreach, getProductTags } = require('./lib/shopify');
 const { sendOutreachOrderEmail } = require('./lib/send-outreach-order-email');
 const { sendAlertEmail } = require('./lib/alert');
 const { maybeAddChurchFromOrder } = require('./lib/add-church-from-order');
+const { maybeAddLeaderFromOrder } = require('./lib/add-leader-from-order');
 
 const OUTREACH_FULFILLED_TAG = 'outreach-fulfilled';
 
@@ -46,6 +47,10 @@ exports.handler = async (event) => {
   // this handler; failures are only logged, not alerted, since this is
   // a nice-to-have enrichment, not something that needs manual recovery.
   await maybeAddChurchFromOrder(order);
+
+  // Also independent: add this buyer to the Church Leaders list (or the Pending
+  // list for review). Never throws -- see lib/add-leader-from-order.js.
+  await maybeAddLeaderFromOrder(order);
 
   const physicalLineItems = (order.line_items || []).filter((li) => li.requires_shipping);
 
