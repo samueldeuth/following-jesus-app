@@ -9651,7 +9651,7 @@ async function renderDiscipleshipApp() {
       window.__pushDiag.push(String(msg));
       if (window.__pushDiag.length > 60) window.__pushDiag.shift();
       let debugOn = false;
-      debugOn = true; /* TEMPORARY test build: always show the push log */
+      try { debugOn = window.localStorage && window.localStorage.getItem('pushDebug') === '1'; } catch (e) {}
       if (!debugOn) return;
       let el = document.getElementById('pushDiagBanner');
       if (!el) {
@@ -9733,7 +9733,10 @@ async function renderDiscipleshipApp() {
     ensurePushTapListener();
     const alreadyAsked = await dSafeGet('pushPermissionAsked');
     if (!alreadyAsked) await dSafeSet('pushPermissionAsked', true);
-    return registerPushDevice(!alreadyAsked);
+    const registered = await registerPushDevice(!alreadyAsked);
+    // Closed-app tap: open the page the last push pointed to (once per launch).
+    if (registered && !pushLaunchChecked) { pushLaunchChecked = true; if (!pushTapHandledThisLaunch) await consumePushDestination(true); }
+    return registered;
   }
 
   // Records that this phone acted on an admin rate/review reminder (used to
@@ -9748,6 +9751,20 @@ async function renderDiscipleshipApp() {
 
   // Notification tap -> open the screen named in its targetUrl hash. The
   // app's existing hash router (restoreTabFromUrl) does the rest.
+  // The phone can't always tell the app which notification was tapped when the
+  // app was fully closed. So the server remembers, for 3 minutes, the page of the
+  // last push sent to this phone, and the app asks for it once at start-up.
+  async function consumePushDestination(navigate) {
+    try {
+      const token = await getStoredPushToken();
+      if (!token || typeof supabaseClient === 'undefined' || !supabaseClient) return;
+      const { data: url } = await supabaseClient.rpc('consume_push_destination', { p_token: token });
+      pushDiag('launch destination -> ' + (url || 'none'));
+      if (navigate && url && typeof url === 'string') handlePushTap({ targetUrl: url, __fromLaunch: true });
+    } catch (e) { pushDiag('launch destination error ' + (e && e.message)); }
+  }
+  let pushTapHandledThisLaunch = false;
+
   function handlePushTap(data) {
     try {
       pushDiag('TAP received -> ' + pushShape(data) + (data && data.data && typeof data.data === 'object' ? ' data=' + pushShape(data.data) : ''));
@@ -9763,6 +9780,7 @@ async function renderDiscipleshipApp() {
       }
       pushDiag('TAP url=' + url);
       if (!url) return;
+      if (!(data && data.__fromLaunch)) { pushTapHandledThisLaunch = true; consumePushDestination(false); }
       // Only ever follow our own site (exact host, https) -- a push can't
       // send someone to another domain.
       let u;
@@ -9789,6 +9807,7 @@ async function renderDiscipleshipApp() {
   // The Median bridge can finish loading after this script runs, so this is
   // attempted both now and again from initPush (it only ever attaches once).
   let pushTapListenerAttached = false;
+  let pushLaunchChecked = false;
   function ensurePushTapListener() {
     if (pushTapListenerAttached || !medianBridgeAvailable()) return;
     const clicked = median.firebaseMessaging.notificationClicked;
