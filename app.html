@@ -9651,7 +9651,7 @@ async function renderDiscipleshipApp() {
       window.__pushDiag.push(String(msg));
       if (window.__pushDiag.length > 60) window.__pushDiag.shift();
       let debugOn = false;
-      try { debugOn = window.localStorage && window.localStorage.getItem('pushDebug') === '1'; } catch (e) {}
+      debugOn = true; /* TEMPORARY test build: always show the push log */
       if (!debugOn) return;
       let el = document.getElementById('pushDiagBanner');
       if (!el) {
