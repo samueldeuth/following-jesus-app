@@ -161,10 +161,33 @@ async function sendOne({ token, title, body, data }, { fetchImpl, sleepImpl = sl
   return lastErr || { ok: false, dead: false, code: 'UNKNOWN', message: 'send failed' };
 }
 
+// Closed-app taps: when the app is fully closed, the phone does not always tell
+// the app which notification was tapped. So after a send, we remember on the
+// server (for 3 minutes, enforced by the database) which page each phone's
+// latest push pointed to; the app asks for it once when it starts.
+// Never throws and never blocks a send result -- failures are only logged.
+async function rememberDestinations(byUrl, { rpcImpl, deadlineMs } = {}) {
+  try {
+    if (!rpcImpl && !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+    const rpc = rpcImpl || require('./push-store').rpc;
+    const CHUNK = 500;
+    const jobs = [];
+    for (const [url, tokens] of Object.entries(byUrl)) {
+      for (let i = 0; i < tokens.length; i += CHUNK) jobs.push({ url, tokens: tokens.slice(i, i + CHUNK) });
+    }
+    for (let i = 0; i < jobs.length; i += 5) {
+      if (deadlineMs && Date.now() > deadlineMs) return;
+      await Promise.all(jobs.slice(i, i + 5).map((j) =>
+        rpc('push_remember_destinations', { p_tokens: j.tokens, p_url: j.url }).catch((e) => console.log('[push] remember destination failed:', e.message))));
+    }
+  } catch (e) { console.log('[push] remember destinations skipped:', e && e.message); }
+}
+
 // items: [{ token, title, body, data, ref }]   (ref is passed through untouched)
 // Returns { sent, failed, dead: [token...], okRefs: [...], failedRefs: [...] }
-async function sendMany(items, { concurrency = 40, fetchImpl, sleepImpl, sa, deadlineMs } = {}) {
+async function sendMany(items, { concurrency = 40, fetchImpl, sleepImpl, sa, deadlineMs, rememberImpl } = {}) {
   const out = { sent: 0, failed: 0, dead: [], okRefs: [], failedRefs: [], skipped: 0, errors: {} };
+  const byUrl = {};
   let i = 0;
   async function worker() {
     for (;;) {
@@ -173,7 +196,11 @@ async function sendMany(items, { concurrency = 40, fetchImpl, sleepImpl, sa, dea
       if (idx >= items.length) return;
       const item = items[idx];
       const r = await sendOne(item, { fetchImpl, sleepImpl, sa });
-      if (r.ok) { out.sent++; out.okRefs.push(item.ref); }
+      if (r.ok) {
+        out.sent++; out.okRefs.push(item.ref);
+        const dest = item.data && item.data.targetUrl;
+        if (typeof dest === 'string' && dest) (byUrl[dest] = byUrl[dest] || []).push(item.token);
+      }
       else {
         out.failed++;
         out.failedRefs.push(item.ref);
@@ -184,6 +211,8 @@ async function sendMany(items, { concurrency = 40, fetchImpl, sleepImpl, sa, dea
     }
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, Math.max(items.length, 1)) }, worker));
+  // Real sends remember destinations; tests that inject fetchImpl skip it unless rememberImpl is given.
+  if (Object.keys(byUrl).length && (rememberImpl || !fetchImpl)) await rememberDestinations(byUrl, { rpcImpl: rememberImpl, deadlineMs });
   return out;
 }
 
