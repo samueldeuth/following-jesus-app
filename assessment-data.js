@@ -92,13 +92,14 @@
     MER: [LINKS.hope52],
     ADM: [LINKS.promotion],
     // Still to add: WIS (Word of Wisdom), KNO (Word of Knowledge), INT (Interpretation)
-    // Five-fold offices
+    // Five-fold offices (confirmed by Samuel, Oct 27; Process of Promotion on every office)
     APO: [LINKS.preachingBook, LINKS.promotion],
-    PRP: [LINKS.preachingBook],
-    EVN: [LINKS.preachingBook, LINKS.book],
-    PAS: [LINKS.preachingBook, LINKS.discipleshipCourse],
-    TCH: [LINKS.preachingBook, LINKS.preachingCourse]
+    PRP: [LINKS.preachingBook, LINKS.promotion],
+    EVN: [LINKS.preachingBook, LINKS.book, LINKS.promotion],
+    PAS: [LINKS.preachingBook, LINKS.discipleshipCourse, LINKS.promotion],
+    TCH: [LINKS.preachingBook, LINKS.preachingCourse, LINKS.promotion]
   };
+
 
   /* ---------- Assessment 1: Spiritual Gifts (18 gifts × 5) ----------
      Statement 5 in every set is the "others confirm" item, used to
