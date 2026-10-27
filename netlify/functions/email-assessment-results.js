@@ -56,7 +56,7 @@ function buildEmail(type, result, name) {
         ${c.path ? `<div style="font-size:14px;font-weight:bold;color:#8f6a1f;margin-bottom:8px;">${esc(c.path)}</div>` : ''}
         ${FJ.isThin(type, na[key] || 0) ? `<div style="font-size:13px;color:#8f6a1f;background:#f3e7cc;border-radius:8px;padding:8px 12px;margin-bottom:10px;">Based on fewer statements: you hadn't had the chance yet for ${na[key]} of ${perCat}. As you get more chances to serve, retake this to see how it grows.</div>` : ''}
         <div style="font-size:15px;line-height:1.55;color:#1c1a17;">${esc(c.description)}</div>
-        <div style="font-size:14px;font-weight:bold;margin:14px 0 4px;">How it often shows up</div>
+        <div style="font-size:14px;font-weight:bold;margin:14px 0 4px;">How you can put this ${type === 'gifts' ? 'gift' : 'calling'} to use</div>
         <ul style="margin:0;padding-left:20px;font-size:14px;line-height:1.55;color:#1c1a17;">${c.functions.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>
         ${resources.length ? `<div style="font-size:14px;font-weight:bold;margin:14px 0 4px;">Grow in this ${noun}</div>
           ${resources.map((r) => `<div style="font-size:14px;margin:4px 0;"><a href="${esc(absUrl(r.url))}" style="color:#8f6a1f;">${esc(r.label)}</a> <span style="color:#57534d;">· ${esc(r.note || '')}</span></div>`).join('')}` : ''}
@@ -84,7 +84,7 @@ function buildEmail(type, result, name) {
     <tr><td style="background:#0a0a0a;color:#ffffff;padding:26px 24px;border-radius:12px 12px 0 0;">
       <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#c89b3c;font-weight:bold;">Your results · ${esc(date)}</div>
       <div style="font-size:28px;font-weight:bold;margin:8px 0 10px;">${esc(A.shortTitle)} results</div>
-      <div style="font-size:15px;line-height:1.5;color:#d8d4cb;">${first ? 'Hi ' + esc(first) + ', here' : 'Here'}'s where you lean right now. This is a starting point for prayer and conversation with your pastor, not a final word.</div>
+      <div style="font-size:15px;line-height:1.5;color:#d8d4cb;">${first ? 'Hi ' + esc(first) + ', here' : 'Here'} are the ${type === 'gifts' ? 'spiritual gifts' : 'five-fold offices'} you're leaning toward right now. Let this be a starting point for you to use ${type === 'gifts' ? 'your gifts' : 'your calling'} to build up the body of Christ!</div>
     </td></tr>
     ${naTotal >= Math.ceil(totalQs * 0.2) ? `<tr><td style="padding:20px 0 0;"><div style="background:#f3e7cc;border-radius:10px;padding:16px 20px;font-size:14px;line-height:1.55;"><b>Still discovering.</b> You answered "${esc(FJ.NOT_YET_LABEL)}" to ${naTotal} of ${totalQs} statements. That's completely okay! Gifts often show up as you step out and serve. Try serving in a few different areas at your church, then come back and retake this to see what God is growing in you.</div></td></tr>` : ''}
     <tr><td style="padding:20px 0 0;">
