@@ -59,26 +59,25 @@
     fjCourse: { label: 'Following Jesus Course', note: 'Free online course', url: '/course' },
     churchResources: { label: 'Church Discipleship Resources', note: 'followingjesusbook.com', url: 'https://followingjesusbook.com' },
     app: { label: 'The Following Jesus App', note: 'Free app to share your faith and disciple new believers', url: 'https://qrco.de/fjapp' },
-    // Samuel's books (Amazon search links: swap in exact product links anytime)
-    hope52: { label: '52 Bible Verses on Hope', note: 'Devotional book by Samuel Deuth', url: 'https://www.amazon.com/s?k=52+Bible+Verses+on+Hope+Samuel+Deuth' },
-    miracles52: { label: '52 Bible Verses on Miracles', note: 'Devotional book by Samuel Deuth', url: 'https://www.amazon.com/s?k=52+Bible+Verses+on+Miracles+Samuel+Deuth' },
-    wealth: { label: 'The Power to Create Wealth', note: 'Book by Samuel Deuth', url: 'https://www.amazon.com/s?k=The+Power+to+Create+Wealth+Samuel+Deuth' },
-    messageOutlines: { label: 'Message & Sermon Resources', note: 'Preaching outlines for pastors and teachers', url: 'https://followingjesusbook.com/search?q=message' },
+    // Samuel's books (from his Amazon author page)
+    hope52: { label: '52 Bible Verses on Hope', note: 'Devotional book by Samuel Deuth', url: 'https://www.amazon.com/dp/B0BPMPX8SF' },
+    miracles52: { label: '52 Bible Verses on Miracles', note: 'Devotional book by Samuel Deuth', url: 'https://www.amazon.com/dp/B0CRZCX1WP' },
+    wealth: { label: 'The Power to Create Wealth', note: 'Book by Samuel Deuth', url: 'https://www.amazon.com/dp/B0DFKV2663' },
+    messagePrep: { label: '6 Step Checklist for Message Prep', note: 'Free download', url: 'https://followingjesusbook.com/products/6-step-checklist-for-message-prep' },
+    sermonOutlines: { label: 'Following Jesus Series: Sermon Outlines', note: 'Free download', url: 'https://followingjesusbook.com/products/following-jesus-series-sermon-outlines' },
     // Other authors
     push: { label: 'PUSH: Pray Until Something Happens', note: 'Book by Ps Jurgen Matthesius', url: 'https://www.amazon.com/dp/1400206510' },
     pringleFaith: { label: 'Faith: Moving the Heart and Hand of God', note: 'Book by Ps Phil Pringle', url: 'https://www.amazon.com/dp/1603742840' },
-    getWisdom: { label: 'Get Wisdom', note: 'Book by Ps Leanne Matthesius', url: 'https://www.amazon.com/s?k=Get+Wisdom+Leanne+Matthesius' },
     connellGifts: { label: 'Activating the Gifts of the Spirit', note: 'Training manual by Ps Mike Connell', url: 'https://www.amazon.com/dp/148127886X' }
   };
   const RESOURCES_BY_KEY = {
     // Spiritual gifts (Samuel's picks, Oct 26, 2026)
     PRO: [LINKS.preachingBook],
-    TEA: [LINKS.preachingBook, LINKS.messageOutlines],
+    TEA: [LINKS.preachingBook, LINKS.messagePrep, LINKS.sermonOutlines],
     FAI: [LINKS.push],
     MIR: [LINKS.pringleFaith, LINKS.miracles52],
     EXH: [LINKS.hope52, LINKS.promotion],
     LEA: [LINKS.promotion],
-    WIS: [LINKS.getWisdom],
     GIV: [LINKS.wealth],
     DIS: [LINKS.connellGifts],
     HEA: [LINKS.miracles52],
@@ -87,7 +86,7 @@
     ICS: [LINKS.push],
     MER: [LINKS.hope52],
     ADM: [LINKS.promotion],
-    // Still to add: KNO (Word of Knowledge), HOS (Hospitality), INT (Interpretation)
+    // Still to add: WIS (Word of Wisdom), KNO (Word of Knowledge), HOS (Hospitality), INT (Interpretation)
     // Five-fold offices
     APO: [LINKS.preachingBook, LINKS.promotion],
     PRP: [LINKS.preachingBook],
