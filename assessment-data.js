@@ -14,7 +14,8 @@
    at the bottom) — keep it plain JavaScript, no browser-only code.
    ============================================================ */
 (function (root) {
-  const QUESTION_VERSION = 3; // v3 (Oct 27, 2026): WIS, GIV, HEA statements reworded after the description review
+  const QUESTION_VERSION = 4; // v4 (Oct 27, 2026): DIS S1–S3 and WIS S5 reworded after cross-checking Hagin
+  // v3 (Oct 27, 2026): WIS, GIV, HEA statements reworded after the description review
   // v2 (Oct 24, 2026): 15 statements reworded after the question review
 
   const SCALE = [
@@ -180,7 +181,7 @@
         'God has given me a strategy for a situation that I couldn\'t have come up with on my own.',
         'When I face difficulties or challenges, the Holy Spirit gives me insight and strategy to move forward.',
         'When people follow the counsel I give, it usually proves to be right.',
-        'People come to me for advice when they\'re facing a hard decision.'
+        'People come to me for counsel because they know God gives me wisdom beyond my own.'
       ],
       // Scripture basis for each statement above, in the same order.
       refs: [
@@ -188,10 +189,10 @@
         'Gen 41:33–39',
         'Jas 1:5; Prov 2:6',
         '1 Kgs 3:28',
-        'Prov 15:22'
+        '1 Kgs 4:34'
       ] },
     { key: 'KNO', name: 'Word of Knowledge', scripture: '1 Cor 12:8',
-      description: 'A message of knowledge comes "by means of the same Spirit" (1 Cor 12:8). It is the Holy Spirit revealing facts or truth that couldn\'t be known naturally. Jesus told the woman at the well about her five husbands, and she ran to tell her town (John 4:16–19, 29). Peter knew Ananias had lied about the money (Acts 5:3). Where a word of wisdom shows what to do, a word of knowledge reveals what is: a fact, present or past, that only the Spirit could make known.',
+      description: 'A message of knowledge comes "by means of the same Spirit" (1 Cor 12:8). It is the Holy Spirit revealing facts or truth that couldn\'t be known naturally. Jesus told the woman at the well about her five husbands, and she ran to tell her town (John 4:16–19, 29). Peter knew Ananias had lied about the money (Acts 5:3). Where a word of wisdom shows what to do, a word of knowledge reveals what is: a fact, present or past, that only the Spirit could make known. It isn\'t Bible knowledge gained by study (2 Tim 2:15). It\'s revelation.',
       functions: ['Receives specific insight from the Holy Spirit about people or situations', 'Opens hearts by showing people that God sees them', 'Brings hidden things into the light', 'Directs prayer and ministry with precision'],
       questions: [
         'While praying for someone, the Holy Spirit has shown me details about their life I had no natural way of knowing.',
@@ -203,13 +204,13 @@
       // Scripture basis for each statement above, in the same order.
       refs: [
         'John 4:16–19',
-        'Acts 5:3',
+        '2 Kgs 6:12',
         '1 Cor 2:10; John 4:16–19',
         'John 1:47–49',
         '1 Cor 14:24–25'
       ] },
     { key: 'FAI', name: 'Faith', scripture: '1 Cor 12:9',
-      description: "Every believer has saving faith, but the gift of faith (1 Cor 12:9) is a supernatural ability to believe God for the extraordinary: faith that expects the power of God to move where nothing natural can. Daniel trusted God in the lions' den, and God shut their mouths (Dan 6:22–23; Heb 11:33). Jesus said faith as small as a mustard seed can move mountains (Matt 17:20).",
+      description: "Every believer has saving faith, but the gift of faith (1 Cor 12:9) is a supernatural ability to believe God for the extraordinary: faith that expects the power of God to move where nothing natural can. Daniel trusted God in the lions' den, and God shut their mouths (Dan 6:22–23; Heb 11:33). Jesus slept through the storm, then calmed it (Mark 4:38–40). Jesus said faith as small as a mustard seed can move mountains (Matt 17:20).",
       functions: ['Believes God for the impossible and stays steady', 'Prays bold prayers and expects answers', 'Steps out in obedience before the way is clear', 'Builds faith in others during hard seasons'],
       questions: [
         'I believe God for things that look impossible, and circumstances don\'t easily shake me.',
@@ -220,32 +221,32 @@
       ],
       // Scripture basis for each statement above, in the same order.
       refs: [
-        'Matt 17:20',
+        'Mark 4:38–40',
         'Phil 4:19',
         'Heb 11:8',
         'Heb 11:1; Mark 11:22–24',
         'Rom 1:12'
       ] },
     { key: 'DIS', name: 'Discerning of Spirits', scripture: '1 Cor 12:10',
-      description: 'Distinguishing between spirits (1 Cor 12:10) is the Spirit-given ability to know whether something is from God, from human motives, or from the enemy. Paul discerned the spirit behind the slave girl who followed him in Philippi (Acts 16:16–18). John tells us to "test the spirits" (1 John 4:1). It isn\'t only discerning the enemy. It also sees into the human spirit, good or bad, and recognizes when the Holy Spirit is truly at work.',
-      functions: ["Senses what is from God and what isn't", 'Protects the church from deception and false teaching', 'Recognizes spiritual oppression so it can be confronted', 'Helps leaders make wise decisions about people and direction'],
+      description: 'Distinguishing between spirits (1 Cor 12:10) is the Spirit-given ability to know whether something is from God, from human motives, or from the enemy. Paul discerned the spirit behind the slave girl who followed him in Philippi (Acts 16:16–18). John tells us to "test the spirits" (1 John 4:1). It isn\'t only discerning the enemy. It also sees into the human spirit, good or bad, and recognizes when the Holy Spirit is truly at work. It isn\'t mind reading or spotting people\'s faults.',
+      functions: ["Senses what is from God and what isn't", 'Protects the church from deception and false teaching', 'Recognizes spiritual oppression so it can be confronted', 'Reveals the spirit behind a supernatural manifestation'],
       questions: [
-        'I can often sense a person\'s real motives behind what they say or do.',
-        'I notice when a teaching, person, or situation isn\'t right, even when everything looks fine.',
-        'I\'m sensitive to what\'s happening spiritually in a room or a place.',
+        'At times the Holy Spirit has let me see or hear into the spiritual realm, such as an angel or an evil spirit at work.',
+        'I can tell whether something supernatural is from the Holy Spirit, a human spirit, or an evil spirit.',
+        'While praying for someone, God has shown me a spirit behind their struggle, and it left when I took authority in Jesus\' name.',
         'My cautions about a person or situation have later proved to be right.',
         'Leaders ask what I\'m sensing before they make decisions.'
       ],
       // Scripture basis for each statement above, in the same order.
       refs: [
-        'Acts 8:20–23; 1 John 4:1',
+        '2 Kgs 6:17; Acts 16:16–18',
         '1 John 4:1',
-        'Acts 16:16–18',
+        'Acts 16:18',
         '2 Cor 11:14',
         '1 Cor 12:10'
       ] },
     { key: 'PRO', name: 'Prophecy', scripture: 'Rom 12:6; 1 Cor 12:10',
-      description: 'Prophecy is speaking forth a timely word from God under the Spirit\'s anointing. Most often it builds people up, and at times it foretells what is coming. Paul says it "strengthens, encourages and comforts" (1 Cor 14:3), and he urges every believer to eagerly desire it (1 Cor 14:1). Agabus prophesied a famine so the church could prepare (Acts 11:28). All prophecy is tested against Scripture (1 Thess 5:20–21).',
+      description: 'Prophecy is speaking forth a timely word from God under the Spirit\'s anointing. It can bring insight into what God is doing now or what is coming. Paul says it "strengthens, encourages and comforts" (1 Cor 14:3), and he urges every believer to eagerly desire it (1 Cor 14:1). Judas and Silas, who were prophets, spoke to encourage and strengthen the believers (Acts 15:32). All prophecy is tested against Scripture (1 Thess 5:20–21).',
       functions: ['Shares what God is saying at the right time', 'Builds up, encourages, and comforts people', "Calls people back to God's heart", 'Brings direction and confirmation to individuals and churches'],
       questions: [
         'God gives me a word, picture, or impression to share with someone at the right time.',
@@ -353,7 +354,7 @@
         '2 Tim 4:5'
       ] },
     { key: 'HEA', name: 'Healing', scripture: '1 Cor 12:9',
-      description: 'Paul lists "gifts of healing" given by the one Spirit (1 Cor 12:9). People with this gift lay hands on the sick and many are healed, because God gives them an extra measure of faith for healing. God anointed Jesus with the Holy Spirit and power, and He went around healing (Acts 10:38). Jesus sent His followers to do the same (Mark 16:17–18), and Peter and John saw a lame man walk in Jesus\' name (Acts 3:6–8).',
+      description: 'Paul lists "gifts of healing" given by the one Spirit (1 Cor 12:9). People with this gift lay hands on the sick and many are healed, because God gives them an extra measure of faith for healing. Many find God anoints them for particular kinds of sickness. When Paul laid hands on Publius\'s father, he was healed, and then the rest of the sick on the island came and were healed (Acts 28:8–9). God anointed Jesus with the Holy Spirit and power, and He went around healing (Acts 10:38), and He sent His followers to lay hands on the sick (Mark 16:18).',
       functions: ['Prays for the sick in faith, often with laying on of hands', 'Is led by the Holy Spirit to pray for specific needs', 'Sees physical, emotional, and spiritual healing', 'Points people to Jesus as the healer'],
       questions: [
         'When I\'m with someone who is sick, I feel faith rise up in me for their healing.',
@@ -365,13 +366,13 @@
       // Scripture basis for each statement above, in the same order.
       refs: [
         'Mark 16:18',
-        'Jas 5:14–15',
+        'Acts 28:8–9',
         'Acts 14:9–10',
         'Acts 3:6–8',
         '1 Cor 12:9'
       ] },
     { key: 'MIR', name: 'Miracles', scripture: '1 Cor 12:10',
-      description: 'Miraculous powers (1 Cor 12:10) are the Spirit\'s power to do what only God can do. God did extraordinary miracles through Paul (Acts 19:11), and the early church prayed for signs and wonders in the name of Jesus (Acts 4:30). Where the gift of faith trusts God to act, the working of miracles is God acting through a person\'s obedient step, as when Moses stretched out his staff over the sea (Exod 14:16, 21).',
+      description: 'Miraculous powers (1 Cor 12:10) are the Spirit\'s power to do what only God can do. God did extraordinary miracles through Paul (Acts 19:11), and the early church prayed for signs and wonders in the name of Jesus (Acts 4:30). Where the gift of faith trusts God to act, the working of miracles is God acting through a person\'s obedient step, as when Moses stretched out his staff over the sea (Exod 14:16, 21). It is a supernatural act that overrules the natural order, like Elisha parting the Jordan (2 Kings 2:14) or Jesus turning water into wine (John 2:7–11).',
       functions: ['Expects and prays for God to move supernaturally', 'Sees God intervene beyond natural explanation', 'Confirms the gospel through signs and wonders (Mark 16:20)', 'Builds faith that God is still at work today'],
       questions: [
         'I\'m bold to ask God for a miracle rather than only praying for comfort.',
@@ -390,7 +391,7 @@
       ] },
     { key: 'INT', name: 'Interpretation of Tongues', scripture: '1 Cor 12:10',
       description: 'Interpretation (1 Cor 12:10) makes a message given in tongues understandable to the church, so everyone is built up. Paul says that anyone who speaks in a tongue should pray for the power to interpret (1 Cor 14:13), and that interpreted tongues build up the church like prophecy does (1 Cor 14:5). It is interpretation, not translation. The person doesn\'t know the language. The Spirit gives the meaning.',
-      functions: ['Senses what God is saying through a message in tongues', 'Makes that message clear so the church is built up', 'Brings order to public use of the gifts (1 Cor 14:27)', 'Encourages and strengthens those who hear'],
+      functions: ['Senses what God is saying through a message in tongues', 'Makes that message clear so the church is built up', 'Brings order to public use of the gifts (1 Cor 14:27)', 'Often begins in private prayer, then flows in public (1 Cor 14:13)'],
       questions: [
         'When someone speaks in tongues, I sometimes sense what God is saying.',
         'I have shared the meaning of a message in tongues so the church could understand it.',
