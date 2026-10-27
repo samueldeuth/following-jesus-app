@@ -377,6 +377,7 @@
       '</div></section>' +
       '<section style="padding-top:0"><div class="wrap">' +
         '<h2>All your scores</h2>' +
+        '<p class="small muted" style="margin:0 0 12px">These scores compare your ' + (TYPE === 'gifts' ? 'gifts' : 'offices') + ' to each other. If several look high, lean into your top ' + (A.topCount === 3 ? 'three' : 'two') + ' first.</p>' +
         '<div class="band-key">' + bandKey + '</div>' +
         '<div class="card"><div class="bars">' + barsHtml + '</div></div>' +
         (res.id ? '<div id="feedbackSlot"></div>' : '') +
