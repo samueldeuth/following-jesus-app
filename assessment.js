@@ -315,7 +315,7 @@
           (c.path ? '<p class="path-line">' + esc(c.path) + '</p>' : '') +
           (FJ.isThin(TYPE, na[key] || 0) ? '<p class="thin-note">Based on fewer statements: you hadn\'t had the chance yet for ' + na[key] + ' of ' + perCat + '. As you get more chances to serve, retake this to see how it grows.</p>' : '') +
           '<p>' + esc(c.description) + '</p>' +
-          '<h3 style="margin-top:14px">How it often shows up</h3>' +
+          '<h3 style="margin-top:14px">How you can put this ' + (TYPE === 'gifts' ? 'gift' : 'calling') + ' to use</h3>' +
           '<ul class="functions">' + c.functions.map(f => '<li>' + esc(f) + '</li>').join('') + '</ul>' +
           (FJ.resourcesFor(key).length ? '<h3 style="margin-top:18px">Grow in this ' + noun + '</h3>' + resourceListHtml(FJ.resourcesFor(key)) : '') +
         '</div>';
@@ -356,7 +356,7 @@
       '<div class="hero"><div class="wrap">' +
         '<div class="eyebrow">Your results' + (dateStr ? ' · ' + esc(dateStr) : '') + '</div>' +
         '<h1>' + esc(A.shortTitle) + ' results</h1>' +
-        '<p>Here\'s where you lean right now. Remember, this is a starting point for prayer and conversation with your pastor, not a final word.</p>' +
+        '<p>' + resultsGreeting() + '</p>' +
       '</div></div>' +
       '<section><div class="wrap">' +
         (saveFailed ? '<div class="save-warn">We couldn\'t save these results to your account just now. Your answers are still on this device, so refresh the page to try again.</div>' : '') +
@@ -383,7 +383,7 @@
       '<section style="padding-top:0"><div class="wrap">' +
         '<div class="card soon">' +
           '<div class="eyebrow">Coming soon</div>' +
-          '<h2 style="margin-top:8px">Invite your pastor to affirm your results</h2>' +
+          '<h2 style="margin-top:8px">Invite your pastor to confirm your results</h2>' +
           '<p>' + (TYPE === 'gifts'
             ? 'Soon you\'ll be able to ask your pastor or a mature Christian leader to answer a short version of this assessment about you. Their view matters more than any score.'
             : 'Calling is delegated by the Holy Spirit, affirmed in community, and confirmed or released by those who already serve in the five-fold offices. Soon you\'ll be able to invite your pastor or a leader serving in these offices to weigh in.') + '</p>' +
@@ -422,6 +422,15 @@
     const pb = document.getElementById('pdfBtn');
     if (pb) pb.onclick = () => window.print();
     scrollTop();
+  }
+
+  // Results header: "Hi Samuel, here are the spiritual gifts you're leaning toward right now…"
+  function resultsGreeting(){
+    const meta = (user && user.user_metadata) || {};
+    const first = String(meta.full_name || meta.name || '').trim().split(/\s+/)[0];
+    const what = TYPE === 'gifts' ? 'spiritual gifts' : 'five-fold offices';
+    const use = TYPE === 'gifts' ? 'your gifts' : 'your calling';
+    return esc((first ? 'Hi ' + first + ', here' : 'Here') + ' are the ' + what + ' you\'re leaning toward right now. Let this be a starting point for you to use ' + use + ' to build up the body of Christ!');
   }
 
   // ---------- "How accurate was this?" feedback ----------

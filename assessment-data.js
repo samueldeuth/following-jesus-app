@@ -102,7 +102,7 @@
       questions: [
         'I can see where God is leading a group and help people want to follow.',
         'When no one is leading, I step in and set direction.',
-        'I\'m willing to make hard decisions for a group, even when they aren\'t popular.',
+        'I\'m comfortable making the final call for a group, even when the decision isn\'t popular.',
         'I raise up the people around me, and the teams I lead become more fruitful.',
         'People look to me for direction, even when I don\'t have a title.'
       ],
@@ -139,7 +139,7 @@
         'I give people practical next steps to grow in following Jesus.',
         'When someone is discouraged, I know what to say to help them keep going.',
         'I see what God has put in people and tell them, even when they can\'t see it yet.',
-        'I\'m willing to lovingly challenge someone who is stuck.',
+        'I\'ll lovingly challenge someone who is stuck, even when I know it may be painful for them to hear.',
         'People leave time with me stronger in their faith and full of hope.'
       ],
       // Scripture basis for each statement above, in the same order.
@@ -244,10 +244,10 @@
       description: "Romans 12:8 tells the one who shows mercy to do it cheerfully. Mercy is God's compassion flowing through a person toward the hurting. Jesus was \"moved with compassion\" and healed the sick (Matt 14:14), and the Good Samaritan stopped for the man everyone else passed by (Luke 10:33–35).",
       functions: ['Notices people who are hurting, sick, or overlooked', 'Stays present with people in hard seasons', 'Shows practical kindness with joy', 'Reflects the compassion of Jesus to the broken'],
       questions: [
-        'My heart is moved for people who are hurting, sick, or overlooked.',
+        'My heart is moved for the hurting, sick, and overlooked in a way that stays with me until I\'ve helped.',
         'I\'d rather stay beside someone who is hurting than rush to fix their problem.',
         'I\'m drawn to the people others avoid: the lonely, the grieving, the poor, the difficult.',
-        'I show kindness cheerfully, not because I have to (Rom 12:8).',
+        'I often notice when someone is quietly hurting, and I cheerfully go out of my way to show them kindness.',
         'People who are hurting come to me because they know I\'ll care for them.'
       ],
       // Scripture basis for each statement above, in the same order.
@@ -299,7 +299,7 @@
       functions: ['Welcomes newcomers and strangers', 'Opens homes and creates spaces where people feel cared for', 'Builds community around the table', 'Helps people feel they belong in the body of Christ'],
       questions: [
         'I love opening my home to people, including people I don\'t know well.',
-        'I notice the new person at church and go out of my way to welcome them.',
+        'Walking up to someone at church I don\'t know and making them feel welcome comes naturally to me.',
         'I enjoy getting a space or a meal ready so people feel cared for.',
         'Having people over gives me energy more than it drains me.',
         'People tell me they feel at home and accepted when they\'re with me.'
@@ -334,7 +334,7 @@
       description: 'Paul lists "gifts of healing" given by the one Spirit (1 Cor 12:9). God anointed Jesus with the Holy Spirit and power, and He went around healing (Acts 10:38). Jesus sent His followers to do the same (Mark 16:17–18), and Peter and John saw a lame man walk in Jesus\' name (Acts 3:6–8).',
       functions: ['Prays for the sick in faith, often with laying on of hands', 'Is led by the Holy Spirit to pray for specific needs', 'Sees physical, emotional, and spiritual healing', 'Points people to Jesus as the healer'],
       questions: [
-        'I have faith and compassion to pray for the sick.',
+        'When I\'m with someone who is sick, I feel faith rise up in me for their healing.',
         'When someone is sick, I\'m quick to offer to pray for them right then.',
         'The Holy Spirit has led me to pray for a specific sickness or injury.',
         'I have seen people healed after I prayed in Jesus\' name.',
@@ -352,7 +352,7 @@
       description: 'Miraculous powers (1 Cor 12:10) are the Spirit\'s power to do what only God can do. God did extraordinary miracles through Paul (Acts 19:11), and the early church prayed for signs and wonders in the name of Jesus (Acts 4:30).',
       functions: ['Expects and prays for God to move supernaturally', 'Sees God intervene beyond natural explanation', 'Confirms the gospel through signs and wonders (Mark 16:20)', 'Builds faith that God is still at work today'],
       questions: [
-        'I expect God to do supernatural things today, and I pray that way.',
+        'I\'m bold to ask God for a miracle rather than only praying for comfort.',
         'I have seen God step in where there was no natural explanation.',
         'The Holy Spirit has led me to pray for something only God could do.',
         'I\'ve seen God move in power when I stepped out in obedience and prayed.',
@@ -594,7 +594,7 @@
         { min: 42, label: 'Strong' }, { min: 32, label: 'Developing' },
         { min: 22, label: 'Supporting' }, { min: 0, label: 'Not primary right now' }
       ],
-      intro: "Jesus gave apostles, prophets, evangelists, pastors, and teachers to equip His people and build up His Church (Ephesians 4:11–13). Every follower of Jesus can share their faith, encourage others, and speak truth, but not everyone is called into one of these five leadership roles. This assessment will help you see which one or two you lean toward right now. Calling is delegated by the Holy Spirit, affirmed in community, and confirmed or released by those who already serve in these offices, so treat this as a starting point and invite your pastor to affirm your results.",
+      intro: "Jesus gave apostles, prophets, evangelists, pastors, and teachers to equip His people and build up His Church (Ephesians 4:11–13). Every follower of Jesus can share their faith, encourage others, and speak truth, but not everyone is called into one of these five leadership roles. This assessment will help you see which one or two you lean toward right now. Calling is delegated by the Holy Spirit, affirmed in community, and confirmed or released by those who already serve in these offices, so treat this as a starting point and invite your pastor to confirm your results.",
       footnote: 'The five offices lead and mature the church along the Path: the Apostle clears and reveals it, the Prophet calls people back to it, the Evangelist brings new people onto it, the Pastor walks with people on it, and the Teacher shows people how to walk on it.'
     }
   };
