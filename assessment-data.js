@@ -14,7 +14,8 @@
    at the bottom) — keep it plain JavaScript, no browser-only code.
    ============================================================ */
 (function (root) {
-  const QUESTION_VERSION = 5; // v5 (Oct 27, 2026): ICS S3 reworded (praying in the Spirit)
+  const QUESTION_VERSION = 6; // v6 (Oct 27, 2026): PRP S3, S4, S10 reworded (listening, weighing, calling out gifts)
+  // v5 (Oct 27, 2026): ICS S3 reworded (praying in the Spirit)
   // v4 (Oct 27, 2026): DIS S1–S3 and WIS S5 reworded after cross-checking Hagin
   // v3 (Oct 27, 2026): WIS, GIV, HEA statements reworded after the description review
   // v2 (Oct 24, 2026): 15 statements reworded after the question review
@@ -434,8 +435,9 @@
      Statement 10 in every set is the "others confirm" tie-breaker. */
   const OFFICES = [
     { key: 'APO', name: 'Apostle', path: 'Clears and reveals the Path', scripture: 'Rom 15:20; 1 Cor 3:10',
-      description: '"Apostle" means "sent one." Jesus is called "the apostle and high priest of our faith" (Heb 3:1), the one sent by the Father. Paul described himself as a wise builder laying a foundation (1 Cor 3:10), and his ambition was to preach Christ where He wasn\'t yet known (Rom 15:20). Apostles pioneer new works, establish churches, and set leaders in place, as Paul and Barnabas did on their journeys (Acts 14:21–23).',
-      functions: ['Pioneers new churches, ministries, and territory for the gospel', 'Lays foundations of vision, values, and structure', 'Raises up and sends leaders', 'Sees the big picture and keeps the church moving on mission', 'Provides oversight and covering for other leaders'],
+      description: "\"Apostle\" means \"sent one.\" Jesus is called \"the apostle and high priest of our faith\" (Heb 3:1), the one sent by the Father. After He ascended, He gave apostles to the church first, to equip His people (Eph 4:8–12; 1 Cor 12:28). Beyond the Twelve, the New Testament names others as apostles, like Barnabas (Acts 14:14). Paul described himself as a wise builder laying a foundation (1 Cor 3:10), and his ambition was to preach Christ where He wasn't yet known (Rom 15:20). Apostles pioneer new works, establish churches, and set leaders in place, appointing elders and pastors in every town (Acts 14:21–23; Titus 1:5), and their ministry is marked by perseverance, signs, wonders, and miracles (2 Cor 12:12).",
+      functions: ['Pioneers new churches, ministries, and territory for the gospel', 'Lays foundations of vision, values, and structure', 'Raises up and sends leaders, and sets pastors in place (Titus 1:5)', 'Sees the big picture and keeps the church moving on mission', 'Provides oversight and covering for other leaders',
+        'Ministers with perseverance, signs, and wonders (2 Cor 12:12)'],
       questions: [
         'I\'m energized by starting new things for the Kingdom: churches, ministries, groups, or outreaches.',
         'I think about the big picture and where God is taking His Church next.',
@@ -451,7 +453,7 @@
       // Scripture basis for each statement above, in the same order.
       refs: [
         'Rom 15:20',
-        'Acts 1:8',
+        'Acts 15:6, 28',
         'Acts 16:9–10',
         '2 Cor 10:16',
         'Acts 14:23',
@@ -462,35 +464,35 @@
         'Eph 2:20'
       ] },
     { key: 'PRP', name: 'Prophet', path: 'Calls people back to the Path', scripture: 'Jer 6:16; 1 Cor 14:3',
-      description: "Prophets speak God's heart to His people and call them back to Him. Through Jeremiah, God told His people to stand at the crossroads and ask for the ancient paths, where the good way is (Jer 6:16). In the New Testament, prophets like Judas and Silas spoke to encourage and strengthen the believers (Acts 15:32), and prophets and teachers together heard the Holy Spirit send out Barnabas and Saul (Acts 13:1–3).",
-      functions: ['Hears and speaks what God is saying in this season', 'Calls the church back to intimacy with God, holiness, and obedience', 'Exposes drift, compromise, and injustice', 'Brings direction and confirmation to leaders and churches', 'Keeps the church sensitive to the Holy Spirit'],
+      description: "Prophets speak God's heart to His people and call them back to Him. God does nothing without revealing His plan to His servants the prophets (Amos 3:7). Like a watchman on the wall, the prophet warns God's people when they've wandered off the path and calls them back home (Ezek 33:7; Neh 9:30). Through Jeremiah, God told His people to ask for the ancient paths, where the good way is (Jer 6:16). In the New Testament, prophets like Judas and Silas spoke to encourage and strengthen the believers (Acts 15:32), and prophets and teachers together heard the Holy Spirit set apart Barnabas and Saul (Acts 13:1–3). The prophet speaks only what God shows, not their own ideas (Num 22:38), and true prophecy always points to Jesus (Rev 19:10).",
+      functions: ['Hears and speaks what God is saying in this season', 'Calls the church back to intimacy with God, holiness, and obedience', 'Watches and warns when God\'s people drift off course (Ezek 33:7)', 'Brings direction and confirmation to leaders and churches', 'Keeps the church sensitive to the Holy Spirit', 'Calls out and confirms gifts and callings, including five-fold callings (Acts 13:1–3; 1 Tim 4:14)'],
       questions: [
         'When people, churches, or nations wander from God\'s path, I\'m compelled to call them back.',
         'I sense what God is saying in this season and feel responsible to share it.',
-        'I care more about obeying God than keeping everyone comfortable.',
-        'I notice when our worship, values, or way of living have drifted from God\'s heart.',
+        'I spend more time listening to God than speaking, and I share only what I sense He is showing me.',
+        'I submit what I sense to leaders to weigh, and I\'m at peace if they don\'t act on it.',
         'I call people back to closeness with God, holiness, and obedience.',
         'God gives me dreams, pictures, or impressions about the direction of a church or a person.',
         'I speak up about sin and compromise, even when it costs me.',
         'Words or warnings I\'ve given about a church or leader have proved true.',
         'What I\'ve shared has led leaders or ministries to turn back toward God.',
-        'People call me prophetic, whether they welcome it or not.'
+        'God has used me to call out gifts or callings in people, and leaders later confirmed them.'
       ],
       // Scripture basis for each statement above, in the same order.
       refs: [
         'Jer 6:16; Ezek 33:7',
         'Amos 3:7',
-        'Gal 1:10',
-        'Rev 2:4–5',
+        '1 Sam 3:10; Num 22:38',
+        '1 Cor 14:29–32',
         'Hos 6:1',
         'Acts 2:17',
         'Isa 58:1',
         'Deut 18:22',
         'Acts 15:32',
-        'Acts 13:1'
+        'Acts 13:1–3; 1 Tim 4:14'
       ] },
     { key: 'EVN', name: 'Evangelist', path: 'Brings new people onto the Path', scripture: 'Luke 19:10; Acts 8:5, 21:8',
-      description: 'Philip is the only person the Bible names as an evangelist (Acts 21:8). He preached Christ in Samaria, and the whole city was filled with joy as people believed and were baptized (Acts 8:5–12). Then he followed the Spirit to one man on a desert road and led him to Jesus (Acts 8:26–38). Paul told Timothy to "do the work of an evangelist" (2 Tim 4:5). The evangelist carries the heart of Jesus, who came "to seek and to save the lost" (Luke 19:10).',
+      description: "Philip is the only person the Bible names as an evangelist (Acts 21:8). He preached Christ in Samaria, signs confirmed the message, and the whole city was filled with joy as people believed and were baptized (Acts 8:5–12). The evangelist carries the heart of Jesus, who came \"to seek and to save the lost\" (Luke 19:10), and gets more people on the path. But as a five-fold office, the evangelist doesn't only lead people to Christ. Christ gave evangelists to equip His people (Eph 4:11–12), so they build up the church, train believers to share their faith, and stir the whole church to reach the lost.",
       functions: ['Proclaims the gospel and calls people to follow Jesus', 'Keeps the church focused on the lost', 'Trains and stirs up believers to share their faith', 'Brings new people into the life of the church', 'Often sees the gospel confirmed with signs and wonders (Acts 8:6)'],
       questions: [
         'I think about people who don\'t know Jesus far more than most believers I know.',
@@ -518,8 +520,8 @@
         '2 Tim 4:5'
       ] },
     { key: 'PAS', name: 'Pastor', path: 'Walks with people on the Path', scripture: 'John 10:11; 1 Pet 5:2',
-      description: '"Pastor" means "shepherd." Jesus is the Good Shepherd who knows His sheep and lays down His life for them (John 10:11, 14). Peter told the church\'s elders to shepherd God\'s flock willingly and by example, not for gain (1 Pet 5:2–3). Paul told the Ephesian elders to keep watch over the flock and protect it from wolves (Acts 20:28–29).',
-      functions: ["Cares for the spiritual health of God's people over the long haul", 'Notices those who are struggling or drifting and goes after them (Luke 15:4)', 'Protects the church from false teaching and harm', 'Builds healthy community and unity', "Walks with people through life's seasons toward maturity in Christ"],
+      description: "\"Pastor\" means \"shepherd.\" Jesus is the Good Shepherd who knows His sheep and lays down His life for them (John 10:11, 14). God promised His people shepherds after His own heart, who would lead them with knowledge and understanding (Jer 3:15). The Holy Spirit makes pastors overseers of the flock, to shepherd the church Jesus bought with His own blood (Acts 20:28). Peter told elders to shepherd willingly and by example, not for gain (1 Pet 5:2–3). Paul had no one like Timothy, who showed genuine concern for people's welfare instead of looking out for himself (Phil 2:20–21). Pastors walk with people on the path, guard them from wolves (Acts 20:29), and teach them the difference between what is holy and what is common (Ezek 44:23).",
+      functions: ["Cares for the spiritual health of God's people over the long haul", 'Notices those who are struggling or drifting and goes after them (Luke 15:4)', 'Protects the church from false teaching and harm', 'Builds healthy community, unity, and order in the church family', 'Guides people into holy living (Ezek 44:23)', "Walks with people through life's seasons toward maturity in Christ"],
       questions: [
         'I care deeply about how the people around me are doing with God.',
         'I notice when someone is missing, struggling, or drifting away.',
@@ -534,7 +536,7 @@
       ],
       // Scripture basis for each statement above, in the same order.
       refs: [
-        '1 Pet 5:2',
+        'Phil 2:20',
         'Luke 15:4',
         'Acts 2:42–47; John 10:14',
         '1 Thess 5:14',
@@ -546,7 +548,7 @@
         '1 Cor 4:15'
       ] },
     { key: 'TCH', name: 'Teacher', path: 'Shows people how to walk on the Path', scripture: 'Matt 28:20; 2 Tim 2:2',
-      description: "Jesus taught with authority, and the crowds were amazed (Matt 7:28–29). He commanded His followers to teach new disciples to obey everything He commanded (Matt 28:20). Apollos was mighty in the Scriptures and taught accurately about Jesus (Acts 18:24–25), and Paul told Timothy to pass what he'd learned on to faithful people who could teach others (2 Tim 2:2).",
+      description: "Jesus taught with authority, and the crowds were amazed (Matt 7:28–29). He commanded His followers to teach new disciples to obey everything He commanded (Matt 28:20). As a five-fold office, the teacher shows people how to walk on the path and grounds the church in truth, so believers aren't tossed around by every new idea (Eph 4:11–14). Barnabas and Saul spent a whole year teaching large numbers in Antioch, and that's where the disciples were first called Christians (Acts 11:25–26). Paul taught daily for two years in Ephesus until the whole region heard the word (Acts 19:9–10), and he told Timothy to pass what he'd learned on to faithful people who could teach others (2 Tim 2:2).",
       functions: ["Explains God's Word with clarity and accuracy", "Grounds believers in sound doctrine so they aren't tossed around (Eph 4:14)", 'Builds discipleship pathways, studies, and courses', 'Trains others to teach', 'Shows people how to live out the truth day to day'],
       questions: [
         'I love studying God\'s Word and digging deep into what it means.',
@@ -619,7 +621,7 @@
         { min: 42, label: 'Strong' }, { min: 32, label: 'Developing' },
         { min: 22, label: 'Supporting' }, { min: 0, label: 'Not primary right now' }
       ],
-      intro: "Jesus gave apostles, prophets, evangelists, pastors, and teachers to equip His people and build up His Church (Ephesians 4:11–13). Every follower of Jesus can share their faith, encourage others, and speak truth, but not everyone is called into one of these five leadership roles. This assessment will help you see which one or two you lean toward right now. Calling is delegated by the Holy Spirit, affirmed in community, and confirmed or released by those who already serve in these offices, so treat this as a starting point and invite your pastor to confirm your results.",
+      intro: "Jesus gave apostles, prophets, evangelists, pastors, and teachers to equip His people and build up His Church (Ephesians 4:11–13). Every follower of Jesus can share their faith, encourage others, and speak truth, but not everyone is called into one of these five leadership roles. These callings carry greater responsibility, and those who lead and teach God's people will be judged more strictly (James 3:1). This assessment will help you see which one or two you lean toward right now. Calling is delegated by the Holy Spirit, affirmed in community, and confirmed or released by those who already serve in these offices, so treat this as a starting point and invite your pastor to confirm your results.",
       footnote: 'The five offices lead and mature the church along the Path: the Apostle clears and reveals it, the Prophet calls people back to it, the Evangelist brings new people onto it, the Pastor walks with people on it, and the Teacher shows people how to walk on it.'
     }
   };
