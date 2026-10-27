@@ -311,6 +311,7 @@
         '<div class="card top-card">' +
           '<span class="rank-badge">' + (i === 0 ? 'Your top ' + noun : '#' + (i + 1)) + '</span>' +
           '<h2>' + esc(c.name) + '</h2>' +
+          '<div class="confirmed-by" data-confirm-key="' + key + '"></div>' +
           '<p class="score-line">' + score + ' of ' + MAX + ' · ' + esc(FJ.bandFor(TYPE, score)) + ' · ' + esc(c.scripture) + '</p>' +
           (c.path ? '<p class="path-line">' + esc(c.path) + '</p>' : '') +
           (FJ.isThin(TYPE, na[key] || 0) ? '<p class="thin-note">Based on fewer statements: you hadn\'t had the chance yet for ' + na[key] + ' of ' + perCat + '. As you get more chances to serve, retake this to see how it grows.</p>' : '') +
@@ -382,12 +383,12 @@
       '</div></section>' +
       '<section style="padding-top:0"><div class="wrap">' +
         '<div class="card soon">' +
-          '<div class="eyebrow">Coming soon</div>' +
+          '<div class="eyebrow">Confirm your results</div>' +
           '<h2 style="margin-top:8px">Invite your pastor to confirm your results</h2>' +
           '<p>' + (TYPE === 'gifts'
-            ? 'Soon you\'ll be able to ask your pastor or a mature Christian leader to answer a short version of this assessment about you. Their view matters more than any score.'
-            : 'Calling is delegated by the Holy Spirit, affirmed in community, and confirmed or released by those who already serve in the five-fold offices. Soon you\'ll be able to invite your pastor or a leader serving in these offices to weigh in.') + '</p>' +
-          '<p style="margin-bottom:0">Until then, share these results with your pastor and ask what they see in you.</p>' +
+            ? 'Gifts are affirmed in community, and confirmed by your pastor and those God has placed over you. Invite your pastor or a mature Christian leader to confirm your top gifts. Their voice matters more than any score.'
+            : 'Calling is delegated by the Holy Spirit, affirmed in community, and confirmed or released by those who already serve in the five-fold offices. Invite your pastor or a leader serving in these offices to confirm your results.') + '</p>' +
+          (res.id ? '<div id="confirmSlot"></div>' : '<p style="margin-bottom:0">Once your results are saved, you\'ll be able to invite up to 3 people here.</p>') +
           '<div id="shareSlot"></div>' +
         '</div>' +
       '</div></section>' +
@@ -414,6 +415,7 @@
       '</div></section>';
 
     fillShareSlot();
+    if (res.id) fillConfirmSlot(res.id, top);
     if (res.id) fillFeedbackSlot(res.id, top);
     document.getElementById('retakeBtn').onclick = () => { clearState(); renderQuiz(); };
     document.getElementById('inviteBtn').onclick = inviteFriend;
@@ -480,6 +482,75 @@
       });
       if (error && !/duplicate|unique/i.test(error.message || '')) { status.textContent = "Couldn't send that. Please try again."; submit.disabled = false; return; }
       slot.innerHTML = '<div class="card feedback-card"><h3>Thank you!</h3><p style="margin:0">Your feedback helps us make this assessment better for everyone.</p></div>';
+    };
+  }
+
+  // ---------- Pastor / five-fold confirmation ----------
+  // Up to 3 invitations per result. Invitees get a private link (no sign-in)
+  // to /confirm-gifts, where they mark the top results Yes / Somewhat / Not yet.
+  const CONFIRM_LABELS = { yes: 'Yes, I see this in you', somewhat: 'Somewhat', not_yet: 'Not yet' };
+  async function fillConfirmSlot(resultId, topKeys){
+    const slot = document.getElementById('confirmSlot');
+    if (!slot || !user) return;
+    let rows = [];
+    try {
+      await sb.auth.getSession();
+      const { data, error } = await sb.rpc('get_my_gift_confirmations', { p_result_id: resultId });
+      if (error) throw error;
+      rows = data || [];
+    } catch (e) { slot.innerHTML = ''; return; } // not set up yet: show nothing
+
+    // Mark top gifts that someone confirmed with "Yes".
+    document.querySelectorAll('[data-confirm-key]').forEach(el => {
+      const names = rows.filter(r => r.out_status === 'confirmed' && (r.out_ratings || {})[el.dataset.confirmKey] === 'yes').map(r => r.out_confirmer_name);
+      el.innerHTML = names.length ? '<span class="confirmed-chip">✓ Confirmed by ' + esc(names.join(', ')) + '</span>' : '';
+    });
+
+    const listHtml = rows.map(r => {
+      const done = r.out_status === 'confirmed';
+      return '<div class="conf-row">' +
+        '<div class="conf-row-head"><b>' + esc(r.out_confirmer_name) + '</b>' + (r.out_confirmer_role ? ' <span class="conf-role">' + esc(r.out_confirmer_role) + '</span>' : '') +
+          '<span class="conf-state' + (done ? ' done' : '') + '">' + (done ? 'Confirmed' : 'Invited · waiting') + '</span></div>' +
+        (done ? '<div class="conf-ratings">' + topKeys.map(k => '<span>' + esc(FJ.categoryByKey(TYPE, k).name) + ': <b>' + esc(CONFIRM_LABELS[(r.out_ratings || {})[k]] || '—') + '</b></span>').join('') + '</div>' +
+          (r.out_comment ? '<div class="conf-note">“' + esc(r.out_comment) + '”</div>' : '') : '') +
+      '</div>';
+    }).join('');
+    const left = 3 - rows.length;
+    slot.innerHTML =
+      (rows.length ? '<div class="conf-list">' + listHtml + '</div>' : '') +
+      (left > 0
+        ? '<div class="conf-form">' +
+            '<div class="conf-form-title">' + (rows.length ? 'Invite someone else' : 'Who should confirm your results?') + ' <span>(' + left + ' of 3 left)</span></div>' +
+            '<input type="text" id="confName" maxlength="120" placeholder="Their name (e.g. Pastor Jurgen)">' +
+            '<input type="email" id="confEmail" maxlength="320" placeholder="Their email">' +
+            '<input type="text" id="confRole" maxlength="120" placeholder="Role (optional, e.g. Lead Pastor)">' +
+            '<button class="btn btn-ember" id="confSend">Send invitation</button>' +
+            '<div class="share-status" id="confSendStatus"></div>' +
+          '</div>'
+        : '<p class="small" style="color:#a8a399;margin:12px 0 0">You\'ve invited 3 people, the most for one result.</p>');
+
+    const btn = document.getElementById('confSend');
+    if (btn) btn.onclick = async () => {
+      const status = document.getElementById('confSendStatus');
+      const name = document.getElementById('confName').value.trim();
+      const email = document.getElementById('confEmail').value.trim();
+      const role = document.getElementById('confRole').value.trim();
+      if (!name || !email) { status.textContent = 'Please add their name and email.'; return; }
+      btn.disabled = true; status.textContent = 'Sending…';
+      try {
+        const { data } = await sb.auth.getSession();
+        const tok = data && data.session && data.session.access_token;
+        const resp = await fetch('/.netlify/functions/send-gift-confirmation-invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (tok || '') },
+          body: JSON.stringify({ result_id: resultId, invites: [{ name, email, role }] })
+        });
+        const body = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(body.error || 'Something went wrong');
+        await fillConfirmSlot(resultId, topKeys);
+        const s2 = document.getElementById('confSendStatus') || document.querySelector('#confirmSlot .conf-list');
+        if (s2 && s2.id === 'confSendStatus') s2.textContent = 'Invitation sent to ' + name + '.';
+      } catch (e) { status.textContent = "Couldn't send: " + e.message; btn.disabled = false; }
     };
   }
 

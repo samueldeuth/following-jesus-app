@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Confirm Results | Following Jesus</title>
+<meta name="robots" content="noindex">
+<meta property="og:title" content="Confirm Spiritual Gifts Results">
+<meta property="og:description" content="Someone asked you to help confirm their spiritual gifts. It takes about 2 minutes.">
+<meta property="og:image" content="https://followingjesus.com/assets/og-spiritual-gifts.png">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assessment.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/assessment-data.js"></script>
+<style>
+  .conf-gift{padding:16px 0; border-bottom:1px solid var(--line);}
+  .conf-gift:last-of-type{border-bottom:0;}
+  .conf-gift h3{margin:0 0 4px;}
+  .conf-gift .muted{font-size:14px; margin:0 0 10px;}
+  .conf-done-row{display:flex; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid var(--line); font-size:15px;}
+  .conf-done-row b{font-family:var(--font-display);}
+  .conf-yes{color:var(--ember-dark); font-weight:600;}
+  .conf-comment{border-left:3px solid var(--ember); padding:4px 0 4px 14px; margin:16px 0 0; white-space:pre-wrap;}
+  .take-row{display:grid; gap:10px; grid-template-columns:1fr 1fr;}
+  @media (max-width:560px){ .take-row{grid-template-columns:1fr;} }
+  .conf-card textarea{width:100%; border:1.5px solid var(--line); border-radius:10px; padding:10px 12px; font:inherit; font-size:15px; background:var(--paper); resize:vertical;}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap"><a class="brand" href="/">Following Jesus</a><nav class="topbar-links"><a href="https://qrco.de/fjapp">Get the app</a></nav></div></header>
+<main id="app"><div class="loading">Loading…</div></main>
+<footer><div class="wrap">© Following Jesus · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></div></footer>
+
+<script>
+(function(){
+  'use strict';
+  const FJ = window.FJ_ASSESSMENT;
+  const SUPABASE_URL = 'https://onflrmiifjjjboeimnva.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+  const app = document.getElementById('app');
+  const token = new URLSearchParams(window.location.search).get('token') || '';
+  // Shown to the confirmer; the email to the person words "yes" as "Yes, I see this in you".
+  const RATINGS = [ { v:'yes', label:'Yes, I see this in them' }, { v:'somewhat', label:'Somewhat' }, { v:'not_yet', label:'Not yet' } ];
+  const ratingLabel = v => (RATINGS.find(r => r.v === v) || {}).label || '';
+
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function message(title, body){
+    app.innerHTML = '<section><div class="wrap"><div class="card"><h2>' + esc(title) + '</h2><p class="muted" style="margin:0">' + body + '</p></div></div></section>';
+  }
+
+  let C = null; // the invitation
+
+  async function load(){
+    if (!/^[0-9a-f-]{36}$/i.test(token)) { message('This link isn\'t complete', 'Please open the full link from the email you received.'); return; }
+    const { data, error } = await sb.rpc('get_gift_confirmation_by_token', { p_token: token });
+    if (error) { message('Something went wrong', 'Please refresh the page and try again.'); return; }
+    if (!data || !data.length) { message('This link is no longer valid', 'The person may have removed this request, or the link was copied incompletely.'); return; }
+    C = data[0];
+    render();
+  }
+
+  function render(){
+    const type = C.out_assessment_type;
+    const A = FJ.ASSESSMENTS[type];
+    const max = FJ.maxScore(type);
+    const perCat = A.categories[0].questions.length;
+    const ranked = (C.out_ranked || []).filter(k => FJ.categoryByKey(type, k));
+    const top = ranked.slice(0, A.topCount);
+    const name = C.out_person_name;
+    const first = String(name).split(/\s+/)[0];
+    const noun = type === 'gifts' ? 'gifts' : 'offices';
+
+    const bars = ranked.map((k, i) => {
+      const c = FJ.categoryByKey(type, k);
+      const sc = (C.out_scores || {})[k] || 0;
+      return '<div class="bar-row"><span class="bar-name">' + esc(c.name) + '</span>' +
+        '<span class="bar-score">' + (sc < perCat ? 'No answers yet' : sc + '/' + max + ' · ' + esc(FJ.bandFor(type, sc))) + '</span>' +
+        '<div class="bar-track"><div class="bar-fill' + (i < A.topCount ? ' top' : '') + '" style="width:' + Math.max(4, Math.round(sc / max * 100)) + '%"></div></div></div>';
+    }).join('');
+
+    const confirmed = C.out_status === 'confirmed';
+    let actionHtml;
+    if (!confirmed) {
+      actionHtml =
+        '<div class="card conf-card top-card">' +
+          '<span class="rank-badge">Your confirmation</span>' +
+          '<h2>Do you see these in ' + esc(first) + '?</h2>' +
+          '<p class="muted" style="margin:0 0 6px">For ' + esc(first) + '\'s top ' + top.length + ' ' + noun + ', mark what you\'ve seen in their life.</p>' +
+          top.map(k => {
+            const c = FJ.categoryByKey(type, k);
+            return '<div class="conf-gift"><h3>' + esc(c.name) + '</h3>' +
+              '<p class="muted">' + esc(c.path || c.functions[0] || '') + '</p>' +
+              '<div class="pill-row">' + RATINGS.map(r => '<label class="pill"><input type="radio" name="r-' + k + '" value="' + r.v + '"><span>' + esc(r.label) + '</span></label>').join('') + '</div></div>';
+          }).join('') +
+          '<p class="fb-q" style="margin-top:18px">A note for ' + esc(first) + ' <span class="muted">(optional)</span></p>' +
+          '<textarea id="confComment" rows="4" maxlength="3000" placeholder="What have you seen God do through them? Where would you encourage them to step in?"></textarea>' +
+          '<div style="margin-top:14px"><button class="btn btn-dark" id="confSubmit" disabled>Submit confirmation</button></div>' +
+          '<div class="small" id="confStatus" style="margin-top:10px; min-height:20px; color:var(--ember-dark)"></div>' +
+        '</div>';
+    } else {
+      const r = C.out_ratings || {};
+      actionHtml =
+        '<div class="card conf-card top-card">' +
+          '<span class="rank-badge">Thank you</span>' +
+          '<h2>Your confirmation is saved</h2>' +
+          top.map(k => '<div class="conf-done-row"><b>' + esc(FJ.categoryByKey(type, k).name) + '</b><span class="' + (r[k] === 'yes' ? 'conf-yes' : 'muted') + '">' + esc(ratingLabel(r[k])) + '</span></div>').join('') +
+          (C.out_comment ? '<div class="conf-comment">' + esc(C.out_comment) + '</div>' : '') +
+          '<div style="margin-top:18px">' +
+            (C.out_emailed
+              ? '<p class="muted" style="margin:0">Sent to ' + esc(first) + ' by email.</p>'
+              : '<button class="btn btn-ember" id="confEmail">Email these to ' + esc(first) + '</button>') +
+          '</div>' +
+          '<div class="small" id="confEmailStatus" style="margin-top:10px; min-height:20px; color:var(--ember-dark)"></div>' +
+        '</div>' +
+        '<div class="card" style="margin-top:14px">' +
+          '<h3>Discover your own gifts</h3>' +
+          '<p class="muted" style="margin:0 0 14px">Both assessments are free and take 8 to 15 minutes.</p>' +
+          '<div class="take-row">' +
+            '<a class="btn btn-dark" href="/spiritual-gifts-assessment">Take the Spiritual Gifts Assessment</a>' +
+            '<a class="btn btn-light" href="/five-fold-office-assessment">Take the Five-Fold Office Assessment</a>' +
+          '</div>' +
+        '</div>';
+    }
+
+    app.innerHTML =
+      '<div class="hero"><div class="wrap">' +
+        '<div class="eyebrow">Confirmation request</div>' +
+        '<h1>Confirm ' + esc(first) + '\'s ' + esc(A.shortTitle) + '</h1>' +
+        '<p>Hi ' + esc(C.out_confirmer_name) + ', ' + esc(name) + ' asked you to help confirm what they\'re discovering. Gifts are affirmed in community, and confirmed by pastors and those serving in the five-fold. Your voice matters more than any score.</p>' +
+      '</div></div>' +
+      '<section><div class="wrap">' + actionHtml + '</div></section>' +
+      '<section style="padding-top:0"><div class="wrap">' +
+        '<h2>' + esc(first) + '\'s results, strongest to least</h2>' +
+        '<p class="muted small" style="margin:0 0 14px">From the assessment ' + esc(first) + ' took' + (C.out_taken_at ? ' on ' + esc(new Date(C.out_taken_at).toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' })) : '') + '.</p>' +
+        '<div class="card"><div class="bars">' + bars + '</div></div>' +
+      '</div></section>';
+
+    const submit = document.getElementById('confSubmit');
+    if (submit) {
+      const vals = () => { const o = {}; top.forEach(k => { const el = app.querySelector('input[name="r-' + k + '"]:checked'); if (el) o[k] = el.value; }); return o; };
+      app.querySelectorAll('.pill input').forEach(inp => inp.addEventListener('change', () => { submit.disabled = Object.keys(vals()).length !== top.length; }));
+      submit.onclick = async () => {
+        const status = document.getElementById('confStatus');
+        submit.disabled = true; status.textContent = 'Saving…';
+        const comment = (document.getElementById('confComment').value || '').trim();
+        const { data, error } = await sb.rpc('submit_gift_confirmation', { p_token: token, p_ratings: vals(), p_comment: comment || null });
+        if (error || (data !== 'ok' && data !== 'already_confirmed')) {
+          status.textContent = data === 'not_found' ? 'This link is no longer valid.' : 'Couldn\'t save that. Please try again.';
+          submit.disabled = false; return;
+        }
+        await load();
+        window.scrollTo({ top: 0 });
+      };
+    }
+    const emailBtn = document.getElementById('confEmail');
+    if (emailBtn) emailBtn.onclick = async () => {
+      const status = document.getElementById('confEmailStatus');
+      emailBtn.disabled = true; status.textContent = 'Sending…';
+      try {
+        const res = await fetch('/.netlify/functions/email-gift-confirmation-to-person', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ token }) });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || 'Something went wrong');
+        emailBtn.textContent = 'Sent ✓';
+        status.textContent = 'We emailed your confirmation to ' + first + '.';
+      } catch (e) { status.textContent = 'Couldn\'t send: ' + e.message; emailBtn.disabled = false; }
+    };
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>
