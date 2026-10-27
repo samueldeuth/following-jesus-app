@@ -14,7 +14,8 @@
    at the bottom) — keep it plain JavaScript, no browser-only code.
    ============================================================ */
 (function (root) {
-  const QUESTION_VERSION = 4; // v4 (Oct 27, 2026): DIS S1–S3 and WIS S5 reworded after cross-checking Hagin
+  const QUESTION_VERSION = 5; // v5 (Oct 27, 2026): ICS S3 reworded (praying in the Spirit)
+  // v4 (Oct 27, 2026): DIS S1–S3 and WIS S5 reworded after cross-checking Hagin
   // v3 (Oct 27, 2026): WIS, GIV, HEA statements reworded after the description review
   // v2 (Oct 24, 2026): 15 statements reworded after the question review
 
@@ -86,9 +87,10 @@
     SER: [LINKS.promotion],
     EVA: [LINKS.book, LINKS.app],
     ICS: [LINKS.push],
+    HOS: [LINKS.discipleshipCourse],
     MER: [LINKS.hope52],
     ADM: [LINKS.promotion],
-    // Still to add: WIS (Word of Wisdom), KNO (Word of Knowledge), HOS (Hospitality), INT (Interpretation)
+    // Still to add: WIS (Word of Wisdom), KNO (Word of Knowledge), INT (Interpretation)
     // Five-fold offices
     APO: [LINKS.preachingBook, LINKS.promotion],
     PRP: [LINKS.preachingBook],
@@ -102,7 +104,7 @@
      break ties between gifts with the same total. */
   const GIFTS = [
     { key: 'ADM', name: 'Administration', scripture: '1 Cor 12:28',
-      description: "Paul lists \"guidance\" or \"administration\" among the gifts God has placed in the church (1 Cor 12:28). The Greek word pictures a ship's pilot steering the vessel safely to its destination. In Acts 6:1–7, the church appointed Spirit-filled people to organize the daily food distribution, and the word of God kept spreading.",
+      description: "Paul lists \"guidance\" or \"administration\" among the gifts God has placed in the church (1 Cor 12:28). The Greek word pictures a ship's pilot steering the vessel safely to its destination. Where a leader sets the direction, an administrator steers the details that get everyone there. Jethro helped Moses appoint capable leaders so he wouldn't wear himself out (Exod 18:17–23). In Acts 6:1–7, the church appointed Spirit-filled people to organize the daily food distribution, and the word of God kept spreading.",
       functions: ['Turns vision into clear plans, steps, and timelines', 'Organizes people and resources so ministry runs well', 'Frees leaders to focus on prayer and the Word (Acts 6:4)', 'Brings order so that everything is done "in a fitting and orderly way" (1 Cor 14:40)'],
       questions: [
         'I can take a messy project and turn it into clear steps, owners, and deadlines so the church can move forward.',
@@ -138,8 +140,8 @@
         'Heb 13:7'
       ] },
     { key: 'TEA', name: 'Teaching', scripture: 'Rom 12:7',
-      description: "Teaching is the ability to explain God's Word clearly so people understand it and live it out (Rom 12:7). Ezra read the Law and made it clear so the people understood (Neh 8:8). Jesus' Great Commission includes \"teaching them to obey everything I have commanded you\" (Matt 28:20).",
-      functions: ["Studies and rightly handles God's Word (2 Tim 2:15)", 'Explains truth simply so people understand and apply it', 'Grounds believers in sound doctrine', 'Guards the church from false teaching'],
+      description: "Teaching (Rom 12:7) is the Spirit-given ability to explain God's Word clearly so people understand it and live it out. It's more than knowledge from study. The Holy Spirit is our Teacher (John 14:26), and He anoints teachers to make truth plain. Ezra set his heart to study God's Law, to live it, and to teach it (Ezra 7:10). When the Law was read to the people, the Levites explained it so everyone understood (Neh 8:8). Apollos taught about Jesus accurately, yet stayed teachable when Priscilla and Aquila explained the way of God more fully (Acts 18:24–28). For some, this gift is part of the five-fold office of teacher (Eph 4:11).",
+      functions: ["Studies, lives, and rightly handles God's Word (Ezra 7:10; 2 Tim 2:15)", 'Explains truth simply so people understand and apply it', 'Grounds believers in sound doctrine', 'Guards the church from false teaching'],
       questions: [
         'I love digging into God\'s Word to understand what it means and how it fits together.',
         'I can explain a hard passage of Scripture so others clearly get it.',
@@ -156,7 +158,7 @@
         'Rom 12:7'
       ] },
     { key: 'EXH', name: 'Encouragement (Exhortation)', scripture: 'Rom 12:8',
-      description: 'The word Paul uses in Romans 12:8 means to come alongside someone to strengthen, comfort, and urge them forward. Barnabas, whose name means "son of encouragement" (Acts 4:36), believed in Paul when others didn\'t, and later in John Mark too.',
+      description: "The word Paul uses in Romans 12:8 means to come alongside someone to strengthen, comfort, and urge them forward. It's from the same family as the name Jesus gave the Holy Spirit: the Helper who comes alongside us (John 14:16). Where mercy stays with people in their pain, encouragement helps them get back up and keep going. Barnabas, the \"son of encouragement\" (Acts 4:36), stood up for Paul when others were afraid of him (Acts 9:27), and later gave John Mark a second chance (Acts 15:37–39).",
       functions: ['Strengthens people who are discouraged or weary', 'Gives practical next steps to grow in following Jesus', 'Calls out what God has put in people', 'Lovingly challenges people who are stuck'],
       questions: [
         'I give people practical next steps to grow in following Jesus.',
@@ -171,7 +173,7 @@
         '1 Thess 5:11',
         'Acts 11:23',
         'Heb 3:13',
-        'Acts 4:36'
+        'Acts 14:22'
       ] },
     { key: 'WIS', name: 'Word of Wisdom', scripture: '1 Cor 12:8',
       description: "A message of wisdom is given \"through the Spirit\" (1 Cor 12:8). It isn't natural intelligence or experience. It is a piece of God's own wisdom, showing His purpose in a situation and the way forward, sometimes before it unfolds. Joseph explained Pharaoh's dream and gave the plan to prepare for the famine (Gen 41:25–40). Solomon's ruling between two mothers showed he had \"wisdom from God\" (1 Kings 3:28).",
@@ -264,7 +266,7 @@
         '1 Thess 5:20–21'
       ] },
     { key: 'MER', name: 'Mercy', scripture: 'Rom 12:8',
-      description: "Romans 12:8 tells the one who shows mercy to do it cheerfully. Mercy is God's compassion flowing through a person toward the hurting. Jesus was \"moved with compassion\" and healed the sick (Matt 14:14), and the Good Samaritan stopped for the man everyone else passed by (Luke 10:33–35).",
+      description: "Romans 12:8 tells the one who shows mercy to do it cheerfully. Paul's word comes from the same root as our word \"hilarious\": mercy given with real joy, not out of duty. Mercy is God's compassion flowing through a person toward the hurting, and it doesn't just feel for people; it moves toward them. Jesus was moved with compassion, reached out, and touched a man with leprosy (Mark 1:41), and the Good Samaritan stopped for the man everyone else passed by (Luke 10:33–35).",
       functions: ['Notices people who are hurting, sick, or overlooked', 'Stays present with people in hard seasons', 'Shows practical kindness with joy', 'Reflects the compassion of Jesus to the broken'],
       questions: [
         'My heart is moved for the hurting, sick, and overlooked in a way that stays with me until I\'ve helped.',
@@ -279,7 +281,7 @@
         'Rom 12:15',
         'Luke 10:33–35',
         'Rom 12:8',
-        'Col 3:12'
+        '2 Cor 1:3–4'
       ] },
     { key: 'SER', name: 'Helps (Serving)', scripture: '1 Cor 12:28; Rom 12:7',
       description: "Helps (1 Cor 12:28) and serving (Rom 12:7) are the gifts of caring for people by meeting their practical needs, so the body of Christ can thrive. This gift sits close to hospitality and mercy: helpers notice what people need and quietly take care of it. Dorcas was \"always doing good and helping the poor\" (Acts 9:36–39), and Jesus Himself came \"not to be served, but to serve\" (Mark 10:45).",
@@ -318,7 +320,7 @@
         'Phil 4:18'
       ] },
     { key: 'HOS', name: 'Hospitality', scripture: '1 Pet 4:9',
-      description: 'Peter tells believers to offer hospitality without grumbling (1 Pet 4:9). The Greek word means "love of strangers." Lydia opened her home to Paul and his team (Acts 16:15), and the early church met and ate together in homes (Acts 2:46).',
+      description: "Peter tells believers to offer hospitality without grumbling, then to use whatever gift they've received to serve others (1 Pet 4:9–10). The Greek word means \"love of strangers.\" It isn't about a perfect home or a fancy meal. It's making people feel they belong, just as Christ welcomed us (Rom 15:7). Abraham ran to welcome three strangers and prepared a meal for them (Gen 18:1–8). Lydia opened her home to Paul and his team (Acts 16:15), and the early church met and ate together in homes (Acts 2:46).",
       functions: ['Welcomes newcomers and strangers', 'Opens homes and creates spaces where people feel cared for', 'Builds community around the table', 'Helps people feel they belong in the body of Christ'],
       questions: [
         'I love opening my home to people, including people I don\'t know well.',
@@ -336,8 +338,8 @@
         'Acts 2:46'
       ] },
     { key: 'EVA', name: 'Evangelism', scripture: 'Eph 4:11; Acts 21:8',
-      description: 'Every follower of Jesus is a witness (Acts 1:8), but some carry a special grace to share the gospel so people respond. Philip shared Jesus with the Ethiopian official, who believed and was baptized that day (Acts 8:35–38).',
-      functions: ['Turns everyday conversations toward Jesus', 'Shares the gospel clearly and naturally', 'Builds friendships with people far from God', 'Leads people to put their faith in Jesus'],
+      description: "Every follower of Jesus is a witness, and the Holy Spirit gives us power to be one (Acts 1:8). We're all called to \"do the work of an evangelist\" (2 Tim 4:5). But some carry a special grace to share the gospel with greater impact, and many people come to Christ through them. They carry Jesus' heart for the lost (Luke 19:10), see people as a harvest that is ready now (John 4:35), and speak about Jesus with Spirit-given boldness (Acts 4:31). They find ways to connect with all kinds of people so that some will be saved (1 Cor 9:22). Philip preached Christ in Samaria, and the whole city was filled with joy (Acts 8:5–8). Then he followed the Spirit's prompting to one man's chariot, and the Ethiopian official believed and was baptized that day (Acts 8:29–38). Andrew simply found his brother and brought him to Jesus (John 1:41–42).",
+      functions: ['Turns everyday conversations toward Jesus', 'Shares the gospel clearly and naturally', 'Builds friendships with people far from God and invites them to church', 'Leads people to put their faith in Jesus', 'Follows the Spirit\'s prompting to the right person at the right time (Acts 8:29)'],
       questions: [
         'I regularly turn everyday conversations toward Jesus.',
         'I\'m comfortable sharing the gospel with people who don\'t know Jesus.',
@@ -408,12 +410,12 @@
         '1 Cor 14:27–29'
       ] },
     { key: 'ICS', name: 'Intercession', scripture: 'Rom 8:26; Col 4:12',
-      description: 'Every believer is called to pray, but some carry a special burden to stand in the gap for others. Epaphras was "always wrestling in prayer" for the church (Col 4:12), and Anna worshiped night and day with fasting and prayer (Luke 2:37). The Holy Spirit helps us pray when we don\'t know how (Rom 8:26).',
+      description: "Every believer is called to pray, but some carry a special burden to \"stand in the gap\" for others (Ezek 22:30). Moses pleaded for Israel, and God relented (Exod 32:11–14). Epaphras was \"always wrestling in prayer\" for the church (Col 4:12), and Anna worshiped night and day with fasting and prayer (Luke 2:37). Intercessors share in the ministry of Jesus, who always lives to intercede for us (Heb 7:25). The Holy Spirit helps them pray when they don't know how (Rom 8:26), often praying in the Spirit (Eph 6:18).",
       functions: ['Prays for long periods with persistence', 'Carries a God-given burden for people, churches, and nations', 'Sees clear, specific answers to prayer', 'Covers leaders and ministries in prayer'],
       questions: [
         'I can pray for long stretches and lose track of time.',
         'God puts a burden on me to pray for people, situations, or nations, and I keep praying until I sense a release.',
-        'Prayer is one of the main ways I serve others.',
+        'When I don\'t know how to pray for a situation, I pray in the Spirit until I sense a breakthrough.',
         'I regularly see clear, specific answers to my prayers.',
         'People come to me first when they need someone to pray.'
       ],
@@ -421,7 +423,7 @@
       refs: [
         'Luke 6:12',
         'Col 4:12',
-        '1 Tim 2:1',
+        'Rom 8:26; Eph 6:18',
         'Jas 5:16',
         'Luke 2:37'
       ] }
