@@ -57,15 +57,37 @@
     preachingCourse: { label: 'Preaching Essentials', note: 'Online course', url: '/preaching-essentials-course' },
     discipleshipCourse: { label: 'Discipleship & Assimilation Essentials', note: 'Online course', url: '/discipleship-assimilation-essentials' },
     fjCourse: { label: 'Following Jesus Course', note: 'Free online course', url: '/course' },
-    churchResources: { label: 'Church Discipleship Resources', note: 'followingjesusbook.com', url: 'https://followingjesusbook.com' }
+    churchResources: { label: 'Church Discipleship Resources', note: 'followingjesusbook.com', url: 'https://followingjesusbook.com' },
+    app: { label: 'The Following Jesus App', note: 'Free app to share your faith and disciple new believers', url: 'https://qrco.de/fjapp' },
+    // Samuel's books (Amazon search links: swap in exact product links anytime)
+    hope52: { label: '52 Bible Verses on Hope', note: 'Devotional book by Samuel Deuth', url: 'https://www.amazon.com/s?k=52+Bible+Verses+on+Hope+Samuel+Deuth' },
+    miracles52: { label: '52 Bible Verses on Miracles', note: 'Devotional book by Samuel Deuth', url: 'https://www.amazon.com/s?k=52+Bible+Verses+on+Miracles+Samuel+Deuth' },
+    wealth: { label: 'The Power to Create Wealth', note: 'Book by Samuel Deuth', url: 'https://www.amazon.com/s?k=The+Power+to+Create+Wealth+Samuel+Deuth' },
+    messageOutlines: { label: 'Message & Sermon Resources', note: 'Preaching outlines for pastors and teachers', url: 'https://followingjesusbook.com/search?q=message' },
+    // Other authors
+    push: { label: 'PUSH: Pray Until Something Happens', note: 'Book by Ps Jurgen Matthesius', url: 'https://www.amazon.com/dp/1400206510' },
+    pringleFaith: { label: 'Faith: Moving the Heart and Hand of God', note: 'Book by Ps Phil Pringle', url: 'https://www.amazon.com/dp/1603742840' },
+    getWisdom: { label: 'Get Wisdom', note: 'Book by Ps Leanne Matthesius', url: 'https://www.amazon.com/s?k=Get+Wisdom+Leanne+Matthesius' },
+    connellGifts: { label: 'Activating the Gifts of the Spirit', note: 'Training manual by Ps Mike Connell', url: 'https://www.amazon.com/dp/148127886X' }
   };
   const RESOURCES_BY_KEY = {
-    // Spiritual gifts
-    LEA: [LINKS.promotion], ADM: [LINKS.promotion],
-    GIV: [LINKS.churchResources],
-    EVA: [LINKS.book, LINKS.fjCourse],
-    TEA: [LINKS.preachingCourse, LINKS.discipleshipCourse],
-    EXH: [LINKS.discipleshipCourse],
+    // Spiritual gifts (Samuel's picks, Oct 26, 2026)
+    PRO: [LINKS.preachingBook],
+    TEA: [LINKS.preachingBook, LINKS.messageOutlines],
+    FAI: [LINKS.push],
+    MIR: [LINKS.pringleFaith, LINKS.miracles52],
+    EXH: [LINKS.hope52, LINKS.promotion],
+    LEA: [LINKS.promotion],
+    WIS: [LINKS.getWisdom],
+    GIV: [LINKS.wealth],
+    DIS: [LINKS.connellGifts],
+    HEA: [LINKS.miracles52],
+    SER: [LINKS.promotion],
+    EVA: [LINKS.book, LINKS.app],
+    ICS: [LINKS.push],
+    MER: [LINKS.hope52],
+    ADM: [LINKS.promotion],
+    // Still to add: KNO (Word of Knowledge), HOS (Hospitality), INT (Interpretation)
     // Five-fold offices
     APO: [LINKS.preachingBook, LINKS.promotion],
     PRP: [LINKS.preachingBook],
@@ -132,7 +154,7 @@
         'Matt 28:20',
         'Rom 12:7'
       ] },
-    { key: 'EXH', name: 'Exhortation / Encouragement', scripture: 'Rom 12:8',
+    { key: 'EXH', name: 'Encouragement (Exhortation)', scripture: 'Rom 12:8',
       description: 'The word Paul uses in Romans 12:8 means to come alongside someone to strengthen, comfort, and urge them forward. Barnabas, whose name means "son of encouragement" (Acts 4:36), believed in Paul when others didn\'t, and later in John Mark too.',
       functions: ['Strengthens people who are discouraged or weary', 'Gives practical next steps to grow in following Jesus', 'Calls out what God has put in people', 'Lovingly challenges people who are stuck'],
       questions: [
