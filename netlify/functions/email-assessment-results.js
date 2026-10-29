@@ -43,6 +43,8 @@ function buildEmail(type, result, name) {
   const na = result.answers ? FJ.notYetCounts(type, result.answers) : {};
   const naTotal = Object.values(na).reduce((t, v) => t + v, 0);
   const totalQs = A.categories.length * perCat;
+  const ties = FJ.tieSummary(type, result.scores, ranked, result.answers);
+  const tieText = FJ.tieNote(type, ties);
 
   const topHtml = top.map((key, i) => {
     const c = FJ.categoryByKey(type, key);
@@ -70,7 +72,7 @@ function buildEmail(type, result, name) {
     return `<tr>
       <td style="padding:6px 0;font-size:14px;${i < A.topCount ? 'font-weight:bold;' : ''}width:42%;">${esc(FJ.categoryByKey(type, key).name)}</td>
       <td style="padding:6px 8px;width:38%;"><div style="background:#ece8df;border-radius:6px;height:9px;"><div style="background:${i < A.topCount ? '#c89b3c' : '#b9b2a4'};width:${pct}%;height:9px;border-radius:6px;"></div></div></td>
-      <td style="padding:6px 0;font-size:12px;color:#57534d;text-align:right;white-space:nowrap;">${score < perCat ? 'No answers yet' : `${score}/${max} · ${esc(FJ.bandFor(type, score))}`}</td>
+      <td style="padding:6px 0;font-size:12px;color:#57534d;text-align:right;white-space:nowrap;">${score < perCat ? 'No answers yet' : `${score}/${max} · ${esc(FJ.bandFor(type, score))}${ties.kind && ties.group.indexOf(key) > -1 ? ' · tied' : ''}`}</td>
     </tr>`;
   }).join('');
 
@@ -90,6 +92,7 @@ function buildEmail(type, result, name) {
     <tr><td style="padding:20px 0 0;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${topHtml}</table>
     </td></tr>
+    ${tieText ? `<tr><td style="padding:0 0 14px;"><div style="background:#f3e7cc;border-radius:10px;padding:16px 20px;font-size:14px;line-height:1.55;"><b>Some of your scores are tied.</b> ${esc(tieText)}</div></td></tr>` : ''}
     <tr><td style="padding:18px 20px;background:#ffffff;border:1px solid #e4dfd3;border-radius:10px;">
       <div style="font-size:18px;font-weight:bold;margin-bottom:8px;">All your scores</div>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rowsHtml}</table>
@@ -115,6 +118,7 @@ function buildEmail(type, result, name) {
   const text = [
     `${A.shortTitle} results · ${date}`, '',
     `Your top ${noun}${top.length > 1 ? 's' : ''}: ${topNames.join(', ')}`, '',
+    ...(tieText ? [tieText, ''] : []),
     'All your scores:',
     ...ranked.map((k) => `  ${FJ.categoryByKey(type, k).name}: ${(result.scores || {})[k] || 0}/${max} (${FJ.bandFor(type, (result.scores || {})[k] || 0)})`),
     '', `See your full results: ${SITE}${A.path}?view=results`
