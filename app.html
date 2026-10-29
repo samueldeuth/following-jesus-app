@@ -4134,6 +4134,41 @@
     ]
   };
 
+  // Draws a share image that already has its text baked in. If the picture's
+  // shape matches the canvas it fills it (as before). If it's a different shape
+  // (e.g. the Bridge Story images are 1080x1620, not 1080x1920) it is fitted
+  // to the full WIDTH, never zoomed or cropped, so no text can be cut off at the
+  // sides; the leftover strip at the top/bottom is filled with the image's own
+  // edge colour.
+  function drawBakedImage(ctx, img, width, height) {
+    const imgRatio = img.width / img.height;
+    const canvasRatio = width / height;
+    if (Math.abs(imgRatio - canvasRatio) / canvasRatio < 0.01) {
+      ctx.drawImage(img, 0, 0, width, height);
+      return;
+    }
+    const edgeColor = (sy) => {
+      try {
+        const t = document.createElement('canvas');
+        t.width = 8; t.height = 1;
+        const tc = t.getContext('2d');
+        tc.drawImage(img, 0, sy, img.width, 1, 0, 0, 8, 1);
+        const d = tc.getImageData(0, 0, 8, 1).data;
+        let r = 0, g = 0, b = 0;
+        for (let i = 0; i < 8; i++) { r += d[i * 4]; g += d[i * 4 + 1]; b += d[i * 4 + 2]; }
+        return `rgb(${Math.round(r / 8)},${Math.round(g / 8)},${Math.round(b / 8)})`;
+      } catch (e) { return '#f0ebe0'; }
+    };
+    let dw = width, dh = width / imgRatio;
+    if (dh > height) { dh = height; dw = height * imgRatio; } // taller than the canvas: fit the height instead
+    const ox = (width - dw) / 2, oy = (height - dh) / 2;
+    ctx.fillStyle = edgeColor(0);
+    ctx.fillRect(0, 0, width, height / 2);
+    ctx.fillStyle = edgeColor(img.height - 1);
+    ctx.fillRect(0, height / 2, width, height / 2);
+    ctx.drawImage(img, ox, oy, dw, dh);
+  }
+
   async function drawRomansRoadPhotoStep(canvas, series, stepIndex, format, photoMap) {
     const width = 1080;
     const height = format === 'story' ? 1920 : 1080;
@@ -4149,21 +4184,7 @@
     try {
       const photoSet = map[format] || map.story;
       const img = await loadImage(photoSet[stepIndex] || photoSet[0]);
-      const imgRatio = img.width / img.height;
-      const canvasRatio = width / height;
-      let drawWidth, drawHeight, offsetX, offsetY;
-      if (imgRatio > canvasRatio) {
-        drawHeight = height;
-        drawWidth = height * imgRatio;
-        offsetX = (width - drawWidth) / 2;
-        offsetY = 0;
-      } else {
-        drawWidth = width;
-        drawHeight = width / imgRatio;
-        offsetX = 0;
-        offsetY = (height - drawHeight) / 2;
-      }
-      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+      drawBakedImage(ctx, img, width, height);
     } catch (e) {
       ctx.fillStyle = '#1c1c1c';
       ctx.fillRect(0, 0, width, height);
@@ -4194,21 +4215,7 @@
 
     try {
       const img = await loadImage(map[format] || map.square);
-      const imgRatio = img.width / img.height;
-      const canvasRatio = width / height;
-      let drawWidth, drawHeight, offsetX, offsetY;
-      if (imgRatio > canvasRatio) {
-        drawHeight = height;
-        drawWidth = height * imgRatio;
-        offsetX = (width - drawWidth) / 2;
-        offsetY = 0;
-      } else {
-        drawWidth = width;
-        drawHeight = width / imgRatio;
-        offsetX = 0;
-        offsetY = (height - drawHeight) / 2;
-      }
-      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+      drawBakedImage(ctx, img, width, height);
     } catch (e) {
       ctx.fillStyle = '#1c1c1c';
       ctx.fillRect(0, 0, width, height);
@@ -4933,21 +4940,7 @@
     try {
       const photoSet = BRIDGE_SKETCH_MAP[format] || BRIDGE_SKETCH_MAP.story;
       const img = await loadImage(photoSet[step.panel] || photoSet.together);
-      const imgRatio = img.width / img.height;
-      const canvasRatio = width / height;
-      let drawWidth, drawHeight, offsetX, offsetY;
-      if (imgRatio > canvasRatio) {
-        drawHeight = height;
-        drawWidth = height * imgRatio;
-        offsetX = (width - drawWidth) / 2;
-        offsetY = 0;
-      } else {
-        drawWidth = width;
-        drawHeight = width / imgRatio;
-        offsetX = 0;
-        offsetY = (height - drawHeight) / 2;
-      }
-      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+      drawBakedImage(ctx, img, width, height);
     } catch (e) {
       // Plain paper-toned fallback if the image ever fails to load --
       // matches the style's own cream background rather than the dark
@@ -4985,21 +4978,7 @@
     try {
       const photoSet = BRIDGE_PHOTO_MAP[format] || BRIDGE_PHOTO_MAP.story;
       const img = await loadImage(photoSet[step.panel] || photoSet.together);
-      const imgRatio = img.width / img.height;
-      const canvasRatio = width / height;
-      let drawWidth, drawHeight, offsetX, offsetY;
-      if (imgRatio > canvasRatio) {
-        drawHeight = height;
-        drawWidth = height * imgRatio;
-        offsetX = (width - drawWidth) / 2;
-        offsetY = 0;
-      } else {
-        drawWidth = width;
-        drawHeight = width / imgRatio;
-        offsetX = 0;
-        offsetY = (height - drawHeight) / 2;
-      }
-      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+      drawBakedImage(ctx, img, width, height);
     } catch (e) {
       ctx.fillStyle = '#1c1c1c';
       ctx.fillRect(0, 0, width, height);
