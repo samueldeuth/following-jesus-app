@@ -157,6 +157,7 @@
               '<legend class="hidden">Statement ' + num + '</legend>' +
               '<span class="q-num">' + num + ' of ' + ORDER.length + '</span>' +
               '<p class="q-text">' + esc(q.text) + '</p>' +
+              (q.id === q.categoryKey + '-' + (A.confirmIndex + 1) ? '<p class="q-hint">' + esc(FJ.CONFIRM_HINT) + '</p>' : '') +
               '<div class="scale" role="radiogroup">' + opts + '</div>' +
               '<div class="scale-ends"><span>Never true</span><span>Consistently true</span></div>' +
               '<label class="notyet"><input type="radio" name="' + q.id + '" value="' + FJ.NOT_YET + '"' + (state.answers[q.id] === FJ.NOT_YET ? ' checked' : '') + '><span>' + esc(FJ.NOT_YET_LABEL) + '</span></label>' +
@@ -195,6 +196,7 @@
     app.querySelectorAll('.q input[type=radio]').forEach(inp => {
       inp.addEventListener('change', () => {
         state.answers[inp.name] = (GR && inp.name === GR.id) ? inp.value : parseInt(inp.value, 10);
+        delete state.answers[FJ.PICK_ID]; // answers changed, so any tie-breaker pick is stale
         saveState();
         const box = document.getElementById('q-' + inp.name);
         if (box) box.classList.remove('missing');
@@ -238,6 +240,8 @@
 
   // ---------- Finish: sign-in wall → save → results ----------
   async function finish(){
+    const pre = FJ.scoreAnswers(TYPE, state.answers);
+    if (pre.needsPick) { renderPick(pre.tieBreak); return; }
     if (!user) { renderWall(); return; }
     const result = FJ.scoreAnswers(TYPE, state.answers);
     const result_answers = Object.assign({}, state.answers);
@@ -260,6 +264,47 @@
       saveFailed = true; // keep answers in this browser so nothing is lost
     }
     renderResults({ id: saveFailed ? null : (lastResult && lastResult.id), answers:result_answers, scores:result.scores, ranked:result.ranked, created_at:new Date().toISOString() }, saveFailed);
+  }
+
+  // Tie-breaker: shown only when gifts tie across the top-N cutoff.
+  function renderPick(tb){
+    const word = ['', 'one', 'two', 'three'];
+    const many = TYPE === 'gifts' ? 'gifts' : 'offices';
+    const topWord = A.topCount === 3 ? 'three' : 'two';
+    const lockedNames = FJ.listNames(TYPE, tb.locked);
+    const single = tb.slots === 1;
+    const chosen = () => Array.from(app.querySelectorAll('.pick-opt input:checked')).map(i => i.value);
+    app.innerHTML =
+      '<section><div class="wrap"><div class="card pick-card">' +
+        '<div class="eyebrow">One more question</div>' +
+        '<h2 style="margin-top:8px">These ' + many + ' tied</h2>' +
+        '<p class="muted">' + (tb.locked.length ? esc(lockedNames) + (tb.locked.length > 1 ? ' are' : ' is') + ' in your top ' + topWord + '. ' : '') +
+          'These ' + tb.tied.length + ' ' + many + ' scored exactly the same for ' + (single ? 'the last spot' : 'the last ' + word[tb.slots] + ' spots') + '. ' +
+          '<b>Which ' + (single ? 'one energizes' : word[tb.slots] + ' energize') + ' you most?</b></p>' +
+        '<div class="pick-opts">' + tb.tied.map(k => {
+          const c = FJ.categoryByKey(TYPE, k);
+          return '<label class="pick-opt"><input type="' + (single ? 'radio' : 'checkbox') + '" name="pick" value="' + k + '"><span><b>' + esc(c.name) + '</b><small>' + esc(c.path || c.functions[0] || '') + '</small></span></label>';
+        }).join('') + '</div>' +
+        '<div class="small" id="pickStatus" style="margin:10px 0; min-height:20px; color:var(--ember-dark)">' + (single ? '' : 'Choose ' + word[tb.slots] + '.') + '</div>' +
+        '<div class="quiz-nav">' +
+          '<button class="btn btn-light" id="pickBack">Review my answers</button>' +
+          '<button class="btn btn-dark" id="pickGo" disabled>See my results</button>' +
+        '</div>' +
+      '</div></div></section>';
+    const go = document.getElementById('pickGo');
+    app.querySelectorAll('.pick-opt input').forEach(inp => inp.addEventListener('change', () => {
+      let sel = chosen();
+      if (!single && sel.length > tb.slots) { inp.checked = false; sel = chosen(); }
+      go.disabled = sel.length !== tb.slots;
+      document.getElementById('pickStatus').textContent = single ? '' : (sel.length === tb.slots ? '' : 'Choose ' + word[tb.slots] + ' (' + sel.length + ' selected).');
+    }));
+    go.onclick = () => {
+      state.answers[FJ.PICK_ID] = chosen();
+      state.finished = true; saveState();
+      finish();
+    };
+    document.getElementById('pickBack').onclick = () => { state.finished = false; state.page = PAGES - 1; saveState(); renderQuiz(); };
+    scrollTop();
   }
 
   function renderWall(){
@@ -323,6 +368,8 @@
     });
 
     const topScore = top.length ? (res.scores[top[0]] || 0) : 0;
+    const ties = FJ.tieSummary(TYPE, res.scores, ranked, res.answers);
+    const tieNoteText = FJ.tieNote(TYPE, ties);
     let barsHtml = '';
     ranked.forEach((key, i) => {
       const c = FJ.categoryByKey(TYPE, key);
@@ -331,7 +378,7 @@
       barsHtml +=
         '<div class="bar-row">' +
           '<span class="bar-name">' + esc(c.name) + '</span>' +
-          '<span class="bar-score">' + (score < perCat ? 'No answers yet' : score + '/' + MAX + ' · ' + esc(FJ.bandFor(TYPE, score)) + (FJ.isThin(TYPE, na[key] || 0) ? ' · fewer answers' : '')) + '</span>' +
+          '<span class="bar-score">' + (score < perCat ? 'No answers yet' : score + '/' + MAX + ' · ' + esc(FJ.bandFor(TYPE, score)) + (FJ.isThin(TYPE, na[key] || 0) ? ' · fewer answers' : '') + (ties.kind && ties.group.indexOf(key) > -1 ? ' · tied' : '')) + '</span>' +
           '<div class="bar-track"><div class="bar-fill' + (i < A.topCount ? ' top' : '') + '" style="width:' + pct + '%"></div></div>' +
         '</div>';
     });
@@ -341,7 +388,6 @@
       return '<span><b>' + esc(b.label) + '</b> ' + lo + '–' + hi + '</span>';
     }).join('');
 
-    const tie = top.length > 1 && (res.scores[top[0]] === res.scores[top[1]]);
     // Five-Fold: the role they said they take in a group.
     let roleNoteHtml = '';
     if (A.groupRole && res.answers && res.answers[A.groupRole.id]) {
@@ -364,7 +410,7 @@
         (naTotal >= Math.ceil(ORDER.length * 0.2) ? '<div class="card notyet-card"><h3>Still discovering</h3><p style="margin:0">You answered <b>' + esc(FJ.NOT_YET_LABEL) + '</b> to ' + naTotal + ' of ' + ORDER.length + ' statements. That\'s completely okay! Gifts often show up as you step out and serve. Try serving in a few different areas at your church, then come back and retake this to see what God is growing in you.</p></div>' : '') +
         topHtml +
         roleNoteHtml +
-        (tie ? '<p class="small muted" style="margin-top:12px">Some of your top scores were tied. Where that happened, we ranked higher the one others have most often confirmed in you.</p>' : '') +
+        (tieNoteText ? '<div class="card tie-card"><h3>Some of your scores are tied</h3><p style="margin:0">' + esc(tieNoteText) + '</p></div>' : '') +
         '<div class="card keep-card no-print">' +
           '<h3>Keep a copy of your results</h3>' +
           '<p class="small muted" style="margin:0 0 14px">Email them to yourself to forward to your pastor, or save them as a PDF.</p>' +

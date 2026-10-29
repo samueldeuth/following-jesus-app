@@ -14,7 +14,8 @@
    at the bottom) — keep it plain JavaScript, no browser-only code.
    ============================================================ */
 (function (root) {
-  const QUESTION_VERSION = 6; // v6 (Oct 27, 2026): PRP S3, S4, S10 reworded (listening, weighing, calling out gifts)
+  const QUESTION_VERSION = 7; // v7 (Oct 28, 2026): HOS-4, INT-4, INT-5, MIR-2, MIR-4 reworded after tester feedback
+  // v6 (Oct 27, 2026): PRP S3, S4, S10 reworded (listening, weighing, calling out gifts)
   // v5 (Oct 27, 2026): ICS S3 reworded (praying in the Spirit)
   // v4 (Oct 27, 2026): DIS S1–S3 and WIS S5 reworded after cross-checking Hagin
   // v3 (Oct 27, 2026): WIS, GIV, HEA statements reworded after the description review
@@ -196,7 +197,7 @@
         '1 Kgs 4:34'
       ] },
     { key: 'KNO', name: 'Word of Knowledge', scripture: '1 Cor 12:8',
-      description: 'A message of knowledge comes "by means of the same Spirit" (1 Cor 12:8). It is the Holy Spirit revealing facts or truth that couldn\'t be known naturally. Jesus told the woman at the well about her five husbands, and she ran to tell her town (John 4:16–19, 29). Peter knew Ananias had lied about the money (Acts 5:3). Where a word of wisdom shows what to do, a word of knowledge reveals what is: a fact, present or past, that only the Spirit could make known. It isn\'t Bible knowledge gained by study (2 Tim 2:15). It\'s revelation.',
+      description: 'A message of knowledge comes "by means of the same Spirit" (1 Cor 12:8). It is the Holy Spirit revealing facts or truth that couldn\'t be known naturally. Jesus told the woman at the well about her five husbands, and she ran to tell her town (John 4:16–19, 29). Peter knew Ananias had lied about the money (Acts 5:3). Where a word of wisdom shows what to do, a word of knowledge reveals what is: a fact, present or past, that only the Spirit could make known. It isn\'t Bible knowledge gained by study (2 Tim 2:15). It\'s revelation. Prophecy speaks a message from God that builds people up; a word of knowledge reveals a specific fact. They often work together.',
       functions: ['Receives specific insight from the Holy Spirit about people or situations', 'Opens hearts by showing people that God sees them', 'Brings hidden things into the light', 'Directs prayer and ministry with precision'],
       questions: [
         'While praying for someone, the Holy Spirit has shown me details about their life I had no natural way of knowing.',
@@ -250,7 +251,7 @@
         '1 Cor 12:10'
       ] },
     { key: 'PRO', name: 'Prophecy', scripture: 'Rom 12:6; 1 Cor 12:10',
-      description: 'Prophecy is speaking forth a timely word from God under the Spirit\'s anointing. It can bring insight into what God is doing now or what is coming. Paul says it "strengthens, encourages and comforts" (1 Cor 14:3), and he urges every believer to eagerly desire it (1 Cor 14:1). Judas and Silas, who were prophets, spoke to encourage and strengthen the believers (Acts 15:32). All prophecy is tested against Scripture (1 Thess 5:20–21).',
+      description: 'Prophecy is speaking forth a timely word from God under the Spirit\'s anointing. It can bring insight into what God is doing now or what is coming. Paul says it "strengthens, encourages and comforts" (1 Cor 14:3), and he urges every believer to eagerly desire it (1 Cor 14:1). Judas and Silas, who were prophets, spoke to encourage and strengthen the believers (Acts 15:32). A word of knowledge reveals a fact; prophecy carries God\'s message to strengthen, encourage, and comfort. All prophecy is tested against Scripture (1 Thess 5:20–21).',
       functions: ['Shares what God is saying at the right time', 'Builds up, encourages, and comforts people', "Calls people back to God's heart", 'Brings direction and confirmation to individuals and churches'],
       questions: [
         'God gives me a word, picture, or impression to share with someone at the right time.',
@@ -328,7 +329,7 @@
         'I love opening my home to people, including people I don\'t know well.',
         'Walking up to someone at church I don\'t know and making them feel welcome comes naturally to me.',
         'I enjoy getting a space or a meal ready so people feel cared for.',
-        'Having people over gives me energy more than it drains me.',
+        'Having people over to my house or creating a welcoming space gives me more energy than it drains me.',
         'People tell me they feel at home and accepted when they\'re with me.'
       ],
       // Scripture basis for each statement above, in the same order.
@@ -380,9 +381,9 @@
       functions: ['Expects and prays for God to move supernaturally', 'Sees God intervene beyond natural explanation', 'Confirms the gospel through signs and wonders (Mark 16:20)', 'Builds faith that God is still at work today'],
       questions: [
         'I\'m bold to ask God for a miracle rather than only praying for comfort.',
-        'I have seen God step in where there was no natural explanation.',
+        'God has done supernatural things as I prayed that had no natural explanation.',
         'The Holy Spirit has led me to pray for something only God could do.',
-        'I\'ve seen God move in power when I stepped out in obedience and prayed.',
+        'When I stepped out in obedience and prayed, God did something only He could do.',
         'Others have seen and confirmed miracles connected to my prayers.'
       ],
       // Scripture basis for each statement above, in the same order.
@@ -400,8 +401,8 @@
         'When someone speaks in tongues, I sometimes sense what God is saying.',
         'I have shared the meaning of a message in tongues so the church could understand it.',
         'I ask God for the ability to interpret, as Paul tells us to (1 Cor 14:13).',
-        'Interpretations I\'ve given have built up and encouraged the people who heard them.',
-        'Leaders have affirmed that my interpretations were from God.'
+        'Interpretations of tongues I\'ve given have built up and encouraged the people who heard them.',
+        'Leaders have affirmed that my interpretations of tongues were from God.'
       ],
       // Scripture basis for each statement above, in the same order.
       refs: [
@@ -647,8 +648,12 @@
   }
 
   // 0 = "Haven't had the chance yet" (NOT_YET); 1–5 = the rating scale.
+  // Shown under each "others confirm" statement (confirmIndex) on the quiz.
+  const CONFIRM_HINT = "If no one has said it out loud, answer from what you've seen happen in people's lives.";
+
   const NOT_YET = 0;
   const NOT_YET_LABEL = "Haven't had the chance yet";
+  const PICK_ID = 'PICK'; // answers key for the tie-breaker pick
   function isValidAnswer(v) { return Number.isInteger(v) && v >= 0 && v <= 5; }
   function isRated(v) { return Number.isInteger(v) && v >= 1 && v <= 5; }
 
@@ -686,14 +691,81 @@
     const definitionOrder = a.categories.map((c) => c.key);
     const role = a.groupRole && answers ? answers[a.groupRole.id] : undefined;
     const roleValid = !a.groupRole || a.groupRole.options.some((o) => o.key === role);
+    // Tie-breaker pick ("which energizes you most?"), asked only when a tie
+    // straddles the top-N cutoff. Stored in answers.PICK as an array of keys.
+    const pick = answers && Array.isArray(answers[PICK_ID]) ? answers[PICK_ID] : [];
     const ranked = definitionOrder.slice().sort((x, y) =>
       (avg[y] - avg[x]) ||
+      ((pick.indexOf(y) > -1 ? 1 : 0) - (pick.indexOf(x) > -1 ? 1 : 0)) ||
       ((y === role ? 1 : 0) - (x === role ? 1 : 0)) ||
       (confirm[y] - confirm[x]) ||
       (definitionOrder.indexOf(x) - definitionOrder.indexOf(y))
     );
     const notYetTotal = Object.values(notYet).reduce((t, v) => t + v, 0);
-    return { scores, ranked, answered, total, complete: answered === total && roleValid, notYet, notYetTotal, groupRole: roleValid && a.groupRole ? role : null };
+    const tb = tieBreak(type, avg, roleValid ? role : null);
+    const pickValid = !!tb && pick.length === tb.slots && pick.every((k) => tb.tied.indexOf(k) > -1);
+    return { scores, ranked, answered, total, complete: answered === total && roleValid, notYet, notYetTotal, groupRole: roleValid && a.groupRole ? role : null,
+      tieBreak: tb, needsPick: !!tb && !pickValid };
+  }
+
+  // When gifts tie (by unrounded average) across the top-N cutoff, returns
+  // { slots, tied, locked }: "slots" open places to fill from "tied".
+  // Five-Fold: the group-role answer settles a tie first. Null = no pick needed.
+  function tieBreak(type, avg, role) {
+    const a = ASSESSMENTS[type];
+    const keys = a.categories.map((c) => c.key).filter((k) => avg[k] >= 0);
+    if (keys.length <= a.topCount) return null;
+    const sorted = keys.slice().sort((x, y) => avg[y] - avg[x]);
+    const cut = avg[sorted[a.topCount - 1]];
+    const same = (v) => Math.abs(v - cut) < 1e-9;
+    const locked = sorted.filter((k) => avg[k] > cut + 1e-9);
+    let tied = sorted.filter((k) => same(avg[k]));
+    if (role && tied.indexOf(role) > -1) { locked.push(role); tied = tied.filter((k) => k !== role); }
+    const slots = a.topCount - locked.length;
+    if (slots <= 0 || tied.length <= slots) return null;
+    return { slots, tied, locked };
+  }
+
+  // What the results page/email should say about ties, from the shown
+  // (whole-number) scores. kind: 'many' (more gifts share the top score than
+  // fit in the top N), 'cut' (others match the last top score), or null.
+  function tieSummary(type, scores, ranked, answers) {
+    const a = ASSESSMENTS[type];
+    const perCat = a.categories[0].questions.length;
+    const r = (ranked || []).filter((k) => categoryByKey(type, k));
+    const top = r.slice(0, a.topCount);
+    if (top.length < a.topCount) return { kind: null, group: [] };
+    const sc = (k) => (scores || {})[k] || 0;
+    const picked = (answers && Array.isArray(answers[PICK_ID]) ? answers[PICK_ID] : []).filter((k) => top.indexOf(k) > -1);
+    const best = sc(top[0]);
+    const atBest = r.filter((k) => sc(k) === best);
+    if (best >= perCat && atBest.length > a.topCount) return { kind: 'many', score: best, group: atBest, picked };
+    const cutScore = sc(top[top.length - 1]);
+    const outside = r.slice(a.topCount).filter((k) => sc(k) === cutScore);
+    if (cutScore >= perCat && outside.length) return { kind: 'cut', score: cutScore, group: r.filter((k) => sc(k) === cutScore), outside, picked };
+    return { kind: null, group: [], picked };
+  }
+
+  function listNames(type, keys) {
+    const n = keys.map((k) => categoryByKey(type, k).name);
+    if (n.length <= 1) return n.join('');
+    if (n.length === 2) return n[0] + ' and ' + n[1];
+    return n.slice(0, -1).join(', ') + ', and ' + n[n.length - 1];
+  }
+
+  // One plain sentence (or two) about ties, or '' when there are none.
+  function tieNote(type, t) {
+    if (!t || !t.kind) return '';
+    const a = ASSESSMENTS[type];
+    const max = a.categories[0].questions.length * 5;
+    const noun = type === 'gifts' ? 'gifts' : 'offices';
+    const picked = t.picked && t.picked.length ? ' You chose ' + listNames(type, t.picked) + ' as the one' + (t.picked.length > 1 ? 's' : '') + ' that energize' + (t.picked.length > 1 ? '' : 's') + ' you most.' : '';
+    if (t.kind === 'many') {
+      return 'You scored ' + t.score + '/' + max + ' on ' + t.group.length + ' ' + noun + ': ' + listNames(type, t.group) + '. These are all strong for you.' +
+        (picked ? picked + ' Ask your pastor to help confirm.' : ' Pray about which ones energize you most, and ask your pastor to help confirm.');
+    }
+    const place = a.topCount === 3 ? 'third gift' : 'second office';
+    return listNames(type, t.outside) + ' scored the same as your ' + place + ' (' + t.score + '/' + max + '). Treat ' + (t.outside.length > 1 ? 'them' : 'it') + ' as tied and pray about which fits you best.' + picked;
   }
 
   // How many "Haven't had the chance yet" answers per category (for notes on saved results).
@@ -732,9 +804,9 @@
   function resourcesFor(key) { return RESOURCES_BY_KEY[key] || []; }
 
   const api = {
-    QUESTION_VERSION, SCALE, BEST_USE_NOTE, LINKS, ASSESSMENTS, NOT_YET, NOT_YET_LABEL,
+    QUESTION_VERSION, SCALE, BEST_USE_NOTE, LINKS, ASSESSMENTS, NOT_YET, NOT_YET_LABEL, CONFIRM_HINT, PICK_ID,
     questionId, buildQuestionOrder, isValidAnswer, isRated, scoreAnswers, notYetCounts, isThin, maxScore,
-    bandFor, categoryByKey, resourcesFor
+    bandFor, categoryByKey, resourcesFor, tieSummary, tieNote, listNames
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

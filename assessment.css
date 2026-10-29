@@ -181,6 +181,19 @@
 .role-opt input:checked + span{background:var(--black); border-color:var(--black); color:var(--white);}
 .role-opt input:focus-visible + span{outline:2px solid var(--ember); outline-offset:2px;}
 .role-card{margin-top:14px;}
+/* Hint under "others confirm" statements */
+.q-hint{font-size:13px; color:var(--ink-soft); margin:-8px 0 12px; font-style:italic;}
+/* Tie-breaker ("which energizes you most?") */
+.pick-card{margin-top:24px;}
+.pick-opts{display:grid; gap:8px; margin-top:14px;}
+.pick-opt{position:relative; cursor:pointer; display:block;}
+.pick-opt input{position:absolute; opacity:0; pointer-events:none;}
+.pick-opt span{display:block; padding:12px 14px; border:1.5px solid var(--line); border-radius:10px; background:var(--paper); font-size:15px; transition:all .12s;}
+.pick-opt span small{display:block; font-size:13px; color:var(--ink-soft); margin-top:2px;}
+.pick-opt input:checked + span{background:var(--black); border-color:var(--black); color:var(--white);}
+.pick-opt input:checked + span small{color:#d8d4cb;}
+.pick-opt input:focus-visible + span{outline:2px solid var(--ember); outline-offset:2px;}
+.tie-card{margin-top:14px; background:var(--ember-soft); border-color:var(--ember-soft);}
 
 /* Pastor / five-fold confirmation (results page, dark card) */
 .conf-list{margin-top:16px; display:grid; gap:10px;}
