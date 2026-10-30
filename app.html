@@ -9760,11 +9760,20 @@ async function renderDiscipleshipApp() {
       pushDiag('TAP url=' + url);
       if (!url) return;
       if (!(data && data.__fromLaunch)) { pushTapHandledThisLaunch = true; consumePushDestination(false); }
-      // Only ever follow our own site (exact host, https) -- a push can't
-      // send someone to another domain.
+      // Only https links. Our own site opens inside the app (below); any other
+      // site (e.g. an Amazon link sent from the admin Push Notifications page)
+      // opens outside the app, in the phone's browser or the matching app.
       let u;
       try { u = new URL(url); } catch (e) { return; }
-      if (u.protocol !== 'https:' || u.hostname !== 'followingjesus.com') return;
+      if (u.protocol !== 'https:') return;
+      if (u.hostname !== 'followingjesus.com') {
+        pushDiag('TAP -> opening external link ' + u.hostname);
+        try {
+          if (typeof median !== 'undefined' && median && median.window && typeof median.window.open === 'function') median.window.open(u.href, 'external');
+          else window.open(u.href, '_blank');
+        } catch (e) { pushDiag('external open failed ' + (e && e.message)); }
+        return;
+      }
       if (!/^\/app(\.html)?\/?$/i.test(u.pathname)) {
         // A different page on our site (e.g. /spiritual-gifts-assessment):
         // open it directly. Same domain, so the sign-in carries over.
