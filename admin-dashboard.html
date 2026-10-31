@@ -366,6 +366,7 @@
     <a class="sidebar-link" id="sidebar-push-notifications-link">App</a>
     <a class="sidebar-link" id="sidebar-church-directory-link">Church Directory</a>
     <a class="sidebar-link" id="sidebar-spiritual-gifts-link">Spiritual Gifts</a>
+    <a class="sidebar-link" id="sidebar-annual-link">Annual Review</a>
     <div class="sidebar-section-title">Churches (<span id="sidebar-church-count">0</span>)</div>
     <div class="sidebar-status-filters" id="sidebar-status-filters">
       <button class="status-filter-btn" data-status-filter="all">All</button>
@@ -452,8 +453,10 @@ function cleanRedirectUrl(){
 // complexity; landing back on the parent list they were opened from is
 // an acceptable fallback for those.
 let viewingDashboard = false;
+let viewingAnnual = false;
 function setViewHash(hash){
   viewingDashboard = (hash === 'dashboard');
+  viewingAnnual = (hash === 'annual');
   history.replaceState(null, '', hash ? '#' + hash : window.location.pathname + window.location.search);
 }
 
@@ -481,6 +484,7 @@ function restoreViewFromHash(){
   if(hash === '#push-notifications'){ renderPushNotifications(); return; }
   if(hash === '#church-directory'){ renderChurchDirectory(); return; }
   if(hash === '#spiritual-gifts'){ renderSpiritualGifts(); return; }
+  if(hash === '#annual'){ renderAnnual(); return; }
   renderDashboard();
 }
 
@@ -496,7 +500,7 @@ function restoreViewFromHash(){
 // whole point of what lets a page refresh land back where the admin
 // actually was (a specific church or course) instead of always
 // bouncing to Overview.
-if(window.location.hash && !window.location.hash.includes('access_token') && !/^#(church|course|dashboard|all-students|push-notifications|church-directory|spiritual-gifts):?/.test(window.location.hash)){
+if(window.location.hash && !window.location.hash.includes('access_token') && !/^#(church|course|dashboard|annual|all-students|push-notifications|church-directory|spiritual-gifts):?/.test(window.location.hash)){
   history.replaceState(null, '', window.location.pathname + window.location.search);
 }
 
@@ -589,7 +593,7 @@ window.addEventListener('beforeunload', (e) => {
 // click handler -- stopImmediatePropagation on cancel is what actually
 // prevents that handler from ever firing and discarding the edit.
 document.querySelector('.admin-sidebar').addEventListener('click', (e) => {
-  const navTarget = e.target.closest('#sidebar-dashboard-link, #sidebar-overview-link, #sidebar-all-students-link, #sidebar-push-notifications-link, #sidebar-church-directory-link, #sidebar-spiritual-gifts-link, .sidebar-church-item');
+  const navTarget = e.target.closest('#sidebar-dashboard-link, #sidebar-overview-link, #sidebar-all-students-link, #sidebar-push-notifications-link, #sidebar-church-directory-link, #sidebar-spiritual-gifts-link, .sidebar-church-item, #sidebar-annual-link');
   if(!navTarget || !hasUnsavedChurchEdits) return;
   if(!confirm('You have unsaved changes on this page. Leave without saving?')){
     e.preventDefault();
@@ -762,6 +766,7 @@ async function init(){
   document.getElementById('sidebar-push-notifications-link').addEventListener('click', renderPushNotifications);
   document.getElementById('sidebar-church-directory-link').addEventListener('click', renderChurchDirectory);
   document.getElementById('sidebar-spiritual-gifts-link').addEventListener('click', renderSpiritualGifts);
+  document.getElementById('sidebar-annual-link').addEventListener('click', renderAnnual);
   document.getElementById('sidebar-church-search').addEventListener('input', renderSidebar);
   wireAddChurchForm();
   restoreViewFromHash();
@@ -1178,11 +1183,12 @@ function renderSidebar(){
   });
 
   document.getElementById('sidebar-dashboard-link').classList.toggle('active', viewingDashboard);
-  document.getElementById('sidebar-overview-link').classList.toggle('active', !viewingDashboard && activeChurchId === null && activeCourseId === null && !viewingNoChurch && !viewingAllStudents && !viewingPushNotifications && !viewingChurchDirectory && !viewingSpiritualGifts);
+  document.getElementById('sidebar-overview-link').classList.toggle('active', !viewingDashboard && !viewingAnnual && activeChurchId === null && activeCourseId === null && !viewingNoChurch && !viewingAllStudents && !viewingPushNotifications && !viewingChurchDirectory && !viewingSpiritualGifts);
   document.getElementById('sidebar-all-students-link').classList.toggle('active', viewingAllStudents);
   document.getElementById('sidebar-push-notifications-link').classList.toggle('active', viewingPushNotifications);
   document.getElementById('sidebar-church-directory-link').classList.toggle('active', viewingChurchDirectory);
   document.getElementById('sidebar-spiritual-gifts-link').classList.toggle('active', viewingSpiritualGifts);
+  document.getElementById('sidebar-annual-link').classList.toggle('active', viewingAnnual);
 
   positionSidebarToggleBtn();
 }
@@ -1322,6 +1328,454 @@ function wireOverviewRangeSelector(){
       renderOverviewRangeMetrics();
     });
   });
+}
+
+/* ---------- Annual Review: year-by-year totals + shareable graphics ---------- */
+// Numbers live in annual_stats (category x year), seeded from the annual
+// tracker spreadsheet. The grid is editable and saves on change. The
+// graphics are drawn straight onto canvases so they can be downloaded as PNGs
+// (a stat sheet for the chosen year, a combined year-over-year, and one card
+// per category).
+const ANNUAL_COLORS = ['#3E82F7', '#B08D3E', '#2E9E6B', '#C0392B', '#7A5AF8', '#E08A1E', '#17A2B8', '#8E8E93', '#D6457F'];
+let annualState = { cats: [], vals: {}, years: [] };
+let annualSelectedYear = new Date().getFullYear();
+let annualPickedYear = false;
+let annualSavedTimer = null;
+
+const annualKey = (cat, yr) => `${cat}|${yr}`;
+const annualFmt = (n) => (n === null || n === undefined || isNaN(n)) ? '—' : Math.round(n).toLocaleString('en-US');
+function annualVal(cat, yr){ const v = annualState.vals[annualKey(cat, yr)]; return (v === undefined) ? null : v; }
+function annualCatColor(cat){ const i = annualState.cats.findIndex(c => c.name === cat); return ANNUAL_COLORS[(i < 0 ? 0 : i) % ANNUAL_COLORS.length]; }
+function annualTotalForYear(yr){
+  let sum = 0, any = false;
+  annualState.cats.forEach(c => { if(!c.in_total) return; const v = annualVal(c.name, yr); if(v !== null){ sum += v; any = true; } });
+  return any ? sum : null;
+}
+function annualTotalForCat(cat){
+  let sum = 0, any = false;
+  annualState.years.forEach(y => { const v = annualVal(cat, y); if(v !== null){ sum += v; any = true; } });
+  return any ? sum : null;
+}
+// % change vs the previous year; null when there's nothing to compare to.
+function annualPct(cur, prev){
+  if(cur === null || prev === null || prev === 0) return null;
+  return Math.round((cur - prev) / prev * 100);
+}
+function annualPctText(p){ return p === null ? '' : (p >= 0 ? `+${p > 999 ? '999+' : p.toLocaleString()}%` : `−${Math.abs(p).toLocaleString()}%`); }
+// The current calendar year is still in progress, so it is shown as year-to-date with no % change.
+const annualIsPartial = (y) => y === new Date().getFullYear();
+
+async function loadAnnualData(){
+  const [{ data: cats, error: e1 }, { data: stats, error: e2 }] = await Promise.all([
+    supabaseClient.from('annual_stat_categories').select('*').order('sort_order'),
+    supabaseClient.from('annual_stats').select('*')
+  ]);
+  if(e1 || e2) throw (e1 || e2);
+  annualState.cats = cats || [];
+  annualState.vals = {};
+  const yrs = new Set();
+  (stats || []).forEach(r => { annualState.vals[annualKey(r.category, r.year)] = Number(r.value); yrs.add(r.year); });
+  const thisYear = new Date().getFullYear();
+  const minY = yrs.size ? Math.min(...yrs) : thisYear;
+  const maxY = Math.max(thisYear, yrs.size ? Math.max(...yrs) : thisYear);
+  annualState.years = [];
+  for(let y = minY; y <= maxY; y++) annualState.years.push(y);
+}
+
+async function renderAnnual(){
+  activeChurchId = null; activeCourseId = null; viewingNoChurch = false; viewingAllStudents = false;
+  viewingSubscriberList = false; viewingPushNotifications = false;
+  viewingChurchDirectory = false; viewingSpiritualGifts = false;
+  setViewHash('annual');
+  renderSidebar();
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="loading">Loading annual stats…</div>';
+  try { await loadAnnualData(); }
+  catch(e){
+    content.innerHTML = `<p style="color:var(--red);">Could not load the annual stats (${escapeHtmlReport(e.message || String(e))}). Make sure annual-review.sql has been run in Supabase first.</p>`;
+    return;
+  }
+  if(!annualPickedYear){
+    // Default to the latest finished year that has numbers (the current year is only year-to-date).
+    const done = annualState.years.filter(y => !annualIsPartial(y) && annualTotalForYear(y) !== null);
+    annualSelectedYear = done.length ? done[done.length - 1] : annualState.years[annualState.years.length - 1];
+  }
+  if(!annualState.years.includes(annualSelectedYear)) annualSelectedYear = annualState.years[annualState.years.length - 1];
+  paintAnnual();
+  loadAnnualLiveHints();
+}
+
+function paintAnnual(){
+  const st = annualState;
+  const content = document.getElementById('content');
+  const headCells = st.years.map(y => `<th style="text-align:right;padding:6px 8px;">${y}</th>`).join('');
+  const rowsHtml = st.cats.map(c => {
+    const cells = st.years.map(y => {
+      const v = annualVal(c.name, y);
+      return `<td style="padding:3px 4px;"><input type="text" inputmode="decimal" class="annual-input" data-cat="${escapeHtmlReport(c.name)}" data-year="${y}" value="${v === null ? '' : v}" style="width:84px;text-align:right;padding:6px 7px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:var(--bg-soft);"></td>`;
+    }).join('');
+    return `<tr style="border-top:1px solid var(--line);">
+      <td style="padding:6px 10px 6px 0;white-space:nowrap;"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${annualCatColor(c.name)};margin-right:8px;"></span>${escapeHtmlReport(c.name)}${c.unit ? ` <span style="color:var(--ink-soft);font-size:11px;">(${escapeHtmlReport(c.unit)})</span>` : ''}</td>
+      ${cells}
+      <td style="padding:6px 8px;text-align:right;font-weight:600;" data-cat-total="${escapeHtmlReport(c.name)}">${annualFmt(annualTotalForCat(c.name))}</td>
+      <td style="padding:6px 8px;text-align:center;"><input type="checkbox" class="annual-in-total" data-cat="${escapeHtmlReport(c.name)}" ${c.in_total ? 'checked' : ''} title="Count this row in the yearly totals"></td>
+    </tr>`;
+  }).join('');
+  const totalCells = st.years.map(y => `<td style="padding:6px 8px;text-align:right;font-weight:700;" data-year-total="${y}">${annualFmt(annualTotalForYear(y))}</td>`).join('');
+  const grand = st.years.reduce((s, y) => s + (annualTotalForYear(y) || 0), 0);
+
+  content.innerHTML = `
+    <div style="text-align:left;">
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 4px;">Annual Review</h2>
+    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 14px;">The yearly Following Jesus numbers. Type directly in the table (it saves as you go), then download the graphics below.</p>
+
+    <div style="overflow-x:auto;border:1px solid var(--line);border-radius:10px;padding:10px 12px;">
+      <table style="border-collapse:collapse;font-size:13px;min-width:100%;">
+        <thead><tr style="color:var(--ink-soft);"><th style="text-align:left;padding:6px 10px 6px 0;">Sales / Event / App</th>${headCells}<th style="text-align:right;padding:6px 8px;">Total</th><th style="padding:6px 8px;font-size:11px;" title="Count in yearly totals">In total</th></tr></thead>
+        <tbody>${rowsHtml}
+          <tr style="border-top:2px solid var(--ink);"><td style="padding:8px 10px 6px 0;font-weight:700;">Yearly Totals</td>${totalCells}<td style="padding:6px 8px;text-align:right;font-weight:700;" id="annual-grand-total">${annualFmt(grand)}</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0 0;">
+      <button class="mini-btn" id="annual-add-year">+ Add year</button>
+      <button class="mini-btn" id="annual-add-cat">+ Add row</button>
+      <button class="mini-btn" id="annual-csv">Download table (CSV)</button>
+      <span id="annual-save-status" style="font-size:12px;color:var(--ink-soft);"></span>
+    </div>
+    <div id="annual-live-hints" style="font-size:12.5px;color:var(--ink-soft);margin-top:10px;"></div>
+
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:26px 0 8px;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:17px;margin:0;">Graphics</h3>
+      <select id="annual-year-select" style="padding:7px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg-soft);">${st.years.slice().reverse().map(y => `<option value="${y}" ${y === annualSelectedYear ? 'selected' : ''}>${y}</option>`).join('')}</select>
+      <button class="mini-btn gold" id="annual-download-all">Download all graphics</button>
+    </div>
+    <div id="annual-graphics"></div>
+    </div>`;
+
+  document.querySelectorAll('.annual-input').forEach(inp => inp.addEventListener('change', onAnnualCellChange));
+  document.querySelectorAll('.annual-in-total').forEach(cb => cb.addEventListener('change', onAnnualInTotalChange));
+  document.getElementById('annual-add-year').addEventListener('click', onAnnualAddYear);
+  document.getElementById('annual-add-cat').addEventListener('click', onAnnualAddCategory);
+  document.getElementById('annual-csv').addEventListener('click', downloadAnnualCsv);
+  document.getElementById('annual-year-select').addEventListener('change', (e) => { annualSelectedYear = Number(e.target.value); annualPickedYear = true; renderAnnualGraphics(); });
+  document.getElementById('annual-download-all').addEventListener('click', downloadAllAnnualGraphics);
+  renderAnnualGraphics();
+}
+
+function annualStatus(msg, bad){
+  const el = document.getElementById('annual-save-status');
+  if(!el) return;
+  el.textContent = msg; el.style.color = bad ? 'var(--red)' : 'var(--ink-soft)';
+  clearTimeout(annualSavedTimer);
+  if(!bad) annualSavedTimer = setTimeout(() => { if(el) el.textContent = ''; }, 2500);
+}
+
+// Refresh totals + graphics without rebuilding the table (so typing isn't interrupted).
+function refreshAnnualTotals(){
+  annualState.years.forEach(y => { const el = document.querySelector(`[data-year-total="${y}"]`); if(el) el.textContent = annualFmt(annualTotalForYear(y)); });
+  annualState.cats.forEach(c => { const el = document.querySelector(`[data-cat-total="${CSS.escape(c.name)}"]`); if(el) el.textContent = annualFmt(annualTotalForCat(c.name)); });
+  const g = document.getElementById('annual-grand-total');
+  if(g) g.textContent = annualFmt(annualState.years.reduce((s, y) => s + (annualTotalForYear(y) || 0), 0));
+  renderAnnualGraphics();
+}
+
+async function onAnnualCellChange(e){
+  const inp = e.target, cat = inp.dataset.cat, yr = Number(inp.dataset.year);
+  const raw = inp.value.replace(/[,$\s]/g, '');
+  if(raw === ''){
+    delete annualState.vals[annualKey(cat, yr)];
+    const { error } = await supabaseClient.from('annual_stats').delete().eq('category', cat).eq('year', yr);
+    if(error){ annualStatus('Could not save: ' + error.message, true); return; }
+  } else {
+    const n = Number(raw);
+    if(isNaN(n) || n < 0){ annualStatus('Numbers only, please.', true); const v = annualVal(cat, yr); inp.value = v === null ? '' : v; return; }
+    annualState.vals[annualKey(cat, yr)] = n;
+    inp.value = n;
+    const { error } = await supabaseClient.from('annual_stats').upsert({ category: cat, year: yr, value: n, updated_at: new Date().toISOString() }, { onConflict: 'category,year' });
+    if(error){ annualStatus('Could not save: ' + error.message, true); return; }
+  }
+  annualStatus('Saved ✓');
+  refreshAnnualTotals();
+}
+
+async function onAnnualInTotalChange(e){
+  const cat = e.target.dataset.cat, on = e.target.checked;
+  const c = annualState.cats.find(x => x.name === cat);
+  const { error } = await supabaseClient.from('annual_stat_categories').update({ in_total: on }).eq('name', cat);
+  if(error){ annualStatus('Could not save: ' + error.message, true); e.target.checked = !on; return; }
+  c.in_total = on;
+  annualStatus('Saved ✓');
+  refreshAnnualTotals();
+}
+
+function onAnnualAddYear(){
+  const next = annualState.years[annualState.years.length - 1] + 1;
+  annualState.years.push(next);
+  annualSelectedYear = next;
+  paintAnnual();
+}
+
+async function onAnnualAddCategory(){
+  const name = (prompt('Name for the new row (for example: Podcast Downloads):') || '').trim();
+  if(!name) return;
+  if(annualState.cats.some(c => c.name.toLowerCase() === name.toLowerCase())){ annualStatus('That row already exists.', true); return; }
+  const sort = annualState.cats.reduce((m, c) => Math.max(m, c.sort_order), 0) + 1;
+  const { error } = await supabaseClient.from('annual_stat_categories').insert({ name, sort_order: sort, in_total: true, unit: '' });
+  if(error){ annualStatus('Could not add: ' + error.message, true); return; }
+  annualState.cats.push({ name, sort_order: sort, in_total: true, unit: '' });
+  paintAnnual();
+}
+
+// Read-only reference numbers for the current year, to help fill in the table.
+async function loadAnnualLiveHints(){
+  const el = document.getElementById('annual-live-hints');
+  if(!el) return;
+  const yr = new Date().getFullYear();
+  const startIso = new Date(yr, 0, 1).toISOString();
+  const parts = [];
+  try {
+    const { data } = await supabaseClient.from('app_download_stats').select('stat_date, new_installs, downloads').gte('stat_date', `${yr}-01-01`).limit(2000);
+    if(data){ const n = data.reduce((s, r) => s + (r.new_installs != null ? r.new_installs : (r.downloads || 0)), 0); parts.push(`App installs so far in ${yr}: <b>${n.toLocaleString()}</b>`); }
+  } catch(e){}
+  try {
+    const enrolled = allRows.filter(r => r.enrolled_at && r.enrolled_at >= startIso).length;
+    parts.push(`Course enrollments in ${yr}: <b>${enrolled.toLocaleString()}</b>`);
+    const { count } = await supabaseClient.from('certificates').select('id', { count: 'exact', head: true }).gte('issued_at', startIso);
+    parts.push(`Course completions in ${yr}: <b>${(count || 0).toLocaleString()}</b>`);
+  } catch(e){}
+  if(parts.length) el.innerHTML = `Live numbers to help you fill in ${yr}: ${parts.join(' · ')}. (Reference only; nothing is filled in for you.)`;
+}
+
+function downloadAnnualCsv(){
+  const st = annualState;
+  const esc = (v) => `"${String(v).replace(/"/g, '""')}"`;
+  const lines = [[ 'Sales/Event/App', ...st.years, 'Total' ].map(esc).join(',')];
+  st.cats.forEach(c => lines.push([c.name, ...st.years.map(y => { const v = annualVal(c.name, y); return v === null ? '' : v; }), annualTotalForCat(c.name) ?? ''].map(esc).join(',')));
+  lines.push(['Yearly Totals', ...st.years.map(y => annualTotalForYear(y) ?? ''), st.years.reduce((s, y) => s + (annualTotalForYear(y) || 0), 0)].map(esc).join(','));
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `following-jesus-annual-stats-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+/* ----- canvas drawing helpers ----- */
+function cvRound(ctx, x, y, w, h, r){
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function cvText(ctx, text, x, y, font, color, align){
+  ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align || 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(text, x, y);
+}
+// Shrinks the font until the text fits the given width.
+function cvFit(ctx, text, x, y, maxW, size, weight, family, color, align){
+  let s = size;
+  ctx.font = `${weight} ${s}px ${family}`;
+  while(ctx.measureText(text).width > maxW && s > 10){ s -= 1; ctx.font = `${weight} ${s}px ${family}`; }
+  cvText(ctx, text, x, y, ctx.font, color, align);
+}
+function cvDeltaChip(ctx, pct, x, y, size){
+  if(pct === null) return 0;
+  const txt = (pct >= 0 ? '▲ ' : '▼ ') + (pct > 999 ? '999+' : Math.abs(pct).toLocaleString()) + '%';
+  ctx.font = `700 ${size}px Inter, sans-serif`;
+  const w = ctx.measureText(txt).width + size * 1.1, h = size * 1.7;
+  cvRound(ctx, x, y - h * 0.78, w, h, h / 2);
+  ctx.fillStyle = pct >= 0 ? '#DDF3E6' : '#FBE0DC'; ctx.fill();
+  cvText(ctx, txt, x + size * 0.55, y, ctx.font, pct >= 0 ? '#15803D' : '#B91C1C', 'left');
+  return w;
+}
+function niceMax(v){
+  if(v <= 0) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(v))); const f = v / p;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+}
+function shortNum(n){
+  if(n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M';
+  if(n >= 1e3) return (n / 1e3).toFixed(n >= 1e4 ? 0 : 1).replace(/\.0$/, '') + 'K';
+  return String(Math.round(n));
+}
+function annualBrandHeader(ctx, W, label){
+  cvText(ctx, 'FOLLOWING JESUS', 60, 78, '700 26px "Space Grotesk", sans-serif', '#B08D3E', 'left');
+  if(label) cvText(ctx, label, W - 60, 78, '600 24px Inter, sans-serif', 'rgba(255,255,255,.7)', 'right');
+}
+
+/* ----- 1) Year stat sheet (portrait) ----- */
+function drawYearSheet(year){
+  const st = annualState;
+  const cats = st.cats.filter(c => annualVal(c.name, year) !== null);
+  const rows = Math.max(1, Math.ceil(cats.length / 2));
+  const W = 1080, tileH = 150, gap = 22, headH = 400, stripH = 330;
+  const H = headH + 40 + rows * (tileH + gap) + 20 + stripH;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#F4F4F2'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#17191D'; ctx.fillRect(0, 0, W, headH);
+  annualBrandHeader(ctx, W, 'Year in Review');
+  cvText(ctx, String(year), 60, 230, '700 150px "Space Grotesk", sans-serif', '#FFFFFF', 'left');
+  if(annualIsPartial(year)){ ctx.font = '700 150px "Space Grotesk", sans-serif'; cvText(ctx, 'YEAR TO DATE', 60 + ctx.measureText(String(year)).width + 30, 230, '700 30px Inter, sans-serif', '#B08D3E', 'left'); }
+  const total = annualTotalForYear(year), prevTotal = annualTotalForYear(year - 1);
+  cvText(ctx, 'TOTAL', 60, 296, '600 22px Inter, sans-serif', 'rgba(255,255,255,.6)', 'left');
+  cvFit(ctx, annualFmt(total), 60, 356, 640, 64, 700, '"Space Grotesk", sans-serif', '#FFFFFF', 'left');
+  const tp = annualIsPartial(year) ? null : annualPct(total, prevTotal);
+  if(tp !== null){
+    ctx.font = '700 64px "Space Grotesk", sans-serif';
+    const tw = Math.min(ctx.measureText(annualFmt(total)).width, 640);
+    cvDeltaChip(ctx, tp, 60 + tw + 24, 350, 26);
+  }
+  // tiles
+  const tileW = (W - 120 - gap) / 2;
+  cats.forEach((c, i) => {
+    const col = i % 2, row = Math.floor(i / 2);
+    const x = 60 + col * (tileW + gap), y = headH + 40 + row * (tileH + gap);
+    cvRound(ctx, x, y, tileW, tileH, 18); ctx.fillStyle = '#FFFFFF'; ctx.fill();
+    ctx.fillStyle = annualCatColor(c.name); cvRound(ctx, x, y, 10, tileH, 5); ctx.fill();
+    const v = annualVal(c.name, year), p = annualIsPartial(year) ? null : annualPct(v, annualVal(c.name, year - 1));
+    cvFit(ctx, c.name, x + 32, y + 46, tileW - 60, 24, 600, 'Inter, sans-serif', '#6B7280', 'left');
+    const label = (c.unit === '$' ? '$' : '') + annualFmt(v);
+    cvFit(ctx, label, x + 32, y + 108, tileW - 60 - (p !== null ? 150 : 0), 52, 700, '"Space Grotesk", sans-serif', '#17191D', 'left');
+    if(p !== null){ ctx.font = '700 52px "Space Grotesk", sans-serif'; const lw = Math.min(ctx.measureText(label).width, tileW - 60 - 150); cvDeltaChip(ctx, p, x + 32 + lw + 14, y + 102, 20); }
+  });
+  // year-over-year strip
+  const sy = headH + 40 + rows * (tileH + gap) + 20;
+  cvText(ctx, 'YEAR OVER YEAR', 60, sy + 20, '700 22px Inter, sans-serif', '#6B7280', 'left');
+  const yrs = st.years.filter(y => annualTotalForYear(y) !== null && y <= year);
+  const max = niceMax(Math.max(...yrs.map(y => annualTotalForYear(y))));
+  const chartX = 60, chartW = W - 120, chartBase = sy + stripH - 50, chartTop = sy + 60;
+  const bw = Math.min(70, (chartW / yrs.length) * 0.6), step = chartW / yrs.length;
+  yrs.forEach((y, i) => {
+    const v = annualTotalForYear(y), h = (v / max) * (chartBase - chartTop - 22);
+    const bx = chartX + i * step + (step - bw) / 2, by = chartBase - h;
+    cvRound(ctx, bx, by, bw, Math.max(h, 3), 6); ctx.fillStyle = (y === year) ? '#17191D' : '#C9CBD1'; ctx.fill();
+    cvText(ctx, shortNum(v), bx + bw / 2, by - 8, '600 18px Inter, sans-serif', '#17191D', 'center');
+    cvText(ctx, String(y), bx + bw / 2, chartBase + 28, '500 18px Inter, sans-serif', '#6B7280', 'center');
+  });
+  return cv;
+}
+
+/* ----- 2) Combined year-over-year (landscape, stacked by row) ----- */
+function drawYearOverYear(){
+  const st = annualState;
+  const cats = st.cats.filter(c => c.in_total);
+  const yrs = st.years.filter(y => annualTotalForYear(y) !== null);
+  const W = 1920, H = 1080;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#17191D'; ctx.fillRect(0, 0, W, H);
+  annualBrandHeader(ctx, W, '');
+  cvText(ctx, 'Year Over Year', 60, 160, '700 72px "Space Grotesk", sans-serif', '#FFFFFF', 'left');
+  const first = yrs[0], last = yrs[yrs.length - 1];
+  const grand = yrs.reduce((s, y) => s + annualTotalForYear(y), 0);
+  cvText(ctx, `${first}–${last}  ·  ${annualFmt(grand)} total`, W - 60, 160, '600 34px Inter, sans-serif', 'rgba(255,255,255,.75)', 'right');
+  // legend
+  let lx = 60; const ly = 224;
+  cats.forEach(c => {
+    ctx.fillStyle = annualCatColor(c.name); cvRound(ctx, lx, ly - 16, 18, 18, 4); ctx.fill();
+    ctx.font = '500 22px Inter, sans-serif'; const w = ctx.measureText(c.name).width;
+    cvText(ctx, c.name, lx + 28, ly, ctx.font, 'rgba(255,255,255,.85)', 'left');
+    lx += 28 + w + 34;
+  });
+  // chart area
+  const cx = 150, cw = W - 150 - 60, cTop = 300, cBase = H - 110;
+  const totals = yrs.map(y => annualTotalForYear(y));
+  const max = niceMax(Math.max(...totals));
+  for(let i = 0; i <= 4; i++){
+    const v = (max / 4) * i, y = cBase - (v / max) * (cBase - cTop);
+    ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, y); ctx.lineTo(cx + cw, y); ctx.stroke();
+    cvText(ctx, shortNum(v), cx - 16, y + 7, '500 20px Inter, sans-serif', 'rgba(255,255,255,.55)', 'right');
+  }
+  const step = cw / yrs.length, bw = Math.min(110, step * 0.62);
+  yrs.forEach((y, i) => {
+    const bx = cx + i * step + (step - bw) / 2;
+    let yy = cBase;
+    cats.forEach(c => {
+      const v = annualVal(c.name, y); if(!v) return;
+      const h = (v / max) * (cBase - cTop);
+      yy -= h; ctx.fillStyle = annualCatColor(c.name); ctx.fillRect(bx, yy, bw, h);
+    });
+    const tot = annualTotalForYear(y);
+    cvText(ctx, shortNum(tot), bx + bw / 2, yy - 28, '700 26px "Space Grotesk", sans-serif', '#FFFFFF', 'center');
+    const p = annualIsPartial(y) ? null : annualPct(tot, annualTotalForYear(y - 1));
+    if(p !== null) cvText(ctx, annualPctText(p), bx + bw / 2, yy - 6, '700 17px Inter, sans-serif', p >= 0 ? '#6EE7A0' : '#FCA5A5', 'center');
+    cvText(ctx, annualIsPartial(y) ? `${y} YTD` : String(y), bx + bw / 2, cBase + 38, '600 24px Inter, sans-serif', 'rgba(255,255,255,.8)', 'center');
+  });
+  cvText(ctx, 'Includes all books and plans directly related to Following Jesus and discipleship', 60, H - 30, '400 20px Inter, sans-serif', 'rgba(255,255,255,.45)', 'left');
+  return cv;
+}
+
+/* ----- 3) One card per row (square) ----- */
+function drawCategoryCard(cat){
+  const st = annualState;
+  const c = st.cats.find(x => x.name === cat);
+  const yrs = st.years.filter(y => annualVal(cat, y) !== null);
+  const W = 1080, H = 1080;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#F4F4F2'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#17191D'; ctx.fillRect(0, 0, W, 330);
+  annualBrandHeader(ctx, W, '');
+  const color = annualCatColor(cat);
+  ctx.fillStyle = color; ctx.fillRect(0, 330, W, 10);
+  cvFit(ctx, cat, 60, 170, W - 120, 64, 700, '"Space Grotesk", sans-serif', '#FFFFFF', 'left');
+  const lastY = yrs[yrs.length - 1];
+  const lv = annualVal(cat, lastY), p = annualIsPartial(lastY) ? null : annualPct(lv, annualVal(cat, lastY - 1));
+  const unit = c && c.unit === '$' ? '$' : '';
+  cvText(ctx, annualIsPartial(lastY) ? `${lastY} year to date` : `${lastY}`, 60, 232, '600 26px Inter, sans-serif', 'rgba(255,255,255,.65)', 'left');
+  cvFit(ctx, unit + annualFmt(lv), 60, 300, 600, 72, 700, '"Space Grotesk", sans-serif', '#FFFFFF', 'left');
+  if(p !== null){ ctx.font = '700 72px "Space Grotesk", sans-serif'; const tw = Math.min(ctx.measureText(unit + annualFmt(lv)).width, 600); cvDeltaChip(ctx, p, 60 + tw + 22, 292, 26); }
+  // bars
+  const max = niceMax(Math.max(...yrs.map(y => annualVal(cat, y))));
+  const cx = 60, cw = W - 120, base = 900, top = 420, step = cw / yrs.length, bw = Math.min(80, step * 0.62);
+  yrs.forEach((y, i) => {
+    const v = annualVal(cat, y), h = (v / max) * (base - top - 30);
+    const bx = cx + i * step + (step - bw) / 2, by = base - h;
+    cvRound(ctx, bx, by, bw, Math.max(h, 3), 8); ctx.fillStyle = (y === lastY) ? color : '#C9CBD1'; ctx.fill();
+    cvText(ctx, shortNum(v), bx + bw / 2, by - 10, '600 20px Inter, sans-serif', '#17191D', 'center');
+    cvText(ctx, annualIsPartial(y) ? `${y} YTD` : String(y), bx + bw / 2, base + 34, '500 20px Inter, sans-serif', '#6B7280', 'center');
+  });
+  cvText(ctx, 'ALL-TIME TOTAL', 60, 1000, '700 20px Inter, sans-serif', '#6B7280', 'left');
+  cvFit(ctx, unit + annualFmt(annualTotalForCat(cat)), 60, 1050, W - 120, 48, 700, '"Space Grotesk", sans-serif', '#17191D', 'left');
+  return cv;
+}
+
+async function renderAnnualGraphics(){
+  const host = document.getElementById('annual-graphics');
+  if(!host) return;
+  try { await Promise.all([document.fonts.load('700 40px "Space Grotesk"'), document.fonts.load('600 20px Inter')]); } catch(e){}
+  if(!document.getElementById('annual-graphics')) return;
+  const year = annualSelectedYear;
+  const items = [];
+  if(annualTotalForYear(year) !== null) items.push({ title: `${year} Year Stat Sheet`, file: `following-jesus-${year}-stat-sheet`, cv: drawYearSheet(year) });
+  if(annualState.years.filter(y => annualTotalForYear(y) !== null).length) items.push({ title: 'Year Over Year (all years)', file: 'following-jesus-year-over-year', cv: drawYearOverYear() });
+  annualState.cats.filter(c => annualState.years.some(y => annualVal(c.name, y) !== null)).forEach(c => {
+    items.push({ title: c.name, file: `following-jesus-${c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`, cv: drawCategoryCard(c.name) });
+  });
+  annualGraphicItems = items;
+  host.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;';
+  items.forEach((it, i) => {
+    const box = document.createElement('div');
+    box.style.cssText = 'border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg);';
+    it.cv.style.cssText = 'width:100%;height:auto;border-radius:6px;display:block;';
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;';
+    row.innerHTML = `<span style="font-size:13px;font-weight:600;">${escapeHtmlReport(it.title)}</span><button class="mini-btn" data-annual-dl="${i}">Download</button>`;
+    box.appendChild(it.cv); box.appendChild(row); grid.appendChild(box);
+  });
+  host.appendChild(grid);
+  host.querySelectorAll('[data-annual-dl]').forEach(b => b.addEventListener('click', () => downloadAnnualGraphic(Number(b.dataset.annualDl))));
+}
+let annualGraphicItems = [];
+
+function downloadAnnualGraphic(i){
+  const it = annualGraphicItems[i]; if(!it) return;
+  it.cv.toBlob(blob => {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = it.file + '.png'; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  }, 'image/png');
+}
+function downloadAllAnnualGraphics(){
+  annualGraphicItems.forEach((_, i) => setTimeout(() => downloadAnnualGraphic(i), i * 450));
 }
 
 /* ---------- Dashboard: quick-glance totals across the whole business ---------- */
