@@ -1447,7 +1447,7 @@ async function renderDashboard(){
   document.getElementById('content').innerHTML = `
     <div style="text-align:left;">
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 4px;">Overview</h2>
-    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 14px;">Quick glance. The big numbers are totals; the small line shows what was added in the selected time range.</p>
+    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 14px;">Quick glance. The big numbers show what happened in the selected time range; the small line under each shows the all-time total.</p>
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
       ${Object.keys(rangeLabels).map(key => `<button class="mini-btn ${key===dashboardRangeKey?'active':''}" data-dashboard-range="${key}">${rangeLabels[key]}</button>`).join('')}
     </div>
