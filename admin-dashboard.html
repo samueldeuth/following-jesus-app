@@ -1887,14 +1887,14 @@ const dashboardRangePhrase = { 'today': 'today', '7d': 'in the last 7 days', '30
 
 async function loadDashboardData(){
   const safe = async (fn) => { try { return await fn(); } catch(e){ console.warn('dashboard stat failed', e); return null; } };
-  const [installRows, push, giftRows, dirRows, leaders] = await Promise.all([
+  const [installRows, disciples, giftRows, dirRows, leaders] = await Promise.all([
     safe(async () => { const { data, error } = await supabaseClient.from('app_download_stats').select('stat_date, platform, downloads, new_installs').order('stat_date', { ascending: false }).limit(2000); if(error) throw error; return data || []; }),
-    safe(async () => { const { data: { session } } = await supabaseClient.auth.getSession(); const res = await fetch('/.netlify/functions/get-push-audience-count', { headers: { Authorization: `Bearer ${session?.access_token || ''}` } }); if(!res.ok) throw new Error('push count ' + res.status); return await res.json(); }),
+    safe(async () => { const { data, error } = await supabaseClient.rpc('get_global_disciple_count'); if(error) throw error; return Number(data) || 0; }),
     safe(() => fetchAllRows(() => supabaseClient.from('gift_assessment_results').select('id, user_id, assessment_type, created_at').order('created_at', { ascending: false }))),
     safe(async () => { const { data, error } = await supabaseClient.from('church_directory').select('*'); if(error) throw error; return data || []; }),
     safe(async () => { const { data, error } = await supabaseClient.rpc('get_approved_leader_applications'); if(error) throw error; return data || []; })
   ]);
-  return { installRows, push, giftRows, dirRows, leaders };
+  return { installRows, disciples, giftRows, dirRows, leaders };
 }
 
 // Green +% / red -% badge comparing a current number to the previous period's.
@@ -2050,7 +2050,7 @@ async function paintDashboard(){
     section('App', 'dash-view-app', [
       card(fmt(newLeaders), 'Disciple Makers', total(approvedLeaderCount, 'total'), { id: 'dash-disciple-makers-card', delta: deltaHtml(newLeaders, prevLeaders), info: 'Newly approved in the selected range. Click to see the list.' }),
       card(fmt(rows ? rangeIos + rangeAnd : null), 'New Installs', rows ? `${fmt(rangeIos)} iOS · ${fmt(rangeAnd)} Android · ${fmt(totalInstalls)} total` : '', { delta: deltaHtml(rows ? rangeIos + rangeAnd : null, prevInstalls), info: 'First-time installs only, from App Store Connect and Google Play. Apple lags about 2 days. The total only counts days since tracking began' + (trackedSince ? ` (${trackedSince})` : '') + ', so it may be lower than the stores\' lifetime totals.' }),
-      card(fmt(d.push ? d.push.messageable : null), 'Notifications Active', d.push ? `${fmt(d.push.total)} devices registered` : '', { info: 'Phones that currently have push notifications turned on, which is who a push sent from the App page would reach. This is a current count, so it does not change with the date range.' })
+      card(fmt(d.disciples), 'Disciples Made', d.disciples !== null && d.disciples !== undefined ? `${plus(newCompletions)}` : '', { info: 'Total disciples made through the app: every Following Jesus course completion, including the ones brought over from the old platform. The small line shows how many came in during the selected range.' })
     ].join('')) +
     section('Gifts Assessments', 'dash-view-gifts', [
       card(fmt(giftsPplNew), 'Took Spiritual Gifts', total(giftsPpl, 'people total'), { delta: deltaHtml(giftsPplNew, giftsPplPrev) }),
@@ -3377,8 +3377,10 @@ async function loadAppDownloadStats(){
     <div class="summary-card emphasis"><div class="num">${fmt(iosMonth + andMonth)}${prevMonthOk ? deltaBadge(iosMonth + andMonth, iosPM + andPM) : ''}</div><div class="label">Total New Installs</div><div class="sub">${monthName} so far</div></div>
     <div class="summary-card"><div class="num">${fmt(iosYear + andYear)}${prevYearOk ? deltaBadge(iosYear + andYear, iosPY + andPY) : ''}</div><div class="label">New Installs in ${thisYear}</div><div class="sub">${fmt(iosYear)} iOS · ${fmt(andYear)} Android${yearIncomplete ? ` · tracked since ${oldestAll}` : ''}</div></div>
     <div class="summary-card clickable" id="app-disciple-makers-card"><div class="num">${fmt(approvedLeaderCount)}</div><div class="label">Disciple Makers</div><div class="sub">Click to see the list</div></div>
+    <div class="summary-card"><div class="num" id="app-disciples-made-num">…</div><div class="label">Disciples Made</div><div class="sub">course completions, all-time</div></div>
   `;
 
+  supabaseClient.rpc('get_global_disciple_count').then(({ data, error }) => { const el = document.getElementById('app-disciples-made-num'); if(el) el.textContent = error ? '—' : (Number(data) || 0).toLocaleString(); }).catch(() => {});
   const appDm = document.getElementById('app-disciple-makers-card');
   if(appDm) appDm.addEventListener('click', renderDiscipleMakers);
 
