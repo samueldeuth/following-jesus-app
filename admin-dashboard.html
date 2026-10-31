@@ -1410,8 +1410,7 @@ function paintAnnual(){
   const rowsHtml = st.cats.map(c => {
     const cells = st.years.map(y => {
       const v = annualVal(c.name, y);
-      const note = annualState.notes[annualKey(c.name, y)];
-      return `<td style="padding:3px 4px;white-space:nowrap;"><input type="text" inputmode="decimal" class="annual-input" data-cat="${escapeHtmlReport(c.name)}" data-year="${y}" value="${v === null ? '' : v}" style="width:84px;text-align:right;padding:6px 7px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:var(--bg-soft);">${note ? `<button type="button" class="info-icon-btn" data-info="${escapeHtmlReport(note)}">i</button>` : ''}</td>`;
+      return `<td style="padding:3px 4px;white-space:nowrap;"><input type="text" inputmode="decimal" class="annual-input" data-cat="${escapeHtmlReport(c.name)}" data-year="${y}" value="${v === null ? '' : v}" style="width:84px;text-align:right;padding:6px 7px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:var(--bg-soft);"></td>`;
     }).join('');
     return `<tr style="border-top:1px solid var(--line);">
       <td style="padding:6px 10px 6px 0;white-space:nowrap;"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${annualCatColor(c.name)};margin-right:8px;"></span>${escapeHtmlReport(c.name)}${c.unit ? ` <span style="color:var(--ink-soft);font-size:11px;">(${escapeHtmlReport(c.unit)})</span>` : ''}</td>
@@ -1461,7 +1460,6 @@ function paintAnnual(){
   document.getElementById('annual-year-select').addEventListener('change', (e) => { annualSelectedYear = Number(e.target.value); annualPickedYear = true; renderAnnualGraphics(); });
   document.getElementById('annual-download-all').addEventListener('click', downloadAllAnnualGraphics);
   renderAnnualGraphics();
-  if(typeof initInfoTooltips === 'function') initInfoTooltips();
 }
 
 function annualStatus(msg, bad){
@@ -1664,6 +1662,21 @@ function shortNum(n){
   if(n >= 1e3) return (n / 1e3).toFixed(n >= 1e4 ? 0 : 1).replace(/\.0$/, '') + 'K';
   return String(Math.round(n));
 }
+// Small round "i" marker, used on the graphics next to years that have a note.
+function cvInfoBadge(ctx, cx, cy, r, bg, fg){
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = bg; ctx.fill();
+  cvText(ctx, 'i', cx, cy + r * 0.42, `700 ${Math.round(r * 1.5)}px Inter, sans-serif`, fg, 'center');
+}
+// Does this year (in any of the given rows) carry a note?
+function annualYearHasNote(y, onlyCat){
+  return annualState.cats.some(c => (!onlyCat ? c.in_total : c.name === onlyCat) && annualState.notes[annualKey(c.name, y)]);
+}
+// Footnote line: an "i" badge, then each distinct note.
+function cvFootnote(ctx, text, x, y, maxW, size, bg, fg, textColor){
+  if(!text) return;
+  cvInfoBadge(ctx, x + size * 0.55, y - size * 0.3, size * 0.6, bg, fg);
+  cvFit(ctx, text, x + size * 1.6, y, maxW - size * 1.6, size, 400, 'Inter, sans-serif', textColor, 'left');
+}
 // One-line footnote from any year notes (deduped), shown on the graphics.
 function annualFootnotes(years, onlyCat){
   const seen = new Set(); const out = [];
@@ -1681,7 +1694,9 @@ function drawYearSheet(year){
   const cats = st.cats.filter(c => annualVal(c.name, year) !== null);
   const rows = Math.max(1, Math.ceil(cats.length / 2));
   const W = 1080, tileH = 150, gap = 22, headH = 400, stripH = 330;
-  const H = headH + 40 + rows * (tileH + gap) + 20 + stripH;
+  const sheetNote = annualFootnotes([year]);
+  const extraH = sheetNote ? 64 : 0;
+  const H = headH + 40 + rows * (tileH + gap) + 20 + extraH + stripH;
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
   ctx.fillStyle = '#F4F4F2'; ctx.fillRect(0, 0, W, H);
@@ -1706,13 +1721,15 @@ function drawYearSheet(year){
     cvRound(ctx, x, y, tileW, tileH, 18); ctx.fillStyle = '#FFFFFF'; ctx.fill();
     ctx.fillStyle = annualCatColor(c.name); cvRound(ctx, x, y, 10, tileH, 5); ctx.fill();
     const v = annualVal(c.name, year), p = annualIsPartial(year) ? null : annualPct(v, annualVal(c.name, year - 1));
-    cvFit(ctx, c.name, x + 32, y + 46, tileW - 60, 24, 600, 'Inter, sans-serif', '#6B7280', 'left');
+    cvFit(ctx, c.name, x + 32, y + 46, tileW - 60 - (annualState.notes[annualKey(c.name, year)] ? 34 : 0), 24, 600, 'Inter, sans-serif', '#6B7280', 'left');
+    if(annualState.notes[annualKey(c.name, year)]){ ctx.font = '600 24px Inter, sans-serif'; const nw = Math.min(ctx.measureText(c.name).width, tileW - 94); cvInfoBadge(ctx, x + 32 + nw + 18, y + 38, 11, '#B08D3E', '#FFFFFF'); }
     const label = (c.unit === '$' ? '$' : '') + annualFmt(v);
     cvFit(ctx, label, x + 32, y + 108, tileW - 60 - (p !== null ? 150 : 0), 52, 700, '"Space Grotesk", sans-serif', '#17191D', 'left');
     if(p !== null){ ctx.font = '700 52px "Space Grotesk", sans-serif'; const lw = Math.min(ctx.measureText(label).width, tileW - 60 - 150); cvDeltaChip(ctx, p, x + 32 + lw + 14, y + 102, 20); }
   });
   // year-over-year strip
-  const sy = headH + 40 + rows * (tileH + gap) + 20;
+  const sy = headH + 40 + rows * (tileH + gap) + 20 + extraH;
+  cvFootnote(ctx, sheetNote, 60, sy - 34, W - 120, 20, '#B08D3E', '#FFFFFF', '#6B7280');
   cvText(ctx, 'YEAR OVER YEAR', 60, sy + 20, '700 22px Inter, sans-serif', '#6B7280', 'left');
   const yrs = st.years.filter(y => annualTotalForYear(y) !== null && y <= year);
   const max = niceMax(Math.max(...yrs.map(y => annualTotalForYear(y))));
@@ -1769,14 +1786,14 @@ function drawYearOverYear(){
       yy -= h; ctx.fillStyle = annualCatColor(c.name); ctx.fillRect(bx, yy, bw, h);
     });
     const tot = annualTotalForYear(y);
+    if(annualYearHasNote(y)) cvInfoBadge(ctx, bx + bw / 2, yy - 72, 11, '#B08D3E', '#17191D');
     cvText(ctx, shortNum(tot), bx + bw / 2, yy - 28, '700 26px "Space Grotesk", sans-serif', '#FFFFFF', 'center');
     const p = annualIsPartial(y) ? null : annualPct(tot, annualTotalForYear(y - 1));
     if(p !== null) cvText(ctx, annualPctText(p), bx + bw / 2, yy - 6, '700 17px Inter, sans-serif', p >= 0 ? '#6EE7A0' : '#FCA5A5', 'center');
     cvText(ctx, annualIsPartial(y) ? `${y} YTD` : String(y), bx + bw / 2, cBase + 38, '600 24px Inter, sans-serif', 'rgba(255,255,255,.8)', 'center');
   });
   cvText(ctx, 'Includes all books and plans directly related to Following Jesus and discipleship', 60, H - 30, '400 20px Inter, sans-serif', 'rgba(255,255,255,.45)', 'left');
-  const fn = annualFootnotes(yrs.map(y => y));
-  if(fn) cvFit(ctx, fn, 60, H - 62, W - 120, 20, 400, 'Inter, sans-serif', 'rgba(255,255,255,.65)', 'left');
+  cvFootnote(ctx, annualFootnotes(yrs.map(y => y)), 60, H - 62, W - 120, 20, 'rgba(255,255,255,.7)', '#17191D', 'rgba(255,255,255,.75)');
   return cv;
 }
 
@@ -1807,10 +1824,11 @@ function drawCategoryCard(cat){
     const v = annualVal(cat, y), h = (v / max) * (base - top - 30);
     const bx = cx + i * step + (step - bw) / 2, by = base - h;
     cvRound(ctx, bx, by, bw, Math.max(h, 3), 8); ctx.fillStyle = (y === lastY) ? color : '#C9CBD1'; ctx.fill();
+    if(annualYearHasNote(y, cat)) cvInfoBadge(ctx, bx + bw / 2, by - 48, 12, '#B08D3E', '#FFFFFF');
     cvText(ctx, shortNum(v), bx + bw / 2, by - 10, '600 20px Inter, sans-serif', '#17191D', 'center');
     cvText(ctx, annualIsPartial(y) ? `${y} YTD` : String(y), bx + bw / 2, base + 34, '500 20px Inter, sans-serif', '#6B7280', 'center');
   });
-  { const fn = annualFootnotes(yrs, cat); if(fn) cvFit(ctx, fn, 60, 962, W - 120, 20, 400, 'Inter, sans-serif', '#6B7280', 'left'); }
+  cvFootnote(ctx, annualFootnotes(yrs, cat), 60, 962, W - 120, 20, '#B08D3E', '#FFFFFF', '#6B7280');
   cvText(ctx, 'ALL-TIME TOTAL', 60, 1000, '700 20px Inter, sans-serif', '#6B7280', 'left');
   cvFit(ctx, unit + annualFmt(annualTotalForCat(cat)), 60, 1050, W - 120, 48, 700, '"Space Grotesk", sans-serif', '#17191D', 'left');
   return cv;
