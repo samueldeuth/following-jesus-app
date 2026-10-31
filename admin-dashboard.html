@@ -1554,7 +1554,7 @@ async function loadAnnualLiveHints(){
   const el = document.getElementById('annual-live-hints');
   if(!el) return;
   const yr = new Date().getFullYear();
-  const live = { course: null, app: null, appSince: null };
+  const live = { course: null, app: null, appSince: null, gifts: null, courseChurches: null };
   try {
     const { count, error } = await supabaseClient.from('certificates').select('id', { count: 'exact', head: true }).gte('issued_at', new Date(yr, 0, 1).toISOString()).lt('issued_at', new Date(yr + 1, 0, 1).toISOString());
     if(!error) live.course = count || 0;
@@ -1566,19 +1566,35 @@ async function loadAnnualLiveHints(){
       live.appSince = data.reduce((m, r) => (m === null || r.stat_date < m ? r.stat_date : m), null);
     }
   } catch(e){}
+  try {
+    const rows = await fetchAllRows(() => supabaseClient.from('gift_assessment_results').select('id, user_id, assessment_type, created_at').gte('created_at', new Date(yr, 0, 1).toISOString()).lt('created_at', new Date(yr + 1, 0, 1).toISOString()).order('created_at', { ascending: false }));
+    const people = (t) => new Set(rows.filter(r => r.assessment_type === t).map(r => r.user_id)).size;
+    live.gifts = people('gifts') + people('fivefold');
+  } catch(e){}
+  {
+    const names = new Set();
+    allRows.forEach(r => { if(r.enrolled_at && r.enrolled_at >= new Date(yr, 0, 1).toISOString() && r.enrolled_at < new Date(yr + 1, 0, 1).toISOString() && r.church_name) names.add(String(r.church_name).trim().toLowerCase()); });
+    live.courseChurches = names.size;
+  }
   annualLive = live;
+  const giftsCat = annualGiftsCategory();
   const hasCourseRow = annualState.cats.some(c => c.name === 'FJ Course');
   const hasAppRow = annualState.cats.some(c => c.name === 'FJ App (Downloads)');
   const parts = [];
   if(live.course !== null) parts.push(`courses completed in ${yr}: <b>${live.course.toLocaleString()}</b>`);
+  if(live.gifts !== null && giftsCat) parts.push(`people who took the Gifts + Five-Fold assessments in ${yr}: <b>${live.gifts.toLocaleString()}</b>`);
+  if(live.courseChurches !== null && annualChurchesCategory()) parts.push(`churches with a new course student in ${yr}: <b>${live.courseChurches.toLocaleString()}</b> <span style="color:var(--ink-soft);">(course side only; book-ordering churches are added separately)</span>`);
   if(live.app !== null) parts.push(`new app installs in ${yr}: <b>${live.app.toLocaleString()}</b>${live.appSince && live.appSince > `${yr}-01-02` ? ` <span style="color:var(--red);">(tracking only starts ${live.appSince})</span>` : ''}`);
   el.innerHTML = parts.length
-    ? `Live from the dashboard: ${parts.join(' · ')}. <button class="mini-btn gold" id="annual-fill-live" ${(hasCourseRow || hasAppRow) ? '' : 'disabled'}>Fill ${yr} from live data</button>`
+    ? `Live from the dashboard: ${parts.join(' · ')}. <button class="mini-btn gold" id="annual-fill-live" ${(hasCourseRow || hasAppRow || giftsCat) ? '' : 'disabled'}>Fill ${yr} from live data</button>`
     : '';
   const btn = document.getElementById('annual-fill-live');
   if(btn) btn.addEventListener('click', fillAnnualFromLive);
 }
 let annualLive = null;
+// The row for assessment takers (matched by name, since the row was added by hand).
+function annualChurchesCategory(){ const c = annualState.cats.find(x => /church/i.test(x.name) && /impact|served/i.test(x.name)); return c ? c.name : null; }
+function annualGiftsCategory(){ const c = annualState.cats.find(x => /gift/i.test(x.name)); return c ? c.name : null; }
 
 async function fillAnnualFromLive(){
   if(!annualLive) return;
@@ -1586,6 +1602,8 @@ async function fillAnnualFromLive(){
   const jobs = [];
   if(annualLive.course !== null && annualState.cats.some(c => c.name === 'FJ Course')) jobs.push(['FJ Course', annualLive.course]);
   if(annualLive.app !== null && annualState.cats.some(c => c.name === 'FJ App (Downloads)')) jobs.push(['FJ App (Downloads)', annualLive.app]);
+  const gc = annualGiftsCategory();
+  if(annualLive.gifts !== null && gc) jobs.push([gc, annualLive.gifts]);
   for(const [cat, n] of jobs){
     const { error } = await supabaseClient.from('annual_stats').upsert({ category: cat, year: yr, value: n, updated_at: new Date().toISOString() }, { onConflict: 'category,year' });
     if(error){ annualStatus('Could not save: ' + error.message, true); return; }
