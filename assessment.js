@@ -57,6 +57,31 @@
         const s = JSON.parse(raw);
         if (s && typeof s === 'object' && s.answers) return { answers:s.answers, page:s.page|0, finished:!!s.finished };
       }
+      // Nothing saved under this version? Carry answers forward from an older
+      // version (statement IDs stay the same when wording changes), so a deploy
+      // in the middle of someone's assessment — or while they're signing in —
+      // doesn't lose their answers.
+      const prefix = 'fj-assessment-' + TYPE + '-v';
+      const older = Object.keys(localStorage)
+        .filter(k => k.indexOf(prefix) === 0 && k !== STORE_KEY)
+        .map(k => ({ k, v: parseInt(k.slice(prefix.length), 10) }))
+        .filter(o => o.v > 0 && o.v < FJ.QUESTION_VERSION)
+        .sort((a, b) => b.v - a.v);
+      for (const o of older) {
+        let s = null;
+        try { s = JSON.parse(localStorage.getItem(o.k)); } catch(e) {}
+        if (!s || typeof s !== 'object' || !s.answers) continue;
+        const answers = {};
+        Object.keys(s.answers).forEach(id => {
+          const v = s.answers[id];
+          if (A.groupRole && id === A.groupRole.id) answers[id] = v;
+          else if (ORDER.some(q => q.id === id) && FJ.isValidAnswer(v)) answers[id] = v;
+        }); // the tie-breaker pick is dropped; it's asked again if still needed
+        const moved = { answers, page:s.page|0, finished:!!s.finished };
+        older.forEach(x => localStorage.removeItem(x.k));
+        localStorage.setItem(STORE_KEY, JSON.stringify(moved));
+        return moved;
+      }
     } catch(e) {}
     return { answers:{}, page:0, finished:false };
   }
@@ -110,7 +135,7 @@
             '<div class="hero-verse">' + esc(HERO.verse) + '</div></div>' +
         '</div>' +
         '<p class="hero-intro-text">' + esc(A.intro) + '</p>' +
-        '<p class="hero-signin">Free · sign in to see your results</p>' +
+        '<p class="hero-signin">' + (user ? 'Free' : 'Free · sign in with Google or Apple to start') + '</p>' +
         (lastResult && !inProgress ? '<p class="small" style="color:#a8a399;margin:-10px 0 18px">You took this on ' + esc(takenOn) + '. Retaking it replaces those as your latest results, which is a great way to see how God has grown you.</p>' : '') +
         '<div class="btn-row">' +
           (lastResult && !inProgress
@@ -129,6 +154,8 @@
         '<p class="small" style="margin-top:8px">Also try the <a href="' + esc(OTHER.path) + '">' + esc(OTHER.title) + '</a>.</p>' +
       '</div></section>';
     document.getElementById('startBtn').onclick = () => {
+      // Sign in first, so nobody answers 90 statements and then loses them at sign-in.
+      if (!user) { setAutostart(true); renderWall('start'); return; }
       if (state.finished) clearState();
       renderQuiz();
     };
@@ -307,26 +334,41 @@
     scrollTop();
   }
 
-  function renderWall(){
+  const AUTOSTART_KEY = 'fj-assessment-autostart-' + TYPE;
+  function setAutostart(on){ try { if (on) localStorage.setItem(AUTOSTART_KEY, String(Date.now())); else localStorage.removeItem(AUTOSTART_KEY); } catch(e) {} }
+  function takeAutostart(){
+    try {
+      const t = parseInt(localStorage.getItem(AUTOSTART_KEY) || '0', 10);
+      localStorage.removeItem(AUTOSTART_KEY);
+      return t > 0 && Date.now() - t < 30 * 60 * 1000; // only right after a sign-in started here
+    } catch(e) { return false; }
+  }
+
+  function renderWall(mode){
+    const atStart = mode === 'start';
     const appleSvg = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.37 12.6c-.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.7-3.19-1.73-1.36-.14-2.65.8-3.34.8-.69 0-1.75-.78-2.88-.76-1.48.02-2.85.86-3.61 2.19-1.54 2.67-.39 6.63 1.11 8.8.73 1.06 1.6 2.25 2.75 2.2 1.1-.04 1.52-.71 2.85-.71 1.33 0 1.71.71 2.88.69 1.19-.02 1.94-1.08 2.67-2.14.84-1.23 1.19-2.42 1.21-2.48-.03-.01-2.32-.89-2.33-3.55zM14.18 6.13c.61-.74 1.02-1.76.91-2.78-.88.04-1.94.59-2.57 1.32-.56.65-1.06 1.69-.93 2.69.98.08 1.98-.5 2.59-1.23z"/></svg>';
     const gSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.45a5.52 5.52 0 0 1-2.39 3.62v3h3.87c2.26-2.09 3.57-5.16 3.57-8.81z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.07 7.93-2.92l-3.87-3c-1.07.72-2.45 1.15-4.06 1.15-3.12 0-5.77-2.11-6.71-4.95H1.29v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.29 14.28A7.2 7.2 0 0 1 4.91 12c0-.79.14-1.56.38-2.28v-3.1H1.29A12 12 0 0 0 0 12c0 1.94.46 3.77 1.29 5.38l4-3.1z"/><path fill="#EA4335" d="M12 4.77c1.76 0 3.34.61 4.59 1.8l3.43-3.43C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.29 6.62l4 3.1C6.23 6.88 8.88 4.77 12 4.77z"/></svg>';
     app.innerHTML =
       '<section class="wall"><div class="wrap"><div class="card">' +
-        '<div class="eyebrow">You finished</div>' +
-        '<h2 style="margin-top:8px">Sign in to see your results</h2>' +
-        '<p class="muted">Your answers are saved on this device. Sign in and we\'ll save your results to your account so you can come back to them anytime and share them with your pastor.</p>' +
+        '<div class="eyebrow">' + (atStart ? 'Before you start' : 'You finished') + '</div>' +
+        '<h2 style="margin-top:8px">' + (atStart ? 'Sign in to start' : 'Sign in to see your results') + '</h2>' +
+        '<p class="muted">' + (atStart
+          ? 'Sign in first so your answers and results are saved to your account. You can come back to them anytime, on any device, and share them with your pastor.'
+          : 'Your answers are saved on this device. Sign in and we\'ll save your results to your account so you can come back to them anytime and share them with your pastor.') + '</p>' +
         '<div class="auth-btns">' +
           '<button class="btn btn-light" id="googleBtn">' + gSvg + 'Continue with Google</button>' +
           '<button class="btn btn-dark" id="appleBtn">' + appleSvg + 'Continue with Apple</button>' +
         '</div>' +
         '<p class="small muted" style="margin-top:16px; max-width:360px; margin-left:auto; margin-right:auto">By signing in, you\'ll also get occasional emails from Following Jesus with encouragement and resources to grow in your gifts. You can unsubscribe anytime.</p>' +
-        '<p class="small muted" style="margin-top:12px"><button type="button" id="editBtn" style="background:none;border:0;color:var(--ember-dark);cursor:pointer;text-decoration:underline;font-size:14px;padding:0">Go back and review my answers</button></p>' +
+        '<p class="small muted" style="margin-top:12px"><button type="button" id="editBtn" style="background:none;border:0;color:var(--ember-dark);cursor:pointer;text-decoration:underline;font-size:14px;padding:0">' + (atStart ? 'Back' : 'Go back and review my answers') + '</button></p>' +
       '</div></div></section>';
     // No hash or query in redirectTo, so the OAuth return lands cleanly.
     const redirectTo = window.location.origin + window.location.pathname;
     document.getElementById('googleBtn').onclick = () => sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo, queryParams:{ prompt:'select_account' } } });
     document.getElementById('appleBtn').onclick = () => sb.auth.signInWithOAuth({ provider:'apple', options:{ redirectTo } });
-    document.getElementById('editBtn').onclick = () => { state.finished = false; state.page = PAGES - 1; saveState(); renderQuiz(); };
+    document.getElementById('editBtn').onclick = atStart
+      ? () => { setAutostart(false); renderIntro(); }
+      : () => { state.finished = false; state.page = PAGES - 1; saveState(); renderQuiz(); };
     scrollTop();
   }
 
@@ -712,7 +754,9 @@
     }
 
     // Just came back from sign-in with a finished assessment → save + show results.
-    if (user && state.finished && FJ.scoreAnswers(TYPE, state.answers).complete) { finish(); return; }
+    if (user && state.finished && FJ.scoreAnswers(TYPE, state.answers).complete) { setAutostart(false); finish(); return; }
+    // Just came back from "Sign in to start" → go straight into the questions.
+    if (user && takeAutostart()) { if (state.finished) clearState(); renderQuiz(); return; }
 
     await loadLastResult();
     // Profile pages link here with ?view=results to jump straight to them.
