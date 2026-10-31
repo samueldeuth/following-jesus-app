@@ -356,7 +356,7 @@
       <span>Following Jesus</span>
     </div>
     <div id="admin-account-info"></div>
-    <a class="sidebar-link" id="sidebar-dashboard-link">Dashboard</a>
+    <a class="sidebar-link" id="sidebar-dashboard-link">Overview</a>
     <a class="sidebar-link" id="sidebar-overview-link">Course</a>
     <a class="sidebar-link" id="sidebar-all-students-link">All Students</a>
     <a class="sidebar-link" id="sidebar-push-notifications-link">App</a>
@@ -1394,7 +1394,7 @@ async function paintDashboard(){
 
   body.innerHTML =
     section('Course', 'dash-view-course', [
-      card(fmt(activeChurches), 'Active Churches', `${fmt(totalChurches)} total all-time · ${plus(newChurches)}`),
+      card(fmt(newStudents), 'New Students', `${phrase ? dashboardRangeLabel() : ''} · ${fmt(totalStudents)} enrolled all-time`, { info: 'Students who enrolled in a course during the selected time range.' }),
       card(fmt(totalActive), 'Active Students', `${fmt(totalStudents)} total all-time · ${plus(newStudents)}`, { info: 'Active means enrolled, not archived, and signed in, used the app, or finished a lesson within the last 6 months.' }),
       card(fmt(totalCompleted), 'Finished a course', plus(newCompletions))
     ].join('')) +
@@ -1437,7 +1437,7 @@ async function renderDashboard(){
   renderSidebar();
   document.getElementById('content').innerHTML = `
     <div style="text-align:left;">
-    <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 4px;">Dashboard</h2>
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 4px;">Overview</h2>
     <p style="font-size:13px;color:var(--ink-soft);margin:0 0 14px;">Quick glance. The big numbers are totals; the small line shows what was added in the selected time range.</p>
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
       ${Object.keys(rangeLabels).map(key => `<button class="mini-btn ${key===dashboardRangeKey?'active':''}" data-dashboard-range="${key}">${rangeLabels[key]}</button>`).join('')}
@@ -1563,7 +1563,7 @@ function renderChurchesOverview(){
 // "users manage their own application").
 async function renderDiscipleMakers(){
   const content = document.getElementById('content');
-  content.innerHTML = `<div class="back-link" id="back-to-overview-from-leaders">&larr; Back to Dashboard</div><h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 20px;">Disciple Makers</h2><p style="color:var(--ink-soft);font-size:13px;">Loading…</p>`;
+  content.innerHTML = `<div class="back-link" id="back-to-overview-from-leaders">&larr; Back to Overview</div><h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 20px;">Disciple Makers</h2><p style="color:var(--ink-soft);font-size:13px;">Loading…</p>`;
   document.getElementById('back-to-overview-from-leaders').addEventListener('click', renderDashboard);
 
   const { data: leaders, error } = await supabaseClient.rpc('get_approved_leader_applications');
@@ -1586,7 +1586,7 @@ async function renderDiscipleMakers(){
   const emailableLeaders = leaders.filter(l => l.applicant_email);
 
   content.innerHTML = `
-    <div class="back-link" id="back-to-overview-from-leaders">&larr; Back to Dashboard</div>
+    <div class="back-link" id="back-to-overview-from-leaders">&larr; Back to Overview</div>
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 8px;">Disciple Makers</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin:0 0 14px;">Everyone currently approved by their pastor to disciple others. Removing someone here revokes that status immediately -- use this if word comes back of anti-biblical activity.</p>
     <button class="mini-btn gold" id="email-all-leaders-btn" style="margin-bottom:16px;" ${emailableLeaders.length ? '' : 'disabled'}>Email All Disciple Makers</button>
