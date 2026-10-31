@@ -1376,10 +1376,8 @@ async function loadAnnualData(){
   const yrs = new Set();
   (stats || []).forEach(r => { annualState.vals[annualKey(r.category, r.year)] = Number(r.value); yrs.add(r.year); });
   const thisYear = new Date().getFullYear();
-  const minY = yrs.size ? Math.min(...yrs) : thisYear;
-  const maxY = Math.max(thisYear, yrs.size ? Math.max(...yrs) : thisYear);
-  annualState.years = [];
-  for(let y = minY; y <= maxY; y++) annualState.years.push(y);
+  yrs.add(thisYear);
+  annualState.years = Array.from(yrs).sort((a, b) => a - b);
 }
 
 async function renderAnnual(){
@@ -1408,7 +1406,7 @@ async function renderAnnual(){
 function paintAnnual(){
   const st = annualState;
   const content = document.getElementById('content');
-  const headCells = st.years.map(y => `<th style="text-align:right;padding:6px 8px;">${y}</th>`).join('');
+  const headCells = st.years.map(y => `<th style="text-align:right;padding:6px 8px;white-space:nowrap;">${y}${annualIsPartial(y) ? '' : ` <button type="button" class="annual-del-year" data-year="${y}" title="Delete ${y}" style="border:none;background:none;color:var(--ink-soft);cursor:pointer;font-size:12px;padding:0 0 0 4px;">&#10005;</button>`}</th>`).join('');
   const rowsHtml = st.cats.map(c => {
     const cells = st.years.map(y => {
       const v = annualVal(c.name, y);
@@ -1455,6 +1453,7 @@ function paintAnnual(){
 
   document.querySelectorAll('.annual-input').forEach(inp => inp.addEventListener('change', onAnnualCellChange));
   document.querySelectorAll('.annual-in-total').forEach(cb => cb.addEventListener('change', onAnnualInTotalChange));
+  document.querySelectorAll('.annual-del-year').forEach(b => b.addEventListener('click', () => onAnnualDeleteYear(Number(b.dataset.year))));
   document.getElementById('annual-add-year').addEventListener('click', onAnnualAddYear);
   document.getElementById('annual-add-cat').addEventListener('click', onAnnualAddCategory);
   document.getElementById('annual-csv').addEventListener('click', downloadAnnualCsv);
@@ -1509,6 +1508,25 @@ async function onAnnualInTotalChange(e){
   refreshAnnualTotals();
 }
 
+// Deleting a year removes every number saved for it, so it has to be confirmed by typing the year.
+async function onAnnualDeleteYear(yr){
+  const saved = annualState.cats.filter(c => annualVal(c.name, yr) !== null).length;
+  if(saved === 0){
+    if(!confirm(`Remove the empty ${yr} column?`)) return;
+  } else {
+    const typed = prompt(`This permanently deletes all ${saved} number${saved === 1 ? '' : 's'} saved for ${yr}, and it can't be undone.\n\nTo confirm, type the year (${yr}):`);
+    if(typed === null) return;
+    if(typed.trim() !== String(yr)){ annualStatus('Year not deleted: what you typed did not match.', true); return; }
+    const { error } = await supabaseClient.from('annual_stats').delete().eq('year', yr);
+    if(error){ annualStatus('Could not delete: ' + error.message, true); return; }
+  }
+  annualState.cats.forEach(c => { delete annualState.vals[annualKey(c.name, yr)]; });
+  annualState.years = annualState.years.filter(y => y !== yr);
+  if(annualSelectedYear === yr) annualSelectedYear = annualState.years[annualState.years.length - 1];
+  paintAnnual();
+  annualStatus(`${yr} deleted.`);
+}
+
 function onAnnualAddYear(){
   const next = annualState.years[annualState.years.length - 1] + 1;
   annualState.years.push(next);
@@ -1527,24 +1545,55 @@ async function onAnnualAddCategory(){
   paintAnnual();
 }
 
-// Read-only reference numbers for the current year, to help fill in the table.
+// This year's live numbers for the two rows the dashboard can measure itself:
+// "FJ Course" = courses completed in the year (certificates issued) and
+// "FJ App (Downloads)" = new installs in the year. A button writes them into
+// the table (replacing whatever is in this year's two boxes).
 async function loadAnnualLiveHints(){
   const el = document.getElementById('annual-live-hints');
   if(!el) return;
   const yr = new Date().getFullYear();
-  const startIso = new Date(yr, 0, 1).toISOString();
+  const live = { course: null, app: null, appSince: null };
+  try {
+    const { count, error } = await supabaseClient.from('certificates').select('id', { count: 'exact', head: true }).gte('issued_at', new Date(yr, 0, 1).toISOString()).lt('issued_at', new Date(yr + 1, 0, 1).toISOString());
+    if(!error) live.course = count || 0;
+  } catch(e){}
+  try {
+    const { data, error } = await supabaseClient.from('app_download_stats').select('stat_date, new_installs, downloads').gte('stat_date', `${yr}-01-01`).lte('stat_date', `${yr}-12-31`).limit(2000);
+    if(!error && data){
+      live.app = data.reduce((s, r) => s + (r.new_installs != null ? r.new_installs : (r.downloads || 0)), 0);
+      live.appSince = data.reduce((m, r) => (m === null || r.stat_date < m ? r.stat_date : m), null);
+    }
+  } catch(e){}
+  annualLive = live;
+  const hasCourseRow = annualState.cats.some(c => c.name === 'FJ Course');
+  const hasAppRow = annualState.cats.some(c => c.name === 'FJ App (Downloads)');
   const parts = [];
-  try {
-    const { data } = await supabaseClient.from('app_download_stats').select('stat_date, new_installs, downloads').gte('stat_date', `${yr}-01-01`).limit(2000);
-    if(data){ const n = data.reduce((s, r) => s + (r.new_installs != null ? r.new_installs : (r.downloads || 0)), 0); parts.push(`App installs so far in ${yr}: <b>${n.toLocaleString()}</b>`); }
-  } catch(e){}
-  try {
-    const enrolled = allRows.filter(r => r.enrolled_at && r.enrolled_at >= startIso).length;
-    parts.push(`Course enrollments in ${yr}: <b>${enrolled.toLocaleString()}</b>`);
-    const { count } = await supabaseClient.from('certificates').select('id', { count: 'exact', head: true }).gte('issued_at', startIso);
-    parts.push(`Course completions in ${yr}: <b>${(count || 0).toLocaleString()}</b>`);
-  } catch(e){}
-  if(parts.length) el.innerHTML = `Live numbers to help you fill in ${yr}: ${parts.join(' · ')}. (Reference only; nothing is filled in for you.)`;
+  if(live.course !== null) parts.push(`courses completed in ${yr}: <b>${live.course.toLocaleString()}</b>`);
+  if(live.app !== null) parts.push(`new app installs in ${yr}: <b>${live.app.toLocaleString()}</b>${live.appSince && live.appSince > `${yr}-01-02` ? ` <span style="color:var(--red);">(tracking only starts ${live.appSince})</span>` : ''}`);
+  el.innerHTML = parts.length
+    ? `Live from the dashboard: ${parts.join(' · ')}. <button class="mini-btn gold" id="annual-fill-live" ${(hasCourseRow || hasAppRow) ? '' : 'disabled'}>Fill ${yr} from live data</button>`
+    : '';
+  const btn = document.getElementById('annual-fill-live');
+  if(btn) btn.addEventListener('click', fillAnnualFromLive);
+}
+let annualLive = null;
+
+async function fillAnnualFromLive(){
+  if(!annualLive) return;
+  const yr = new Date().getFullYear();
+  const jobs = [];
+  if(annualLive.course !== null && annualState.cats.some(c => c.name === 'FJ Course')) jobs.push(['FJ Course', annualLive.course]);
+  if(annualLive.app !== null && annualState.cats.some(c => c.name === 'FJ App (Downloads)')) jobs.push(['FJ App (Downloads)', annualLive.app]);
+  for(const [cat, n] of jobs){
+    const { error } = await supabaseClient.from('annual_stats').upsert({ category: cat, year: yr, value: n, updated_at: new Date().toISOString() }, { onConflict: 'category,year' });
+    if(error){ annualStatus('Could not save: ' + error.message, true); return; }
+    annualState.vals[annualKey(cat, yr)] = n;
+    const inp = document.querySelector(`.annual-input[data-cat="${CSS.escape(cat)}"][data-year="${yr}"]`);
+    if(inp) inp.value = n;
+  }
+  annualStatus(`${yr} filled from live data \u2713`);
+  refreshAnnualTotals();
 }
 
 function downloadAnnualCsv(){
