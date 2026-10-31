@@ -1323,15 +1323,14 @@ const dashboardRangePhrase = { 'today': 'today', '7d': 'in the last 7 days', '30
 
 async function loadDashboardData(){
   const safe = async (fn) => { try { return await fn(); } catch(e){ console.warn('dashboard stat failed', e); return null; } };
-  const [installRows, push, giftRows, dirTotal, dirLive, dirPending] = await Promise.all([
+  const [installRows, push, giftRows, dirRows, leaders] = await Promise.all([
     safe(async () => { const { data, error } = await supabaseClient.from('app_download_stats').select('stat_date, platform, downloads, new_installs').order('stat_date', { ascending: false }).limit(2000); if(error) throw error; return data || []; }),
     safe(async () => { const { data: { session } } = await supabaseClient.auth.getSession(); const res = await fetch('/.netlify/functions/get-push-audience-count', { headers: { Authorization: `Bearer ${session?.access_token || ''}` } }); if(!res.ok) throw new Error('push count ' + res.status); return await res.json(); }),
     safe(() => fetchAllRows(() => supabaseClient.from('gift_assessment_results').select('id, user_id, assessment_type, created_at').order('created_at', { ascending: false }))),
-    safe(async () => { const { count, error } = await supabaseClient.from('church_directory').select('id', { count: 'exact', head: true }); if(error) throw error; return count || 0; }),
-    safe(async () => { const { count, error } = await supabaseClient.from('church_directory').select('id', { count: 'exact', head: true }).eq('status', 'confirmed'); if(error) throw error; return count || 0; }),
-    safe(async () => { const { count, error } = await supabaseClient.from('church_directory').select('id', { count: 'exact', head: true }).eq('status', 'pending_confirmation'); if(error) throw error; return count || 0; })
+    safe(async () => { const { data, error } = await supabaseClient.from('church_directory').select('*'); if(error) throw error; return data || []; }),
+    safe(async () => { const { data, error } = await supabaseClient.rpc('get_approved_leader_applications'); if(error) throw error; return data || []; })
   ]);
-  return { installRows, push, giftRows, dirTotal, dirLive, dirPending };
+  return { installRows, push, giftRows, dirRows, leaders };
 }
 
 async function paintDashboard(){
@@ -1352,13 +1351,14 @@ async function paintDashboard(){
     </div>
     <div class="summary-row">${cards}</div>`;
 
+  // Big number = what happened in the selected range. Small line = all-time total.
+  const inR = (iso) => !!iso && iso >= startIso;
+
   // ---- Course (already cached) ----
-  const totalChurches = allChurches.length;
-  const activeChurches = allChurches.filter(ch => !['draft', 'archived'].includes(ch.course_status || 'live')).length;
-  const newChurches = allChurches.filter(c => c.approved_at && c.approved_at >= startIso).length;
-  const totalActive = allRows.filter(isActiveStudentRow).length;
+  const newStudents = allRows.filter(r => inR(r.enrolled_at)).length;
   const totalStudents = allRows.length;
-  const newStudents = allRows.filter(r => r.enrolled_at && r.enrolled_at >= startIso).length;
+  const activeInRange = allRows.filter(r => r.status !== 'archived' && inR(r.last_activity_at)).length;
+  const totalActive = allRows.filter(isActiveStudentRow).length;
   const totalCompleted = allRows.filter(r => !!r.completed_at).length + totalLegacyCompletions;
   let newCompletions = null;
   try {
@@ -1379,39 +1379,48 @@ async function paintDashboard(){
     totalInstalls = rows.reduce((s, r) => s + newOf(r), 0);
     trackedSince = rows.reduce((m, r) => (m === null || r.stat_date < m ? r.stat_date : m), null);
   }
+  const leaders = d.leaders;
+  const newLeaders = leaders ? leaders.filter(l => inR(l.reviewed_at)).length : null;
 
   // ---- Gifts assessments ----
   const gr = d.giftRows;
-  let giftsPeople = null, ffPeople = null, giftsAll = null, giftsNew = null;
+  let giftsPpl = null, ffPpl = null, giftsPplNew = null, ffPplNew = null, giftsAll = null, giftsNew = null;
   if(gr){
-    giftsPeople = new Set(gr.filter(r => r.assessment_type === 'gifts').map(r => r.user_id)).size;
-    ffPeople = new Set(gr.filter(r => r.assessment_type === 'fivefold').map(r => r.user_id)).size;
+    const people = (type, onlyRange) => new Set(gr.filter(r => r.assessment_type === type && (!onlyRange || inR(r.created_at))).map(r => r.user_id)).size;
+    giftsPpl = people('gifts', false); ffPpl = people('fivefold', false);
+    giftsPplNew = people('gifts', true); ffPplNew = people('fivefold', true);
     giftsAll = gr.length;
-    giftsNew = gr.filter(r => r.created_at >= startIso).length;
+    giftsNew = gr.filter(r => inR(r.created_at)).length;
   }
-  const newGiftsOnly = gr ? gr.filter(r => r.assessment_type === 'gifts' && r.created_at >= startIso).length : null;
-  const newFfOnly = gr ? gr.filter(r => r.assessment_type === 'fivefold' && r.created_at >= startIso).length : null;
 
+  // ---- Churches (Church Directory) ----
+  const dir = d.dirRows;
+  const dirTotal = dir ? dir.length : null;
+  const dirNew = dir ? dir.filter(r => inR(r.created_at)).length : null;
+  const live = dir ? dir.filter(r => r.status === 'confirmed') : null;
+  const liveNew = live ? live.filter(r => inR(r.created_at)).length : null;
+  const pending = dir ? dir.filter(r => r.status === 'pending_confirmation').length : 0;
+
+  const total = (n, what) => (n === null || n === undefined) ? '' : `${fmt(n)} ${what}`;
   body.innerHTML =
     section('Course', 'dash-view-course', [
-      card(fmt(newStudents), 'New Students', `${phrase ? dashboardRangeLabel() : ''} · ${fmt(totalStudents)} enrolled all-time`, { info: 'Students who enrolled in a course during the selected time range.' }),
-      card(fmt(totalActive), 'Active Students', `${fmt(totalStudents)} total all-time · ${plus(newStudents)}`, { info: 'Active means enrolled, not archived, and signed in, used the app, or finished a lesson within the last 6 months.' }),
-      card(fmt(totalCompleted), 'Finished a course', plus(newCompletions))
+      card(fmt(newStudents), 'New Students', total(totalStudents, 'total enrolled'), { info: 'Students who enrolled in a course during the selected time range.' }),
+      card(fmt(activeInRange), 'Active Students', total(totalActive, 'active overall'), { info: 'Big number: students who signed in, used the app, or finished a lesson during the selected range. Small number: all students currently counted as active (activity within the last 6 months, not archived).' }),
+      card(fmt(newCompletions), 'Finished a course', total(totalCompleted, 'total completions'), { info: 'Big number: certificates issued in the selected range. Small number: all-time completions, including ones backfilled from the old platform.' })
     ].join('')) +
     section('App', 'dash-view-app', [
-      card(fmt(approvedLeaderCount), 'Disciple Makers', 'Click to see the list', { id: 'dash-disciple-makers-card' }),
-      card(fmt(rows ? rangeIos + rangeAnd : null), 'New Installs', rows ? `${dashboardRangeLabel()} · ${fmt(rangeIos)} iOS · ${fmt(rangeAnd)} Android` : '', { info: 'First-time installs only, from App Store Connect and Google Play. Apple lags about 2 days.' }),
-      card(fmt(totalInstalls), 'Total Installs', trackedSince ? `new installs tracked since ${trackedSince}` : '', { info: 'All first-time installs recorded in this dashboard so far. It only counts days since tracking began, so it may be lower than the stores\' lifetime totals.' }),
-      card(fmt(d.push ? d.push.messageable : null), 'Notifications Active', d.push ? `${fmt(d.push.total)} devices registered` : '', { info: 'Phones that currently have push notifications turned on, which is who a push sent from the App page would reach.' })
+      card(fmt(newLeaders), 'Disciple Makers', total(approvedLeaderCount, 'total'), { id: 'dash-disciple-makers-card', info: 'Newly approved in the selected range. Click to see the list.' }),
+      card(fmt(rows ? rangeIos + rangeAnd : null), 'New Installs', rows ? `${fmt(rangeIos)} iOS · ${fmt(rangeAnd)} Android · ${fmt(totalInstalls)} total` : '', { info: 'First-time installs only, from App Store Connect and Google Play. Apple lags about 2 days. The total only counts days since tracking began' + (trackedSince ? ` (${trackedSince})` : '') + ', so it may be lower than the stores\' lifetime totals.' }),
+      card(fmt(d.push ? d.push.messageable : null), 'Notifications Active', d.push ? `${fmt(d.push.total)} devices registered` : '', { info: 'Phones that currently have push notifications turned on, which is who a push sent from the App page would reach. This is a current count, so it does not change with the date range.' })
     ].join('')) +
     section('Gifts Assessments', 'dash-view-gifts', [
-      card(fmt(giftsPeople), 'Took Spiritual Gifts', plus(newGiftsOnly)),
-      card(fmt(ffPeople), 'Took Five-Fold', plus(newFfOnly)),
-      card(fmt(giftsAll), 'Combined Total', `incl. retakes · ${plus(giftsNew)}`, { info: 'Every completed assessment of both kinds, counting retakes. The first two cards count each person once.' })
+      card(fmt(giftsPplNew), 'Took Spiritual Gifts', total(giftsPpl, 'people total')),
+      card(fmt(ffPplNew), 'Took Five-Fold', total(ffPpl, 'people total')),
+      card(fmt(giftsNew), 'Combined Total', total(giftsAll, 'total incl. retakes'), { info: 'Every completed assessment of both kinds in the selected range, counting retakes. The first two cards count each person once.' })
     ].join('')) +
     section('Churches', 'dash-view-churches', [
-      card(fmt(d.dirTotal), 'Total Churches', d.dirPending ? `${fmt(d.dirPending)} pending confirmation` : 'in the Church Directory'),
-      card(fmt(d.dirLive), 'Live on Search', 'confirmed and showing in Find a Church', { info: 'Directory churches marked Confirmed, which are the ones people can find in the app.' })
+      card(fmt(dirNew), 'Total Churches', `${total(dirTotal, 'total')}${pending ? ` · ${fmt(pending)} pending confirmation` : ''}`, { info: 'Churches added to the Church Directory in the selected range.' }),
+      card(fmt(liveNew), 'Live on Search', total(live ? live.length : null, 'live total'), { info: 'Directory churches marked Confirmed, which are the ones people can find in the app. The big number is by the date the church was added to the directory.' })
     ].join(''));
 
   document.getElementById('dash-view-course').addEventListener('click', renderChurchesOverview);
@@ -2720,7 +2729,11 @@ async function loadAppDownloadStats(){
     <div class="summary-card"><div class="num">${fmt(andMonth)}</div><div class="label">Android New Installs</div><div class="sub">${monthName} so far</div></div>
     <div class="summary-card emphasis"><div class="num">${fmt(iosMonth + andMonth)}</div><div class="label">Total New Installs</div><div class="sub">${monthName} so far</div></div>
     <div class="summary-card"><div class="num">${fmt(iosYear + andYear)}</div><div class="label">New Installs in ${thisYear}</div><div class="sub">${fmt(iosYear)} iOS · ${fmt(andYear)} Android${yearIncomplete ? ` · tracked since ${oldestAll}` : ''}</div></div>
+    <div class="summary-card clickable" id="app-disciple-makers-card"><div class="num">${fmt(approvedLeaderCount)}</div><div class="label">Disciple Makers</div><div class="sub">Click to see the list</div></div>
   `;
+
+  const appDm = document.getElementById('app-disciple-makers-card');
+  if(appDm) appDm.addEventListener('click', renderDiscipleMakers);
 
   // ---- Month-by-month table (newest first, last 12 months) ----
   const monthSet = new Set((rows || []).map(r => r.stat_date.slice(0, 7)));
