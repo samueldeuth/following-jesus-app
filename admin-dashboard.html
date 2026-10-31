@@ -343,6 +343,10 @@
   .report-page{box-shadow:none;margin:0 auto;}
   * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
 }
+.delta{font-size:12px;font-weight:700;margin-left:8px;padding:2px 7px;border-radius:999px;vertical-align:middle;white-space:nowrap;}
+.delta.up{color:#15803d;background:rgba(22,163,74,.14);}
+.delta.down{color:#b91c1c;background:rgba(220,38,38,.14);}
+.delta.flat{color:var(--ink-soft);background:rgba(128,128,128,.14);}
 </style>
 </head>
 <body>
@@ -1266,6 +1270,15 @@ async function renderOverviewRangeMetrics(){
   overviewRangeNewStudentRows = newStudentRows;
   const { count: newCompletions } = await supabaseClient
     .from('certificates').select('id', { count: 'exact', head: true }).gte('issued_at', startIso);
+  const pw = previousWindow(overviewRangeKey);
+  const pS = pw.start.toISOString(), pE = pw.end.toISOString();
+  let prevCompletionsCount = null;
+  try {
+    const { count: pc } = await supabaseClient.from('certificates').select('id', { count: 'exact', head: true }).gte('issued_at', pS).lt('issued_at', pE);
+    prevCompletionsCount = pc || 0;
+  } catch(e){ /* no badge */ }
+  const prevChurches = allChurches.filter(c => c.approved_at && c.approved_at >= pS && c.approved_at < pE).length;
+  const prevStudentsCount = allRows.filter(r => r.enrolled_at && r.enrolled_at >= pS && r.enrolled_at < pE).length;
 
   const rangeLabel = rangeLabels[overviewRangeKey] || '';
   const studentRowsHtml = newStudentRows.map(r => `
@@ -1280,9 +1293,9 @@ async function renderOverviewRangeMetrics(){
 
   container.innerHTML = `
     <div class="summary-row">
-      <div class="summary-card"><div class="num">${newChurches}</div><div class="label">New Churches</div></div>
-      <div class="summary-card"><div class="num">${newStudentRows.length}</div><div class="label">New Students</div></div>
-      <div class="summary-card"><div class="num">${newCompletions || 0}</div><div class="label">Completions</div></div>
+      <div class="summary-card"><div class="num">${newChurches}${deltaBadge(newChurches, prevChurches)}</div><div class="label">New Churches</div></div>
+      <div class="summary-card"><div class="num">${newStudentRows.length}${deltaBadge(newStudentRows.length, prevStudentsCount)}</div><div class="label">New Students</div></div>
+      <div class="summary-card"><div class="num">${newCompletions || 0}${deltaBadge(newCompletions || 0, prevCompletionsCount)}</div><div class="label">Completions</div></div>
     </div>
     <div style="margin-top:14px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
@@ -1333,6 +1346,53 @@ async function loadDashboardData(){
   return { installRows, push, giftRows, dirRows, leaders };
 }
 
+// Green +% / red -% badge comparing a current number to the previous period's.
+function deltaBadge(cur, prev){
+  if(cur === null || cur === undefined || prev === null || prev === undefined) return '';
+  const tip = `vs ${Number(prev).toLocaleString()} in the previous period`;
+  if(prev === 0 && cur === 0) return `<span class="delta flat" title="${tip}">0%</span>`;
+  if(prev === 0) return `<span class="delta up" title="${tip}">+new</span>`;
+  const pct = Math.round((cur - prev) / prev * 100);
+  if(pct === 0) return `<span class="delta flat" title="${tip}">0%</span>`;
+  return pct > 0 ? `<span class="delta up" title="${tip}">+${pct.toLocaleString()}%</span>` : `<span class="delta down" title="${tip}">&minus;${Math.abs(pct).toLocaleString()}%</span>`;
+}
+// Same stretch of the previous month / previous year (1st through the same day), as dates.
+function sameStretchLast(unit){
+  const now = new Date();
+  if(unit === 'month'){
+    const s0 = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+    return { start: s0, end: new Date(s0.getFullYear(), s0.getMonth(), Math.min(now.getDate(), lastDay), 23, 59, 59, 999) };
+  }
+  const s0 = new Date(now.getFullYear() - 1, 0, 1);
+  return { start: s0, end: new Date(now.getFullYear() - 1, now.getMonth(), now.getDate(), 23, 59, 59, 999) };
+}
+
+// The equal-length window just before the selected range, for the +/- % badges.
+// Month to Date compares to last month's same stretch (1st through the same
+// day/time), Year to Date to last year's, Today to yesterday so far, and the
+// rolling ranges to the N days right before them.
+function previousWindow(rangeKey){
+  const now = new Date();
+  const start = rangeStartDate(rangeKey);
+  let ps, pe;
+  if(rangeKey === 'mtd'){
+    ps = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+    pe = new Date(ps.getFullYear(), ps.getMonth(), Math.min(now.getDate(), lastDay), now.getHours(), now.getMinutes(), now.getSeconds());
+  } else if(rangeKey === 'ytd'){
+    ps = new Date(now.getFullYear() - 1, 0, 1);
+    pe = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), now.getSeconds());
+  } else if(rangeKey === 'today'){
+    ps = new Date(start.getTime() - 86400000);
+    pe = new Date(now.getTime() - 86400000);
+  } else {
+    ps = new Date(start.getTime() - (now.getTime() - start.getTime()));
+    pe = start;
+  }
+  return { start: ps, end: pe };
+}
+
 async function paintDashboard(){
   const body = document.getElementById('dashboard-body');
   if(!body || !dashboardCache) return;
@@ -1343,7 +1403,16 @@ async function paintDashboard(){
   const fmt = (n) => (n === null || n === undefined) ? '—' : Number(n).toLocaleString();
   const plus = (n) => (n === null || n === undefined) ? '' : `+${Number(n).toLocaleString()} ${phrase}`;
   const info = (t) => `<button type="button" class="info-icon-btn" data-info="${escapeHtmlReport(t)}">i</button>`;
-  const card = (num, label, sub, extra) => `<div class="summary-card${extra && extra.id ? ' clickable' : ''}"${extra && extra.id ? ` id="${extra.id}"` : ''}><div class="num">${num}</div><div class="label">${label}${extra && extra.info ? ' ' + info(extra.info) : ''}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
+  const deltaHtml = (cur, prev) => {
+    if(cur === null || cur === undefined || prev === null || prev === undefined) return '';
+    const tip = `vs ${fmt(prev)} in the previous period`;
+    if(prev === 0 && cur === 0) return `<span class="delta flat" title="${tip}">0%</span>`;
+    if(prev === 0) return `<span class="delta up" title="${tip}">+new</span>`;
+    const pct = Math.round((cur - prev) / prev * 100);
+    if(pct === 0) return `<span class="delta flat" title="${tip}">0%</span>`;
+    return pct > 0 ? `<span class="delta up" title="${tip}">+${pct.toLocaleString()}%</span>` : `<span class="delta down" title="${tip}">&minus;${Math.abs(pct).toLocaleString()}%</span>`;
+  };
+  const card = (num, label, sub, extra) => `<div class="summary-card${extra && extra.id ? ' clickable' : ''}"${extra && extra.id ? ` id="${extra.id}"` : ''}><div class="num">${num}${extra && extra.delta ? extra.delta : ''}</div><div class="label">${label}${extra && extra.info ? ' ' + info(extra.info) : ''}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
   const section = (title, viewId, cards) => `
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin:26px 0 10px;">
       <h3 style="font-family:'Space Grotesk',sans-serif;font-size:17px;margin:0;">${title}</h3>
@@ -1353,17 +1422,23 @@ async function paintDashboard(){
 
   // Big number = what happened in the selected range. Small line = all-time total.
   const inR = (iso) => !!iso && iso >= startIso;
+  const pw = previousWindow(dashboardRangeKey);
+  const pStartIso = pw.start.toISOString(), pEndIso = pw.end.toISOString();
+  const inP = (iso) => !!iso && iso >= pStartIso && iso < pEndIso;
 
   // ---- Course (already cached) ----
   const newStudents = allRows.filter(r => inR(r.enrolled_at)).length;
+  const prevStudents = allRows.filter(r => inP(r.enrolled_at)).length;
   const totalStudents = allRows.length;
   const activeInRange = allRows.filter(r => r.status !== 'archived' && inR(r.last_activity_at)).length;
   const totalActive = allRows.filter(isActiveStudentRow).length;
   const totalCompleted = allRows.filter(r => !!r.completed_at).length + totalLegacyCompletions;
-  let newCompletions = null;
+  let newCompletions = null, prevCompletions = null;
   try {
     const { count } = await supabaseClient.from('certificates').select('id', { count: 'exact', head: true }).gte('issued_at', startIso);
     newCompletions = count || 0;
+    const { count: pc } = await supabaseClient.from('certificates').select('id', { count: 'exact', head: true }).gte('issued_at', pStartIso).lt('issued_at', pEndIso);
+    prevCompletions = pc || 0;
   } catch(e){ /* leave as — */ }
 
   // ---- App ----
@@ -1371,24 +1446,35 @@ async function paintDashboard(){
   const newOf = (r) => (r.new_installs != null ? r.new_installs : (r.downloads || 0));
   const pad = (n) => String(n).padStart(2, '0');
   const startKey = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}`;
+  const keyOf = (dt) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  // Installs are stored per day, so compare whole days: the previous window's
+  // first day through its last day (rolling ranges stop the day before this range starts).
+  const pStartKey = keyOf(pw.start);
+  const pEndKeyExcl = ['today', 'mtd', 'ytd'].includes(dashboardRangeKey) ? keyOf(new Date(pw.end.getTime() + 86400000)) : startKey;
+  let prevInstalls = null;
   let rangeIos = null, rangeAnd = null, totalInstalls = null, trackedSince = null;
   if(rows){
     const inRange = rows.filter(r => r.stat_date >= startKey);
     rangeIos = inRange.filter(r => r.platform === 'ios').reduce((s, r) => s + newOf(r), 0);
     rangeAnd = inRange.filter(r => r.platform === 'android').reduce((s, r) => s + newOf(r), 0);
+    prevInstalls = rows.filter(r => r.stat_date >= pStartKey && r.stat_date < pEndKeyExcl).reduce((s, r) => s + newOf(r), 0);
     totalInstalls = rows.reduce((s, r) => s + newOf(r), 0);
     trackedSince = rows.reduce((m, r) => (m === null || r.stat_date < m ? r.stat_date : m), null);
   }
   const leaders = d.leaders;
   const newLeaders = leaders ? leaders.filter(l => inR(l.reviewed_at)).length : null;
+  const prevLeaders = leaders ? leaders.filter(l => inP(l.reviewed_at)).length : null;
 
   // ---- Gifts assessments ----
   const gr = d.giftRows;
   let giftsPpl = null, ffPpl = null, giftsPplNew = null, ffPplNew = null, giftsAll = null, giftsNew = null;
+  let giftsPplPrev = null, ffPplPrev = null, giftsPrev = null;
   if(gr){
-    const people = (type, onlyRange) => new Set(gr.filter(r => r.assessment_type === type && (!onlyRange || inR(r.created_at))).map(r => r.user_id)).size;
+    const people = (type, onlyRange, prev) => new Set(gr.filter(r => r.assessment_type === type && (prev ? inP(r.created_at) : (!onlyRange || inR(r.created_at)))).map(r => r.user_id)).size;
     giftsPpl = people('gifts', false); ffPpl = people('fivefold', false);
     giftsPplNew = people('gifts', true); ffPplNew = people('fivefold', true);
+    giftsPplPrev = people('gifts', true, true); ffPplPrev = people('fivefold', true, true);
+    giftsPrev = gr.filter(r => inP(r.created_at)).length;
     giftsAll = gr.length;
     giftsNew = gr.filter(r => inR(r.created_at)).length;
   }
@@ -1399,28 +1485,30 @@ async function paintDashboard(){
   const dirNew = dir ? dir.filter(r => inR(r.created_at)).length : null;
   const live = dir ? dir.filter(r => r.status === 'confirmed') : null;
   const liveNew = live ? live.filter(r => inR(r.created_at)).length : null;
+  const dirPrev = dir ? dir.filter(r => inP(r.created_at)).length : null;
+  const livePrev = live ? live.filter(r => inP(r.created_at)).length : null;
   const pending = dir ? dir.filter(r => r.status === 'pending_confirmation').length : 0;
 
   const total = (n, what) => (n === null || n === undefined) ? '' : `${fmt(n)} ${what}`;
   body.innerHTML =
     section('Course', 'dash-view-course', [
-      card(fmt(newStudents), 'New Students', total(totalStudents, 'total enrolled'), { info: 'Students who enrolled in a course during the selected time range.' }),
+      card(fmt(newStudents), 'New Students', total(totalStudents, 'total enrolled'), { delta: deltaHtml(newStudents, prevStudents), info: 'Students who enrolled in a course during the selected time range.' }),
       card(fmt(activeInRange), 'Active Students', total(totalActive, 'active overall'), { info: 'Big number: students who signed in, used the app, or finished a lesson during the selected range. Small number: all students currently counted as active (activity within the last 6 months, not archived).' }),
-      card(fmt(newCompletions), 'Finished a course', total(totalCompleted, 'total completions'), { info: 'Big number: certificates issued in the selected range. Small number: all-time completions, including ones backfilled from the old platform.' })
+      card(fmt(newCompletions), 'Finished a course', total(totalCompleted, 'total completions'), { delta: deltaHtml(newCompletions, prevCompletions), info: 'Big number: certificates issued in the selected range. Small number: all-time completions, including ones backfilled from the old platform.' })
     ].join('')) +
     section('App', 'dash-view-app', [
-      card(fmt(newLeaders), 'Disciple Makers', total(approvedLeaderCount, 'total'), { id: 'dash-disciple-makers-card', info: 'Newly approved in the selected range. Click to see the list.' }),
-      card(fmt(rows ? rangeIos + rangeAnd : null), 'New Installs', rows ? `${fmt(rangeIos)} iOS · ${fmt(rangeAnd)} Android · ${fmt(totalInstalls)} total` : '', { info: 'First-time installs only, from App Store Connect and Google Play. Apple lags about 2 days. The total only counts days since tracking began' + (trackedSince ? ` (${trackedSince})` : '') + ', so it may be lower than the stores\' lifetime totals.' }),
+      card(fmt(newLeaders), 'Disciple Makers', total(approvedLeaderCount, 'total'), { id: 'dash-disciple-makers-card', delta: deltaHtml(newLeaders, prevLeaders), info: 'Newly approved in the selected range. Click to see the list.' }),
+      card(fmt(rows ? rangeIos + rangeAnd : null), 'New Installs', rows ? `${fmt(rangeIos)} iOS · ${fmt(rangeAnd)} Android · ${fmt(totalInstalls)} total` : '', { delta: deltaHtml(rows ? rangeIos + rangeAnd : null, prevInstalls), info: 'First-time installs only, from App Store Connect and Google Play. Apple lags about 2 days. The total only counts days since tracking began' + (trackedSince ? ` (${trackedSince})` : '') + ', so it may be lower than the stores\' lifetime totals.' }),
       card(fmt(d.push ? d.push.messageable : null), 'Notifications Active', d.push ? `${fmt(d.push.total)} devices registered` : '', { info: 'Phones that currently have push notifications turned on, which is who a push sent from the App page would reach. This is a current count, so it does not change with the date range.' })
     ].join('')) +
     section('Gifts Assessments', 'dash-view-gifts', [
-      card(fmt(giftsPplNew), 'Took Spiritual Gifts', total(giftsPpl, 'people total')),
-      card(fmt(ffPplNew), 'Took Five-Fold', total(ffPpl, 'people total')),
-      card(fmt(giftsNew), 'Combined Total', total(giftsAll, 'total incl. retakes'), { info: 'Every completed assessment of both kinds in the selected range, counting retakes. The first two cards count each person once.' })
+      card(fmt(giftsPplNew), 'Took Spiritual Gifts', total(giftsPpl, 'people total'), { delta: deltaHtml(giftsPplNew, giftsPplPrev) }),
+      card(fmt(ffPplNew), 'Took Five-Fold', total(ffPpl, 'people total'), { delta: deltaHtml(ffPplNew, ffPplPrev) }),
+      card(fmt(giftsNew), 'Combined Total', total(giftsAll, 'total incl. retakes'), { delta: deltaHtml(giftsNew, giftsPrev), info: 'Every completed assessment of both kinds in the selected range, counting retakes. The first two cards count each person once.' })
     ].join('')) +
     section('Churches', 'dash-view-churches', [
-      card(fmt(dirNew), 'Total Churches', `${total(dirTotal, 'total')}${pending ? ` · ${fmt(pending)} pending confirmation` : ''}`, { info: 'Churches added to the Church Directory in the selected range.' }),
-      card(fmt(liveNew), 'Live on Search', total(live ? live.length : null, 'live total'), { info: 'Directory churches marked Confirmed, which are the ones people can find in the app. The big number is by the date the church was added to the directory.' })
+      card(fmt(dirNew), 'Total Churches', `${total(dirTotal, 'total')}${pending ? ` · ${fmt(pending)} pending confirmation` : ''}`, { delta: deltaHtml(dirNew, dirPrev), info: 'Churches added to the Church Directory in the selected range.' }),
+      card(fmt(liveNew), 'Live on Search', total(live ? live.length : null, 'live total'), { delta: deltaHtml(liveNew, livePrev), info: 'Directory churches marked Confirmed, which are the ones people can find in the app. The big number is by the date the church was added to the directory.' })
     ].join(''));
 
   document.getElementById('dash-view-course').addEventListener('click', renderChurchesOverview);
@@ -1447,7 +1535,7 @@ async function renderDashboard(){
   document.getElementById('content').innerHTML = `
     <div style="text-align:left;">
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 4px;">Overview</h2>
-    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 14px;">Quick glance. The big numbers show what happened in the selected time range; the small line under each shows the all-time total.</p>
+    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 14px;">Quick glance. The big numbers show what happened in the selected time range; the small line under each shows the all-time total. The green or red badge compares to the previous period (for example, month to date vs. the same stretch of last month).</p>
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
       ${Object.keys(rangeLabels).map(key => `<button class="mini-btn ${key===dashboardRangeKey?'active':''}" data-dashboard-range="${key}">${rangeLabels[key]}</button>`).join('')}
     </div>
@@ -2724,11 +2812,19 @@ async function loadAppDownloadStats(){
   const oldestAll = [oldestOf(iosRows), oldestOf(androidRows)].filter(Boolean).sort()[0];
   const yearIncomplete = oldestAll && oldestAll > `${thisYear}-01-02`;
 
+  const keyOfD = (dt) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  const lm = sameStretchLast('month'), ly = sameStretchLast('year');
+  const sumBetween = (arr, a, b) => sumNew(arr.filter(r => r.stat_date >= keyOfD(a) && r.stat_date <= keyOfD(b)));
+  const iosPM = sumBetween(iosRows, lm.start, lm.end), andPM = sumBetween(androidRows, lm.start, lm.end);
+  const iosPY = sumBetween(iosRows, ly.start, ly.end), andPY = sumBetween(androidRows, ly.start, ly.end);
+  // No badge for a year comparison when history doesn't reach back that far.
+  const prevYearOk = oldestAll && oldestAll <= keyOfD(ly.start);
+  const prevMonthOk = oldestAll && oldestAll <= keyOfD(lm.start);
   summaryEl.innerHTML = `
-    <div class="summary-card"><div class="num">${fmt(iosMonth)}</div><div class="label">iOS New Installs</div><div class="sub">${monthName} so far</div></div>
-    <div class="summary-card"><div class="num">${fmt(andMonth)}</div><div class="label">Android New Installs</div><div class="sub">${monthName} so far</div></div>
-    <div class="summary-card emphasis"><div class="num">${fmt(iosMonth + andMonth)}</div><div class="label">Total New Installs</div><div class="sub">${monthName} so far</div></div>
-    <div class="summary-card"><div class="num">${fmt(iosYear + andYear)}</div><div class="label">New Installs in ${thisYear}</div><div class="sub">${fmt(iosYear)} iOS · ${fmt(andYear)} Android${yearIncomplete ? ` · tracked since ${oldestAll}` : ''}</div></div>
+    <div class="summary-card"><div class="num">${fmt(iosMonth)}${prevMonthOk ? deltaBadge(iosMonth, iosPM) : ''}</div><div class="label">iOS New Installs</div><div class="sub">${monthName} so far</div></div>
+    <div class="summary-card"><div class="num">${fmt(andMonth)}${prevMonthOk ? deltaBadge(andMonth, andPM) : ''}</div><div class="label">Android New Installs</div><div class="sub">${monthName} so far</div></div>
+    <div class="summary-card emphasis"><div class="num">${fmt(iosMonth + andMonth)}${prevMonthOk ? deltaBadge(iosMonth + andMonth, iosPM + andPM) : ''}</div><div class="label">Total New Installs</div><div class="sub">${monthName} so far</div></div>
+    <div class="summary-card"><div class="num">${fmt(iosYear + andYear)}${prevYearOk ? deltaBadge(iosYear + andYear, iosPY + andPY) : ''}</div><div class="label">New Installs in ${thisYear}</div><div class="sub">${fmt(iosYear)} iOS · ${fmt(andYear)} Android${yearIncomplete ? ` · tracked since ${oldestAll}` : ''}</div></div>
     <div class="summary-card clickable" id="app-disciple-makers-card"><div class="num">${fmt(approvedLeaderCount)}</div><div class="label">Disciple Makers</div><div class="sub">Click to see the list</div></div>
   `;
 
@@ -5769,6 +5865,10 @@ function renderSpiritualGiftsBody(){
   const giftsPeople = latestPerPerson(results, 'gifts');
   const ffPeople = latestPerPerson(results, 'fivefold');
   const thisMonth = results.filter(r => new Date(r.created_at) >= monthStart).length;
+  const lmw = sameStretchLast('month');
+  const lastMonthSame = results.filter(r => { const t = new Date(r.created_at); return t >= lmw.start && t <= lmw.end; }).length;
+  const oldestResult = results.reduce((m, r) => (m === null || r.created_at < m ? r.created_at : m), null);
+  const monthBadge = (oldestResult && new Date(oldestResult) <= lmw.start) ? deltaBadge(thisMonth, lastMonthSame) : '';
   const latest = type === 'gifts' ? giftsPeople : ffPeople;
 
   // How often each gift/office lands as someone's #1, and in their top 3/top 2.
@@ -5806,7 +5906,7 @@ function renderSpiritualGiftsBody(){
     <div class="summary-row">
       <div class="summary-card"><div class="num">${giftsPeople.length}</div><div class="label">Took Spiritual Gifts</div></div>
       <div class="summary-card"><div class="num">${ffPeople.length}</div><div class="label">Took Five-Fold</div></div>
-      <div class="summary-card"><div class="num">${thisMonth}</div><div class="label">Completed this month</div><div class="sub">${results.length} completions all-time, incl. retakes</div></div>
+      <div class="summary-card"><div class="num">${thisMonth}${monthBadge}</div><div class="label">Completed this month</div><div class="sub">${results.length} completions all-time, incl. retakes</div></div>
     </div>
 
     <div style="display:flex;gap:6px;margin-bottom:16px;">
