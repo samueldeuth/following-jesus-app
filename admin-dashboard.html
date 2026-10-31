@@ -1406,7 +1406,7 @@ async function renderAnnual(){
 function paintAnnual(){
   const st = annualState;
   const content = document.getElementById('content');
-  const headCells = st.years.map(y => `<th style="text-align:right;padding:6px 8px;white-space:nowrap;">${y}${annualIsPartial(y) ? '' : ` <button type="button" class="annual-del-year" data-year="${y}" title="Delete ${y}" style="border:none;background:none;color:var(--ink-soft);cursor:pointer;font-size:12px;padding:0 0 0 4px;">&#10005;</button>`}</th>`).join('');
+  const headCells = st.years.map(y => `<th style="text-align:right;padding:6px 8px;white-space:nowrap;">${y}${y < new Date().getFullYear() ? '' : ` <button type="button" class="annual-del-year" data-year="${y}" title="Delete ${y}" style="border:none;background:none;color:var(--ink-soft);cursor:pointer;font-size:12px;padding:0 0 0 4px;">&#10005;</button>`}</th>`).join('');
   const rowsHtml = st.cats.map(c => {
     const cells = st.years.map(y => {
       const v = annualVal(c.name, y);
@@ -1510,6 +1510,7 @@ async function onAnnualInTotalChange(e){
 
 // Deleting a year removes every number saved for it, so it has to be confirmed by typing the year.
 async function onAnnualDeleteYear(yr){
+  if(yr < new Date().getFullYear()) return; // past years are locked
   const saved = annualState.cats.filter(c => annualVal(c.name, yr) !== null).length;
   if(saved === 0){
     if(!confirm(`Remove the empty ${yr} column?`)) return;
