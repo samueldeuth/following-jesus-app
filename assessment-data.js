@@ -14,7 +14,8 @@
    at the bottom) — keep it plain JavaScript, no browser-only code.
    ============================================================ */
 (function (root) {
-  const QUESTION_VERSION = 8; // v8 (Oct 31, 2026): GIV-4 says "give toward" a need (was readable as Helps/Mercy)
+  const QUESTION_VERSION = 9; // v9 (Oct 31, 2026): clarity pass — GIV-5, KNO-2, DIS-4, DIS-5, WIS-3, EXH-1, ICS-4, APO-3 reworded so they can't be read as another gift
+  // v8 (Oct 31, 2026): GIV-4 says "give toward" a need (was readable as Helps/Mercy)
   // v7 (Oct 28, 2026): HOS-4, INT-4, INT-5, MIR-2, MIR-4 reworded after tester feedback
   // v6 (Oct 27, 2026): PRP S3, S4, S10 reworded (listening, weighing, calling out gifts)
   // v5 (Oct 27, 2026): ICS S3 reworded (praying in the Spirit)
@@ -165,7 +166,7 @@
       description: "The word Paul uses in Romans 12:8 means to come alongside someone to strengthen, comfort, and urge them forward. It's from the same family as the name Jesus gave the Holy Spirit: the Helper who comes alongside us (John 14:16). Where mercy stays with people in their pain, encouragement helps them get back up and keep going. Barnabas, the \"son of encouragement\" (Acts 4:36), stood up for Paul when others were afraid of him (Acts 9:27), and later gave John Mark a second chance (Acts 15:37–39).",
       functions: ['Strengthens people who are discouraged or weary', 'Gives practical next steps to grow in following Jesus', 'Calls out what God has put in people', 'Lovingly challenges people who are stuck'],
       questions: [
-        'I give people practical next steps to grow in following Jesus.',
+        'When someone feels stuck in their walk with Jesus, I encourage them with practical next steps to grow.',
         'When someone is discouraged, I know what to say to help them keep going.',
         'I see what God has put in people and tell them, even when they can\'t see it yet.',
         'I\'ll lovingly challenge someone who is stuck, even when I know it may be painful for them to hear.',
@@ -185,7 +186,7 @@
       questions: [
         'In confusing situations, I often see God\'s way forward when others don\'t.',
         'God has given me a strategy for a situation that I couldn\'t have come up with on my own.',
-        'When I face difficulties or challenges, the Holy Spirit gives me insight and strategy to move forward.',
+        'When I or others face difficulties or challenges, the Holy Spirit gives me insight and strategy to move forward.',
         'When people follow the counsel I give, it usually proves to be right.',
         'People come to me for counsel because they know God gives me wisdom beyond my own.'
       ],
@@ -202,7 +203,7 @@
       functions: ['Receives specific insight from the Holy Spirit about people or situations', 'Opens hearts by showing people that God sees them', 'Brings hidden things into the light', 'Directs prayer and ministry with precision'],
       questions: [
         'While praying for someone, the Holy Spirit has shown me details about their life I had no natural way of knowing.',
-        'God has shown me something about a situation that was later confirmed to be true.',
+        'God has shown me something specific about a situation I had no natural way of knowing, and it was later confirmed.',
         'When I pray about a situation, the Holy Spirit sometimes reveals the root issue, not just what others see on the surface.',
         'Something the Holy Spirit showed me has helped a person know God sees them.',
         'Others have confirmed that what God showed me about them was accurate.'
@@ -240,8 +241,8 @@
         'At times the Holy Spirit has let me see or hear into the spiritual realm, such as an angel or an evil spirit at work.',
         'I can tell whether something supernatural is from the Holy Spirit, a human spirit, or an evil spirit.',
         'While praying for someone, God has shown me a spirit behind their struggle, and it left when I took authority in Jesus\' name.',
-        'My cautions about a person or situation have later proved to be right.',
-        'Leaders ask what I\'m sensing before they make decisions.'
+        'When I sensed a wrong spirit behind a person or event, it later proved to be true.',
+        'Leaders ask what I\'m sensing from the Holy Spirit before they make decisions.'
       ],
       // Scripture basis for each statement above, in the same order.
       refs: [
@@ -313,7 +314,7 @@
         'Giving generously brings me joy, not stress.',
         'I manage my money and possessions so I can give more to the Kingdom.',
         'God has prompted me to give toward a specific need, and I followed through.',
-        'People or ministries have told me my gift came at exactly the right time.'
+        'People or ministries have told me what I gave came at exactly the right time.'
       ],
       // Scripture basis for each statement above, in the same order.
       refs: [
@@ -420,7 +421,7 @@
         'I can pray for long stretches and lose track of time.',
         'God puts a burden on me to pray for people, situations, or nations, and I keep praying until I sense a release.',
         'When I don\'t know how to pray for a situation, I pray in the Spirit until I sense a breakthrough.',
-        'I regularly see clear, specific answers to my prayers.',
+        'I regularly see clear, specific answers when I pray for others.',
         'People come to me first when they need someone to pray.'
       ],
       // Scripture basis for each statement above, in the same order.
@@ -444,7 +445,7 @@
       questions: [
         'I\'m energized by starting new things for the Kingdom: churches, ministries, groups, or outreaches.',
         'I think about the big picture and where God is taking His Church next.',
-        'I get restless when things stay the same for too long.',
+        'I get restless when the church gets comfortable and stops reaching new places.',
         'I feel pulled to take the gospel where Jesus isn\'t known yet.',
         'I raise up leaders and build teams so the work can grow beyond me.',
         'I can lay a foundation of vision, values, and structure that others build on (1 Cor 3:10).',
