@@ -2050,7 +2050,7 @@ async function paintDashboard(){
     section('App', 'dash-view-app', [
       card(fmt(newLeaders), 'Disciple Makers', total(approvedLeaderCount, 'total'), { id: 'dash-disciple-makers-card', delta: deltaHtml(newLeaders, prevLeaders), info: 'Newly approved in the selected range. Click to see the list.' }),
       card(fmt(rows ? rangeIos + rangeAnd : null), 'New Installs', rows ? `${fmt(rangeIos)} iOS · ${fmt(rangeAnd)} Android · ${fmt(totalInstalls)} total` : '', { delta: deltaHtml(rows ? rangeIos + rangeAnd : null, prevInstalls), info: 'First-time installs only, from App Store Connect and Google Play. Apple lags about 2 days. The total only counts days since tracking began' + (trackedSince ? ` (${trackedSince})` : '') + ', so it may be lower than the stores\' lifetime totals.' }),
-      card(fmt(d.disciples), 'Disciples Made', d.disciples !== null && d.disciples !== undefined ? `${plus(newCompletions)}` : '', { info: 'Total disciples made through the app: every Following Jesus course completion, including the ones brought over from the old platform. The small line shows how many came in during the selected range.' })
+      card(fmt(newCompletions), 'Disciples Made', total(d.disciples, 'total'), { delta: deltaHtml(newCompletions, prevCompletions), info: 'Course completions in the selected range. The small number is all-time disciples made through the app, including completions brought over from the old platform.' })
     ].join('')) +
     section('Gifts Assessments', 'dash-view-gifts', [
       card(fmt(giftsPplNew), 'Took Spiritual Gifts', total(giftsPpl, 'people total'), { delta: deltaHtml(giftsPplNew, giftsPplPrev) }),
