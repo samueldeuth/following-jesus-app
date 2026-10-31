@@ -14,7 +14,8 @@
    at the bottom) — keep it plain JavaScript, no browser-only code.
    ============================================================ */
 (function (root) {
-  const QUESTION_VERSION = 7; // v7 (Oct 28, 2026): HOS-4, INT-4, INT-5, MIR-2, MIR-4 reworded after tester feedback
+  const QUESTION_VERSION = 8; // v8 (Oct 31, 2026): GIV-4 says "give toward" a need (was readable as Helps/Mercy)
+  // v7 (Oct 28, 2026): HOS-4, INT-4, INT-5, MIR-2, MIR-4 reworded after tester feedback
   // v6 (Oct 27, 2026): PRP S3, S4, S10 reworded (listening, weighing, calling out gifts)
   // v5 (Oct 27, 2026): ICS S3 reworded (praying in the Spirit)
   // v4 (Oct 27, 2026): DIS S1–S3 and WIS S5 reworded after cross-checking Hagin
@@ -305,13 +306,13 @@
         '1 Pet 4:11'
       ] },
     { key: 'GIV', name: 'Giving', scripture: 'Rom 12:8',
-      description: "Romans 12:8 tells the giver to give generously. Every believer is called to give, but the gift of giving is a Spirit-given joy and capacity to resource God's work. The Macedonian churches gave beyond their ability (2 Cor 8:1–5), and women like Joanna and Susanna supported Jesus' ministry from their own means (Luke 8:3).",
+      description: "Romans 12:8 tells the giver to give generously. Every believer is called to give, but the gift of giving is a Spirit-given joy and capacity to resource God's work. God enriches givers so they can be generous on every occasion (2 Cor 9:11). The Macedonian churches gave beyond their ability (2 Cor 8:1–5), and women like Joanna and Susanna supported Jesus' ministry from their own means (Luke 8:3).",
       functions: ['Gives generously and cheerfully beyond the tithe (2 Cor 9:7)', 'Manages resources to give more to the Kingdom', 'Meets needs the Holy Spirit highlights', 'Resources ministry and missions'],
       questions: [
         'I look for chances to give to God\'s work beyond my tithe.',
         'Giving generously brings me joy, not stress.',
         'I manage my money and possessions so I can give more to the Kingdom.',
-        'God has prompted me to meet a specific need, and I followed through.',
+        'God has prompted me to give toward a specific need, and I followed through.',
         'People or ministries have told me my gift came at exactly the right time.'
       ],
       // Scripture basis for each statement above, in the same order.
@@ -319,7 +320,7 @@
         '2 Cor 8:3',
         '2 Cor 9:7',
         'Luke 16:10–11',
-        'Acts 4:34–35',
+        'Acts 4:34–35; 2 Cor 9:11',
         'Phil 4:18'
       ] },
     { key: 'HOS', name: 'Hospitality', scripture: '1 Pet 4:9',
