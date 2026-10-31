@@ -356,7 +356,8 @@
       <span>Following Jesus</span>
     </div>
     <div id="admin-account-info"></div>
-    <a class="sidebar-link" id="sidebar-overview-link">Overview</a>
+    <a class="sidebar-link" id="sidebar-dashboard-link">Dashboard</a>
+    <a class="sidebar-link" id="sidebar-overview-link">Course</a>
     <a class="sidebar-link" id="sidebar-all-students-link">All Students</a>
     <a class="sidebar-link" id="sidebar-push-notifications-link">App</a>
     <a class="sidebar-link" id="sidebar-church-directory-link">Church Directory</a>
@@ -439,14 +440,16 @@ function cleanRedirectUrl(){
 //   #course:<id>
 //   #all-students
 //   #push-notifications
-// Overview itself uses no hash at all (the default/fallback case).
+// The Dashboard is the default/fallback case; the Course page uses #course-overview.
 // Deliberately NOT used for renderStudentDetail/renderMergeAccounts/
 // renderSubscriberList and other deeper or rarer views -- those are
 // reached via clicks from an already-loaded page and refreshing while
 // deep in one of them is rare enough not to be worth the extra
 // complexity; landing back on the parent list they were opened from is
 // an acceptable fallback for those.
+let viewingDashboard = false;
 function setViewHash(hash){
+  viewingDashboard = (hash === 'dashboard');
   history.replaceState(null, '', hash ? '#' + hash : window.location.pathname + window.location.search);
 }
 
@@ -469,11 +472,12 @@ function restoreViewFromHash(){
     // Course id from an old/bad link no longer matches anything real --
     // fall through to Overview rather than showing a broken empty page.
   }
+  if(hash === '#course-overview'){ renderChurchesOverview(); return; }
   if(hash === '#all-students'){ renderAllStudents(); return; }
   if(hash === '#push-notifications'){ renderPushNotifications(); return; }
   if(hash === '#church-directory'){ renderChurchDirectory(); return; }
   if(hash === '#spiritual-gifts'){ renderSpiritualGifts(); return; }
-  renderChurchesOverview();
+  renderDashboard();
 }
 
 // Defensive cleanup on every load: only strips the hash if it's clearly
@@ -488,7 +492,7 @@ function restoreViewFromHash(){
 // whole point of what lets a page refresh land back where the admin
 // actually was (a specific church or course) instead of always
 // bouncing to Overview.
-if(window.location.hash && !window.location.hash.includes('access_token') && !/^#(church|course|all-students|push-notifications|church-directory|spiritual-gifts):?/.test(window.location.hash)){
+if(window.location.hash && !window.location.hash.includes('access_token') && !/^#(church|course|dashboard|all-students|push-notifications|church-directory|spiritual-gifts):?/.test(window.location.hash)){
   history.replaceState(null, '', window.location.pathname + window.location.search);
 }
 
@@ -581,7 +585,7 @@ window.addEventListener('beforeunload', (e) => {
 // click handler -- stopImmediatePropagation on cancel is what actually
 // prevents that handler from ever firing and discarding the edit.
 document.querySelector('.admin-sidebar').addEventListener('click', (e) => {
-  const navTarget = e.target.closest('#sidebar-overview-link, #sidebar-all-students-link, #sidebar-push-notifications-link, #sidebar-church-directory-link, #sidebar-spiritual-gifts-link, .sidebar-church-item');
+  const navTarget = e.target.closest('#sidebar-dashboard-link, #sidebar-overview-link, #sidebar-all-students-link, #sidebar-push-notifications-link, #sidebar-church-directory-link, #sidebar-spiritual-gifts-link, .sidebar-church-item');
   if(!navTarget || !hasUnsavedChurchEdits) return;
   if(!confirm('You have unsaved changes on this page. Leave without saving?')){
     e.preventDefault();
@@ -748,6 +752,7 @@ async function init(){
   totalLegacyCompletions = (legacyRows || []).reduce((sum, r) => sum + (r.legacy_completions || 0), 0);
   followingJesusCourseId = (allRows.find(r => r.course_title === 'Following Jesus') || {}).course_id || null;
   renderSidebar();
+  document.getElementById('sidebar-dashboard-link').addEventListener('click', renderDashboard);
   document.getElementById('sidebar-overview-link').addEventListener('click', renderChurchesOverview);
   document.getElementById('sidebar-all-students-link').addEventListener('click', renderAllStudents);
   document.getElementById('sidebar-push-notifications-link').addEventListener('click', renderPushNotifications);
@@ -1168,7 +1173,8 @@ function renderSidebar(){
     btn.onclick = () => { sidebarStatusFilter = btn.dataset.statusFilter; renderSidebar(); };
   });
 
-  document.getElementById('sidebar-overview-link').classList.toggle('active', activeChurchId === null && activeCourseId === null && !viewingNoChurch && !viewingAllStudents && !viewingPushNotifications && !viewingChurchDirectory && !viewingSpiritualGifts);
+  document.getElementById('sidebar-dashboard-link').classList.toggle('active', viewingDashboard);
+  document.getElementById('sidebar-overview-link').classList.toggle('active', !viewingDashboard && activeChurchId === null && activeCourseId === null && !viewingNoChurch && !viewingAllStudents && !viewingPushNotifications && !viewingChurchDirectory && !viewingSpiritualGifts);
   document.getElementById('sidebar-all-students-link').classList.toggle('active', viewingAllStudents);
   document.getElementById('sidebar-push-notifications-link').classList.toggle('active', viewingPushNotifications);
   document.getElementById('sidebar-church-directory-link').classList.toggle('active', viewingChurchDirectory);
@@ -1305,6 +1311,150 @@ function wireOverviewRangeSelector(){
   });
 }
 
+/* ---------- Dashboard: quick-glance totals across the whole business ---------- */
+// One screen of top-level numbers (Course, App, Gifts Assessments, Churches).
+// Each big number is a current total; the small line under it shows how
+// many were added in the selected time range. Detail lives on each
+// section's own page (the "View" links). Uses the same range options as the
+// Course page.
+let dashboardRangeKey = 'mtd';
+let dashboardCache = null;
+const dashboardRangePhrase = { 'today': 'today', '7d': 'in the last 7 days', '30d': 'in the last 30 days', '90d': 'in the last 90 days', 'mtd': 'month to date', 'ytd': 'year to date' };
+
+async function loadDashboardData(){
+  const safe = async (fn) => { try { return await fn(); } catch(e){ console.warn('dashboard stat failed', e); return null; } };
+  const [installRows, push, giftRows, dirTotal, dirLive, dirPending] = await Promise.all([
+    safe(async () => { const { data, error } = await supabaseClient.from('app_download_stats').select('stat_date, platform, downloads, new_installs').order('stat_date', { ascending: false }).limit(2000); if(error) throw error; return data || []; }),
+    safe(async () => { const { data: { session } } = await supabaseClient.auth.getSession(); const res = await fetch('/.netlify/functions/get-push-audience-count', { headers: { Authorization: `Bearer ${session?.access_token || ''}` } }); if(!res.ok) throw new Error('push count ' + res.status); return await res.json(); }),
+    safe(() => fetchAllRows(() => supabaseClient.from('gift_assessment_results').select('id, user_id, assessment_type, created_at').order('created_at', { ascending: false }))),
+    safe(async () => { const { count, error } = await supabaseClient.from('church_directory').select('id', { count: 'exact', head: true }); if(error) throw error; return count || 0; }),
+    safe(async () => { const { count, error } = await supabaseClient.from('church_directory').select('id', { count: 'exact', head: true }).eq('status', 'confirmed'); if(error) throw error; return count || 0; }),
+    safe(async () => { const { count, error } = await supabaseClient.from('church_directory').select('id', { count: 'exact', head: true }).eq('status', 'pending_confirmation'); if(error) throw error; return count || 0; })
+  ]);
+  return { installRows, push, giftRows, dirTotal, dirLive, dirPending };
+}
+
+async function paintDashboard(){
+  const body = document.getElementById('dashboard-body');
+  if(!body || !dashboardCache) return;
+  const d = dashboardCache;
+  const startDate = rangeStartDate(dashboardRangeKey);
+  const startIso = startDate.toISOString();
+  const phrase = dashboardRangePhrase[dashboardRangeKey] || '';
+  const fmt = (n) => (n === null || n === undefined) ? '—' : Number(n).toLocaleString();
+  const plus = (n) => (n === null || n === undefined) ? '' : `+${Number(n).toLocaleString()} ${phrase}`;
+  const info = (t) => `<button type="button" class="info-icon-btn" data-info="${escapeHtmlReport(t)}">i</button>`;
+  const card = (num, label, sub, extra) => `<div class="summary-card${extra && extra.id ? ' clickable' : ''}"${extra && extra.id ? ` id="${extra.id}"` : ''}><div class="num">${num}</div><div class="label">${label}${extra && extra.info ? ' ' + info(extra.info) : ''}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
+  const section = (title, viewId, cards) => `
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin:26px 0 10px;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:17px;margin:0;">${title}</h3>
+      <a class="back-link" style="margin:0;cursor:pointer;" id="${viewId}">View &rarr;</a>
+    </div>
+    <div class="summary-row">${cards}</div>`;
+
+  // ---- Course (already cached) ----
+  const totalChurches = allChurches.length;
+  const activeChurches = allChurches.filter(ch => !['draft', 'archived'].includes(ch.course_status || 'live')).length;
+  const newChurches = allChurches.filter(c => c.approved_at && c.approved_at >= startIso).length;
+  const totalActive = allRows.filter(isActiveStudentRow).length;
+  const totalStudents = allRows.length;
+  const newStudents = allRows.filter(r => r.enrolled_at && r.enrolled_at >= startIso).length;
+  const totalCompleted = allRows.filter(r => !!r.completed_at).length + totalLegacyCompletions;
+  let newCompletions = null;
+  try {
+    const { count } = await supabaseClient.from('certificates').select('id', { count: 'exact', head: true }).gte('issued_at', startIso);
+    newCompletions = count || 0;
+  } catch(e){ /* leave as — */ }
+
+  // ---- App ----
+  const rows = d.installRows;
+  const newOf = (r) => (r.new_installs != null ? r.new_installs : (r.downloads || 0));
+  const pad = (n) => String(n).padStart(2, '0');
+  const startKey = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}`;
+  let rangeIos = null, rangeAnd = null, totalInstalls = null, trackedSince = null;
+  if(rows){
+    const inRange = rows.filter(r => r.stat_date >= startKey);
+    rangeIos = inRange.filter(r => r.platform === 'ios').reduce((s, r) => s + newOf(r), 0);
+    rangeAnd = inRange.filter(r => r.platform === 'android').reduce((s, r) => s + newOf(r), 0);
+    totalInstalls = rows.reduce((s, r) => s + newOf(r), 0);
+    trackedSince = rows.reduce((m, r) => (m === null || r.stat_date < m ? r.stat_date : m), null);
+  }
+
+  // ---- Gifts assessments ----
+  const gr = d.giftRows;
+  let giftsPeople = null, ffPeople = null, giftsAll = null, giftsNew = null;
+  if(gr){
+    giftsPeople = new Set(gr.filter(r => r.assessment_type === 'gifts').map(r => r.user_id)).size;
+    ffPeople = new Set(gr.filter(r => r.assessment_type === 'fivefold').map(r => r.user_id)).size;
+    giftsAll = gr.length;
+    giftsNew = gr.filter(r => r.created_at >= startIso).length;
+  }
+  const newGiftsOnly = gr ? gr.filter(r => r.assessment_type === 'gifts' && r.created_at >= startIso).length : null;
+  const newFfOnly = gr ? gr.filter(r => r.assessment_type === 'fivefold' && r.created_at >= startIso).length : null;
+
+  body.innerHTML =
+    section('Course', 'dash-view-course', [
+      card(fmt(activeChurches), 'Active Churches', `${fmt(totalChurches)} total all-time · ${plus(newChurches)}`),
+      card(fmt(totalActive), 'Active Students', `${fmt(totalStudents)} total all-time · ${plus(newStudents)}`, { info: 'Active means enrolled, not archived, and signed in, used the app, or finished a lesson within the last 6 months.' }),
+      card(fmt(totalCompleted), 'Finished a course', plus(newCompletions))
+    ].join('')) +
+    section('App', 'dash-view-app', [
+      card(fmt(approvedLeaderCount), 'Disciple Makers', 'Click to see the list', { id: 'dash-disciple-makers-card' }),
+      card(fmt(rows ? rangeIos + rangeAnd : null), 'New Installs', rows ? `${dashboardRangeLabel()} · ${fmt(rangeIos)} iOS · ${fmt(rangeAnd)} Android` : '', { info: 'First-time installs only, from App Store Connect and Google Play. Apple lags about 2 days.' }),
+      card(fmt(totalInstalls), 'Total Installs', trackedSince ? `new installs tracked since ${trackedSince}` : '', { info: 'All first-time installs recorded in this dashboard so far. It only counts days since tracking began, so it may be lower than the stores\' lifetime totals.' }),
+      card(fmt(d.push ? d.push.messageable : null), 'Notifications Active', d.push ? `${fmt(d.push.total)} devices registered` : '', { info: 'Phones that currently have push notifications turned on, which is who a push sent from the App page would reach.' })
+    ].join('')) +
+    section('Gifts Assessments', 'dash-view-gifts', [
+      card(fmt(giftsPeople), 'Took Spiritual Gifts', plus(newGiftsOnly)),
+      card(fmt(ffPeople), 'Took Five-Fold', plus(newFfOnly)),
+      card(fmt(giftsAll), 'Combined Total', `incl. retakes · ${plus(giftsNew)}`, { info: 'Every completed assessment of both kinds, counting retakes. The first two cards count each person once.' })
+    ].join('')) +
+    section('Churches', 'dash-view-churches', [
+      card(fmt(d.dirTotal), 'Total Churches', d.dirPending ? `${fmt(d.dirPending)} pending confirmation` : 'in the Church Directory'),
+      card(fmt(d.dirLive), 'Live on Search', 'confirmed and showing in Find a Church', { info: 'Directory churches marked Confirmed, which are the ones people can find in the app.' })
+    ].join(''));
+
+  document.getElementById('dash-view-course').addEventListener('click', renderChurchesOverview);
+  document.getElementById('dash-view-app').addEventListener('click', renderPushNotifications);
+  document.getElementById('dash-view-gifts').addEventListener('click', renderSpiritualGifts);
+  document.getElementById('dash-view-churches').addEventListener('click', renderChurchDirectory);
+  const dm = document.getElementById('dash-disciple-makers-card');
+  if(dm) dm.addEventListener('click', renderDiscipleMakers);
+  initInfoTooltips();
+}
+
+function dashboardRangeLabel(){ return rangeLabels[dashboardRangeKey] || ''; }
+
+async function renderDashboard(){
+  activeChurchId = null;
+  activeCourseId = null;
+  viewingNoChurch = false;
+  viewingAllStudents = false;
+  viewingSubscriberList = false;
+  viewingPushNotifications = false;
+  viewingChurchDirectory = false; viewingSpiritualGifts = false;
+  setViewHash('dashboard');
+  renderSidebar();
+  document.getElementById('content').innerHTML = `
+    <div style="text-align:left;">
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 4px;">Dashboard</h2>
+    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 14px;">Quick glance. The big numbers are totals; the small line shows what was added in the selected time range.</p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      ${Object.keys(rangeLabels).map(key => `<button class="mini-btn ${key===dashboardRangeKey?'active':''}" data-dashboard-range="${key}">${rangeLabels[key]}</button>`).join('')}
+    </div>
+    <div id="dashboard-body"><p style="color:var(--ink-soft);font-size:13px;margin-top:20px;">Loading…</p></div>
+    </div>`;
+  document.querySelectorAll('[data-dashboard-range]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      dashboardRangeKey = btn.dataset.dashboardRange;
+      document.querySelectorAll('[data-dashboard-range]').forEach(b => b.classList.toggle('active', b.dataset.dashboardRange === dashboardRangeKey));
+      paintDashboard();
+    });
+  });
+  dashboardCache = await loadDashboardData();
+  if(viewingDashboard) paintDashboard();
+}
+
 function renderChurchesOverview(){
   activeChurchId = null;
   activeCourseId = null;
@@ -1313,7 +1463,7 @@ function renderChurchesOverview(){
   viewingSubscriberList = false;
   viewingPushNotifications = false;
   viewingChurchDirectory = false; viewingSpiritualGifts = false;
-  setViewHash(null);
+  setViewHash('course-overview');
   renderSidebar();
   const totalChurches = allChurches.length;
   const activeChurches = allChurches.filter(ch => !['draft', 'archived'].includes(ch.course_status || 'live')).length;
@@ -1342,12 +1492,11 @@ function renderChurchesOverview(){
   const noChurchRows = allRows.filter(r => !r.church_id);
 
   document.getElementById('content').innerHTML = `
-    <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 20px;">Following Jesus Dashboard</h2>
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 20px;">Course</h2>
     <div class="summary-row">
       <div class="summary-card"><div class="num">${activeChurches}</div><div class="label">Active Churches</div><div class="sub">${totalChurches} total all-time</div></div>
       <div class="summary-card"><div class="num">${totalActive}</div><div class="label">Active Students <button type="button" class="info-icon-btn" data-info="Active means enrolled, not archived, and signed in, used the app, or finished a lesson within the last 6 months. Anyone quiet longer than that is counted as Inactive (see the Inactive tab under All Students) and moves back to Active on their own the next time they come back.">i</button></div><div class="sub">${totalInactive ? `${totalInactive} inactive (6+ months) · ` : ''}${totalStudents} total all-time</div></div>
       <div class="summary-card"><div class="num">${totalCompleted + totalLegacyCompletions}</div><div class="label">Finished a course ${totalLegacyCompletions ? `<button type="button" class="info-icon-btn" data-info="Includes ${totalLegacyCompletions} completions from before this dashboard tracked them, backfilled from the old platform's records.">i</button>` : ''}</div></div>
-      <div class="summary-card clickable" id="disciple-makers-card"><div class="num">${approvedLeaderCount}</div><div class="label">Disciple Makers</div></div>
     </div>
     <div style="display:flex;gap:6px;margin:18px 0 10px;flex-wrap:wrap;">
       ${Object.keys(rangeLabels).map(key => `<button class="mini-btn ${key===overviewRangeKey?'active':''}" data-overview-range="${key}">${rangeLabels[key]}</button>`).join('')}
@@ -1402,8 +1551,6 @@ function renderChurchesOverview(){
     tr.addEventListener('click', () => renderChurchStudents(tr.dataset.churchId));
   });
 
-  const discipleMakersCard = document.getElementById('disciple-makers-card');
-  if(discipleMakersCard) discipleMakersCard.addEventListener('click', renderDiscipleMakers);
   initInfoTooltips();
 }
 
@@ -1416,8 +1563,8 @@ function renderChurchesOverview(){
 // "users manage their own application").
 async function renderDiscipleMakers(){
   const content = document.getElementById('content');
-  content.innerHTML = `<div class="back-link" id="back-to-overview-from-leaders">&larr; Back to Overview</div><h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 20px;">Disciple Makers</h2><p style="color:var(--ink-soft);font-size:13px;">Loading…</p>`;
-  document.getElementById('back-to-overview-from-leaders').addEventListener('click', renderChurchesOverview);
+  content.innerHTML = `<div class="back-link" id="back-to-overview-from-leaders">&larr; Back to Dashboard</div><h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 20px;">Disciple Makers</h2><p style="color:var(--ink-soft);font-size:13px;">Loading…</p>`;
+  document.getElementById('back-to-overview-from-leaders').addEventListener('click', renderDashboard);
 
   const { data: leaders, error } = await supabaseClient.rpc('get_approved_leader_applications');
   if(error || !leaders){
@@ -1439,7 +1586,7 @@ async function renderDiscipleMakers(){
   const emailableLeaders = leaders.filter(l => l.applicant_email);
 
   content.innerHTML = `
-    <div class="back-link" id="back-to-overview-from-leaders">&larr; Back to Overview</div>
+    <div class="back-link" id="back-to-overview-from-leaders">&larr; Back to Dashboard</div>
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 8px;">Disciple Makers</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin:0 0 14px;">Everyone currently approved by their pastor to disciple others. Removing someone here revokes that status immediately -- use this if word comes back of anti-biblical activity.</p>
     <button class="mini-btn gold" id="email-all-leaders-btn" style="margin-bottom:16px;" ${emailableLeaders.length ? '' : 'disabled'}>Email All Disciple Makers</button>
@@ -1449,7 +1596,7 @@ async function renderDiscipleMakers(){
     </table>
   `;
 
-  document.getElementById('back-to-overview-from-leaders').addEventListener('click', renderChurchesOverview);
+  document.getElementById('back-to-overview-from-leaders').addEventListener('click', renderDashboard);
 
   document.getElementById('email-all-leaders-btn')?.addEventListener('click', () => {
     openDiscipleMakerComposer(emailableLeaders.map(l => ({ email: l.applicant_email, name: l.name })), 'All Disciple Makers');
