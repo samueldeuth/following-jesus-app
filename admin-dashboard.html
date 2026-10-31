@@ -1337,7 +1337,7 @@ function wireOverviewRangeSelector(){
 // (a stat sheet for the chosen year, a combined year-over-year, and one card
 // per category).
 const ANNUAL_COLORS = ['#3E82F7', '#B08D3E', '#2E9E6B', '#C0392B', '#7A5AF8', '#E08A1E', '#17A2B8', '#8E8E93', '#D6457F'];
-let annualState = { cats: [], vals: {}, years: [] };
+let annualState = { cats: [], vals: {}, notes: {}, years: [] };
 let annualSelectedYear = new Date().getFullYear();
 let annualPickedYear = false;
 let annualSavedTimer = null;
@@ -1361,7 +1361,7 @@ function annualPct(cur, prev){
   if(cur === null || prev === null || prev === 0) return null;
   return Math.round((cur - prev) / prev * 100);
 }
-function annualPctText(p){ return p === null ? '' : (p >= 0 ? `+${p > 999 ? '999+' : p.toLocaleString()}%` : `−${Math.abs(p).toLocaleString()}%`); }
+function annualPctText(p){ return p === null ? '' : (p >= 0 ? (p > 999 ? '+999%+' : `+${p.toLocaleString()}%`) : `−${Math.abs(p).toLocaleString()}%`); }
 // The current calendar year is still in progress, so it is shown as year-to-date with no % change.
 const annualIsPartial = (y) => y === new Date().getFullYear();
 
@@ -1372,9 +1372,9 @@ async function loadAnnualData(){
   ]);
   if(e1 || e2) throw (e1 || e2);
   annualState.cats = cats || [];
-  annualState.vals = {};
+  annualState.vals = {}; annualState.notes = {};
   const yrs = new Set();
-  (stats || []).forEach(r => { annualState.vals[annualKey(r.category, r.year)] = Number(r.value); yrs.add(r.year); });
+  (stats || []).forEach(r => { annualState.vals[annualKey(r.category, r.year)] = Number(r.value); if(r.note) annualState.notes[annualKey(r.category, r.year)] = r.note; yrs.add(r.year); });
   const thisYear = new Date().getFullYear();
   yrs.add(thisYear);
   annualState.years = Array.from(yrs).sort((a, b) => a - b);
@@ -1410,7 +1410,8 @@ function paintAnnual(){
   const rowsHtml = st.cats.map(c => {
     const cells = st.years.map(y => {
       const v = annualVal(c.name, y);
-      return `<td style="padding:3px 4px;"><input type="text" inputmode="decimal" class="annual-input" data-cat="${escapeHtmlReport(c.name)}" data-year="${y}" value="${v === null ? '' : v}" style="width:84px;text-align:right;padding:6px 7px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:var(--bg-soft);"></td>`;
+      const note = annualState.notes[annualKey(c.name, y)];
+      return `<td style="padding:3px 4px;white-space:nowrap;"><input type="text" inputmode="decimal" class="annual-input" data-cat="${escapeHtmlReport(c.name)}" data-year="${y}" value="${v === null ? '' : v}" style="width:84px;text-align:right;padding:6px 7px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:var(--bg-soft);">${note ? `<button type="button" class="info-icon-btn" data-info="${escapeHtmlReport(note)}">i</button>` : ''}</td>`;
     }).join('');
     return `<tr style="border-top:1px solid var(--line);">
       <td style="padding:6px 10px 6px 0;white-space:nowrap;"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${annualCatColor(c.name)};margin-right:8px;"></span>${escapeHtmlReport(c.name)}${c.unit ? ` <span style="color:var(--ink-soft);font-size:11px;">(${escapeHtmlReport(c.unit)})</span>` : ''}</td>
@@ -1460,6 +1461,7 @@ function paintAnnual(){
   document.getElementById('annual-year-select').addEventListener('change', (e) => { annualSelectedYear = Number(e.target.value); annualPickedYear = true; renderAnnualGraphics(); });
   document.getElementById('annual-download-all').addEventListener('click', downloadAllAnnualGraphics);
   renderAnnualGraphics();
+  if(typeof initInfoTooltips === 'function') initInfoTooltips();
 }
 
 function annualStatus(msg, bad){
@@ -1662,6 +1664,12 @@ function shortNum(n){
   if(n >= 1e3) return (n / 1e3).toFixed(n >= 1e4 ? 0 : 1).replace(/\.0$/, '') + 'K';
   return String(Math.round(n));
 }
+// One-line footnote from any year notes (deduped), shown on the graphics.
+function annualFootnotes(years, onlyCat){
+  const seen = new Set(); const out = [];
+  annualState.cats.forEach(c => { if(onlyCat && c.name !== onlyCat) return; years.forEach(y => { const n = annualState.notes[annualKey(c.name, y)]; if(n && !seen.has(n)){ seen.add(n); out.push(n); } }); });
+  return out.join('  ');
+}
 function annualBrandHeader(ctx, W, label){
   cvText(ctx, 'FOLLOWING JESUS', 60, 78, '700 26px "Space Grotesk", sans-serif', '#B08D3E', 'left');
   if(label) cvText(ctx, label, W - 60, 78, '600 24px Inter, sans-serif', 'rgba(255,255,255,.7)', 'right');
@@ -1743,7 +1751,7 @@ function drawYearOverYear(){
     lx += 28 + w + 34;
   });
   // chart area
-  const cx = 150, cw = W - 150 - 60, cTop = 300, cBase = H - 110;
+  const cx = 150, cw = W - 150 - 60, cTop = 300, cBase = H - 150;
   const totals = yrs.map(y => annualTotalForYear(y));
   const max = niceMax(Math.max(...totals));
   for(let i = 0; i <= 4; i++){
@@ -1767,6 +1775,8 @@ function drawYearOverYear(){
     cvText(ctx, annualIsPartial(y) ? `${y} YTD` : String(y), bx + bw / 2, cBase + 38, '600 24px Inter, sans-serif', 'rgba(255,255,255,.8)', 'center');
   });
   cvText(ctx, 'Includes all books and plans directly related to Following Jesus and discipleship', 60, H - 30, '400 20px Inter, sans-serif', 'rgba(255,255,255,.45)', 'left');
+  const fn = annualFootnotes(yrs.map(y => y));
+  if(fn) cvFit(ctx, fn, 60, H - 62, W - 120, 20, 400, 'Inter, sans-serif', 'rgba(255,255,255,.65)', 'left');
   return cv;
 }
 
@@ -1800,6 +1810,7 @@ function drawCategoryCard(cat){
     cvText(ctx, shortNum(v), bx + bw / 2, by - 10, '600 20px Inter, sans-serif', '#17191D', 'center');
     cvText(ctx, annualIsPartial(y) ? `${y} YTD` : String(y), bx + bw / 2, base + 34, '500 20px Inter, sans-serif', '#6B7280', 'center');
   });
+  { const fn = annualFootnotes(yrs, cat); if(fn) cvFit(ctx, fn, 60, 962, W - 120, 20, 400, 'Inter, sans-serif', '#6B7280', 'left'); }
   cvText(ctx, 'ALL-TIME TOTAL', 60, 1000, '700 20px Inter, sans-serif', '#6B7280', 'left');
   cvFit(ctx, unit + annualFmt(annualTotalForCat(cat)), 60, 1050, W - 120, 48, 700, '"Space Grotesk", sans-serif', '#17191D', 'left');
   return cv;
