@@ -391,10 +391,11 @@
     const perCat = A.categories[0].questions.length;
 
     let topHtml = '';
+    const topCards = [];
     top.forEach((key, i) => {
       const c = FJ.categoryByKey(TYPE, key);
       const score = res.scores[key] || 0;
-      topHtml +=
+      const card =
         '<div class="card top-card">' +
           '<span class="rank-badge">' + (i === 0 ? 'Your top ' + noun : '#' + (i + 1)) + '</span>' +
           '<h2>' + esc(c.name) + '</h2>' +
@@ -407,6 +408,8 @@
           '<ul class="functions">' + c.functions.map(f => '<li>' + esc(f) + '</li>').join('') + '</ul>' +
           (FJ.resourcesFor(key).length ? '<h3 style="margin-top:18px">Grow in this ' + noun + '</h3>' + resourceListHtml(FJ.resourcesFor(key)) : '') +
         '</div>';
+      topCards.push(card);
+      topHtml += card;
     });
 
     const topScore = top.length ? (res.scores[top[0]] || 0) : 0;
@@ -441,6 +444,29 @@
       }
     }
 
+    const keepGrowingHtml = resourceListHtml([
+      IN_APP ? { label:'Back to the Following Jesus app', note:'Daily devotionals, prayer, and discipleship', url:'/app' }
+             : { label:'The Following Jesus app', note:'Free daily devotionals, prayer, and discipleship', url:'https://qrco.de/fjapp' },
+      FJ.LINKS.book,
+      { label:'Take the ' + OTHER.title, note:OTHER.categories.length + ' ' + (OTHER.type === 'gifts' ? 'spiritual gifts' : 'offices') + ' · about ' + OTHER.minutes + ' minutes', url:OTHER.path }
+    ]);
+    const compareNote = 'These scores compare your ' + (TYPE === 'gifts' ? 'gifts' : 'offices') + ' to each other. If several look high, lean into your top ' + (A.topCount === 3 ? 'three' : 'two') + ' first.';
+    // Printed / "Save as PDF" layout (hidden on screen): summary → all scores →
+    // one page per top result → keep growing + remember.
+    const printPages =
+      '<section class="print-only print-page pp-scores"><div class="wrap">' +
+        '<h2>All your scores</h2>' +
+        '<p class="small muted" style="margin:0 0 8px">' + esc(compareNote) + '</p>' +
+        '<div class="band-key">' + bandKey + '</div>' +
+        '<div class="card"><div class="bars">' + barsHtml + '</div></div>' +
+        (tieNoteText ? '<p class="pp-tie">' + esc(tieNoteText) + '</p>' : '') +
+        roleNoteHtml +
+      '</div></section>' +
+      topCards.map(card => '<section class="print-only print-page pp-detail"><div class="wrap">' + card + '</div></section>').join('') +
+      '<section class="print-only print-page pp-growth"><div class="wrap">' +
+        '<h2>Keep growing</h2>' + keepGrowingHtml +
+        '<h2 style="margin-top:22px">Remember</h2>' + bestUseHtml() +
+      '</div></section>';
     app.innerHTML =
       '<div class="hero"><div class="wrap">' +
         '<div class="eyebrow">Your results' + (dateStr ? ' · ' + esc(dateStr) : '') + '</div>' +
@@ -483,12 +509,7 @@
       '</div></section>' +
       '<section style="padding-top:0"><div class="wrap">' +
         '<h2>Keep growing</h2>' +
-        resourceListHtml([
-          IN_APP ? { label:'Back to the Following Jesus app', note:'Daily devotionals, prayer, and discipleship', url:'/app' }
-                 : { label:'The Following Jesus app', note:'Free daily devotionals, prayer, and discipleship', url:'https://qrco.de/fjapp' },
-          FJ.LINKS.book,
-          { label:'Take the ' + OTHER.title, note:OTHER.categories.length + ' ' + (OTHER.type === 'gifts' ? 'spiritual gifts' : 'offices') + ' · about ' + OTHER.minutes + ' minutes', url:OTHER.path }
-        ]) +
+        keepGrowingHtml +
       '</div></section>' +
       '<section style="padding-top:0"><div class="wrap">' +
         '<h2>Remember</h2>' + bestUseHtml() +
@@ -501,7 +522,9 @@
         '<div class="btn-row no-print" style="margin-top:22px">' +
           '<button class="btn btn-dark" id="retakeBtn">Retake the assessment</button>' +
         '</div>' +
-      '</div></section>';
+      '</div></section>' +
+      // Print-only pages go last in the page so on-screen lookups find the visible copies first.
+      printCoverHtml(top, res, dateStr, ties) + printPages;
 
     fillShareSlot();
     if (res.id) fillConfirmSlot(res.id, top);
@@ -513,6 +536,39 @@
     const pb = document.getElementById('pdfBtn');
     if (pb) pb.onclick = () => window.print();
     scrollTop();
+  }
+
+  // One-page summary that prints first (hidden on screen), so people can keep
+  // or hand someone just their top results. The full results follow on page 2.
+  function printCoverHtml(top, res, dateStr, ties){
+    const meta = (user && user.user_metadata) || {};
+    const name = String(meta.full_name || meta.name || '').trim();
+    const gifts = TYPE === 'gifts';
+    const verse = gifts
+      ? { text: FJ.BEST_USE_NOTE.verses[0].text, ref: FJ.BEST_USE_NOTE.verses[0].ref }
+      : { text: 'So Christ himself gave the apostles, the prophets, the evangelists, the pastors and teachers, to equip his people for works of service, so that the body of Christ may be built up.', ref: 'Ephesians 4:11–12' };
+    const items = top.map((key, i) => {
+      const c = FJ.categoryByKey(TYPE, key);
+      const score = res.scores[key] || 0;
+      return '<div class="pc-item">' +
+          '<div class="pc-rank">' + (i === 0 ? 'Top ' + (gifts ? 'gift' : 'office') : '#' + (i + 1)) + '</div>' +
+          '<div class="pc-name">' + esc(c.name) + '</div>' +
+          '<div class="pc-meta">' + score + ' of ' + MAX + ' · ' + esc(FJ.bandFor(TYPE, score)) + ' · ' + esc(c.scripture) + '</div>' +
+          (c.path ? '<div class="pc-path">' + esc(c.path) + '</div>' : '') +
+          '<ul>' + c.functions.slice(0, A.topCount === 3 ? 3 : 4).map(f => '<li>' + esc(f.replace(/\s*\([^)]*\d+:\d+[^)]*\)\s*$/, '')) + '</li>').join('') + '</ul>' +
+        '</div>';
+    }).join('');
+    return '<section class="print-only print-cover" aria-hidden="true">' +
+        '<div class="pc-brand">Following Jesus</div>' +
+        '<div class="pc-eyebrow">' + esc(A.title) + (dateStr ? ' · ' + esc(dateStr) : '') + '</div>' +
+        '<h1>' + (name ? esc(name) + (/s$/i.test(name) ? '\u2019' : '\u2019s') + ' ' : 'My ') + (gifts ? 'Spiritual Gifts' : 'Five-Fold Calling') + '</h1>' +
+        '<p class="pc-lead">The top ' + (gifts ? 'spiritual gifts' : 'five-fold offices') + (name ? ' ' + esc(name.split(/\s+/)[0]) + ' is' : ' I\u2019m') + ' leaning toward right now.</p>' +
+        items +
+        // Short tie line for the cover (the full note is on the next pages).
+        (ties && ties.kind ? '<p class="pc-note">Also tied at ' + ties.score + '/' + MAX + ': ' + esc(FJ.listNames(TYPE, ties.group.filter(k => top.indexOf(k) < 0))) + '</p>' : '') +
+        '<div class="pc-verse">\u201C' + esc(verse.text) + '\u201D<span>' + esc(verse.ref) + '</span></div>' +
+        '<div class="pc-foot">Take the free assessment at followingjesus.com' + esc(A.path) + '</div>' +
+      '</section>';
   }
 
   // Results header: "Hi Samuel, here are the spiritual gifts you're leaning toward right now…"
