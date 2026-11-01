@@ -2085,8 +2085,7 @@ async function renderDashboard(){
   renderSidebar();
   document.getElementById('content').innerHTML = `
     <div style="text-align:left;">
-    <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 4px;">Overview</h2>
-    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 14px;">Quick glance. The big numbers show what happened in the selected time range; the small line under each shows the all-time total. The green or red badge compares to the previous period (for example, month to date vs. the same stretch of last month).</p>
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 14px;">Following Jesus Resources Impact Overview <button type="button" class="info-icon-btn" data-info="Quick glance. The big numbers show what happened in the selected time range; the small line under each shows the all-time total. The green or red badge compares to the previous period (for example, month to date vs. the same stretch of last month).">i</button></h2>
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
       ${Object.keys(rangeLabels).map(key => `<button class="mini-btn ${key===dashboardRangeKey?'active':''}" data-dashboard-range="${key}">${rangeLabels[key]}</button>`).join('')}
     </div>
@@ -2099,6 +2098,7 @@ async function renderDashboard(){
       paintDashboard();
     });
   });
+  initInfoTooltips();
   dashboardCache = await loadDashboardData();
   if(viewingDashboard) paintDashboard();
 }
@@ -2396,6 +2396,8 @@ function initInfoTooltips(){
   }
 
   document.querySelectorAll('.info-icon-btn').forEach(btn => {
+    if(btn.dataset.infoBound) return; // already wired (this function can run again on the same page)
+    btn.dataset.infoBound = '1';
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const wasOpen = btn.classList.contains('open');
