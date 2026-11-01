@@ -445,8 +445,9 @@
     }
 
     const keepGrowingHtml = resourceListHtml([
+      { label:'View my profile', note:'Your badges, assessment results, and settings. Sign in with the same account.', url:'/app' },
       IN_APP ? { label:'Back to the Following Jesus app', note:'Daily devotionals, prayer, and discipleship', url:'/app' }
-             : { label:'The Following Jesus app', note:'Free daily devotionals, prayer, and discipleship', url:'https://qrco.de/fjapp' },
+             : { label:'Get the Following Jesus app', note:'Free daily devotionals, prayer, and discipleship', url:'https://qrco.de/fjapp' },
       FJ.LINKS.book,
       { label:'Take the ' + OTHER.title, note:OTHER.categories.length + ' ' + (OTHER.type === 'gifts' ? 'spiritual gifts' : 'offices') + ' · about ' + OTHER.minutes + ' minutes', url:OTHER.path }
     ]);
