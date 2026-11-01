@@ -96,7 +96,16 @@
       ? '<a href="/app">Home</a>'
       : '<a href="https://qrco.de/fjapp">Get the app</a>';
     if (IN_APP) document.getElementById('brandLink').setAttribute('href', '/app');
-    if (user) html += '<button type="button" id="signOutBtn">Sign out</button>';
+    if (user) {
+      // Signed in: a profile icon (opens the profile in the app, on the web too).
+      const meta = user.user_metadata || {};
+      const pic = String(meta.avatar_url || meta.picture || '');
+      const icon = /^https:\/\//.test(pic)
+        ? '<img src="' + esc(pic) + '" alt="" referrerpolicy="no-referrer" style="width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle">'
+        : '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>';
+      html += '<a href="/app" id="profileLink" aria-label="My profile" title="My profile" style="display:inline-flex;align-items:center;gap:6px">' + icon + '<span>Profile</span></a>';
+      html += '<button type="button" id="signOutBtn">Sign out</button>';
+    }
     nav.innerHTML = html;
     const so = document.getElementById('signOutBtn');
     if (so) so.onclick = async () => { await sb.auth.signOut(); user = null; lastResult = null; renderTopLinks(); renderIntro(); };
