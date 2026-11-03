@@ -26,6 +26,18 @@
   </url>
 
   <url>
+    <loc>https://followingjesus.com/spiritual-gifts-assessment</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://followingjesus.com/five-fold-office-assessment</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <url>
     <loc>https://followingjesus.com/theprocessofpromotion</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
