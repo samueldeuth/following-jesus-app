@@ -6705,6 +6705,91 @@ const supabaseClient = (typeof window !== 'undefined' && window.supabase)
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
 
+// ---------------------------------------------------------------------------
+// Tap tracking: records which buttons/links people tap (and on which screen)
+// so the admin dashboard's App page can show what gets used. One tiny row per
+// tap (screen + button name + platform + anonymous-or-signed-in user id), sent
+// in batches. Never blocks or breaks the app: every step is wrapped, and if
+// there's no Supabase session yet the tap is simply skipped.
+// ---------------------------------------------------------------------------
+const fjTap = (function(){
+  const SELECTOR = 'button, a[href], [onclick], [role="button"], [data-screen], [data-devo-plan], .grid-item, .disciple-banner, .banner-slide, .plan-cover-card, .card.blog-card';
+  const SKIP_INPUTS = 'input, select, textarea, label';
+  const SESSION_ID = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const MAX_PER_SESSION = 400;
+  const FLUSH_AT = 15;
+  const ua = (navigator.userAgent || '').toLowerCase();
+  const PLATFORM = ua.indexOf('median') > -1
+    ? (/iphone|ipad|ipod/.test(ua) ? 'ios_app' : (/android/.test(ua) ? 'android_app' : 'app'))
+    : 'web';
+  let queue = [], sent = 0, lastKey = '', lastAt = 0, timer = null;
+
+  function clean(t){ return String(t || '').replace(/\s+/g, ' ').trim(); }
+
+  function labelFor(el){
+    if (el.dataset && el.dataset.track) return clean(el.dataset.track);
+    if (el.dataset && el.dataset.devoPlan) return 'Plan: ' + el.dataset.devoPlan;
+    const aria = el.getAttribute && el.getAttribute('aria-label');
+    if (aria) return clean(aria);
+    // Prefer a card's own title element (blog posts, banners, grid tiles, plan covers).
+    const titleEl = el.querySelector && el.querySelector('.card-title, .grid-item-title, .disciple-banner-title, .banner-title, .plan-cover-label');
+    if (titleEl && clean(titleEl.textContent)) {
+      const tt = clean(titleEl.textContent);
+      return el.classList && el.classList.contains('blog-card') ? 'Blog: ' + tt : tt;
+    }
+    // Otherwise the first line of visible text.
+    const lines = String(el.innerText || el.textContent || '').split(/\n+/).map(clean).filter(Boolean);
+    if (lines.length) return lines[0];
+    const img = el.querySelector && el.querySelector('img[alt]');
+    if (img && clean(img.alt)) return clean(img.alt);
+    if (el.id) return '#' + el.id;
+    return '';
+  }
+
+  function currentScreen(){
+    const s = document.querySelector('.screen.active');
+    return s && s.id ? s.id.replace(/^screen-/, '') : '';
+  }
+
+  function track(label, screen){
+    label = clean(label).slice(0, 100);
+    if (!label || sent + queue.length >= MAX_PER_SESSION) return;
+    const key = (screen || '') + '|' + label, now = Date.now();
+    if (key === lastKey && now - lastAt < 600) return; // double-tap / bubbling guard
+    lastKey = key; lastAt = now;
+    queue.push({ session_id: SESSION_ID, screen: (screen || '').slice(0, 40), label, platform: PLATFORM });
+    if (queue.length >= FLUSH_AT) flush();
+    else if (!timer) timer = setTimeout(flush, 8000);
+  }
+
+  async function flush(){
+    if (timer) { clearTimeout(timer); timer = null; }
+    if (!queue.length) return;
+    const batch = queue; queue = [];
+    try {
+      if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+      const { data } = await supabaseClient.auth.getSession();
+      if (!data || !data.session) return; // no session yet: skip rather than error
+      const { error } = await supabaseClient.from('app_events').insert(batch);
+      if (!error) sent += batch.length;
+    } catch (e) { /* tracking must never affect the app */ }
+  }
+
+  document.addEventListener('click', function(e){
+    try {
+      const t = e.target;
+      if (!t || !t.closest || t.closest(SKIP_INPUTS)) return;
+      const el = t.closest(SELECTOR);
+      if (!el) return;
+      track(labelFor(el), currentScreen());
+    } catch (err) {}
+  }, true);
+
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden') flush(); });
+  window.addEventListener('pagehide', flush);
+  return { track, flush, _labelFor: labelFor };
+})();
+
 // App streak: records that a SIGNED-IN person opened the app today, once
 // per page load, regardless of what (if anything) they do once inside --
 // deliberately this simple, per Samuel's own call. Only checks for an

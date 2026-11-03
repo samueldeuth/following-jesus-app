@@ -2778,6 +2778,14 @@ function renderPushNotifications(){
       <div id="app-download-table"></div>
     </div>
 
+    <div class="card" style="margin-bottom:24px;max-width:680px;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:6px;">App Taps
+        <button type="button" class="info-icon-btn" data-info="What people tap inside the app: tabs, home screen buttons, Bible plans and blog posts. Each tap is counted once per button. 'People' is how many different phones or accounts tapped it. Use it to see which parts of the layout get used and which get ignored. Tracking started the day this feature went live, so earlier days are empty.">i</button>
+      </h3>
+      <div id="app-taps-range" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;"></div>
+      <div id="app-taps-body"><span style="font-size:13px;color:var(--ink-soft);">Loading…</span></div>
+    </div>
+
     <h3 style="font-family:'Space Grotesk',sans-serif;font-size:19px;margin:0 0 4px;display:flex;align-items:center;gap:6px;">Push Notifications
       <button type="button" class="info-icon-btn" data-info="Reaches everyone who has opened the Following Jesus app on their phone -- not people who've only ever used a course. Good for announcing new features, blog posts, or reading plans, or nudging people to turn on Verse of the Day or try Share the Gospel.">i</button>
     </h3>
@@ -2881,6 +2889,7 @@ function renderPushNotifications(){
   `;
   initInfoTooltips();
   loadAppDownloadStats();
+  loadAppTaps();
 
   const pushDestinationSelect = document.getElementById('push-destination-select');
   if(pushDestinationSelect) pushDestinationSelect.addEventListener('change', () => {
@@ -3323,6 +3332,59 @@ function renderPushNotifications(){
 // per calendar month and for the calendar year so far. A collapsed
 // "More stats" section holds the extras: month-by-month history, re-downloads,
 // total downloads, and how many people are actually using the app.
+// ---- App taps (what people tap inside the app) ----
+let appTapsRangeKey = '30d';
+let appTapsScreen = 'all';
+async function loadAppTaps(){
+  const rangeEl = document.getElementById('app-taps-range');
+  const bodyEl = document.getElementById('app-taps-body');
+  if(!rangeEl || !bodyEl) return;
+  rangeEl.innerHTML = Object.keys(rangeLabels).map(k =>
+    `<button class="mini-btn" data-taps-range="${k}" ${k === appTapsRangeKey ? 'style="background:var(--ink);color:#fff;border-color:var(--ink);"' : ''}>${rangeLabels[k]}</button>`).join('');
+  rangeEl.querySelectorAll('[data-taps-range]').forEach(b => b.addEventListener('click', () => { appTapsRangeKey = b.dataset.tapsRange; loadAppTaps(); }));
+  bodyEl.innerHTML = `<span style="font-size:13px;color:var(--ink-soft);">Loading…</span>`;
+  const start = rangeStartDate(appTapsRangeKey), now = new Date();
+  const prev = previousWindow(appTapsRangeKey);
+  const args = { p_start: start.toISOString(), p_end: now.toISOString(), p_prev_start: prev.start.toISOString(), p_prev_end: prev.end.toISOString() };
+  const [stats, sum] = await Promise.all([
+    supabaseClient.rpc('get_app_tap_stats', args),
+    supabaseClient.rpc('get_app_tap_summary', args)
+  ]);
+  if(stats.error || sum.error){
+    bodyEl.innerHTML = `<span style="font-size:13px;color:var(--ink-soft);">Could not load tap data right now. If this is new, make sure the app-taps SQL has been run.</span>`;
+    return;
+  }
+  const rows = stats.data || [];
+  const t = (sum.data && sum.data[0]) || { taps: 0, users: 0, prev_taps: 0, prev_users: 0 };
+  if(!rows.length){
+    bodyEl.innerHTML = `<span style="font-size:13px;color:var(--ink-soft);">No taps recorded in this range yet. Taps appear after people open the updated app.</span>`;
+    return;
+  }
+  const screens = Array.from(new Set(rows.map(r => r.screen || 'other')));
+  if(appTapsScreen !== 'all' && screens.indexOf(appTapsScreen) < 0) appTapsScreen = 'all';
+  const shown = appTapsScreen === 'all' ? rows : rows.filter(r => (r.screen || 'other') === appTapsScreen);
+  const maxTaps = Math.max(1, ...shown.map(r => Number(r.taps)));
+  const screenName = sc => ({ today: 'Home', bible: 'Bible', plans: 'Plans', blog: 'Blog', jesus: 'Jesus' }[sc] || (sc ? sc.charAt(0).toUpperCase() + sc.slice(1) : 'Other'));
+  bodyEl.innerHTML = `
+    <div class="summary-row" style="margin-bottom:12px;">
+      <div class="summary-card"><div class="num">${Number(t.taps).toLocaleString()}${deltaBadge(Number(t.taps), Number(t.prev_taps))}</div><div class="label">Taps</div></div>
+      <div class="summary-card"><div class="num">${Number(t.users).toLocaleString()}${deltaBadge(Number(t.users), Number(t.prev_users))}</div><div class="label">People tapping</div></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+      ${['all'].concat(screens).map(sc => `<button class="mini-btn" data-taps-screen="${escapeHtmlReport(sc)}" ${sc === appTapsScreen ? 'style="background:var(--ink);color:#fff;border-color:var(--ink);"' : ''}>${sc === 'all' ? 'All screens' : escapeHtmlReport(screenName(sc))}</button>`).join('')}
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Button</th><th>Screen</th><th>Taps</th><th>People</th></tr></thead>
+      <tbody>${shown.slice(0, 60).map(r => `<tr>
+        <td style="font-weight:600;">${escapeHtmlReport(r.label)}</td>
+        <td>${escapeHtmlReport(screenName(r.screen))}</td>
+        <td style="width:36%;"><div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${Math.round(Number(r.taps) / maxTaps * 100)}%"></div></div><span class="bar-text">${Number(r.taps).toLocaleString()}</span> ${deltaBadge(Number(r.taps), Number(r.prev_taps))}</div></td>
+        <td>${Number(r.users).toLocaleString()}</td></tr>`).join('')}</tbody>
+    </table></div>
+    ${shown.length > 60 ? `<p style="font-size:12px;color:var(--ink-soft);margin:6px 0 0;">Showing the top 60 of ${shown.length}.</p>` : ''}`;
+  bodyEl.querySelectorAll('[data-taps-screen]').forEach(b => b.addEventListener('click', () => { appTapsScreen = b.dataset.tapsScreen; loadAppTaps(); }));
+}
+
 async function loadAppDownloadStats(){
   const summaryEl = document.getElementById('app-download-summary');
   const tableEl = document.getElementById('app-download-table');
