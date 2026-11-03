@@ -6726,7 +6726,7 @@ const fjTap = (function(){
 
   function clean(t){ return String(t || '').replace(/\s+/g, ' ').trim(); }
 
-  function labelFor(el){
+  function rawLabelFor(el){
     if (el.dataset && el.dataset.track) return clean(el.dataset.track);
     if (el.dataset && el.dataset.devoPlan) return 'Plan: ' + el.dataset.devoPlan;
     const aria = el.getAttribute && el.getAttribute('aria-label');
@@ -6744,6 +6744,33 @@ const fjTap = (function(){
     if (img && clean(img.alt)) return clean(img.alt);
     if (el.id) return '#' + el.id;
     return '';
+  }
+
+  const POPUP_NAMES = {
+    verseOfDayModalOverlay: 'Verse alert', findChurchModalOverlay: 'Find a Church', readingReminderModalOverlay: 'Reading reminder',
+    devoReminderModalOverlay: 'Devo reminder', discipleModal: 'Disciple', gospelModal: 'Share The Word', goodNewsModal: 'Good News',
+    devoPlanModal: 'Plan', articleModal: 'Blog article', embedModal: 'Player', modalPortal: 'Popup'
+  };
+  function titleCase(t){ return t.toLowerCase().replace(/(^|[\s(-])([a-z])/g, (m, a, b) => a + b.toUpperCase()); }
+
+  // Turns the raw button text into a consistent, readable name. Returns '' to skip a tap.
+  function labelFor(el){
+    let label = rawLabelFor(el);
+    if (!label) return '';
+    if (label.length > 50) return ''; // long text is content (a verse, an excerpt), not a button
+    if (/[A-Za-z]{2}/.test(label) && label === label.toUpperCase()) label = titleCase(label); // CSS capitals -> normal case
+    if (el.classList && el.classList.contains('tab-btn')) return 'Tab: ' + label;
+    if (el.closest('#planBar')) {
+      if (/^\d+$/.test(label)) return 'Reading plan: day picker';
+      if (/^[1-3]?\s?[A-Za-z][A-Za-z ]*\s\d+(:\d+)?$/.test(label)) return 'Reading plan: open a reading';
+      return 'Reading plan: ' + label;
+    }
+    const popup = el.closest('.verse-alert-modal-overlay, .disciple-modal, .article-modal, .embed-modal, #modalPortal');
+    if (popup) {
+      const name = POPUP_NAMES[popup.id] || 'Popup';
+      if (label.toLowerCase().indexOf(name.toLowerCase()) !== 0) label = name + ': ' + label;
+    }
+    return label;
   }
 
   function currentScreen(){
