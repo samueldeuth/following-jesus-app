@@ -240,11 +240,11 @@
   .pp-growth .note p{font-size:13px; margin:0 0 6px;}
   .pp-growth .verse{font-size:13px; margin:8px 0;}
   .print-page .card{break-inside:auto;}
-  .pp-detail .top-card{padding:22px 24px;}
-  .pp-detail .top-card h2{font-size:30px; margin:8px 0 4px;}
-  .pp-detail .top-card p{font-size:15px; line-height:1.55; margin:8px 0;}
-  .pp-detail .top-card h3{font-size:16px; margin:16px 0 6px !important;}
-  .pp-detail .functions li{font-size:15px; margin:4px 0;}
+  .pp-detail .top-card{padding:18px 22px;}
+  .pp-detail .top-card h2{font-size:28px; margin:6px 0 2px;}
+  .pp-detail .top-card p{font-size:14px; line-height:1.45; margin:6px 0;}
+  .pp-detail .top-card h3{font-size:15px; margin:12px 0 4px !important;}
+  .pp-detail .functions li{font-size:14px; margin:2px 0;}
   .pp-detail .res-list{gap:5px; margin-top:6px;}
   .pp-detail .res-list a, .pp-growth .res-list a{padding:6px 10px; border-radius:8px;}
   .pp-detail .res-list span, .pp-growth .res-list span{font-size:12px;}
