@@ -3381,8 +3381,9 @@ async function loadAppTaps(){
       <div class="summary-card"><div class="num">${Number(t.taps).toLocaleString()}${deltaBadge(Number(t.taps), Number(t.prev_taps))}</div><div class="label">Taps</div></div>
       <div class="summary-card"><div class="num">${Number(t.users).toLocaleString()}${deltaBadge(Number(t.users), Number(t.prev_users))}</div><div class="label">People tapping</div></div>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center;">
       ${['all'].concat(screens).map(sc => `<button class="mini-btn" data-taps-screen="${escapeHtmlReport(sc)}" ${sc === appTapsScreen ? 'style="background:var(--ink);color:#fff;border-color:var(--ink);"' : ''}>${sc === 'all' ? 'All screens' : escapeHtmlReport(screenName(sc))}</button>`).join('')}
+      <button class="mini-btn" id="app-taps-export-btn" style="margin-left:auto;">Export (CSV)</button>
     </div>
     <div class="table-scroll"><table>
       <thead><tr><th>Button</th><th>Screen</th><th>Taps</th><th>People</th></tr></thead>
@@ -3393,6 +3394,17 @@ async function loadAppTaps(){
         <td>${Number(r.users).toLocaleString()}</td></tr>`).join('')}</tbody>
     </table></div>
     ${shown.length > 60 ? `<p style="font-size:12px;color:var(--ink-soft);margin:6px 0 0;">Showing the top 60 of ${shown.length}.</p>` : ''}`;
+  document.getElementById('app-taps-export-btn').addEventListener('click', () => {
+    // Exports every button in the selected range (all screens, not just the filtered view or top 60).
+    const header = ['Screen', 'Button', 'Taps', 'People', 'Taps in previous period', 'Range'];
+    const lines = [header.map(csvEscape).join(',')];
+    rows.forEach(r => lines.push([screenName(r.screen), r.label, r.taps, r.users, r.prev_taps, rangeLabels[appTapsRangeKey]].map(csvEscape).join(',')));
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'app-taps-' + appTapsRangeKey + '-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  });
   bodyEl.querySelectorAll('[data-taps-screen]').forEach(b => b.addEventListener('click', () => { appTapsScreen = b.dataset.tapsScreen; loadAppTaps(); }));
 }
 
