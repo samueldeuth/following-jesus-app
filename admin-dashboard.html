@@ -678,6 +678,8 @@ let viewingPushNotifications = false;
 let viewingChurchDirectory = false;
 let viewingSpiritualGifts = false;
 let giftsAdminType = 'gifts';
+let giftsTakersRange = 'all';   // all | today | 7d | mtd
+let giftsTakersType = 'all';    // all | gifts | fivefold
 let giftsAdminCache = null; // { results, profilesById, shareById }
 // Which status tab is active in the church sidebar list — 'all' shows
 // everything, otherwise only churches matching that course_status.
@@ -6563,45 +6565,59 @@ function renderSpiritualGiftsBody(){
 
     ${giftFeedbackSummaryHtml(type, results, feedbackByResult, profilesById)}
 
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:8px 0 10px;">
-      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0;">Who's taken it (${latest.length})</h3>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <input type="text" class="field-input" id="gifts-search" placeholder="Search name, email, church…" style="width:240px;" />
-        <button class="mini-btn" id="gifts-export-btn">Export (CSV)</button>
-      </div>
+    <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:8px 0 4px;">Who's taken it <span id="gifts-takers-count" style="font-weight:400;color:var(--ink-soft);font-size:14px;"></span></h3>
+    <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;">Both assessments in one list, newest first. This list is not affected by the tabs above.</p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+      ${[['today','Today'],['7d','Last 7 Days'],['mtd','This Month'],['all','All']].map(([k, l]) => `<button class="mini-btn" data-takers-range="${k}" ${k === giftsTakersRange ? 'style="background:var(--ink);color:#fff;border-color:var(--ink);"' : ''}>${l}</button>`).join('')}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+      ${[['all','Both assessments'],['gifts','Spiritual Gifts'],['fivefold','Five-Fold Office']].map(([k, l]) => `<button class="mini-btn" data-takers-type="${k}" ${k === giftsTakersType ? 'style="background:var(--ink);color:#fff;border-color:var(--ink);"' : ''}>${l}</button>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+      <input type="text" class="field-input" id="gifts-search" placeholder="Search name, email, church…" style="width:240px;" />
+      <button class="mini-btn" id="gifts-export-btn">Export (CSV)</button>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Person</th><th>Church</th><th>Top ${type === 'gifts' ? 'gifts' : 'offices'}</th><th>Taken</th><th>Shared</th><th>Accuracy</th></tr></thead>
+      <thead><tr><th>Person</th><th>Church</th><th>Assessment</th><th>Top results</th><th>Taken</th><th>Shared</th><th>Accuracy</th></tr></thead>
       <tbody id="gifts-takers-tbody"></tbody>
     </table></div>
     ${giftQuestionBankHtml(type)}
     </div>`;
 
-  const rowsData = latest.map(r => {
+  // Everyone who took either assessment (latest result per person per assessment), newest first.
+  const rowsData = [['gifts', giftsPeople], ['fivefold', ffPeople]].flatMap(([t, people]) => people.map(r => {
     const p = profilesById[r.user_id] || {};
     return {
-      r, name: p.full_name || 'Unnamed', email: p.email || '',
+      r, type: t, typeLabel: t === 'gifts' ? 'Spiritual Gifts' : 'Five-Fold Office',
+      name: p.full_name || 'Unnamed', email: p.email || '',
       church: p.church_id ? (churchNameById[p.church_id] || '') : '',
-      top: (r.ranked || []).slice(0, topN).map(k => giftName(type, k)),
+      top: (r.ranked || []).slice(0, FJ.ASSESSMENTS[t].topCount).map(k => giftName(t, k)),
       shared: !!shareById[r.user_id]
     };
-  });
+  })).sort((a, b) => new Date(b.r.created_at) - new Date(a.r.created_at));
 
   const tbody = document.getElementById('gifts-takers-tbody');
+  let shownRows = rowsData;
   function drawRows(){
     const q = (document.getElementById('gifts-search').value || '').trim().toLowerCase();
-    const shown = q ? rowsData.filter(d => (d.name + ' ' + d.email + ' ' + d.church).toLowerCase().includes(q)) : rowsData;
-    if(!shown.length){ tbody.innerHTML = `<tr><td colspan="6" style="color:var(--ink-soft);">${q ? 'No matches.' : 'No one yet.'}</td></tr>`; return; }
-    tbody.innerHTML = shown.map(d => `
+    const since = giftsTakersRange === 'all' ? null : rangeStartDate(giftsTakersRange);
+    shownRows = rowsData.filter(d =>
+      (giftsTakersType === 'all' || d.type === giftsTakersType) &&
+      (!since || new Date(d.r.created_at) >= since) &&
+      (!q || (d.name + ' ' + d.email + ' ' + d.church).toLowerCase().includes(q)));
+    document.getElementById('gifts-takers-count').textContent = '(' + shownRows.length + ')';
+    if(!shownRows.length){ tbody.innerHTML = `<tr><td colspan="7" style="color:var(--ink-soft);">${(q || since || giftsTakersType !== 'all') ? 'No matches.' : 'No one yet.'}</td></tr>`; return; }
+    tbody.innerHTML = shownRows.map(d => `
       <tr class="clickable" data-gifts-result="${d.r.id}">
         <td><div class="student-name">${escapeHtmlReport(d.name)}</div><div class="student-email">${escapeHtmlReport(d.email)}</div></td>
         <td>${escapeHtmlReport(d.church || '—')}</td>
+        <td>${escapeHtmlReport(d.typeLabel)}</td>
         <td>${d.top.map(escapeHtmlReport).join(', ')}</td>
         <td class="date-started">${new Date(d.r.created_at).toLocaleDateString()}</td>
         <td>${d.shared ? 'Yes' : '—'}</td>
         <td>${feedbackByResult[d.r.id] ? feedbackByResult[d.r.id].accuracy + '/5' : '—'}</td>
       </tr>
-      <tr class="gifts-detail-row" data-gifts-detail="${d.r.id}" style="display:none;"><td colspan="6" style="background:var(--bg-soft);">${giftScoresHtml(type, d.r)}${giftFeedbackLineHtml(feedbackByResult[d.r.id])}</td></tr>`).join('');
+      <tr class="gifts-detail-row" data-gifts-detail="${d.r.id}" style="display:none;"><td colspan="7" style="background:var(--bg-soft);">${giftScoresHtml(d.type, d.r)}${giftFeedbackLineHtml(feedbackByResult[d.r.id])}</td></tr>`).join('');
     tbody.querySelectorAll('[data-gifts-result]').forEach(tr => {
       tr.addEventListener('click', () => {
         const detail = tbody.querySelector(`[data-gifts-detail="${tr.dataset.giftsResult}"]`);
@@ -6615,21 +6631,27 @@ function renderSpiritualGiftsBody(){
   content.querySelectorAll('[data-gifts-type]').forEach(btn => {
     btn.addEventListener('click', () => { giftsAdminType = btn.dataset.giftsType; renderSpiritualGiftsBody(); });
   });
+  content.querySelectorAll('[data-takers-range]').forEach(btn => btn.addEventListener('click', () => { giftsTakersRange = btn.dataset.takersRange; renderSpiritualGiftsBody(); }));
+  content.querySelectorAll('[data-takers-type]').forEach(btn => btn.addEventListener('click', () => { giftsTakersType = btn.dataset.takersType; renderSpiritualGiftsBody(); }));
   document.getElementById('gifts-export-btn').addEventListener('click', () => {
-    const keys = (FJ.ASSESSMENTS[type].categories).map(c => c.key);
-    const headers = ['Name', 'Email', 'Church', 'Taken', 'Shared with church', 'Top', 'Accuracy (1-5)', 'Top felt right', 'Feedback comment', ...keys.map(k => giftName(type, k))];
+    // Exports exactly what the list is showing (range, assessment and search filters applied).
+    const giftKeys = FJ.ASSESSMENTS.gifts.categories.map(c => c.key);
+    const officeKeys = FJ.ASSESSMENTS.fivefold.categories.map(c => c.key);
+    const headers = ['Name', 'Email', 'Church', 'Assessment', 'Taken', 'Shared with church', 'Top', 'Accuracy (1-5)', 'Top felt right', 'Feedback comment',
+      ...giftKeys.map(k => giftName('gifts', k)), ...officeKeys.map(k => giftName('fivefold', k))];
     const lines = [headers.map(csvEscape).join(',')];
-    rowsData.forEach(d => {
+    shownRows.forEach(d => {
       const f = feedbackByResult[d.r.id];
-      lines.push([d.name, d.email, d.church, new Date(d.r.created_at).toLocaleDateString(), d.shared ? 'Yes' : 'No', d.top.join('; '),
+      const sc = d.r.scores || {};
+      lines.push([d.name, d.email, d.church, d.typeLabel, new Date(d.r.created_at).toLocaleDateString(), d.shared ? 'Yes' : 'No', d.top.join('; '),
         f ? f.accuracy : '', f ? (GIFT_FEEDBACK_TOPFIT[f.top_fit] || f.top_fit) : '', f ? (f.comment || '') : '',
-        ...keys.map(k => (d.r.scores || {})[k] ?? '')].map(csvEscape).join(','));
+        ...giftKeys.map(k => d.type === 'gifts' ? (sc[k] ?? '') : ''), ...officeKeys.map(k => d.type === 'fivefold' ? (sc[k] ?? '') : '')].map(csvEscape).join(','));
     });
     const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${type === 'gifts' ? 'spiritual-gifts' : 'five-fold'}-results-${new Date().toISOString().slice(0,10)}.csv`;
+    link.download = `assessment-results-${new Date().toISOString().slice(0,10)}.csv`;
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
     URL.revokeObjectURL(url);
   });
