@@ -14,7 +14,8 @@
    at the bottom) — keep it plain JavaScript, no browser-only code.
    ============================================================ */
 (function (root) {
-  const QUESTION_VERSION = 9; // v9 (Oct 31, 2026): clarity pass — GIV-5, KNO-2, DIS-4, DIS-5, WIS-3, EXH-1, ICS-4, APO-3 reworded so they can't be read as another gift
+  const QUESTION_VERSION = 10; // v10 (Nov 3, 2026): PAS-3, PAS-5, TCH-1, TCH-3 reworded after pilot data/feedback
+  // v9 (Oct 31, 2026): clarity pass — GIV-5, KNO-2, DIS-4, DIS-5, WIS-3, EXH-1, ICS-4, APO-3 reworded so they can't be read as another gift
   // v8 (Oct 31, 2026): GIV-4 says "give toward" a need (was readable as Helps/Mercy)
   // v7 (Oct 28, 2026): HOS-4, INT-4, INT-5, MIR-2, MIR-4 reworded after tester feedback
   // v6 (Oct 27, 2026): PRP S3, S4, S10 reworded (listening, weighing, calling out gifts)
@@ -529,9 +530,9 @@
       questions: [
         'I care deeply about how the people around me are doing with God.',
         'I notice when someone is missing, struggling, or drifting away.',
-        'I\'d rather build deep, lasting community than create moments of motivation and inspiration.',
+        'I\'d rather build deep, lasting community than just big moments of inspiration.',
         'I\'m patient with people who are slow to grow.',
-        'I stay with people over months and years, not just in a crisis.',
+        'I walk with the same people for months and years, through good seasons and hard ones.',
         'I help people work through conflict and be reconciled.',
         'I protect people from false teaching, harmful influences, and burnout.',
         'People I\'ve walked with are now steady and growing in Jesus.',
@@ -555,9 +556,9 @@
       description: "Jesus taught with authority, and the crowds were amazed (Matt 7:28–29). He commanded His followers to teach new disciples to obey everything He commanded (Matt 28:20). As a five-fold office, the teacher shows people how to walk on the path and grounds the church in truth, so believers aren't tossed around by every new idea (Eph 4:11–14). Barnabas and Saul spent a whole year teaching large numbers in Antioch, and that's where the disciples were first called Christians (Acts 11:25–26). Paul taught daily for two years in Ephesus until the whole region heard the word (Acts 19:9–10), and he told Timothy to pass what he'd learned on to faithful people who could teach others (2 Tim 2:2).",
       functions: ["Explains God's Word with clarity and accuracy", "Grounds believers in sound doctrine so they aren't tossed around (Eph 4:14)", 'Builds discipleship pathways, studies, and courses', 'Trains others to teach', 'Shows people how to live out the truth day to day'],
       questions: [
-        'I love studying God\'s Word and digging deep into what it means.',
+        'I regularly study a passage until I can teach it clearly to others.',
         'I want people to understand why we believe what we believe, not just what.',
-        'It bothers me when teaching is shallow, unclear, or off from Scripture.',
+        'It bothers me when teaching is off from Scripture, and I can show from the text where it went wrong.',
         'I enjoy organizing truth into clear outlines, steps, or lessons.',
         'I can make deep truths simple without making them shallow.',
         'I create or teach discipleship studies, classes, or courses.',
