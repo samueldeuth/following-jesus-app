@@ -421,6 +421,17 @@ function toggleSidebar(){ adminShell.classList.toggle('sidebar-collapsed'); }
 document.getElementById('sidebar-toggle-btn').addEventListener('click', toggleSidebar);
 document.getElementById('sidebar-overlay').addEventListener('click', toggleSidebar);
 
+// On phones the menu is a slide-out: tapping a page (or a church / course in the
+// list) goes there AND closes the menu. Search box, status filters and the
+// toggle button itself are left alone so they don't close it.
+document.querySelector('.admin-sidebar').addEventListener('click', function(e){
+  if (window.innerWidth > 950) return;
+  const t = e.target;
+  if (!t || !t.closest) return;
+  if (!t.closest('.sidebar-link, .sidebar-church-item')) return;
+  adminShell.classList.add('sidebar-collapsed');
+}, true);
+
 // Builds the OAuth redirect target WITHOUT any hash or query string --
 // deliberately not window.location.href, which captures whatever's
 // currently in the address bar, including a leftover empty '#' from a
@@ -3364,7 +3375,7 @@ async function loadAppTaps(){
   if(appTapsScreen !== 'all' && screens.indexOf(appTapsScreen) < 0) appTapsScreen = 'all';
   const shown = appTapsScreen === 'all' ? rows : rows.filter(r => (r.screen || 'other') === appTapsScreen);
   const maxTaps = Math.max(1, ...shown.map(r => Number(r.taps)));
-  const screenName = sc => ({ today: 'Home', bible: 'Bible', plans: 'Plans', blog: 'Blog', jesus: 'Jesus' }[sc] || (sc ? sc.charAt(0).toUpperCase() + sc.slice(1) : 'Other'));
+  const screenName = sc => ({ today: 'Today', bible: 'Bible', plans: 'Plans', blog: 'Blog', jesus: 'Jesus' }[sc] || (sc ? sc.charAt(0).toUpperCase() + sc.slice(1) : 'Other'));
   bodyEl.innerHTML = `
     <div class="summary-row" style="margin-bottom:12px;">
       <div class="summary-card"><div class="num">${Number(t.taps).toLocaleString()}${deltaBadge(Number(t.taps), Number(t.prev_taps))}</div><div class="label">Taps</div></div>
