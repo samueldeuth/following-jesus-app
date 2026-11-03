@@ -6717,7 +6717,7 @@ const fjTap = (function(){
   const SKIP_INPUTS = 'input, select, textarea, label';
   const SESSION_ID = Math.random().toString(36).slice(2) + Date.now().toString(36);
   const MAX_PER_SESSION = 400;
-  const FLUSH_AT = 15;
+  const FLUSH_AT = 4;
   const ua = (navigator.userAgent || '').toLowerCase();
   const PLATFORM = ua.indexOf('median') > -1
     ? (/iphone|ipad|ipod/.test(ua) ? 'ios_app' : (/android/.test(ua) ? 'android_app' : 'app'))
@@ -6786,7 +6786,7 @@ const fjTap = (function(){
     lastKey = key; lastAt = now;
     queue.push({ session_id: SESSION_ID, screen: (screen || '').slice(0, 40), label, platform: PLATFORM });
     if (queue.length >= FLUSH_AT) flush();
-    else if (!timer) timer = setTimeout(flush, 8000);
+    else if (!timer) timer = setTimeout(flush, 1500);
   }
 
   async function flush(){
