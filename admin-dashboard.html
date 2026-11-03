@@ -347,6 +347,8 @@
 .delta.up{color:#15803d;background:rgba(22,163,74,.14);}
 .delta.down{color:#b91c1c;background:rgba(220,38,38,.14);}
 .delta.flat{color:var(--ink-soft);background:rgba(128,128,128,.14);}
+details.gifts-sec > summary::-webkit-details-marker{display:none;}
+details.gifts-sec[open] > summary .gs-chev{transform:rotate(90deg);}
 </style>
 </head>
 <body>
@@ -6469,11 +6471,10 @@ function renderSpiritualGiftsBody(){
       <button class="mini-btn" data-gifts-type="fivefold" ${type === 'fivefold' ? 'style="background:var(--ink);color:#fff;border-color:var(--ink);"' : ''}>Five-Fold Office</button>
     </div>
 
-    <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 10px;">Most common ${type === 'gifts' ? 'gifts' : 'offices'}</h3>
-    <div class="table-scroll"><table>
+    ${giftsSection('common', 'Most common ' + (type === 'gifts' ? 'gifts' : 'offices'), `<div class="table-scroll"><table>
       <thead><tr><th>${type === 'gifts' ? 'Gift' : 'Office'}</th><th>In someone's top ${topN}</th><th>#1 for</th></tr></thead>
       <tbody>${latest.length ? distHtml : `<tr><td colspan="3" style="color:var(--ink-soft);">No one has taken this assessment yet.</td></tr>`}</tbody>
-    </table></div>
+    </table></div>`)}
 
     ${giftFeedbackSummaryHtml(type, results, feedbackByResult, profilesById)}
 
@@ -6523,6 +6524,7 @@ function renderSpiritualGiftsBody(){
       });
     });
   }
+  content.querySelectorAll('details.gifts-sec').forEach(d => d.addEventListener('toggle', () => { giftsSecOpen[d.dataset.gsec] = d.open; }));
   drawRows();
   document.getElementById('gifts-search').addEventListener('input', drawRows);
   content.querySelectorAll('[data-gifts-type]').forEach(btn => {
@@ -6553,6 +6555,15 @@ const GIFT_FEEDBACK_ACCURACY = { 1: 'Not at all', 2: 'A little', 3: 'Somewhat', 
 const GIFT_FEEDBACK_TOPFIT = { yes: "Yes, that's me", somewhat: 'Somewhat', no: 'Not really' };
 
 // "How accurate was this?" summary for one assessment type.
+// Collapsible section for the Spiritual Gifts page (collapsed by default; remembers open/closed while you stay on the page).
+const giftsSecOpen = {};
+function giftsSection(key, title, bodyHtml, fontSize){
+  return `<details class="gifts-sec" data-gsec="${key}" ${giftsSecOpen[key] ? 'open' : ''} style="margin:8px 0 18px;">
+    <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;font-family:'Space Grotesk',sans-serif;font-size:${fontSize || 16}px;font-weight:700;margin:0 0 10px;">
+      <svg class="gs-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s;flex:none;"><path d="M9 6l6 6-6 6"/></svg>${title}
+    </summary>${bodyHtml}</details>`;
+}
+
 function giftFeedbackSummaryHtml(type, results, feedbackByResult, profilesById){
   const resultById = {};
   results.forEach(r => { resultById[r.id] = r; });
@@ -6584,7 +6595,7 @@ function giftFeedbackSummaryHtml(type, results, feedbackByResult, profilesById){
       <div class="summary-card"><div class="num">${pct('yes')}%</div><div class="label">Top results felt right</div><div class="sub">${pct('somewhat')}% somewhat · ${pct('no')}% not really</div></div>
     </div>
     <div class="panel" style="max-width:560px;">${dist}</div>
-    ${comments ? `<h3 style="font-family:'Space Grotesk',sans-serif;font-size:15px;margin:0 0 6px;">Comments</h3><div class="panel">${comments}</div>` : ''}`;
+    ${comments ? giftsSection('comments', 'Comments (' + fb.filter(f => f.comment).length + ')', `<div class="panel">${comments}</div>`, 15) : ''}`;
 }
 
 function giftFeedbackLineHtml(f){
