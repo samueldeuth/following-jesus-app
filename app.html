@@ -5517,20 +5517,22 @@
     // for it) -- any future plain-verse series with no alternate art
     // style just gets the row left out entirely rather than shown
     // disabled.
+    // "Simple" style button intentionally hidden (Samuel, Nov 3 2026) --
+    // the drawn version isn't as strong as Realistic/Sketch. The
+    // 'classic' drawing code is untouched; re-add a data-style="classic"
+    // button here to bring it back.
     let styleToggleHtml = '';
     if (series.type === 'illustration') {
       styleToggleHtml = `
       <div class="gospel-format-toggle" style="margin-top:8px;">
         <button type="button" class="gospel-format-btn active" data-style="photo">Realistic</button>
         <button type="button" class="gospel-format-btn" data-style="sketch">Sketch</button>
-        <button type="button" class="gospel-format-btn" data-style="classic">Simple</button>
       </div>`;
     } else if (series.id === 'romans-road') {
       styleToggleHtml = `
       <div class="gospel-format-toggle" style="margin-top:8px;">
         <button type="button" class="gospel-format-btn active" data-style="photo">Realistic</button>
         <button type="button" class="gospel-format-btn" data-style="sketch">Sketch</button>
-        <button type="button" class="gospel-format-btn" data-style="classic">Simple</button>
       </div>`;
     }
     body.innerHTML = `
