@@ -364,7 +364,6 @@ details.gifts-sec[open] > summary .gs-chev{transform:rotate(90deg);}
     <div id="admin-account-info"></div>
     <a class="sidebar-link" id="sidebar-dashboard-link">Overview</a>
     <a class="sidebar-link" id="sidebar-overview-link">Course</a>
-    <a class="sidebar-link" id="sidebar-all-students-link">All Students</a>
     <a class="sidebar-link" id="sidebar-push-notifications-link">App</a>
     <a class="sidebar-link" id="sidebar-church-directory-link">Church Directory</a>
     <a class="sidebar-link" id="sidebar-spiritual-gifts-link">Spiritual Gifts</a>
@@ -606,7 +605,7 @@ window.addEventListener('beforeunload', (e) => {
 // click handler -- stopImmediatePropagation on cancel is what actually
 // prevents that handler from ever firing and discarding the edit.
 document.querySelector('.admin-sidebar').addEventListener('click', (e) => {
-  const navTarget = e.target.closest('#sidebar-dashboard-link, #sidebar-overview-link, #sidebar-all-students-link, #sidebar-push-notifications-link, #sidebar-church-directory-link, #sidebar-spiritual-gifts-link, .sidebar-church-item, #sidebar-annual-link');
+  const navTarget = e.target.closest('#sidebar-dashboard-link, #sidebar-overview-link, #sidebar-push-notifications-link, #sidebar-church-directory-link, #sidebar-spiritual-gifts-link, .sidebar-church-item, #sidebar-annual-link');
   if(!navTarget || !hasUnsavedChurchEdits) return;
   if(!confirm('You have unsaved changes on this page. Leave without saving?')){
     e.preventDefault();
@@ -777,7 +776,6 @@ async function init(){
   renderSidebar();
   document.getElementById('sidebar-dashboard-link').addEventListener('click', renderDashboard);
   document.getElementById('sidebar-overview-link').addEventListener('click', renderChurchesOverview);
-  document.getElementById('sidebar-all-students-link').addEventListener('click', renderAllStudents);
   document.getElementById('sidebar-push-notifications-link').addEventListener('click', renderPushNotifications);
   document.getElementById('sidebar-church-directory-link').addEventListener('click', renderChurchDirectory);
   document.getElementById('sidebar-spiritual-gifts-link').addEventListener('click', renderSpiritualGifts);
@@ -1198,8 +1196,7 @@ function renderSidebar(){
   });
 
   document.getElementById('sidebar-dashboard-link').classList.toggle('active', viewingDashboard);
-  document.getElementById('sidebar-overview-link').classList.toggle('active', !viewingDashboard && !viewingAnnual && activeChurchId === null && activeCourseId === null && !viewingNoChurch && !viewingAllStudents && !viewingPushNotifications && !viewingChurchDirectory && !viewingSpiritualGifts);
-  document.getElementById('sidebar-all-students-link').classList.toggle('active', viewingAllStudents);
+  document.getElementById('sidebar-overview-link').classList.toggle('active', !viewingDashboard && !viewingAnnual && activeChurchId === null && activeCourseId === null && !viewingNoChurch && !viewingPushNotifications && !viewingChurchDirectory && !viewingSpiritualGifts);
   document.getElementById('sidebar-push-notifications-link').classList.toggle('active', viewingPushNotifications);
   document.getElementById('sidebar-church-directory-link').classList.toggle('active', viewingChurchDirectory);
   document.getElementById('sidebar-spiritual-gifts-link').classList.toggle('active', viewingSpiritualGifts);
@@ -2118,11 +2115,16 @@ async function renderDashboard(){
   if(viewingDashboard) paintDashboard();
 }
 
+// Churches list on the Course page is collapsed by default; remembers
+// open/closed while the dashboard stays loaded.
+let courseChurchesOpen = false;
 function renderChurchesOverview(){
   activeChurchId = null;
   activeCourseId = null;
   viewingNoChurch = false;
-  viewingAllStudents = false;
+  // true because the All Students list is part of this page now -- it's
+  // what makes a student's "Back to All Students" link return here.
+  viewingAllStudents = true;
   viewingSubscriberList = false;
   viewingPushNotifications = false;
   viewingChurchDirectory = false; viewingSpiritualGifts = false;
@@ -2168,11 +2170,21 @@ function renderChurchesOverview(){
     <button class="mini-btn" id="export-all-btn" style="margin-bottom:16px;">Export All Students (CSV)</button>
     <button class="mini-btn gold" id="send-reminders-now-btn" style="margin-bottom:16px;">Send Weekly Reminders Now</button>
 
-    <table>
-      <thead><tr><th>Church</th><th>Students</th><th>Avg. Progress</th></tr></thead>
-      <tbody>${churchRowsHtml || '<tr><td colspan="3" style="color:var(--ink-soft);">No churches yet.</td></tr>'}</tbody>
-    </table>
+    <details class="gifts-sec" id="course-churches-details" ${courseChurchesOpen ? 'open' : ''} style="margin:8px 0 28px;">
+      <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;margin:0 0 10px;">
+        <svg class="gs-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .15s;flex:none;"><path d="M9 6l6 6-6 6"/></svg>Churches <span style="font-weight:400;font-size:14px;color:var(--ink-soft);">(${liveChurches.length})</span>
+      </summary>
+      <table>
+        <thead><tr><th>Church</th><th>Students</th><th>Avg. Progress</th></tr></thead>
+        <tbody>${churchRowsHtml || '<tr><td colspan="3" style="color:var(--ink-soft);">No churches yet.</td></tr>'}</tbody>
+      </table>
+    </details>
+    <div id="course-all-students" style="scroll-margin-top:70px;"></div>
   `;
+
+  const churchesDetails = document.getElementById('course-churches-details');
+  if(churchesDetails) churchesDetails.addEventListener('toggle', () => { courseChurchesOpen = churchesDetails.open; });
+  paintAllStudents(document.getElementById('course-all-students'));
 
   wireOverviewRangeSelector();
   renderOverviewRangeMetrics();
@@ -2210,7 +2222,7 @@ function renderChurchesOverview(){
     sendRemindersBtn.textContent = 'Send Weekly Reminders Now';
   });
 
-  document.querySelectorAll('tbody tr.clickable').forEach(tr => {
+  document.querySelectorAll('#course-churches-details tbody tr.clickable').forEach(tr => {
     tr.addEventListener('click', () => renderChurchStudents(tr.dataset.churchId));
   });
 
@@ -4607,17 +4619,25 @@ async function renderBroadcastComposer(opts){
   });
 }
 
+// All Students now lives at the bottom of the Course page (under the
+// collapsible Churches list) instead of on its own page. Anything that
+// used to jump to the old page ("back" links, the #all-students hash)
+// lands on the Course page and scrolls down to this section.
 function renderAllStudents(){
-  activeChurchId = null;
-  activeCourseId = null;
-  viewingNoChurch = false;
-  viewingAllStudents = true;
-  viewingSubscriberList = false;
-  viewingPushNotifications = false;
-  viewingChurchDirectory = false; viewingSpiritualGifts = false;
+  renderChurchesOverview();
+  const mount = document.getElementById('course-all-students');
+  if(mount) mount.scrollIntoView({ block: 'start' });
+}
+
+// Repaints just the All Students section in place (mode toggle, row
+// actions) without rebuilding the whole Course page or losing scroll.
+function repaintAllStudents(){
+  const mount = document.getElementById('course-all-students');
+  if(mount) paintAllStudents(mount); else renderAllStudents();
+}
+
+function paintAllStudents(container){
   selectedEnrollmentIds.clear();
-  setViewHash('all-students');
-  renderSidebar();
 
   const activeCount = allRows.filter(isActiveStudentRow).length;
   const inactiveCount = allRows.filter(isInactiveRow).length;
@@ -4628,7 +4648,7 @@ function renderAllStudents(){
   // church_id (viewingNoChurch bucket) doesn't count as "a church."
   const churchesWithStudents = new Set(allRows.filter(r => r.church_id).map(r => r.church_id)).size;
 
-  document.getElementById('content').innerHTML = `
+  container.innerHTML = `
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 4px;">All Students</h2>
     <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0;margin-bottom:14px;">${allRows.length} student${allRows.length===1?'':'s'} across ${churchesWithStudents} church${churchesWithStudents===1?'':'es'}</p>
     <div style="display:flex;gap:6px;margin-bottom:14px;">
@@ -4662,17 +4682,17 @@ function renderAllStudents(){
   document.getElementById('student-mode-active-btn').addEventListener('click', () => {
     studentViewMode = 'active';
     selectedEnrollmentIds.clear();
-    renderAllStudents();
+    repaintAllStudents();
   });
-  document.getElementById('student-mode-inactive-btn').addEventListener('click', () => {
+  document.getElementById('student-mode-inactive-btn')?.addEventListener('click', () => {
     studentViewMode = 'inactive';
     selectedEnrollmentIds.clear();
-    renderAllStudents();
+    repaintAllStudents();
   });
   document.getElementById('student-mode-archived-btn').addEventListener('click', () => {
     studentViewMode = 'archived';
     selectedEnrollmentIds.clear();
-    renderAllStudents();
+    repaintAllStudents();
   });
 }
 
@@ -4799,7 +4819,7 @@ function renderAllStudentsRows(){
       const row = allRows.find(r => r.enrollment_id === id);
       if(row) row.status = newStatus;
     }
-    renderAllStudents(); // full re-render so the Active/Archived counts in the toggle stay correct
+    repaintAllStudents(); // repaint so the Active/Archived counts in the toggle stay correct
   };
   wireStudentRowActions('#all-students-tbody', '#all-students-select-all', '#all-students-batch-bar', onRowActionChange);
   wireBatchActionBar((ids, newStatus) => {
@@ -4808,7 +4828,7 @@ function renderAllStudentsRows(){
     } else {
       ids.forEach(id => { const row = allRows.find(r => r.enrollment_id === id); if(row) row.status = newStatus; });
     }
-    renderAllStudents();
+    repaintAllStudents();
   });
 }
 
