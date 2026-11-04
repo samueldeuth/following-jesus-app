@@ -6755,24 +6755,47 @@ const fjTap = (function(){
   };
   function titleCase(t){ return t.toLowerCase().replace(/(^|[\s(-])([a-z])/g, (m, a, b) => a + b.toUpperCase()); }
 
+  const PLAN_SHORT = { hope: 'Hope', miracles: 'Miracles', new_believer: 'New Believers', kids: 'Kids', men: 'Men', youth: 'Youth' };
+  const POPUP_SEL = '.verse-alert-modal-overlay, .disciple-modal, .article-modal, .embed-modal, #modalPortal';
+  const REF_RE = /^[1-3]?\s?[A-Za-z][A-Za-z ]*\s\d+(:\d+(-\d+)?)?$/; // "Genesis 1", "Psalm 37:34", "1 John 2"
+
+  // Last tidy-ups so the same button always ends up with the same name.
+  function finish(label){
+    label = label.replace(/\s*[\u2192\u2190\u203A\u00BB]+\s*$/, '').trim();           // trailing arrows
+    if (/Mark .+ as read$/.test(label)) return 'Reading plan: Mark chapter as read';       // one name, not one per chapter
+    const m = label.match(/^(?:Plan: )?52 Bible Verses (?:on|for|to Teach Your) (.+)$/);   // plan titles -> short plan names
+    if (m) return 'Plan: ' + m[1].replace(/^New Believers$/, 'New Believers');
+    const k = label.match(/^Plan: (hope|miracles|new_believer|kids|men|youth)$/);
+    if (k) return 'Plan: ' + PLAN_SHORT[k[1]];
+    if (/^Plan: \d+$/.test(label)) return 'Plan: day picker';
+    if (/^Plan: [1-3]?\s?[A-Za-z][A-Za-z ]*\s\d+(:\d+(-\d+)?)?$/.test(label)) return 'Plan: open a reading';
+    return label;
+  }
+
   // Turns the raw button text into a consistent, readable name. Returns '' to skip a tap.
   function labelFor(el){
     let label = rawLabelFor(el);
     if (!label) return '';
     if (label.length > 50) return ''; // long text is content (a verse, an excerpt), not a button
+    if (/Prefer NIV\/ESV/i.test(label)) return 'Open in YouVersion';
+    if (label.indexOf(' \u00B7 ') > 0) label = label.split(' \u00B7 ')[0];   // "Plan name \u00B7 Read right here..." -> "Plan name"
     if (/[A-Za-z]{2}/.test(label) && label === label.toUpperCase()) label = titleCase(label); // CSS capitals -> normal case
+    label = label.replace(/\bFj\b/g, 'FJ');
     if (el.classList && el.classList.contains('tab-btn')) return 'Tab: ' + label;
     if (el.closest('#planBar')) {
       if (/^\d+$/.test(label)) return 'Reading plan: day picker';
-      if (/^[1-3]?\s?[A-Za-z][A-Za-z ]*\s\d+(:\d+)?$/.test(label)) return 'Reading plan: open a reading';
-      return 'Reading plan: ' + label;
+      if (REF_RE.test(label)) return 'Reading plan: open a reading';
+      return finish('Reading plan: ' + label);
     }
-    const popup = el.closest('.verse-alert-modal-overlay, .disciple-modal, .article-modal, .embed-modal, #modalPortal');
+    const popup = el.closest(POPUP_SEL);
     if (popup) {
       const name = POPUP_NAMES[popup.id] || 'Popup';
       if (label.toLowerCase().indexOf(name.toLowerCase()) !== 0) label = name + ': ' + label;
+    } else if (currentScreen() === 'bible') {
+      if (/^\d+$/.test(label)) return 'Bible: chapter number';       // chapter buttons: one name, not one per chapter
+      if (REF_RE.test(label)) return 'Bible: open a chapter';
     }
-    return label;
+    return finish(label);
   }
 
   function currentScreen(){
@@ -6810,7 +6833,11 @@ const fjTap = (function(){
       if (!t || !t.closest || t.closest(SKIP_INPUTS)) return;
       const el = t.closest(SELECTOR);
       if (!el) return;
-      track(labelFor(el), currentScreen());
+      const lbl = labelFor(el);
+      let scr = currentScreen();
+      if (lbl.indexOf('Tab: ') === 0) scr = 'tabs';                      // bottom tab bar taps grouped together
+      else if (!scr && el.closest(POPUP_SEL)) scr = 'popup';             // popups with no screen behind them
+      track(lbl, scr);
     } catch (err) {}
   }, true);
 

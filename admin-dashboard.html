@@ -3391,7 +3391,7 @@ async function loadAppTaps(){
   if(appTapsScreen !== 'all' && screens.indexOf(appTapsScreen) < 0) appTapsScreen = 'all';
   const shown = appTapsScreen === 'all' ? rows : rows.filter(r => (r.screen || 'other') === appTapsScreen);
   const maxTaps = Math.max(1, ...shown.map(r => Number(r.taps)));
-  const screenName = sc => ({ today: 'Today', bible: 'Bible', plans: 'Plans', blog: 'Blog', jesus: 'Jesus' }[sc] || (sc ? sc.charAt(0).toUpperCase() + sc.slice(1) : 'Other'));
+  const screenName = sc => ({ today: 'Today', bible: 'Bible', plans: 'Plans', blog: 'Blog', jesus: 'Jesus', tabs: 'Bottom tabs', popup: 'Popups' }[sc] || (sc ? sc.charAt(0).toUpperCase() + sc.slice(1) : 'Other'));
   bodyEl.innerHTML = `
     <div class="summary-row" style="margin-bottom:12px;">
       <div class="summary-card"><div class="num">${Number(t.taps).toLocaleString()}${deltaBadge(Number(t.taps), Number(t.prev_taps))}</div><div class="label">Taps</div></div>
