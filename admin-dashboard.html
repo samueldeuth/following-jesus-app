@@ -3360,13 +3360,15 @@ function renderPushNotifications(){
 // ---- App taps (what people tap inside the app) ----
 let appTapsRangeKey = '30d';
 let appTapsScreen = 'all';
+let appTapsPage = 0;
+const APP_TAPS_PAGE_SIZE = 25;
 async function loadAppTaps(){
   const rangeEl = document.getElementById('app-taps-range');
   const bodyEl = document.getElementById('app-taps-body');
   if(!rangeEl || !bodyEl) return;
   rangeEl.innerHTML = Object.keys(rangeLabels).map(k =>
     `<button class="mini-btn" data-taps-range="${k}" ${k === appTapsRangeKey ? 'style="background:var(--ink);color:#fff;border-color:var(--ink);"' : ''}>${rangeLabels[k]}</button>`).join('');
-  rangeEl.querySelectorAll('[data-taps-range]').forEach(b => b.addEventListener('click', () => { appTapsRangeKey = b.dataset.tapsRange; loadAppTaps(); }));
+  rangeEl.querySelectorAll('[data-taps-range]').forEach(b => b.addEventListener('click', () => { appTapsRangeKey = b.dataset.tapsRange; appTapsPage = 0; loadAppTaps(); }));
   bodyEl.innerHTML = `<span style="font-size:13px;color:var(--ink-soft);">Loading…</span>`;
   const start = rangeStartDate(appTapsRangeKey), now = new Date();
   const prev = previousWindow(appTapsRangeKey);
@@ -3399,15 +3401,47 @@ async function loadAppTaps(){
       ${['all'].concat(screens).map(sc => `<button class="mini-btn" data-taps-screen="${escapeHtmlReport(sc)}" ${sc === appTapsScreen ? 'style="background:var(--ink);color:#fff;border-color:var(--ink);"' : ''}>${sc === 'all' ? 'All screens' : escapeHtmlReport(screenName(sc))}</button>`).join('')}
       <button class="mini-btn" id="app-taps-export-btn" style="margin-left:auto;">Export (CSV)</button>
     </div>
-    <div class="table-scroll"><table>
-      <thead><tr><th>Button</th><th>Screen</th><th>Taps</th><th>People</th></tr></thead>
-      <tbody>${shown.slice(0, 60).map(r => `<tr>
-        <td style="font-weight:600;">${escapeHtmlReport(r.label)}</td>
-        <td>${escapeHtmlReport(screenName(r.screen))}</td>
-        <td style="width:36%;"><div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${Math.round(Number(r.taps) / maxTaps * 100)}%"></div></div><span class="bar-text">${Number(r.taps).toLocaleString()}</span> ${deltaBadge(Number(r.taps), Number(r.prev_taps))}</div></td>
-        <td>${Number(r.users).toLocaleString()}</td></tr>`).join('')}</tbody>
-    </table></div>
-    ${shown.length > 60 ? `<p style="font-size:12px;color:var(--ink-soft);margin:6px 0 0;">Showing the top 60 of ${shown.length}.</p>` : ''}`;
+    <div id="app-taps-table-wrap"></div>`;
+  // 25 buttons per page, with page numbers, so the list doesn't stretch forever.
+  // Bars stay scaled to the busiest button across the whole list, not just the current page.
+  function paintTapsPage(){
+    const pages = Math.max(1, Math.ceil(shown.length / APP_TAPS_PAGE_SIZE));
+    if(appTapsPage > pages - 1) appTapsPage = pages - 1;
+    if(appTapsPage < 0) appTapsPage = 0;
+    const from = appTapsPage * APP_TAPS_PAGE_SIZE;
+    const slice = shown.slice(from, from + APP_TAPS_PAGE_SIZE);
+    // Compact page numbers: first, last, and a window around the current page.
+    const nums = [];
+    for(let i = 0; i < pages; i++){
+      if(i === 0 || i === pages - 1 || Math.abs(i - appTapsPage) <= 1) nums.push(i);
+      else if(nums[nums.length - 1] !== -1) nums.push(-1);
+    }
+    const btn = (label, page, disabled, active) => `<button class="mini-btn" data-taps-page="${page}" ${disabled ? 'disabled' : ''} style="min-width:34px;${active ? 'background:var(--ink);color:#fff;border-color:var(--ink);' : ''}${disabled ? 'opacity:.4;cursor:default;' : ''}">${label}</button>`;
+    const pager = pages > 1 ? `
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:12px 0 0;">
+        ${btn('&larr; Prev', appTapsPage - 1, appTapsPage === 0, false)}
+        ${nums.map(n => n === -1 ? '<span style="color:var(--ink-soft);padding:0 2px;">…</span>' : btn(n + 1, n, false, n === appTapsPage)).join('')}
+        ${btn('Next &rarr;', appTapsPage + 1, appTapsPage >= pages - 1, false)}
+      </div>` : '';
+    document.getElementById('app-taps-table-wrap').innerHTML = `
+      <div class="table-scroll"><table>
+        <thead><tr><th>Button</th><th>Screen</th><th>Taps</th><th>People</th></tr></thead>
+        <tbody>${slice.map(r => `<tr>
+          <td style="font-weight:600;">${escapeHtmlReport(r.label)}</td>
+          <td>${escapeHtmlReport(screenName(r.screen))}</td>
+          <td style="width:36%;"><div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${Math.round(Number(r.taps) / maxTaps * 100)}%"></div></div><span class="bar-text">${Number(r.taps).toLocaleString()}</span> ${deltaBadge(Number(r.taps), Number(r.prev_taps))}</div></td>
+          <td>${Number(r.users).toLocaleString()}</td></tr>`).join('')}</tbody>
+      </table></div>
+      <p style="font-size:12px;color:var(--ink-soft);margin:8px 0 0;">Showing ${from + 1}&ndash;${from + slice.length} of ${shown.length}${pages > 1 ? ` &middot; Page ${appTapsPage + 1} of ${pages}` : ''}</p>
+      ${pager}`;
+    document.querySelectorAll('#app-taps-table-wrap [data-taps-page]').forEach(b => b.addEventListener('click', () => {
+      if(b.disabled) return;
+      appTapsPage = Number(b.dataset.tapsPage);
+      paintTapsPage();
+      document.getElementById('app-taps-table-wrap').scrollIntoView({ block: 'nearest' });
+    }));
+  }
+  paintTapsPage();
   document.getElementById('app-taps-export-btn').addEventListener('click', () => {
     // Exports every button in the selected range (all screens, not just the filtered view or top 60).
     const header = ['Screen', 'Button', 'Taps', 'People', 'Taps in previous period', 'Range'];
@@ -3419,7 +3453,7 @@ async function loadAppTaps(){
     a.download = 'app-taps-' + appTapsRangeKey + '-' + new Date().toISOString().slice(0, 10) + '.csv';
     document.body.appendChild(a); a.click(); a.remove();
   });
-  bodyEl.querySelectorAll('[data-taps-screen]').forEach(b => b.addEventListener('click', () => { appTapsScreen = b.dataset.tapsScreen; loadAppTaps(); }));
+  bodyEl.querySelectorAll('[data-taps-screen]').forEach(b => b.addEventListener('click', () => { appTapsScreen = b.dataset.tapsScreen; appTapsPage = 0; loadAppTaps(); }));
 }
 
 async function loadAppDownloadStats(){
