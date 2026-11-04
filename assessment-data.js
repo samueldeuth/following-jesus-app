@@ -235,7 +235,7 @@
       ] },
     { key: 'FAI', name: 'Faith', scripture: '1 Cor 12:9',
       // Biblical stories to study for this gift (shown before the resources).
-      characters: [{"name":"Jesus sleeps through the storm, then calms it","ref":"Mark 4:35–41"},{"name":"Daniel in the lions' den","ref":"Dan 6"},{"name":"Abraham trusts God on the mountain","ref":"Gen 22:1–14; Heb 11:17–19"}],
+      characters: [{"name":"The heroes of faith","ref":"Heb 11"},{"name":"Daniel in the lions' den","ref":"Dan 6"},{"name":"Joshua prays and the sun stands still","ref":"Josh 10:12–14"}],
       description: "Every believer has saving faith, but the gift of faith (1 Cor 12:9) is a supernatural ability to believe God for the extraordinary: faith that expects the power of God to move where nothing natural can. Daniel trusted God in the lions' den, and God shut their mouths (Dan 6:22–23; Heb 11:33). Jesus slept through the storm, then calmed it (Mark 4:38–40). Jesus said faith as small as a mustard seed can move mountains (Matt 17:20).",
       functions: ['Believes God for the impossible and stays steady', 'Prays bold prayers and expects answers', 'Steps out in obedience before the way is clear', 'Builds faith in others during hard seasons'],
       questions: [
@@ -335,7 +335,7 @@
       ] },
     { key: 'GIV', name: 'Giving', scripture: 'Rom 12:8',
       // Biblical stories to study for this gift (shown before the resources).
-      characters: [{"name":"The widow's two coins","ref":"Mark 12:41–44"},{"name":"The Macedonian churches give beyond their means","ref":"2 Cor 8:1–5"},{"name":"Barnabas sells his field for the church","ref":"Acts 4:32–37"}],
+      characters: [{"name":"Joanna, Susanna, and other women fund Jesus' ministry","ref":"Luke 8:1–3"},{"name":"The Macedonian churches give beyond their means","ref":"2 Cor 8:1–5"},{"name":"Barnabas sells his field for the church","ref":"Acts 4:32–37"}],
       description: "Romans 12:8 tells the giver to give generously. Every believer is called to give, but the gift of giving is a Spirit-given joy and capacity to resource God's work. God enriches givers so they can be generous on every occasion (2 Cor 9:11). The Macedonian churches gave beyond their ability (2 Cor 8:1–5), and women like Joanna and Susanna supported Jesus' ministry from their own means (Luke 8:3).",
       functions: ['Gives generously and cheerfully beyond the tithe (2 Cor 9:7)', 'Manages resources to give more to the Kingdom', 'Meets needs the Holy Spirit highlights', 'Resources ministry and missions'],
       questions: [
@@ -375,7 +375,7 @@
       ] },
     { key: 'EVA', name: 'Evangelism', scripture: 'Eph 4:11; Acts 21:8',
       // Biblical stories to study for this gift (shown before the resources).
-      characters: [{"name":"Philip and the Ethiopian official","ref":"Acts 8:26–40"},{"name":"The woman at the well tells her town","ref":"John 4:28–30, 39–42"},{"name":"Andrew brings his brother to Jesus","ref":"John 1:40–42"}],
+      characters: [{"name":"Philip and the Ethiopian official","ref":"Acts 8:26–40"},{"name":"The woman at the well tells her town","ref":"John 4:28–30, 39–42"},{"name":"The man freed from Legion goes home to tell what God has done","ref":"Mark 5:1–20"}],
       description: "Every follower of Jesus is a witness, and the Holy Spirit gives us power to be one (Acts 1:8). We're all called to \"do the work of an evangelist\" (2 Tim 4:5). But some carry a special grace to share the gospel with greater impact, and many people come to Christ through them. They carry Jesus' heart for the lost (Luke 19:10), see people as a harvest that is ready now (John 4:35), and speak about Jesus with Spirit-given boldness (Acts 4:31). They find ways to connect with all kinds of people so that some will be saved (1 Cor 9:22). Philip preached Christ in Samaria, and the whole city was filled with joy (Acts 8:5–8). Then he followed the Spirit's prompting to one man's chariot, and the Ethiopian official believed and was baptized that day (Acts 8:29–38). Andrew simply found his brother and brought him to Jesus (John 1:41–42).",
       functions: ['Turns everyday conversations toward Jesus', 'Shares the gospel clearly and naturally', 'Builds friendships with people far from God and invites them to church', 'Leads people to put their faith in Jesus', 'Follows the Spirit\'s prompting to the right person at the right time (Acts 8:29)'],
       questions: [
