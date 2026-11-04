@@ -60,6 +60,8 @@ function buildEmail(type, result, name) {
         <div style="font-size:15px;line-height:1.55;color:#1c1a17;">${esc(c.description)}</div>
         <div style="font-size:14px;font-weight:bold;margin:14px 0 4px;">How you can put this ${type === 'gifts' ? 'gift' : 'calling'} to use</div>
         <ul style="margin:0;padding-left:20px;font-size:14px;line-height:1.55;color:#1c1a17;">${c.functions.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>
+        ${c.characters && c.characters.length ? `<div style="font-size:14px;font-weight:bold;margin:14px 0 4px;">Biblical characters to study</div>
+          <ul style="margin:0;padding-left:20px;font-size:14px;line-height:1.55;color:#1c1a17;">${c.characters.map((ch) => `<li><b>${esc(ch.name)}</b> <span style="color:#57534d;">· ${esc(ch.ref)}</span></li>`).join('')}</ul>` : ''}
         ${resources.length ? `<div style="font-size:14px;font-weight:bold;margin:14px 0 4px;">Grow in this ${noun}</div>
           ${resources.map((r) => `<div style="font-size:14px;margin:4px 0;"><a href="${esc(absUrl(r.url))}" style="color:#8f6a1f;">${esc(r.label)}</a> <span style="color:#57534d;">· ${esc(r.note || '')}</span></div>`).join('')}` : ''}
       </td></tr>
