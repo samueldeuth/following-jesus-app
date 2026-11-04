@@ -114,6 +114,8 @@
      break ties between gifts with the same total. */
   const GIFTS = [
     { key: 'ADM', name: 'Administration', scripture: '1 Cor 12:28',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"Jethro helps Moses organize the people","ref":"Exod 18:13–26"},{"name":"The apostles appoint the Seven","ref":"Acts 6:1–7"},{"name":"Joseph manages Egypt's harvest","ref":"Gen 41:46–57"}],
       description: "Paul lists \"guidance\" or \"administration\" among the gifts God has placed in the church (1 Cor 12:28). The Greek word pictures a ship's pilot steering the vessel safely to its destination. Where a leader sets the direction, an administrator steers the details that get everyone there. Jethro helped Moses appoint capable leaders so he wouldn't wear himself out (Exod 18:17–23). In Acts 6:1–7, the church appointed Spirit-filled people to organize the daily food distribution, and the word of God kept spreading.",
       functions: ['Turns vision into clear plans, steps, and timelines', 'Organizes people and resources so ministry runs well', 'Frees leaders to focus on prayer and the Word (Acts 6:4)', 'Brings order so that everything is done "in a fitting and orderly way" (1 Cor 14:40)'],
       questions: [
@@ -132,6 +134,8 @@
         '1 Cor 12:28'
       ] },
     { key: 'LEA', name: 'Leadership', scripture: 'Rom 12:8',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"Nehemiah rebuilds the wall","ref":"Neh 2–6"},{"name":"Joshua leads Israel into the land","ref":"Josh 1; 24:14–15"},{"name":"Deborah leads Israel to victory","ref":"Judg 4–5"}],
       description: 'Romans 12:8 tells the one whose gift is leading to do it diligently. Leadership is the God-given ability to see where God is going and to move people with Him. Nehemiah is a picture of this gift: he saw the need, cast the vision, and led the people to rebuild the wall (Neh 2:17–18). The word Paul uses means to go before people and look after them. Leaders set the example and care for those they lead (1 Pet 5:2–3).',
       functions: ["Hears God's direction and casts vision", 'Motivates and mobilizes people toward a shared goal', 'Makes hard decisions and takes responsibility', 'Raises up other leaders'],
       questions: [
@@ -150,6 +154,8 @@
         'Heb 13:7'
       ] },
     { key: 'TEA', name: 'Teaching', scripture: 'Rom 12:7',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"Jesus teaches the Sermon on the Mount","ref":"Matt 5–7"},{"name":"Ezra and the Levites explain the Law","ref":"Neh 8:1–8"},{"name":"Priscilla and Aquila teach Apollos","ref":"Acts 18:24–28"}],
       description: "Teaching (Rom 12:7) is the Spirit-given ability to explain God's Word clearly so people understand it and live it out. It's more than knowledge from study. The Holy Spirit is our Teacher (John 14:26), and He anoints teachers to make truth plain. Ezra set his heart to study God's Law, to live it, and to teach it (Ezra 7:10). When the Law was read to the people, the Levites explained it so everyone understood (Neh 8:8). Apollos taught about Jesus accurately, yet stayed teachable when Priscilla and Aquila explained the way of God more fully (Acts 18:24–28). For some, this gift is part of the five-fold office of teacher (Eph 4:11).",
       functions: ["Studies, lives, and rightly handles God's Word (Ezra 7:10; 2 Tim 2:15)", 'Explains truth simply so people understand and apply it', 'Grounds believers in sound doctrine', 'Guards the church from false teaching'],
       questions: [
@@ -168,6 +174,8 @@
         'Rom 12:7'
       ] },
     { key: 'EXH', name: 'Encouragement (Exhortation)', scripture: 'Rom 12:8',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"Barnabas stands up for Saul","ref":"Acts 9:26–28"},{"name":"Barnabas encourages the church in Antioch","ref":"Acts 11:22–26"},{"name":"Jonathan strengthens David in God","ref":"1 Sam 23:15–18"}],
       description: "The word Paul uses in Romans 12:8 means to come alongside someone to strengthen, comfort, and urge them forward. It's from the same family as the name Jesus gave the Holy Spirit: the Helper who comes alongside us (John 14:16). Where mercy stays with people in their pain, encouragement helps them get back up and keep going. Barnabas, the \"son of encouragement\" (Acts 4:36), stood up for Paul when others were afraid of him (Acts 9:27), and later gave John Mark a second chance (Acts 15:37–39).",
       functions: ['Strengthens people who are discouraged or weary', 'Gives practical next steps to grow in following Jesus', 'Calls out what God has put in people', 'Lovingly challenges people who are stuck'],
       questions: [
@@ -186,6 +194,8 @@
         'Acts 14:22'
       ] },
     { key: 'WIS', name: 'Word of Wisdom', scripture: '1 Cor 12:8',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"Solomon and the two mothers","ref":"1 Kgs 3:16–28"},{"name":"Joseph's plan for the famine","ref":"Gen 41:25–40"},{"name":"James at the Jerusalem council","ref":"Acts 15:13–21"}],
       description: "A message of wisdom is given \"through the Spirit\" (1 Cor 12:8). It isn't natural intelligence or experience. It is a piece of God's own wisdom, showing His purpose in a situation and the way forward, sometimes before it unfolds. Joseph explained Pharaoh's dream and gave the plan to prepare for the famine (Gen 41:25–40). Solomon's ruling between two mothers showed he had \"wisdom from God\" (1 Kings 3:28).",
       functions: ["Sees God's way forward in confusing situations", "Receives God's strategy for what's ahead", 'Brings resolution to conflict and complexity', 'Gives counsel that proves sound over time'],
       questions: [
@@ -204,6 +214,8 @@
         '1 Kgs 4:34'
       ] },
     { key: 'KNO', name: 'Word of Knowledge', scripture: '1 Cor 12:8',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"Jesus and the woman at the well","ref":"John 4:16–19, 29"},{"name":"Elisha knows the enemy's plans","ref":"2 Kgs 6:8–12"},{"name":"God shows Ananias where to find Saul","ref":"Acts 9:10–17"}],
       description: 'A message of knowledge comes "by means of the same Spirit" (1 Cor 12:8). It is the Holy Spirit revealing facts or truth that couldn\'t be known naturally. Jesus told the woman at the well about her five husbands, and she ran to tell her town (John 4:16–19, 29). Peter knew Ananias had lied about the money (Acts 5:3). Where a word of wisdom shows what to do, a word of knowledge reveals what is: a fact, present or past, that only the Spirit could make known. It isn\'t Bible knowledge gained by study (2 Tim 2:15). It\'s revelation. Prophecy speaks a message from God that builds people up; a word of knowledge reveals a specific fact. They often work together.',
       functions: ['Receives specific insight from the Holy Spirit about people or situations', 'Opens hearts by showing people that God sees them', 'Brings hidden things into the light', 'Directs prayer and ministry with precision'],
       questions: [
@@ -222,6 +234,8 @@
         '1 Cor 14:24–25'
       ] },
     { key: 'FAI', name: 'Faith', scripture: '1 Cor 12:9',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"Jesus sleeps through the storm, then calms it","ref":"Mark 4:35–41"},{"name":"Daniel in the lions' den","ref":"Dan 6"},{"name":"Abraham trusts God on the mountain","ref":"Gen 22:1–14; Heb 11:17–19"}],
       description: "Every believer has saving faith, but the gift of faith (1 Cor 12:9) is a supernatural ability to believe God for the extraordinary: faith that expects the power of God to move where nothing natural can. Daniel trusted God in the lions' den, and God shut their mouths (Dan 6:22–23; Heb 11:33). Jesus slept through the storm, then calmed it (Mark 4:38–40). Jesus said faith as small as a mustard seed can move mountains (Matt 17:20).",
       functions: ['Believes God for the impossible and stays steady', 'Prays bold prayers and expects answers', 'Steps out in obedience before the way is clear', 'Builds faith in others during hard seasons'],
       questions: [
@@ -240,6 +254,8 @@
         'Rom 1:12'
       ] },
     { key: 'DIS', name: 'Discerning of Spirits', scripture: '1 Cor 12:10',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"Paul and the slave girl in Philippi","ref":"Acts 16:16–18"},{"name":"Elisha's servant sees the army of angels","ref":"2 Kgs 6:15–17"},{"name":"Peter sees through Simon the sorcerer","ref":"Acts 8:18–24"}],
       description: 'Distinguishing between spirits (1 Cor 12:10) is the Spirit-given ability to know whether something is from God, from human motives, or from the enemy. Paul discerned the spirit behind the slave girl who followed him in Philippi (Acts 16:16–18). John tells us to "test the spirits" (1 John 4:1). It isn\'t only discerning the enemy. It also sees into the human spirit, good or bad, and recognizes when the Holy Spirit is truly at work. It isn\'t mind reading or spotting people\'s faults.',
       functions: ["Senses what is from God and what isn't", 'Protects the church from deception and false teaching', 'Recognizes spiritual oppression so it can be confronted', 'Reveals the spirit behind a supernatural manifestation'],
       questions: [
@@ -258,6 +274,8 @@
         '1 Cor 12:10'
       ] },
     { key: 'PRO', name: 'Prophecy', scripture: 'Rom 12:6; 1 Cor 12:10',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"Judas and Silas encourage the church","ref":"Acts 15:32"},{"name":"Agabus warns of the famine","ref":"Acts 11:27–30"},{"name":"Philip's four daughters who prophesied","ref":"Acts 21:8–9; Acts 2:17"}],
       description: 'Prophecy is speaking forth a timely word from God under the Spirit\'s anointing. It can bring insight into what God is doing now or what is coming. Paul says it "strengthens, encourages and comforts" (1 Cor 14:3), and he urges every believer to eagerly desire it (1 Cor 14:1). Judas and Silas, who were prophets, spoke to encourage and strengthen the believers (Acts 15:32). A word of knowledge reveals a fact; prophecy carries God\'s message to strengthen, encourage, and comfort. All prophecy is tested against Scripture (1 Thess 5:20–21).',
       functions: ['Shares what God is saying at the right time', 'Builds up, encourages, and comforts people', "Calls people back to God's heart", 'Brings direction and confirmation to individuals and churches'],
       questions: [
@@ -276,6 +294,8 @@
         '1 Thess 5:20–21'
       ] },
     { key: 'MER', name: 'Mercy', scripture: 'Rom 12:8',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"Jesus touches the man with leprosy","ref":"Mark 1:40–42"},{"name":"The Good Samaritan","ref":"Luke 10:30–37"},{"name":"David's kindness to Mephibosheth","ref":"2 Sam 9"}],
       description: "Romans 12:8 tells the one who shows mercy to do it cheerfully. Paul's word comes from the same root as our word \"hilarious\": mercy given with real joy, not out of duty. Mercy is God's compassion flowing through a person toward the hurting, and it doesn't just feel for people; it moves toward them. Jesus was moved with compassion, reached out, and touched a man with leprosy (Mark 1:41), and the Good Samaritan stopped for the man everyone else passed by (Luke 10:33–35).",
       functions: ['Notices people who are hurting, sick, or overlooked', 'Stays present with people in hard seasons', 'Shows practical kindness with joy', 'Reflects the compassion of Jesus to the broken'],
       questions: [
@@ -294,6 +314,8 @@
         '2 Cor 1:3–4'
       ] },
     { key: 'SER', name: 'Helps (Serving)', scripture: '1 Cor 12:28; Rom 12:7',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"Jesus washes the disciples' feet","ref":"John 13:1–17"},{"name":"Aaron and Hur hold up Moses' arms","ref":"Exod 17:10–13"},{"name":"Dorcas, always doing good","ref":"Acts 9:36–39"}],
       description: "Helps (1 Cor 12:28) and serving (Rom 12:7) are the gifts of caring for people by meeting their practical needs, so the body of Christ can thrive. This gift sits close to hospitality and mercy: helpers notice what people need and quietly take care of it. Dorcas was \"always doing good and helping the poor\" (Acts 9:36–39), and Jesus Himself came \"not to be served, but to serve\" (Mark 10:45).",
       functions: ['Sees practical needs and meets them', 'Serves faithfully behind the scenes', 'Frees leaders to focus on their calling', 'Makes ministry possible through reliability'],
       questions: [
@@ -312,6 +334,8 @@
         '1 Pet 4:11'
       ] },
     { key: 'GIV', name: 'Giving', scripture: 'Rom 12:8',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"The widow's two coins","ref":"Mark 12:41–44"},{"name":"The Macedonian churches give beyond their means","ref":"2 Cor 8:1–5"},{"name":"Barnabas sells his field for the church","ref":"Acts 4:32–37"}],
       description: "Romans 12:8 tells the giver to give generously. Every believer is called to give, but the gift of giving is a Spirit-given joy and capacity to resource God's work. God enriches givers so they can be generous on every occasion (2 Cor 9:11). The Macedonian churches gave beyond their ability (2 Cor 8:1–5), and women like Joanna and Susanna supported Jesus' ministry from their own means (Luke 8:3).",
       functions: ['Gives generously and cheerfully beyond the tithe (2 Cor 9:7)', 'Manages resources to give more to the Kingdom', 'Meets needs the Holy Spirit highlights', 'Resources ministry and missions'],
       questions: [
@@ -330,6 +354,8 @@
         'Phil 4:18'
       ] },
     { key: 'HOS', name: 'Hospitality', scripture: '1 Pet 4:9',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"Abraham welcomes three strangers","ref":"Gen 18:1–8"},{"name":"Lydia opens her home","ref":"Acts 16:14–15"},{"name":"The early church shares meals in homes","ref":"Acts 2:42–47"}],
       description: "Peter tells believers to offer hospitality without grumbling, then to use whatever gift they've received to serve others (1 Pet 4:9–10). The Greek word means \"love of strangers.\" It isn't about a perfect home or a fancy meal. It's making people feel they belong, just as Christ welcomed us (Rom 15:7). Abraham ran to welcome three strangers and prepared a meal for them (Gen 18:1–8). Lydia opened her home to Paul and his team (Acts 16:15), and the early church met and ate together in homes (Acts 2:46).",
       functions: ['Welcomes newcomers and strangers', 'Opens homes and creates spaces where people feel cared for', 'Builds community around the table', 'Helps people feel they belong in the body of Christ'],
       questions: [
@@ -348,6 +374,8 @@
         'Acts 2:46'
       ] },
     { key: 'EVA', name: 'Evangelism', scripture: 'Eph 4:11; Acts 21:8',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"Philip and the Ethiopian official","ref":"Acts 8:26–40"},{"name":"The woman at the well tells her town","ref":"John 4:28–30, 39–42"},{"name":"Andrew brings his brother to Jesus","ref":"John 1:40–42"}],
       description: "Every follower of Jesus is a witness, and the Holy Spirit gives us power to be one (Acts 1:8). We're all called to \"do the work of an evangelist\" (2 Tim 4:5). But some carry a special grace to share the gospel with greater impact, and many people come to Christ through them. They carry Jesus' heart for the lost (Luke 19:10), see people as a harvest that is ready now (John 4:35), and speak about Jesus with Spirit-given boldness (Acts 4:31). They find ways to connect with all kinds of people so that some will be saved (1 Cor 9:22). Philip preached Christ in Samaria, and the whole city was filled with joy (Acts 8:5–8). Then he followed the Spirit's prompting to one man's chariot, and the Ethiopian official believed and was baptized that day (Acts 8:29–38). Andrew simply found his brother and brought him to Jesus (John 1:41–42).",
       functions: ['Turns everyday conversations toward Jesus', 'Shares the gospel clearly and naturally', 'Builds friendships with people far from God and invites them to church', 'Leads people to put their faith in Jesus', 'Follows the Spirit\'s prompting to the right person at the right time (Acts 8:29)'],
       questions: [
@@ -366,6 +394,8 @@
         '2 Tim 4:5'
       ] },
     { key: 'HEA', name: 'Healing', scripture: '1 Cor 12:9',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"Jesus heals many who are sick","ref":"Matt 8:1–17"},{"name":"Peter and John heal the lame man","ref":"Acts 3:1–10"},{"name":"Paul heals the sick on Malta","ref":"Acts 28:7–10"}],
       description: 'Paul lists "gifts of healing" given by the one Spirit (1 Cor 12:9). People with this gift lay hands on the sick and many are healed, because God gives them an extra measure of faith for healing. Many find God anoints them for particular kinds of sickness. When Paul laid hands on Publius\'s father, he was healed, and then the rest of the sick on the island came and were healed (Acts 28:8–9). God anointed Jesus with the Holy Spirit and power, and He went around healing (Acts 10:38), and He sent His followers to lay hands on the sick (Mark 16:18).',
       functions: ['Prays for the sick in faith, often with laying on of hands', 'Is led by the Holy Spirit to pray for specific needs', 'Sees physical, emotional, and spiritual healing', 'Points people to Jesus as the healer'],
       questions: [
@@ -384,6 +414,8 @@
         '1 Cor 12:9'
       ] },
     { key: 'MIR', name: 'Miracles', scripture: '1 Cor 12:10',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"Jesus turns water into wine","ref":"John 2:1–11"},{"name":"Moses and the Red Sea","ref":"Exod 14:13–31"},{"name":"Elijah on Mount Carmel","ref":"1 Kgs 18:20–39"}],
       description: 'Miraculous powers (1 Cor 12:10) are the Spirit\'s power to do what only God can do. God did extraordinary miracles through Paul (Acts 19:11), and the early church prayed for signs and wonders in the name of Jesus (Acts 4:30). Where the gift of faith trusts God to act, the working of miracles is God acting through a person\'s obedient step, as when Moses stretched out his staff over the sea (Exod 14:16, 21). It is a supernatural act that overrules the natural order, like Elisha parting the Jordan (2 Kings 2:14) or Jesus turning water into wine (John 2:7–11).',
       functions: ['Expects and prays for God to move supernaturally', 'Sees God intervene beyond natural explanation', 'Confirms the gospel through signs and wonders (Mark 16:20)', 'Builds faith that God is still at work today'],
       questions: [
@@ -402,6 +434,8 @@
         'Gal 3:5'
       ] },
     { key: 'INT', name: 'Interpretation of Tongues', scripture: '1 Cor 12:10',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"Paul's teaching on tongues and interpretation","ref":"1 Cor 14:1–19, 26–28"},{"name":"Pentecost: everyone hears in their own language","ref":"Acts 2:1–13"},{"name":"Daniel interprets the writing on the wall","ref":"Dan 5:13–28"}],
       description: 'Interpretation (1 Cor 12:10) makes a message given in tongues understandable to the church, so everyone is built up. Paul says that anyone who speaks in a tongue should pray for the power to interpret (1 Cor 14:13), and that interpreted tongues build up the church like prophecy does (1 Cor 14:5). It is interpretation, not translation. The person doesn\'t know the language. The Spirit gives the meaning.',
       functions: ['Senses what God is saying through a message in tongues', 'Makes that message clear so the church is built up', 'Brings order to public use of the gifts (1 Cor 14:27)', 'Often begins in private prayer, then flows in public (1 Cor 14:13)'],
       questions: [
@@ -420,6 +454,8 @@
         '1 Cor 14:27–29'
       ] },
     { key: 'ICS', name: 'Intercession', scripture: 'Rom 8:26; Col 4:12',
+      // Biblical stories to study for this gift (shown before the resources).
+      characters: [{"name":"Jesus prays for His disciples and for us","ref":"John 17"},{"name":"Moses pleads for Israel","ref":"Exod 32:9–14"},{"name":"The church prays and Peter is set free","ref":"Acts 12:5–17"}],
       description: "Every believer is called to pray, but some carry a special burden to \"stand in the gap\" for others (Ezek 22:30). Moses pleaded for Israel, and God relented (Exod 32:11–14). Epaphras was \"always wrestling in prayer\" for the church (Col 4:12), and Anna worshiped night and day with fasting and prayer (Luke 2:37). Intercessors share in the ministry of Jesus, who always lives to intercede for us (Heb 7:25). The Holy Spirit helps them pray when they don't know how (Rom 8:26), often praying in the Spirit (Eph 6:18).",
       functions: ['Prays for long periods with persistence', 'Carries a God-given burden for people, churches, and nations', 'Sees clear, specific answers to prayer', 'Covers leaders and ministries in prayer'],
       questions: [

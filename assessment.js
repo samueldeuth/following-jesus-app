@@ -406,7 +406,7 @@
           '<p>' + esc(c.description) + '</p>' +
           '<h3 style="margin-top:14px">How you can put this ' + (TYPE === 'gifts' ? 'gift' : 'calling') + ' to use</h3>' +
           '<ul class="functions">' + c.functions.map(f => '<li>' + esc(f) + '</li>').join('') + '</ul>' +
-          (c.characters && c.characters.length ? '<h3 style="margin-top:18px">Biblical characters to study</h3><ul class="functions chars">' + c.characters.map(ch => '<li><b>' + esc(ch.name) + '</b> <span class="muted">· ' + esc(ch.ref) + '</span></li>').join('') + '</ul>' : '') +
+          (c.characters && c.characters.length ? '<h3 style="margin-top:18px">' + (TYPE === 'gifts' ? 'Biblical Stories to Study for your Gift' : 'Biblical characters to study') + '</h3><ul class="functions chars">' + c.characters.map(ch => '<li><b>' + esc(ch.name) + '</b> <span class="muted">· ' + esc(ch.ref) + '</span></li>').join('') + '</ul>' : '') +
           (FJ.resourcesFor(key).length ? '<h3 style="margin-top:18px">Grow in this ' + noun + '</h3>' + resourceListHtml(FJ.resourcesFor(key)) : '') +
         '</div>';
       topCards.push(card);
