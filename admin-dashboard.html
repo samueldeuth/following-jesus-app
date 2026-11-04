@@ -3361,7 +3361,7 @@ function renderPushNotifications(){
 let appTapsRangeKey = '30d';
 let appTapsScreen = 'all';
 let appTapsPage = 0;
-const APP_TAPS_PAGE_SIZE = 25;
+const APP_TAPS_PAGE_SIZE = 15;
 async function loadAppTaps(){
   const rangeEl = document.getElementById('app-taps-range');
   const bodyEl = document.getElementById('app-taps-body');
@@ -3402,7 +3402,7 @@ async function loadAppTaps(){
       <button class="mini-btn" id="app-taps-export-btn" style="margin-left:auto;">Export (CSV)</button>
     </div>
     <div id="app-taps-table-wrap"></div>`;
-  // 25 buttons per page, with page numbers, so the list doesn't stretch forever.
+  // 15 buttons per page, with page numbers, so the list doesn't stretch forever.
   // Bars stay scaled to the busiest button across the whole list, not just the current page.
   function paintTapsPage(){
     const pages = Math.max(1, Math.ceil(shown.length / APP_TAPS_PAGE_SIZE));
