@@ -245,7 +245,19 @@
   .pp-detail .top-card p{font-size:14px; line-height:1.45; margin:6px 0;}
   .pp-detail .top-card h3{font-size:15px; margin:12px 0 4px !important;}
   .pp-detail .functions li{font-size:14px; margin:2px 0;}
-  .pp-detail .res-list{gap:5px; margin-top:6px;}
+  .pp-detail .res-list{gap:5px; margin-top:6px; grid-template-columns:1fr 1fr;}
+  .pp-detail .chars{columns:2; column-gap:18px;}
+  .pp-detail .chars li{font-size:13px; break-inside:avoid;}
+  .pp-detail .res-list a{padding:4px 9px;}
+  .pp-detail .res-list b{font-size:12.5px; font-weight:600;}
+  .pp-detail .res-list span{display:none;}
+  /* Five-Fold office pages carry more (characters + 8 books): a touch smaller so each stays on one page. */
+  .pp-fivefold .top-card{padding:14px 18px;}
+  .pp-fivefold .top-card h2{font-size:25px;}
+  .pp-fivefold .top-card p{font-size:12.3px; line-height:1.38; margin:4px 0;}
+  .pp-fivefold .top-card h3{font-size:14px; margin:9px 0 3px !important;}
+  .pp-fivefold .functions li{font-size:12.3px; margin:1px 0;}
+  .pp-fivefold .chars li{font-size:12px;}
   .pp-detail .res-list a, .pp-growth .res-list a{padding:6px 10px; border-radius:8px;}
   .pp-detail .res-list span, .pp-growth .res-list span{font-size:12px;}
   .pp-growth .res-list{gap:5px; margin-top:6px;}

@@ -96,16 +96,7 @@
       ? '<a href="/app">Home</a>'
       : '<a href="https://qrco.de/fjapp">Get the app</a>';
     if (IN_APP) document.getElementById('brandLink').setAttribute('href', '/app');
-    if (user) {
-      // Signed in: a profile icon (opens the profile in the app, on the web too).
-      const meta = user.user_metadata || {};
-      const pic = String(meta.avatar_url || meta.picture || '');
-      const icon = /^https:\/\//.test(pic)
-        ? '<img src="' + esc(pic) + '" alt="" referrerpolicy="no-referrer" style="width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle">'
-        : '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>';
-      html += '<a href="/app" id="profileLink" aria-label="My profile" title="My profile" style="display:inline-flex;align-items:center;gap:6px">' + icon + '<span>Profile</span></a>';
-      html += '<button type="button" id="signOutBtn">Sign out</button>';
-    }
+    if (user) html += '<button type="button" id="signOutBtn">Sign out</button>';
     nav.innerHTML = html;
     const so = document.getElementById('signOutBtn');
     if (so) so.onclick = async () => { await sb.auth.signOut(); user = null; lastResult = null; renderTopLinks(); renderIntro(); };
@@ -415,6 +406,7 @@
           '<p>' + esc(c.description) + '</p>' +
           '<h3 style="margin-top:14px">How you can put this ' + (TYPE === 'gifts' ? 'gift' : 'calling') + ' to use</h3>' +
           '<ul class="functions">' + c.functions.map(f => '<li>' + esc(f) + '</li>').join('') + '</ul>' +
+          (c.characters && c.characters.length ? '<h3 style="margin-top:18px">Biblical characters to study</h3><ul class="functions chars">' + c.characters.map(ch => '<li><b>' + esc(ch.name) + '</b> <span class="muted">· ' + esc(ch.ref) + '</span></li>').join('') + '</ul>' : '') +
           (FJ.resourcesFor(key).length ? '<h3 style="margin-top:18px">Grow in this ' + noun + '</h3>' + resourceListHtml(FJ.resourcesFor(key)) : '') +
         '</div>';
       topCards.push(card);
@@ -454,9 +446,8 @@
     }
 
     const keepGrowingHtml = resourceListHtml([
-      { label:'View my profile', note:'Your badges, assessment results, and settings. Sign in with the same account.', url:'/app' },
       IN_APP ? { label:'Back to the Following Jesus app', note:'Daily devotionals, prayer, and discipleship', url:'/app' }
-             : { label:'Get the Following Jesus app', note:'Free daily devotionals, prayer, and discipleship', url:'https://qrco.de/fjapp' },
+             : { label:'The Following Jesus app', note:'Free daily devotionals, prayer, and discipleship', url:'https://qrco.de/fjapp' },
       FJ.LINKS.book,
       { label:'Take the ' + OTHER.title, note:OTHER.categories.length + ' ' + (OTHER.type === 'gifts' ? 'spiritual gifts' : 'offices') + ' · about ' + OTHER.minutes + ' minutes', url:OTHER.path }
     ]);
@@ -472,7 +463,7 @@
         (tieNoteText ? '<p class="pp-tie">' + esc(tieNoteText) + '</p>' : '') +
         roleNoteHtml +
       '</div></section>' +
-      topCards.map(card => '<section class="print-only print-page pp-detail"><div class="wrap">' + card + '</div></section>').join('') +
+      topCards.map(card => '<section class="print-only print-page pp-detail pp-' + TYPE + '"><div class="wrap">' + card + '</div></section>').join('') +
       '<section class="print-only print-page pp-growth"><div class="wrap">' +
         '<h2>Keep growing</h2>' + keepGrowingHtml +
         '<h2 style="margin-top:22px">Remember</h2>' + bestUseHtml() +

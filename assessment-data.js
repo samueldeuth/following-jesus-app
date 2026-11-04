@@ -75,6 +75,10 @@
     sermonOutlines: { label: 'Following Jesus Series: Sermon Outlines', note: 'Free download', url: 'https://followingjesusbook.com/products/following-jesus-series-sermon-outlines' },
     // Other authors
     push: { label: 'PUSH: Pray Until Something Happens', note: 'Book by Ps Jurgen Matthesius', url: 'https://www.amazon.com/dp/1400206510' },
+    leadersight: { label: 'Leadersight: Seeing the Invisible to Create the Impossible', note: 'Book by Ps Jurgen Matthesius', url: 'https://www.amazon.com/dp/1947165836' },
+    youTheLeader: { label: 'You the Leader', note: 'Book by Ps Phil Pringle', url: 'https://www.amazon.com/dp/1603742832' },
+    maxwellWithin: { label: 'Developing the Leader Within You 2.0', note: 'Book by John C. Maxwell', url: 'https://www.amazon.com/dp/0718074084' },
+    maxwellAround: { label: 'Developing the Leaders Around You', note: 'Book by John C. Maxwell', url: 'https://www.amazon.com/dp/0785281118' },
     pringleFaith: { label: 'Faith: Moving the Heart and Hand of God', note: 'Book by Ps Phil Pringle', url: 'https://www.amazon.com/dp/1603742840' },
     connellGifts: { label: 'Activating the Gifts of the Spirit', note: 'Training manual by Ps Mike Connell', url: 'https://www.amazon.com/dp/148127886X' }
   };
@@ -97,11 +101,11 @@
     ADM: [LINKS.promotion],
     // Still to add: WIS (Word of Wisdom), KNO (Word of Knowledge), INT (Interpretation)
     // Five-fold offices (confirmed by Samuel, Oct 27; Process of Promotion on every office)
-    APO: [LINKS.preachingBook, LINKS.promotion],
-    PRP: [LINKS.preachingBook, LINKS.promotion],
-    EVN: [LINKS.preachingBook, LINKS.book, LINKS.promotion],
-    PAS: [LINKS.preachingBook, LINKS.discipleshipCourse, LINKS.promotion],
-    TCH: [LINKS.preachingBook, LINKS.preachingCourse, LINKS.promotion]
+    APO: [LINKS.preachingBook, LINKS.promotion, LINKS.leadersight, LINKS.youTheLeader, LINKS.pringleFaith, LINKS.maxwellWithin, LINKS.maxwellAround],
+    PRP: [LINKS.preachingBook, LINKS.promotion, LINKS.leadersight, LINKS.youTheLeader, LINKS.pringleFaith, LINKS.maxwellWithin, LINKS.maxwellAround],
+    EVN: [LINKS.preachingBook, LINKS.book, LINKS.promotion, LINKS.leadersight, LINKS.youTheLeader, LINKS.pringleFaith, LINKS.maxwellWithin, LINKS.maxwellAround],
+    PAS: [LINKS.preachingBook, LINKS.discipleshipCourse, LINKS.promotion, LINKS.leadersight, LINKS.youTheLeader, LINKS.pringleFaith, LINKS.maxwellWithin, LINKS.maxwellAround],
+    TCH: [LINKS.preachingBook, LINKS.preachingCourse, LINKS.promotion, LINKS.leadersight, LINKS.youTheLeader, LINKS.pringleFaith, LINKS.maxwellWithin, LINKS.maxwellAround]
   };
 
 
@@ -440,6 +444,8 @@
      Statement 10 in every set is the "others confirm" tie-breaker. */
   const OFFICES = [
     { key: 'APO', name: 'Apostle', path: 'Clears and reveals the Path', scripture: 'Rom 15:20; 1 Cor 3:10',
+      // Biblical characters to study for this office (shown before the resources).
+      characters: [{"name":"Jesus, the Apostle and High Priest of our faith","ref":"Heb 3:1; John 20:21"},{"name":"Paul","ref":"Acts 13–28"},{"name":"Peter","ref":"Acts 1–12"},{"name":"Barnabas","ref":"Acts 11:22–26; 13–14"},{"name":"James, leader of the Jerusalem church","ref":"Acts 15:13–21; Gal 2:9"},{"name":"Moses, sent to lead God's people","ref":"Exod 3:10; 18:13–26"}],
       description: "\"Apostle\" means \"sent one.\" Jesus is called \"the apostle and high priest of our faith\" (Heb 3:1), the one sent by the Father. After He ascended, He gave apostles to the church first, to equip His people (Eph 4:8–12; 1 Cor 12:28). The church is \"built on the foundation of the apostles and prophets\" (Eph 2:20). The original apostles who walked with Jesus wrote Scripture by the Holy Spirit. Apostles today lead the direction of the church, but they don't add to Scripture. Beyond the Twelve, the New Testament names others as apostles, like Barnabas (Acts 14:14). Apostles are trailblazers. They cut a trail and vision big enough for the other five-fold offices to thrive in. Paul described himself as a wise builder laying a foundation (1 Cor 3:10), and his ambition was to preach Christ where He wasn't yet known (Rom 15:20). Apostles pioneer new works, establish churches, and set leaders in place, appointing elders and pastors in every town (Acts 14:21–23; Titus 1:5), and their ministry is marked by perseverance, signs, wonders, and miracles (2 Cor 12:12).",
       functions: ['Pioneers new churches, ministries, and territory for the gospel, often multiplying through church plants or new campuses', 'Lays foundations of vision, values, and structure', 'Identifies and multiplies leaders, and sets pastors in place (Titus 1:5)', 'Sees the big picture and keeps the church moving on mission', 'Provides oversight and covering under which the other five-fold offices can thrive',
         'Ministers with perseverance, signs, and wonders (2 Cor 12:12)',
@@ -470,6 +476,8 @@
         'Eph 2:20'
       ] },
     { key: 'PRP', name: 'Prophet', path: 'Calls people back to the Path', scripture: 'Jer 6:16; 1 Cor 14:3',
+      // Biblical characters to study for this office (shown before the resources).
+      characters: [{"name":"Jesus, the Prophet like Moses","ref":"Deut 18:15; Acts 3:22; Luke 24:19"},{"name":"Samuel","ref":"1 Sam 3; 9:9"},{"name":"Elijah","ref":"1 Kgs 17–19"},{"name":"Elisha","ref":"2 Kgs 2–6"},{"name":"Jeremiah","ref":"Jer 1; 6:16"},{"name":"Ezekiel, the watchman","ref":"Ezek 3:17–21; 33"},{"name":"Agabus","ref":"Acts 11:27–30; 21:10–11"},{"name":"Judas and Silas","ref":"Acts 15:32"}],
       description: "Prophets speak God's heart to His people and call them back to Him. Every believer can hear from God, but prophets dedicate themselves to hearing and seeing what He is doing. The Bible sometimes calls them \"seers\" (1 Sam 9:9). God does nothing without revealing His plan to His servants the prophets (Amos 3:7). Like a watchman on the wall, the prophet warns God's people when they've wandered off the path and calls them back home (Ezek 3:17; Ezek 33:7; Neh 9:30). Prophets can come across as intense, because they're often commissioned to call the church back to its roots and foundations, and at times to call out sin in the church and the nation. Through Jeremiah, God told His people to ask for the ancient paths, where the good way is (Jer 6:16). God gives prophets different spheres: a church, a city, a nation, or beyond. In the New Testament, prophets like Judas and Silas spoke to encourage and strengthen the believers (Acts 15:32), and prophets and teachers together heard the Holy Spirit set apart Barnabas and Saul (Acts 13:1–3). The prophet speaks only what God shows, not their own ideas (Num 22:38), and true prophecy always points to Jesus (Rev 19:10). Being faithful to speak what God shows them is what earns a prophet more trust from God.",
       functions: ['Takes time to hear and see what God is saying in this season, and speaks it', 'Calls the church back to intimacy with God, holiness, and obedience', "Watches and warns when God's people drift off course, including sin in the church and the nation (Ezek 3:17; 33:7)", 'Brings direction and confirmation to leaders and churches', 'Keeps the church sensitive to the Holy Spirit', 'Calls out and confirms gifts and callings, including five-fold callings (Acts 13:1–3; 1 Tim 4:14)', "Guards their own life in holiness, because a prophet's sin affects the people they serve (Lam 4:12–13)"],
       questions: [
@@ -498,6 +506,8 @@
         'Acts 13:1–3; 1 Tim 4:14'
       ] },
     { key: 'EVN', name: 'Evangelist', path: 'Brings new people onto the Path', scripture: 'Luke 19:10; Acts 8:5, 21:8',
+      // Biblical characters to study for this office (shown before the resources).
+      characters: [{"name":"Jesus, who came to seek and save the lost","ref":"Luke 19:10; Luke 4:18"},{"name":"Philip","ref":"Acts 8; 21:8"},{"name":"Peter at Pentecost","ref":"Acts 2:14–41"},{"name":"Paul in Athens","ref":"Acts 17:16–34"},{"name":"The woman at the well","ref":"John 4:28–30, 39–42"},{"name":"Andrew","ref":"John 1:40–42"}],
       description: "In Acts we see the evangelist at work: Philip the evangelist (Acts 21:8) preached Christ in Samaria, signs followed, and the whole city was filled with joy as people believed and were baptized (Acts 8:5–12). The evangelist carries the heart of Jesus, who came \"to seek and to save the lost\" (Luke 19:10), and gets more people on the path. They carry a burden for the lost and tend to see more people respond to Christ, in church, at events, and one on one. All the offices move in power, but evangelists often carry a healing and freedom anointing that shows God's power and draws people to Jesus. When Philip preached, the sick were healed and evil spirits came out (Acts 8:6–7). But as a five-fold office, the evangelist doesn't only lead people to Christ. Christ gave evangelists to equip His people (Eph 4:11–12), so they encourage and build up the church, train believers to share their faith, and raise up churches of soul winners.",
       functions: ['Proclaims the gospel and calls people to follow Jesus, in church, at events, and one on one', 'Keeps the church focused on the lost', 'Teaches and raises up the church to be soul winners', 'Brings new people into the life of the church', 'Often sees the gospel confirmed with signs and wonders (Acts 8:6)', 'Encourages and strengthens the church'],
       questions: [
@@ -526,6 +536,8 @@
         '2 Tim 4:5'
       ] },
     { key: 'PAS', name: 'Pastor', path: 'Walks with people on the Path', scripture: 'John 10:11; 1 Pet 5:2',
+      // Biblical characters to study for this office (shown before the resources).
+      characters: [{"name":"Jesus, the Good Shepherd","ref":"John 10"},{"name":"David, the shepherd king","ref":"1 Sam 17:34–35; Ps 78:70–72"},{"name":"Peter, told to feed Jesus' sheep","ref":"John 21:15–17; 1 Pet 5:1–4"},{"name":"Timothy","ref":"Phil 2:19–22; 1 & 2 Timothy"},{"name":"Epaphras","ref":"Col 1:7; 4:12–13"}],
       description: "\"Pastor\" means \"shepherd.\" Jesus is the Good Shepherd who knows His sheep and lays down His life for them (John 10:11, 14). God promised His people shepherds after His own heart, who would lead them with knowledge and understanding (Jer 3:15). The Holy Spirit makes pastors overseers of the flock, to shepherd the church Jesus bought with His own blood (Acts 20:28). Peter told elders to shepherd willingly and by example, not for gain (1 Pet 5:2–3). Paul had no one like Timothy, who showed genuine concern for people's welfare instead of looking out for himself (Phil 2:20–21). Pastors walk with people on the path. They aren't only a caring office. They drive out wolves in sheep's clothing and speak out against what could harm the church (Acts 20:29). Evangelism still matters to them, but their focus is discipleship and spiritual formation, laboring \"until Christ is formed in you\" (Gal 4:19), and teaching people the difference between what is holy and what is common (Ezek 44:23).",
       functions: ["Cares for the spiritual health of God's people over the long haul", 'Notices those who are struggling or drifting and goes after them (Luke 15:4)', 'Speaks out against false teaching and anything that could harm the church (Acts 20:29)', 'Builds healthy community, unity, and order in the church family', 'Guides people into holy living (Ezek 44:23)', 'Disciples people in spiritual formation, walking with them toward maturity until Christ is formed in them (Gal 4:19)'],
       questions: [
@@ -554,6 +566,8 @@
         '1 Cor 4:15'
       ] },
     { key: 'TCH', name: 'Teacher', path: 'Shows people how to walk on the Path', scripture: 'Matt 28:20; 2 Tim 2:2',
+      // Biblical characters to study for this office (shown before the resources).
+      characters: [{"name":"Jesus, the Teacher","ref":"Matt 5–7"},{"name":"Ezra","ref":"Ezra 7:10; Neh 8:1–8"},{"name":"Apollos","ref":"Acts 18:24–28"},{"name":"Priscilla and Aquila","ref":"Acts 18:26"},{"name":"Paul in Ephesus","ref":"Acts 19:8–10"}],
       description: "Jesus taught with authority, and the crowds were amazed (Matt 7:28–29). He commanded His followers to teach new disciples to obey everything He commanded (Matt 28:20). As a five-fold office, the teacher shows people how to walk on the path and grounds the church in truth, so believers aren't tossed around by every new idea (Eph 4:11–14). Teachers guard sound doctrine and teach the church the foundations of Scripture, helping to right the ship when the church's theology drifts. They go deep in the Word, but always toward walking it out: showing people how to follow Jesus. Paul told Timothy, \"Watch your life and doctrine closely\" (1 Tim 4:16). Barnabas and Saul spent a whole year teaching large numbers in Antioch, and that's where the disciples were first called Christians (Acts 11:25–26). Paul taught daily for two years in Ephesus until the whole region heard the word (Acts 19:9–10), and he told Timothy to pass what he'd learned on to faithful people who could teach others (2 Tim 2:2).",
       functions: ["Explains God's Word with clarity and accuracy","Guards sound doctrine and grounds believers in the foundations of Scripture (Eph 4:14; 1 Tim 4:16)","Builds discipleship pathways, studies, and courses","Raises up other teachers in biblical literacy and accuracy (2 Tim 2:2)","Shows people how to follow Jesus and live out the Word day to day","Helps correct the church's theology when it drifts"],
       questions: [
