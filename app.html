@@ -2055,7 +2055,7 @@
 
       <div class="banner-wrap">
         <div class="banner-scroll" id="bannerScroll">
-          <button type="button" class="banner-slide banner-photo" id="blogBannerSlide" onclick="goToTab('screen-blog')">
+          <button type="button" class="banner-slide banner-photo" id="blogBannerSlide" data-track="From the Blog" onclick="goToTab('screen-blog')">
             <div class="banner-eyebrow">From the Blog</div>
             <div class="banner-title" id="blogBannerTitle">Embracing Obscurity: The Path to Purpose</div>
           </button>
@@ -6782,6 +6782,9 @@ const fjTap = (function(){
     if (/[A-Za-z]{2}/.test(label) && label === label.toUpperCase()) label = titleCase(label); // CSS capitals -> normal case
     label = label.replace(/\bFj\b/g, 'FJ');
     if (el.classList && el.classList.contains('tab-btn')) return 'Tab: ' + label;
+    // The same destination can be reached from the top banners and the "More" grid; name them apart.
+    if (el.classList && el.classList.contains('banner-slide')) return 'Banner: ' + label;
+    if (el.classList && el.classList.contains('grid-item')) return 'More: ' + label;
     if (el.closest('#planBar')) {
       if (/^\d+$/.test(label)) return 'Reading plan: day picker';
       if (REF_RE.test(label)) return 'Reading plan: open a reading';
@@ -6814,6 +6817,35 @@ const fjTap = (function(){
     else if (!timer) timer = setTimeout(flush, 1500);
   }
 
+  // A tap on a link that opens in the SAME tab (like the Spiritual Gifts banner)
+  // unloads the page before a normal request can finish, so the tap was lost.
+  // These send straight away with keepalive, which the browser lets finish
+  // even while the page is going away. Uses the sign-in token remembered
+  // from the last successful check; if there isn't one, falls back to flush().
+  let cachedToken = '';
+  function refreshToken(){
+    try {
+      if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+      supabaseClient.auth.getSession().then(function(r){
+        cachedToken = (r && r.data && r.data.session && r.data.session.access_token) || '';
+      }).catch(function(){});
+    } catch (e) {}
+  }
+  function flushNow(){
+    if (timer) { clearTimeout(timer); timer = null; }
+    if (!queue.length) return;
+    if (!cachedToken) { flush(); return; }
+    const batch = queue; queue = [];
+    try {
+      fetch(SUPABASE_URL + '/rest/v1/app_events', {
+        method: 'POST', keepalive: true,
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + cachedToken, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify(batch)
+      }).then(function(res){ if (res && res.ok) sent += batch.length; }).catch(function(){});
+    } catch (e) { flush(); }
+  }
+  refreshToken();
+
   async function flush(){
     if (timer) { clearTimeout(timer); timer = null; }
     if (!queue.length) return;
@@ -6824,6 +6856,7 @@ const fjTap = (function(){
       if (!data || !data.session) return; // no session yet: skip rather than error
       const { error } = await supabaseClient.from('app_events').insert(batch);
       if (!error) sent += batch.length;
+      refreshToken();
     } catch (e) { /* tracking must never affect the app */ }
   }
 
@@ -6838,11 +6871,14 @@ const fjTap = (function(){
       if (lbl.indexOf('Tab: ') === 0) scr = 'tabs';                      // bottom tab bar taps grouped together
       else if (!scr && el.closest(POPUP_SEL)) scr = 'popup';             // popups with no screen behind them
       track(lbl, scr);
+      // Same-tab link (leaves the app page): send right now so the tap isn't lost.
+      const link = el.closest('a[href]');
+      if (link && link.target !== '_blank' && !/^(#|javascript:|mailto:|tel:)/i.test(link.getAttribute('href') || '#')) flushNow();
     } catch (err) {}
   }, true);
 
-  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden') flush(); });
-  window.addEventListener('pagehide', flush);
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden') flushNow(); else refreshToken(); });
+  window.addEventListener('pagehide', flushNow);
   return { track, flush, _labelFor: labelFor };
 })();
 
