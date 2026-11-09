@@ -6757,18 +6757,18 @@ const fjTap = (function(){
 
   const PLAN_SHORT = { hope: 'Hope', miracles: 'Miracles', new_believer: 'New Believers', kids: 'Kids', men: 'Men', youth: 'Youth' };
   const POPUP_SEL = '.verse-alert-modal-overlay, .disciple-modal, .article-modal, .embed-modal, #modalPortal';
-  const REF_RE = /^[1-3]?\s?[A-Za-z][A-Za-z ]*\s\d+(:\d+(-\d+)?)?$/; // "Genesis 1", "Psalm 37:34", "1 John 2"
+  const REF_RE = /^[1-3]?\s?[A-Za-z][A-Za-z ]*\s\d+(:\d+(-\d+)?)?(\s[A-Z]{2,5})?$/; // "Genesis 1", "Psalm 37:34", "1 John 2"
 
   // Last tidy-ups so the same button always ends up with the same name.
   function finish(label){
-    label = label.replace(/\s*[\u2192\u2190\u203A\u00BB]+\s*$/, '').trim();           // trailing arrows
+    label = label.replace(/\s*[\u2192\u2190\u203A\u00BB]+\s*$/, '').replace(/^[\u2192\u2190\u2039\u00AB]+\s*/, '').trim();           // trailing arrows
     if (/Mark .+ as read$/.test(label)) return 'Reading plan: Mark chapter as read';       // one name, not one per chapter
     const m = label.match(/^(?:Plan: )?52 Bible Verses (?:on|for|to Teach Your) (.+)$/);   // plan titles -> short plan names
     if (m) return 'Plan: ' + m[1].replace(/^New Believers$/, 'New Believers');
     const k = label.match(/^Plan: (hope|miracles|new_believer|kids|men|youth)$/);
     if (k) return 'Plan: ' + PLAN_SHORT[k[1]];
     if (/^Plan: \d+$/.test(label)) return 'Plan: day picker';
-    if (/^Plan: [1-3]?\s?[A-Za-z][A-Za-z ]*\s\d+(:\d+(-\d+)?)?$/.test(label)) return 'Plan: open a reading';
+    if (/^Plan: [1-3]?\s?[A-Za-z][A-Za-z ]*\s\d+(:\d+(-\d+)?)?(\s[A-Z]{2,5})?$/.test(label)) return 'Plan: open a reading';
     return label;
   }
 
@@ -6777,10 +6777,12 @@ const fjTap = (function(){
     let label = rawLabelFor(el);
     if (!label) return '';
     if (label.length > 50) return ''; // long text is content (a verse, an excerpt), not a button
+    label = label.replace(/^[\u2192\u2190\u2039\u00AB]+\s*/, '');   // arrow at the start ("← Prev")
     if (/Prefer NIV\/ESV/i.test(label)) return 'Open in YouVersion';
     if (label.indexOf(' \u00B7 ') > 0) label = label.split(' \u00B7 ')[0];   // "Plan name \u00B7 Read right here..." -> "Plan name"
     if (/[A-Za-z]{2}/.test(label) && label === label.toUpperCase()) label = titleCase(label); // CSS capitals -> normal case
     label = label.replace(/\bFj\b/g, 'FJ');
+    if (label === '\u2715' || label === '\u2716' || label === '\u00D7') label = 'Close';
     if (el.classList && el.classList.contains('tab-btn')) return 'Tab: ' + label;
     // The same destination can be reached from the top banners and the "More" grid; name them apart.
     if (el.classList && el.classList.contains('banner-slide')) return 'Banner: ' + label;
@@ -11122,7 +11124,7 @@ async function renderDiscipleshipApp() {
 </style>
 <div id="fjUpdateBanner" role="status">
   <div class="fj-ub-text">New version available. Update the app to keep getting your daily reminders.</div>
-  <a id="fjUpdateBtn" href="#" target="_blank" rel="noopener">Update</a>
+  <a id="fjUpdateBtn" href="#" target="_blank" rel="noopener" data-track="App update available: Update">Update</a>
   <button id="fjUpdateClose" aria-label="Dismiss">&times;</button>
 </div>
 <script>
