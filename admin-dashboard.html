@@ -2004,6 +2004,16 @@ async function paintDashboard(){
     prevCompletions = pc || 0;
   } catch(e){ /* leave as — */ }
 
+  // ---- App: active users (people who tapped something in the app) ----
+  let activeUsers = null, prevActiveUsers = null, trackedPeople = null;
+  try {
+    const sumArgs = { p_start: startIso, p_end: new Date().toISOString(), p_prev_start: pStartIso, p_prev_end: pEndIso };
+    const { data: au, error: auErr } = await supabaseClient.rpc('get_app_tap_summary', sumArgs);
+    if(!auErr && au && au[0]){ activeUsers = Number(au[0].users); prevActiveUsers = Number(au[0].prev_users); }
+    const { data: allAu, error: allErr } = await supabaseClient.rpc('get_app_tap_summary', { p_start: '2020-01-01T00:00:00Z', p_end: new Date().toISOString(), p_prev_start: '2020-01-01T00:00:00Z', p_prev_end: '2020-01-02T00:00:00Z' });
+    if(!allErr && allAu && allAu[0]) trackedPeople = Number(allAu[0].users);
+  } catch(e){ /* leave as — */ }
+
   // ---- App ----
   const rows = d.installRows;
   const newOf = (r) => (r.new_installs != null ? r.new_installs : (r.downloads || 0));
@@ -2060,7 +2070,7 @@ async function paintDashboard(){
       card(fmt(newCompletions), 'Finished a course', total(totalCompleted, 'total completions'), { delta: deltaHtml(newCompletions, prevCompletions), info: 'Big number: certificates issued in the selected range. Small number: all-time completions, including ones backfilled from the old platform.' })
     ].join('')) +
     section('App', 'dash-view-app', [
-      card(fmt(newLeaders), 'Disciple Makers', total(approvedLeaderCount, 'total'), { id: 'dash-disciple-makers-card', delta: deltaHtml(newLeaders, prevLeaders), info: 'Newly approved in the selected range. Click to see the list.' }),
+      card(fmt(activeUsers), 'Active Users', trackedPeople !== null ? `${fmt(trackedPeople)} people tracked in total` : '', { delta: deltaHtml(activeUsers, prevActiveUsers), info: 'People who tapped something in the app during the selected range, counted once each. The small number is everyone seen since tap tracking began. Someone who clears the app\'s data or reinstalls can count as a new person.' }),
       card(fmt(rows ? rangeIos + rangeAnd : null), 'New Installs', rows ? `${fmt(rangeIos)} iOS · ${fmt(rangeAnd)} Android · ${fmt(totalInstalls)} total` : '', { delta: deltaHtml(rows ? rangeIos + rangeAnd : null, prevInstalls), info: 'First-time installs only, from App Store Connect and Google Play. Apple lags about 2 days. The total only counts days since tracking began' + (trackedSince ? ` (${trackedSince})` : '') + ', so it may be lower than the stores\' lifetime totals.' }),
       card(fmt(newCompletions), 'Disciples Made', total(d.disciples, 'total'), { delta: deltaHtml(newCompletions, prevCompletions), info: 'Course completions in the selected range. The small number is all-time disciples made through the app, including completions brought over from the old platform.' })
     ].join('')) +
@@ -2078,8 +2088,6 @@ async function paintDashboard(){
   document.getElementById('dash-view-app').addEventListener('click', renderPushNotifications);
   document.getElementById('dash-view-gifts').addEventListener('click', renderSpiritualGifts);
   document.getElementById('dash-view-churches').addEventListener('click', renderChurchDirectory);
-  const dm = document.getElementById('dash-disciple-makers-card');
-  if(dm) dm.addEventListener('click', renderDiscipleMakers);
   initInfoTooltips();
 }
 
@@ -2795,6 +2803,14 @@ function renderPushNotifications(){
     <div style="text-align:left;">
     <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 4px;">App</h2>
 
+    <div class="summary-row" style="margin:8px 0 18px;max-width:680px;">
+      <div class="summary-card clickable" id="app-page-disciple-makers-card" title="Click to see the list">
+        <div class="num">${Number(approvedLeaderCount || 0).toLocaleString()}</div>
+        <div class="label">Disciple Makers</div>
+        <div style="font-size:12px;color:var(--ink-soft);margin-top:2px;">approved in total &middot; click to see the list</div>
+      </div>
+    </div>
+
     <div class="card" style="margin-bottom:24px;max-width:680px;">
       <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:6px;">Installs
         <button type="button" class="info-icon-btn" data-info="Pulled daily from App Store Connect and Google Play. New installs counts people installing for the first time: re-downloads (a new phone, delete and reinstall) and app updates are not counted. Apple's numbers lag about 2 days, and older iPhone history fills in gradually over the first few weeks. Open More stats for the month-by-month history and active users."">i</button>
@@ -2913,6 +2929,8 @@ function renderPushNotifications(){
     </div>
   `;
   initInfoTooltips();
+  const dmCard = document.getElementById('app-page-disciple-makers-card');
+  if(dmCard) dmCard.addEventListener('click', renderDiscipleMakers);
   loadAppDownloadStats();
   loadAppTaps();
 
