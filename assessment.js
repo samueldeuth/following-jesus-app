@@ -505,7 +505,6 @@
             ? 'Gifts are affirmed in community, and confirmed by your pastor and those God has placed over you. Invite your pastor or a mature Christian leader to confirm your top gifts. Their voice matters more than any score.'
             : 'Calling is delegated by the Holy Spirit, affirmed in community, and confirmed or released by those who already serve in the five-fold offices. Invite your pastor or a leader serving in these offices to confirm your results.') + '</p>' +
           (res.id ? '<div id="confirmSlot"></div>' : '<p style="margin-bottom:0">Once your results are saved, you\'ll be able to invite up to 3 people here.</p>') +
-          '<div id="shareSlot"></div>' +
         '</div>' +
       '</div></section>' +
       '<section style="padding-top:0"><div class="wrap">' +
@@ -527,7 +526,6 @@
       // Print-only pages go last in the page so on-screen lookups find the visible copies first.
       printCoverHtml(top, res, dateStr, ties) + printPages;
 
-    fillShareSlot();
     if (res.id) fillConfirmSlot(res.id, top);
     if (res.id) fillFeedbackSlot(res.id, top);
     document.getElementById('retakeBtn').onclick = () => { clearState(); renderQuiz(); };
@@ -733,56 +731,6 @@
       status.textContent = "Couldn't send the email: " + e.message;
       btn.disabled = false;
     }
-  }
-
-  // ---------- "Share with my church" ----------
-  // Only shown when the person belongs to a church (profiles.church_id).
-  // One setting covers both assessments. Pastors only ever see results
-  // through a church-scoped security-definer function, never this table.
-  async function fillShareSlot(){
-    const slot = document.getElementById('shareSlot');
-    if (!slot || !user) return;
-    try {
-      const { data: prof } = await sb.from('profiles').select('church_id').eq('id', user.id).maybeSingle();
-      if (!prof || !prof.church_id) return;
-      const [{ data: church }, { data: share }] = await Promise.all([
-        sb.from('churches').select('name').eq('id', prof.church_id).maybeSingle(),
-        sb.from('gift_assessment_sharing').select('share_with_church').eq('user_id', user.id).maybeSingle()
-      ]);
-      const churchName = (church && church.name) || 'my church';
-      // Sharing is ON by default for anyone connected to a church: the first
-      // time we see them, save it as shared. If they've ever turned it off,
-      // that choice (a saved false) is respected and never flipped back.
-      let on;
-      if (!share) {
-        const { error: autoErr } = await sb.from('gift_assessment_sharing').upsert(
-          { user_id: user.id, share_with_church: true, updated_at: new Date().toISOString() },
-          { onConflict: 'user_id' }
-        );
-        on = !autoErr;
-      } else {
-        on = !!share.share_with_church;
-      }
-      slot.innerHTML =
-        '<label class="share-row">' +
-          '<input type="checkbox" id="shareToggle"' + (on ? ' checked' : '') + '>' +
-          '<span><b>Share my results with ' + esc(churchName) + '</b><br>' +
-          '<small>Your pastor and church leaders can see your spiritual gifts and five-fold results, so they can help you grow and serve. Uncheck this anytime to keep them private.</small></span>' +
-        '</label><div class="share-status" id="shareStatus"></div>';
-      const box = document.getElementById('shareToggle');
-      box.onchange = async () => {
-        const next = box.checked;
-        const status = document.getElementById('shareStatus');
-        status.textContent = 'Saving…';
-        const { error } = await sb.from('gift_assessment_sharing').upsert(
-          { user_id: user.id, share_with_church: next, updated_at: new Date().toISOString() },
-          { onConflict: 'user_id' }
-        );
-        if (error) { box.checked = on; status.textContent = "Couldn't save that. Please try again."; return; }
-        on = next;
-        status.textContent = next ? 'Shared with ' + churchName + '.' : 'No longer shared.';
-      };
-    } catch (e) { console.error('Share setting failed to load', e); }
   }
 
   // ---------- Boot ----------
