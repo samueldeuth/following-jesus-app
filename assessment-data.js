@@ -14,7 +14,7 @@
    at the bottom) — keep it plain JavaScript, no browser-only code.
    ============================================================ */
 (function (root) {
-  const QUESTION_VERSION = 10; // v10 (Nov 3, 2026): PAS-3, PAS-5, TCH-1, TCH-3 reworded after pilot data/feedback
+  const QUESTION_VERSION = 11; // v11 (Nov 9, 2026): MIR-3, PAS-1, PAS-2, PAS-3, TCH-9 reworded. v10 (Nov 3): PAS-3, PAS-5, TCH-1, TCH-3
   // v9 (Oct 31, 2026): clarity pass — GIV-5, KNO-2, DIS-4, DIS-5, WIS-3, EXH-1, ICS-4, APO-3 reworded so they can't be read as another gift
   // v8 (Oct 31, 2026): GIV-4 says "give toward" a need (was readable as Helps/Mercy)
   // v7 (Oct 28, 2026): HOS-4, INT-4, INT-5, MIR-2, MIR-4 reworded after tester feedback
@@ -421,7 +421,7 @@
       questions: [
         'I\'m bold to ask God for a miracle rather than only praying for comfort.',
         'God has done supernatural things as I prayed that had no natural explanation.',
-        'The Holy Spirit has led me to pray for something only God could do.',
+        'I\'ve seen God do something supernatural through me that confirmed the gospel to the people watching.',
         'When I stepped out in obedience and prayed, God did something only He could do.',
         'Others have seen and confirmed miracles connected to my prayers.'
       ],
@@ -429,8 +429,8 @@
       refs: [
         'Acts 4:30',
         'Acts 19:11',
-        'Eph 3:20',
-        'Mark 16:20; Acts 3:6–8',
+        'Mark 16:20; Acts 8:6',
+        'Exod 14:16; Acts 3:6–8',
         'Gal 3:5'
       ] },
     { key: 'INT', name: 'Interpretation of Tongues', scripture: '1 Cor 12:10',
@@ -577,9 +577,9 @@
       description: "\"Pastor\" means \"shepherd.\" Jesus is the Good Shepherd who knows His sheep and lays down His life for them (John 10:11, 14). God promised His people shepherds after His own heart, who would lead them with knowledge and understanding (Jer 3:15). The Holy Spirit makes pastors overseers of the flock, to shepherd the church Jesus bought with His own blood (Acts 20:28). Peter told elders to shepherd willingly and by example, not for gain (1 Pet 5:2–3). Paul had no one like Timothy, who showed genuine concern for people's welfare instead of looking out for himself (Phil 2:20–21). Pastors walk with people on the path. They aren't only a caring office. They drive out wolves in sheep's clothing and speak out against what could harm the church (Acts 20:29). Evangelism still matters to them, but their focus is discipleship and spiritual formation, laboring \"until Christ is formed in you\" (Gal 4:19), and teaching people the difference between what is holy and what is common (Ezek 44:23).",
       functions: ["Cares for the spiritual health of God's people over the long haul", 'Notices those who are struggling or drifting and goes after them (Luke 15:4)', 'Speaks out against false teaching and anything that could harm the church (Acts 20:29)', 'Builds healthy community, unity, and order in the church family', 'Guides people into holy living (Ezek 44:23)', 'Disciples people in spiritual formation, walking with them toward maturity until Christ is formed in them (Gal 4:19)'],
       questions: [
-        'I care deeply about how the people around me are doing with God.',
-        'I notice when someone is missing, struggling, or drifting away.',
-        'I\'d rather build deep, lasting community than just big moments of inspiration.',
+        'I carry a God-given weight to shape people\'s spiritual health, and while I love seeing crowds reached, I\'m most drawn to discipling people up close.',
+        'I notice when people stop showing up at church, pull back from serving, or disconnect from community, and I go after them.',
+        'I\'m willing to lovingly correct someone who\'s heading the wrong way, even when it\'s uncomfortable.',
         'I\'m patient with people who are slow to grow.',
         'I walk with the same people for months and years, through good seasons and hard ones.',
         'I help people work through conflict and be reconciled.',
@@ -590,9 +590,9 @@
       ],
       // Scripture basis for each statement above, in the same order.
       refs: [
-        'Phil 2:20',
-        'Luke 15:4',
-        'Acts 2:42–47; John 10:14',
+        'Gal 4:19; Phil 2:20',
+        'Luke 15:4; Heb 10:25',
+        '2 Tim 4:2; Gal 6:1',
         '1 Thess 5:14',
         'John 10:11',
         'Matt 5:9',
@@ -615,7 +615,7 @@
         'I create or teach discipleship studies, classes, or courses.',
         'I train others so they can teach too (2 Tim 2:2).',
         'People I\'ve taught are grounded in God\'s Word and living it out.',
-        'I help people connect what the Bible says to how they live Monday through Saturday.',
+        'When I teach or preach, I help people connect what the Bible says to how they live Monday through Saturday.',
         'Others say I helped them finally understand God\'s Word.'
       ],
       // Scripture basis for each statement above, in the same order.
