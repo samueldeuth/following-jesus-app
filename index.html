@@ -180,6 +180,23 @@
     .slides{transition:none;}
     *{transition:none !important;}
   }
+
+  /* ---------- Email sign-up popup ---------- */
+  .em-back{position:fixed;inset:0;z-index:200;background:rgba(10,10,10,.62);display:none;align-items:center;justify-content:center;padding:18px;}
+  .em-back.show{display:flex;}
+  .em-box{position:relative;background:#fff;color:var(--black);width:100%;max-width:440px;border-radius:6px;padding:34px 30px 26px;border-top:6px solid var(--black);box-shadow:0 20px 60px rgba(0,0,0,.35);}
+  .em-box h2{font-family:var(--display);font-weight:800;font-size:26px;line-height:1.12;margin:0 0 10px;}
+  .em-box p{margin:0 0 18px;font-size:15px;color:var(--ink-soft);}
+  .em-x{position:absolute;top:8px;right:10px;background:none;border:0;font-size:28px;line-height:1;padding:6px 10px;cursor:pointer;color:var(--ink-soft);}
+  .em-x:hover{color:var(--black);}
+  .em-box input[type=text],.em-box input[type=email]{width:100%;font:inherit;font-size:16px;padding:12px 14px;border:2px solid var(--line);border-radius:4px;margin-bottom:10px;background:#fff;color:var(--black);}
+  .em-box input:focus{border-color:var(--black);outline:none;}
+  .em-box .btn{width:100%;cursor:pointer;text-align:center;}
+  .em-box .btn[disabled]{opacity:.6;cursor:default;}
+  .em-fine{font-size:12.5px;color:var(--ink-soft);margin:12px 0 0;}
+  .em-err{color:#b3261e;font-size:13.5px;margin:0 0 10px;min-height:0;}
+  .em-hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;}
+  .em-no{display:block;margin:12px auto 0;background:none;border:0;font:inherit;font-size:13.5px;color:var(--ink-soft);text-decoration:underline;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -439,6 +456,87 @@
     }).join('');
     document.getElementById('blogSection').hidden = false;
   }).catch(function(){});
+})();
+</script>
+
+<div class="em-back" id="emBack" role="dialog" aria-modal="true" aria-labelledby="emTitle" aria-hidden="true">
+  <div class="em-box">
+    <button class="em-x" type="button" id="emClose" aria-label="Close">&times;</button>
+    <div id="emForm">
+      <h2 id="emTitle">Stay close to Jesus, one email at a time.</h2>
+      <p>Get new Bible teaching, books and resources from Samuel Deuth about once a month. Free, and you can unsubscribe any time.</p>
+      <form id="emF" novalidate>
+        <input type="text" id="emName" placeholder="First name (optional)" autocomplete="given-name" maxlength="120">
+        <input type="email" id="emEmail" placeholder="Your email" autocomplete="email" required maxlength="254">
+        <input type="text" id="emHp" class="em-hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <div class="em-err" id="emErr" role="alert"></div>
+        <button class="btn btn-dark" type="submit" id="emBtn">Send me updates</button>
+      </form>
+      <button class="em-no" type="button" id="emNo">No thanks</button>
+      <p class="em-fine">We never share your email.</p>
+    </div>
+    <div id="emDone" hidden>
+      <h2>You're on the list.</h2>
+      <p>Thank you! Watch your inbox for the next update.</p>
+      <button class="btn btn-dark" type="button" id="emOk">Keep exploring</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var URL_='https://onflrmiifjjjboeimnva.supabase.co', KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmxybWlpZmpqamJvZWltbnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNTQ3NDUsImV4cCI6MjEwMjkzMDc0NX0.CeHfkR5PIH1dLW6JUPAoHSwx_AcQkFg0HtFQXV9jk5A';
+  var back=document.getElementById('emBack'), lastFocus=null, shown=false;
+  function get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+  function set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+  if (get('fj_em_done')) return;
+  var snooze=parseInt(get('fj_em_snooze')||'0',10);
+  if (snooze && Date.now()<snooze) return;
+  function open(){
+    if (shown) return; shown=true;
+    lastFocus=document.activeElement;
+    back.classList.add('show'); back.setAttribute('aria-hidden','false');
+    setTimeout(function(){ document.getElementById('emEmail').focus(); },50);
+  }
+  function close(days){
+    back.classList.remove('show'); back.setAttribute('aria-hidden','true');
+    set('fj_em_snooze', String(Date.now()+days*86400000));
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  // Show after 20s, or once the visitor scrolls past the first screen and a bit more
+  var timer=setTimeout(open,20000);
+  window.addEventListener('scroll',function s(){
+    if (window.scrollY>window.innerHeight*1.2){ clearTimeout(timer); setTimeout(open,800); window.removeEventListener('scroll',s); }
+  },{passive:true});
+  document.getElementById('emClose').onclick=function(){ close(30); };
+  document.getElementById('emNo').onclick=function(){ close(30); };
+  document.getElementById('emOk').onclick=function(){ close(30); };
+  back.addEventListener('click',function(e){ if(e.target===back) close(30); });
+  document.addEventListener('keydown',function(e){
+    if(!back.classList.contains('show')) return;
+    if(e.key==='Escape') close(30);
+    if(e.key==='Tab'){
+      var f=back.querySelectorAll('button:not([hidden]),input:not(.em-hp)'); f=[].filter.call(f,function(x){return x.offsetParent!==null;});
+      if(!f.length) return; var a=f[0], z=f[f.length-1];
+      if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus();}
+      else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus();}
+    }
+  });
+  document.getElementById('emF').addEventListener('submit',function(e){
+    e.preventDefault();
+    var email=document.getElementById('emEmail').value.trim(), name=document.getElementById('emName').value.trim();
+    var err=document.getElementById('emErr'), btn=document.getElementById('emBtn');
+    err.textContent='';
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){ err.textContent='Enter a valid email address, like name@example.com.'; return; }
+    function done(){ set('fj_em_done','1'); document.getElementById('emForm').hidden=true; document.getElementById('emDone').hidden=false; document.getElementById('emOk').focus(); }
+    if(document.getElementById('emHp').value){ done(); return; }  // bot: pretend success
+    btn.disabled=true; btn.textContent='Sending...';
+    fetch(URL_+'/rest/v1/rpc/subscribe_to_main_list',{method:'POST',
+      headers:{'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+KEY},
+      body:JSON.stringify({p_email:email,p_name:name||null,p_source:'followingjesus.com'})})
+    .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+    .then(function(res){ if(res==='ok') done(); else { btn.disabled=false; btn.textContent='Send me updates'; err.textContent='That email address does not look right. Please check it and try again.'; } })
+    .catch(function(){ btn.disabled=false; btn.textContent='Send me updates'; err.textContent='Something went wrong. Please try again in a moment.'; });
+  });
 })();
 </script>
 </body>
