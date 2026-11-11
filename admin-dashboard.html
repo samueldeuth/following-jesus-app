@@ -662,12 +662,10 @@ const SUBSCRIBER_ORIGIN_LABELS = {
   church_directory: 'Church directory',
   shopify_order: 'Shopify order',
   'shopify-order': 'Shopify order',
-  five_fold_assessment: 'Five-Fold Assessment',
-  'followingjesus.com': 'followingjesus.com sign-up',
-  'samueldeuth.com': 'samueldeuth.com sign-up'
+  five_fold_assessment: 'Five-Fold Assessment'
 };
 const SUBSCRIBER_ORIGIN_OPTIONS = {
-  main: ['app_signup', 'spiritual-gifts-assessment', 'five-fold-assessment', 'course_signup', 'mailchimp_import', 'subsplash_import', 'followingjesus.com', 'samueldeuth.com'],
+  main: ['app_signup', 'spiritual-gifts-assessment', 'five-fold-assessment', 'course_signup', 'mailchimp_import', 'subsplash_import'],
   church_leader: ['shopify-order', 'shopify_church_leader_import', 'manual_import', 'church_directory', 'five-fold-assessment']
 };
 let subscriberOriginFilter = '';
@@ -889,25 +887,22 @@ function pollBroadcastJob(jobId, statusEl){
 }
 
 async function fetchAllRpcRowsClient(rpcName, rpcParams){
+  // Pages with real p_limit/p_offset parameters (same as the send function). The
+  // old .range() paging re-read the same first 1,000 rows, so counts stopped at 1,000.
   const PAGE_SIZE = 1000;
-  let allRows = [];
-  let offset = 0;
-  for(let page = 0; page < 100; page++){
-    const { data, error } = await supabaseClient.rpc(rpcName, rpcParams).range(offset, offset + PAGE_SIZE - 1);
-    if(error || !data || data.length === 0) break;
-    allRows = allRows.concat(data);
-    if(data.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
-  }
-  // Same dedup safety net as the send function's own fetchAllRpcRows --
-  // keeps the preview count accurate even if pagination ever misbehaves.
   const seen = new Set();
-  return allRows.filter(r => {
-    const key = (r.email || '').toLowerCase().trim();
-    if(!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  const out = [];
+  for(let page = 0; page < 100; page++){
+    const { data, error } = await supabaseClient.rpc(rpcName, { ...rpcParams, p_limit: PAGE_SIZE, p_offset: page * PAGE_SIZE });
+    if(error || !data || data.length === 0) break;
+    let added = 0;
+    data.forEach(r => {
+      const key = (r.email || '').toLowerCase().trim();
+      if(key && !seen.has(key)){ seen.add(key); out.push(r); added++; }
+    });
+    if(data.length < PAGE_SIZE || added === 0) break;   // last page, or a page that repeated
+  }
+  return out;
 }
 
 function csvEscape(value){
@@ -4646,7 +4641,7 @@ async function renderBroadcastComposer(opts){
       const res = await fetch('/.netlify/functions/send-broadcast-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ subject, message, imageUrl: uploadedImageUrl, linkText, linkUrl, audience, churchId: opts.churchId || null, courseId: opts.courseId || null })
+        body: JSON.stringify({ subject, message, imageUrl: uploadedImageUrl, linkText, linkUrl, audience, subscriberAudience, churchId: opts.churchId || null, courseId: opts.courseId || null })
       });
       const result = await res.json();
       if(!res.ok || !result.jobId){
@@ -4663,7 +4658,7 @@ async function renderBroadcastComposer(opts){
       fetch('/.netlify/functions/send-broadcast-email-background', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: result.jobId, token: session.access_token, subject, message, imageUrl: uploadedImageUrl, linkText, linkUrl, audience, churchId: opts.churchId || null, courseId: opts.courseId || null, callerRole: 'super_admin' })
+        body: JSON.stringify({ jobId: result.jobId, token: session.access_token, subject, message, imageUrl: uploadedImageUrl, linkText, linkUrl, audience, subscriberAudience, churchId: opts.churchId || null, courseId: opts.courseId || null, callerRole: 'super_admin' })
       }).catch(err => console.error('Background trigger fetch failed:', err));
       pollBroadcastJob(result.jobId, statusEl);
     } catch (err) {
