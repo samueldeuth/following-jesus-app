@@ -523,10 +523,10 @@
   });
   document.getElementById('emF').addEventListener('submit',function(e){
     e.preventDefault();
-    var email=document.getElementById('emEmail').value.trim(), name=document.getElementById('emName').value.trim();
+    var email=document.getElementById('emEmail').value.replace(/[\s\u00a0\u200b-\u200f\u202a-\u202e\u2060\ufeff]/g,'').toLowerCase(), name=document.getElementById('emName').value.trim();
     var err=document.getElementById('emErr'), btn=document.getElementById('emBtn');
     err.textContent='';
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){ err.textContent='Enter a valid email address, like name@example.com.'; return; }
+    if(email.length<6||email.indexOf('@')<1||email.lastIndexOf('.')<email.indexOf('@')+2||email.lastIndexOf('.')>email.length-3){ err.textContent='Enter a valid email address, like name@example.com.'; return; }
     function done(){ set('fj_em_done','1'); document.getElementById('emForm').hidden=true; document.getElementById('emDone').hidden=false; document.getElementById('emOk').focus(); }
     if(document.getElementById('emHp').value){ done(); return; }  // bot: pretend success
     btn.disabled=true; btn.textContent='Sending...';
