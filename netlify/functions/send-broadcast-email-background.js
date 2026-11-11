@@ -26,7 +26,7 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: 'Invalid request body' };
   }
 
-  const { jobId, token, subject, message, imageUrl, linkText, linkUrl, audience, churchId, courseId, callerRole } = body;
+  const { jobId, token, subject, message, imageUrl, linkText, linkUrl, audience, subscriberAudience, expectedCount, churchId, courseId, callerRole } = body;
   if (!jobId || !token) {
     return { statusCode: 400, body: 'Missing jobId or token' };
   }
@@ -41,11 +41,29 @@ exports.handler = async (event) => {
     rpcName = 'get_my_church_broadcast_recipients';
     rpcParams = {};
   } else if (audience === 'subscribers') {
+    // Which subscriber list: 'main' or 'church_leader'. Never guess -- if the
+    // request doesn't say, stop instead of defaulting to a list.
+    if (subscriberAudience !== 'main' && subscriberAudience !== 'church_leader') {
+      await safeUpdateJob(jobId, token, 0, 0, 0, 'failed', 'No email list was specified, so nothing was sent.');
+      return { statusCode: 200, body: 'done (no list specified)' };
+    }
     rpcName = 'get_subscriber_list_recipients';
-    rpcParams = {};
+    rpcParams = { p_audience: subscriberAudience };
   } else {
     rpcName = 'get_broadcast_recipients';
     rpcParams = { p_church_id: churchId || null, p_course_id: courseId || null };
+  }
+
+  // Only one run may send a given job. The send can be triggered from two
+  // places; the first one claims the job and any other is ignored.
+  try {
+    const claimed = await callRpc('claim_broadcast_send', { p_job_id: String(jobId) }, token);
+    if (claimed !== true) {
+      return { statusCode: 200, body: 'ignored: this send was already started' };
+    }
+  } catch (err) {
+    await safeUpdateJob(jobId, token, 0, 0, 0, 'failed', 'Send protection is not set up yet, so nothing was sent. (' + err.message + ')');
+    return { statusCode: 200, body: 'done (claim failed, nothing sent)' };
   }
 
   let recipients;
@@ -57,6 +75,16 @@ exports.handler = async (event) => {
   }
 
   const total = recipients.length;
+
+  // The count the admin showed before sending must match what we are about to
+  // send. A big gap means the wrong list was picked, so stop before sending.
+  const expected = Number(expectedCount);
+  if (Number.isFinite(expected) && expected > 0 && Math.abs(total - expected) > Math.max(25, expected * 0.03)) {
+    await safeUpdateJob(jobId, token, total, 0, 0, 'failed',
+      `Stopped before sending: this would go to ${total} people but ${expected} were expected. Nothing was sent.`);
+    return { statusCode: 200, body: `stopped: ${total} recipients vs ${expected} expected` };
+  }
+
   if (total === 0) {
     await safeUpdateJob(jobId, token, 0, 0, 0, 'done', null);
     return { statusCode: 200, body: 'done (no recipients)' };
@@ -78,14 +106,23 @@ exports.handler = async (event) => {
     }));
 
     try {
-      const res = await fetch('https://api.resend.com/emails/batch', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+      // Idempotency-Key: if the same batch is ever sent twice (retry, double
+      // trigger), Resend delivers it only once. Retries on a rate limit (429)
+      // or a Resend server error are safe for the same reason.
+      let res;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        res = await fetch('https://api.resend.com/emails/batch', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+            'Idempotency-Key': `broadcast-${jobId}-${i}`,
+          },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok || (res.status !== 429 && res.status < 500)) break;
+        await new Promise((resolve) => setTimeout(resolve, 1500 * (attempt + 1)));
+      }
       if (res.ok) {
         sent += batch.length;
       } else {

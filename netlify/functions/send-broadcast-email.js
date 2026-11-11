@@ -35,7 +35,7 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Invalid request body' }) };
   }
 
-  const { subject, message, imageUrl, linkText, linkUrl, testOnly, audience, churchId, courseId } = body;
+  const { subject, message, imageUrl, linkText, linkUrl, testOnly, audience, subscriberAudience, expectedCount, churchId, courseId } = body;
   if (!subject || !message) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Missing subject or message' }) };
   }
@@ -113,7 +113,7 @@ exports.handler = async (event) => {
     await fetch(backgroundUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jobId, token, subject, message, imageUrl, linkText, linkUrl, audience, churchId, courseId, callerRole }),
+      body: JSON.stringify({ jobId, token, subject, message, imageUrl, linkText, linkUrl, audience, subscriberAudience, expectedCount, churchId, courseId, callerRole }),
     });
   } catch (err) {
     return { statusCode: 502, body: JSON.stringify({ error: 'Could not start the background send: ' + err.message }) };
