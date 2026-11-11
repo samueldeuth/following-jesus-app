@@ -495,7 +495,7 @@
     if (shown) return; shown=true;
     lastFocus=document.activeElement;
     back.classList.add('show'); back.setAttribute('aria-hidden','false');
-    setTimeout(function(){ document.getElementById('emEmail').focus(); },50);
+    setTimeout(function(){ document.getElementById('emName').focus(); },50);
   }
   function close(days){
     back.classList.remove('show'); back.setAttribute('aria-hidden','true');
