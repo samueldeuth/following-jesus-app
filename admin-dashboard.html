@@ -4507,13 +4507,16 @@ async function renderBroadcastComposer(opts){
 
   // Show a real recipient count up front, scoped to this audience --
   // same RPCs the send function itself will use, called here read-only.
+  let expectedRecipientCount = null;
   if(session?.access_token){
     const countEl = document.getElementById('broadcast-recipient-count');
     if(audience === 'subscribers'){
       const recipients = await fetchAllRpcRowsClient('get_subscriber_list_recipients', { p_audience: subscriberAudience });
+      expectedRecipientCount = recipients.length;
       if(countEl) countEl.textContent = `This will go to ${recipients.length} people who haven't opted out.`;
     } else {
       const recipients = await fetchAllRpcRowsClient('get_broadcast_recipients', { p_church_id: opts.churchId || null, p_course_id: opts.courseId || null });
+      expectedRecipientCount = recipients.length;
       if(countEl) countEl.textContent = `This will go to ${recipients.length} people who haven't opted out.`;
     }
   }
@@ -4633,7 +4636,8 @@ async function renderBroadcastComposer(opts){
     const statusEl = document.getElementById('broadcast-status');
     const sendBtn = document.getElementById('broadcast-send-btn');
     if(!subject || !message){ statusEl.textContent = 'Please fill in both the subject and message.'; return; }
-    if(!confirm(`Send this email to ${audienceLabel}? This can't be undone once sent.`)) return;
+    const countNote = expectedRecipientCount ? ` (${expectedRecipientCount} people)` : '';
+    if(!confirm(`Send this email to ${audienceLabel}${countNote}? This can't be undone once sent.`)) return;
 
     sendBtn.disabled = true;
     statusEl.textContent = 'Starting...';
@@ -4641,7 +4645,7 @@ async function renderBroadcastComposer(opts){
       const res = await fetch('/.netlify/functions/send-broadcast-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ subject, message, imageUrl: uploadedImageUrl, linkText, linkUrl, audience, subscriberAudience, churchId: opts.churchId || null, courseId: opts.courseId || null })
+        body: JSON.stringify({ subject, message, imageUrl: uploadedImageUrl, linkText, linkUrl, audience, subscriberAudience, expectedCount: expectedRecipientCount, churchId: opts.churchId || null, courseId: opts.courseId || null })
       });
       const result = await res.json();
       if(!res.ok || !result.jobId){
@@ -4658,7 +4662,7 @@ async function renderBroadcastComposer(opts){
       fetch('/.netlify/functions/send-broadcast-email-background', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: result.jobId, token: session.access_token, subject, message, imageUrl: uploadedImageUrl, linkText, linkUrl, audience, subscriberAudience, churchId: opts.churchId || null, courseId: opts.courseId || null, callerRole: 'super_admin' })
+        body: JSON.stringify({ jobId: result.jobId, token: session.access_token, subject, message, imageUrl: uploadedImageUrl, linkText, linkUrl, audience, subscriberAudience, expectedCount: expectedRecipientCount, churchId: opts.churchId || null, courseId: opts.courseId || null, callerRole: 'super_admin' })
       }).catch(err => console.error('Background trigger fetch failed:', err));
       pollBroadcastJob(result.jobId, statusEl);
     } catch (err) {
