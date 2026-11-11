@@ -643,6 +643,29 @@ let viewingAllStudents = false;
 // one -- 'main' or 'church_leader'.
 let viewingSubscriberList = false;
 let currentSubscriberAudience = 'main';
+
+// Active-subscriber counts shown on the right of "Other Lists" in the side menu.
+// Cached for a minute so repainting the side menu doesn't re-query every time.
+let sidebarListCounts = { main: null, church_leader: null, at: 0 };
+function formatSidebarListCount(audience){
+  const n = sidebarListCounts[audience];
+  return (typeof n === 'number') ? n.toLocaleString() : '';
+}
+async function refreshSidebarListCounts(force){
+  if(!force && Date.now() - sidebarListCounts.at < 60000) return;
+  sidebarListCounts.at = Date.now();
+  for(const audience of ['main', 'church_leader']){
+    try {
+      const { data, error } = await supabaseClient.rpc('count_general_subscribers', { p_unsubscribed: false, p_audience: audience, p_filter: null });
+      if(!error && typeof data === 'number'){
+        sidebarListCounts[audience] = data;
+        const el = document.getElementById('sidebar-count-' + audience);
+        if(el) el.textContent = formatSidebarListCount(audience);
+      }
+    } catch(e) { /* leave the count blank if it can't load */ }
+  }
+}
+
 const SUBSCRIBER_AUDIENCE_CONFIG = {
   main: { label: 'Main List', filePrefix: 'main-list', sidebarName: 'Main List' },
   church_leader: { label: 'Church Leaders', filePrefix: 'church-leaders', sidebarName: 'Church Leaders' }
@@ -1162,11 +1185,12 @@ function renderSidebar(){
   });
 
   const subscriberLinkEl = document.getElementById('sidebar-subscriber-list-link');
-  subscriberLinkEl.innerHTML = `<div class="sidebar-church-item ${viewingSubscriberList && currentSubscriberAudience === 'main' ? 'active' : ''}" id="sidebar-subscriber-item"><span>Main List</span></div>`;
+  subscriberLinkEl.innerHTML = `<div class="sidebar-church-item ${viewingSubscriberList && currentSubscriberAudience === 'main' ? 'active' : ''}" id="sidebar-subscriber-item"><span>Main List</span><span class="count" id="sidebar-count-main">${formatSidebarListCount('main')}</span></div>`;
   document.getElementById('sidebar-subscriber-item').addEventListener('click', () => renderSubscriberList('main'));
 
   const churchLeadersLinkEl = document.getElementById('sidebar-church-leaders-link');
-  churchLeadersLinkEl.innerHTML = `<div class="sidebar-church-item ${viewingSubscriberList && currentSubscriberAudience === 'church_leader' ? 'active' : ''}" id="sidebar-church-leaders-item"><span>Church Leaders</span></div>`;
+  churchLeadersLinkEl.innerHTML = `<div class="sidebar-church-item ${viewingSubscriberList && currentSubscriberAudience === 'church_leader' ? 'active' : ''}" id="sidebar-church-leaders-item"><span>Church Leaders</span><span class="count" id="sidebar-count-church_leader">${formatSidebarListCount('church_leader')}</span></div>`;
+  refreshSidebarListCounts(false);
   document.getElementById('sidebar-church-leaders-item').addEventListener('click', () => renderSubscriberList('church_leader'));
 
   const noChurchCount = allRows.filter(r => !r.church_id && isActiveStudentRow(r)).length;
@@ -1906,6 +1930,23 @@ async function loadDashboardData(){
   return { installRows, disciples, giftRows, dirRows, leaders };
 }
 
+// List growth numbers for the Overview "Lists" section. Fetched per selected
+// range (not cached with the rest) because the windows move with the range.
+async function loadListGrowth(rangeKey){
+  try{
+    const pw = previousWindow(rangeKey);
+    const { data, error } = await supabaseClient.rpc('get_list_growth_stats', {
+      p_start: rangeStartDate(rangeKey).toISOString(),
+      p_prev_start: pw.start.toISOString(),
+      p_prev_end: pw.end.toISOString()
+    });
+    if(error) throw error;
+    const out = {};
+    (data || []).forEach(r => { out[r.audience] = { total: Number(r.total_active), atStart: Number(r.size_at_start), added: Number(r.new_in_range), prev: Number(r.new_in_prev) }; });
+    return out;
+  }catch(e){ console.warn('list growth failed', e); return null; }
+}
+
 // Green +% / red -% badge comparing a current number to the previous period's.
 function deltaBadge(cur, prev){
   if(cur === null || cur === undefined || prev === null || prev === undefined) return '';
@@ -1957,6 +1998,9 @@ async function paintDashboard(){
   const body = document.getElementById('dashboard-body');
   if(!body || !dashboardCache) return;
   const d = dashboardCache;
+  const rangeAtPaint = dashboardRangeKey;
+  const listGrowth = await loadListGrowth(rangeAtPaint);
+  if(rangeAtPaint !== dashboardRangeKey || !document.getElementById('dashboard-body')) return;
   const startDate = rangeStartDate(dashboardRangeKey);
   const startIso = startDate.toISOString();
   const phrase = dashboardRangePhrase[dashboardRangeKey] || '';
@@ -2079,8 +2123,17 @@ async function paintDashboard(){
     section('Churches', 'dash-view-churches', [
       card(fmt(dirNew), 'Total Churches', `${total(dirTotal, 'total')}${pending ? ` · ${fmt(pending)} pending confirmation` : ''}`, { delta: deltaHtml(dirNew, dirPrev), info: 'Churches added to the Church Directory in the selected range.' }),
       card(fmt(liveNew), 'Live on Search', total(live ? live.length : null, 'live total'), { delta: deltaHtml(liveNew, livePrev), info: 'Directory churches marked Confirmed, which are the ones people can find in the app. The big number is by the date the church was added to the directory.' })
-    ].join(''));
+    ].join('')) +
+    section('Lists', 'dash-view-lists', ['main','church_leader'].map(aud => {
+      const g = listGrowth && listGrowth[aud];
+      const label = aud === 'main' ? 'Main List' : 'Church Leaders List';
+      if(!g) return card('—', label, 'Could not load');
+      const growth = g.atStart > 0 ? (g.added / g.atStart * 100) : null;
+      const growthTxt = growth === null ? (g.added > 0 ? 'new list' : '0% growth') : `${growth >= 10 ? Math.round(growth) : growth.toFixed(1)}% growth ${phrase}`;
+      return card(fmt(g.total), label, `+${fmt(g.added)} ${phrase} · ${growthTxt}`, { delta: deltaHtml(g.added, g.prev), info: 'People currently subscribed (unsubscribes are not counted). The badge compares new sign-ups in the selected range to the previous period. Growth is new sign-ups as a percent of the list size at the start of the range.' });
+    }).join(''));
 
+  document.getElementById('dash-view-lists').addEventListener('click', () => renderSubscriberList('main'));
   document.getElementById('dash-view-course').addEventListener('click', renderChurchesOverview);
   document.getElementById('dash-view-app').addEventListener('click', renderPushNotifications);
   document.getElementById('dash-view-gifts').addEventListener('click', renderSpiritualGifts);
@@ -4284,6 +4337,7 @@ async function loadSubscriberPage(){
   ]);
   // If the list/filter changed while this was loading, drop the stale result.
   if(!document.getElementById('subscriber-tbody') || audience !== currentSubscriberAudience || originFilter !== (subscriberOriginFilter || null)) return;
+  refreshSidebarListCounts(true);
 
   document.getElementById('subscriber-count-line').textContent = `${totalCount || 0} ${isArchived ? 'unsubscribed / archived' : 'active'} people${originFilter ? ' who came from ' + subscriberOriginLabel(originFilter) : ' on this list'}`;
 
