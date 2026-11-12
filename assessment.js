@@ -189,20 +189,18 @@
     const role = state.answers[CI.roleId];
     app.innerHTML =
       '<div class="wrap about-you">' +
-        '<div class="eyebrow" style="margin-top:28px">Before you begin</div>' +
-        '<h2 style="margin-top:8px">A little about you</h2>' +
-        '<p class="muted">This helps us point you to the right next steps for where you serve right now.</p>' +
+        '<h2 style="margin-top:28px">Before You Begin</h2>' +
+        '<fieldset class="q church-q" id="q-' + CI.churchId + '" style="border:1px solid var(--line)' + (role === CI.noChurchKey ? ';display:none' : '') + '">' +
+          '<legend class="hidden">Your church</legend>' +
+          '<label class="q-text" for="churchInput" style="display:block">' + esc(CI.churchPrompt) + '</label>' +
+          '<input type="text" id="churchInput" class="church-input" maxlength="120" autocomplete="organization" placeholder="' + esc(CI.churchPlaceholder) + '" value="' + esc(state.answers[CI.churchId] || '') + '">' +
+        '</fieldset>' +
         '<fieldset class="q role-q" id="q-' + CI.roleId + '" style="border:1px solid var(--line)">' +
           '<legend class="hidden">Your church role</legend>' +
           '<p class="q-text">' + esc(CI.rolePrompt) + '</p>' +
           '<div class="role-opts">' + CI.roleOptions.map(o =>
             '<label class="role-opt"><input type="radio" name="' + CI.roleId + '" value="' + o.key + '"' + (role === o.key ? ' checked' : '') + '><span>' + esc(o.label) + '</span></label>').join('') +
           '</div>' +
-        '</fieldset>' +
-        '<fieldset class="q church-q" id="q-' + CI.churchId + '" style="border:1px solid var(--line)' + (role === CI.noChurchKey ? ';display:none' : '') + '">' +
-          '<legend class="hidden">Your church</legend>' +
-          '<label class="q-text" for="churchInput" style="display:block">' + esc(CI.churchPrompt) + '</label>' +
-          '<input type="text" id="churchInput" class="church-input" maxlength="120" autocomplete="organization" placeholder="' + esc(CI.churchPlaceholder) + '" value="' + esc(state.answers[CI.churchId] || '') + '">' +
         '</fieldset>' +
         '<div class="quiz-error" id="quizErr"></div>' +
         '<div class="quiz-nav">' +

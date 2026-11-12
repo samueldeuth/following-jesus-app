@@ -685,7 +685,7 @@
         noChurchKey: 'NONE',
         roleOptions: [
           { key: 'LEAD_PASTOR', label: 'Lead or senior pastor' },
-          { key: 'STAFF_PASTOR', label: 'Associate or staff pastor' },
+          { key: 'STAFF_PASTOR', label: 'Associate or campus pastor' },
           { key: 'STAFF', label: 'Ministry staff or director' },
           { key: 'VOL_LEADER', label: 'Volunteer leader (small group, team, or ministry leader)' },
           { key: 'VOLUNTEER', label: 'Serving on a team' },
