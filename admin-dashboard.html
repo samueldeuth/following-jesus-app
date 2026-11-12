@@ -2766,30 +2766,32 @@ async function loadChurchDirectoryList(){
   renderDirectoryRows(searchInput ? searchInput.value : '');
 }
 
-// ---- Re-send invites to every church that hasn't confirmed ----
-// "Unconfirmed" = the church itself hasn't clicked the confirmation link (church_confirmed_at is empty).
-// Left out on purpose: churches with no contact email, declined churches, entries you haven't approved yet
-// (pending and not admin-approved), and anyone emailed in the last 7 days (so a double-click or a second run can't spam them).
+// ---- One-time "Find a Church is now live in the app" email to every church that hasn't confirmed ----
+// Goes to churches whose own confirmation link hasn't been clicked. Each church can only ever get this email once
+// (the server records it before sending), so running it twice, or a double-click, can't email anyone twice.
+// Left out on purpose: no contact email, declined, and entries you haven't approved yet.
 let bulkResendRunning = false, bulkResendStop = false;
 function bulkResendGroups(){
-  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const unconfirmed = allDirectoryRows.filter(r => r.contact_email && r.status !== 'declined' && !r.church_confirmed_at && (r.status !== 'pending_confirmation' || r.admin_approved_at));
-  const recent = unconfirmed.filter(r => r.confirmation_email_sent_at && new Date(r.confirmation_email_sent_at).getTime() > weekAgo);
-  const toSend = unconfirmed.filter(r => !recent.includes(r));
+  const columnReady = !allDirectoryRows.length || ('live_notice_sent_at' in allDirectoryRows[0]);
+  const candidates = allDirectoryRows.filter(r => r.contact_email && r.status !== 'declined' && !r.church_confirmed_at && (r.status !== 'pending_confirmation' || r.admin_approved_at));
+  const alreadySent = candidates.filter(r => r.live_notice_sent_at);
+  const toSend = candidates.filter(r => !r.live_notice_sent_at);
   const notYetApproved = allDirectoryRows.filter(r => r.status === 'pending_confirmation' && !r.admin_approved_at).length;
-  return { unconfirmed, recent, toSend, notYetApproved };
+  return { columnReady, alreadySent, toSend, notYetApproved };
 }
 function paintBulkResend(){
   const wrap = document.getElementById('directory-bulk-resend'), btn = document.getElementById('directory-bulk-resend-btn'), note = document.getElementById('directory-bulk-resend-note');
   if(!wrap || !btn || bulkResendRunning) return;
   const g = bulkResendGroups();
   wrap.style.display = '';
-  btn.disabled = g.toSend.length === 0;
-  btn.textContent = `Re-send invite to ${g.toSend.length.toLocaleString()} unconfirmed ${g.toSend.length === 1 ? 'church' : 'churches'}`;
-  note.textContent = [
-    g.recent.length ? `${g.recent.length.toLocaleString()} skipped (emailed in the last 7 days)` : '',
-    g.notYetApproved ? `${g.notYetApproved.toLocaleString()} not yet approved by you` : ''
-  ].filter(Boolean).join(' · ');
+  btn.disabled = !g.columnReady || g.toSend.length === 0;
+  btn.textContent = `Send "now live in the app" email to ${g.toSend.length.toLocaleString()} unconfirmed ${g.toSend.length === 1 ? 'church' : 'churches'}`;
+  note.textContent = !g.columnReady
+    ? 'Run church-live-notice.sql in Supabase first.'
+    : [
+        g.alreadySent.length ? `${g.alreadySent.length.toLocaleString()} already sent` : '',
+        g.notYetApproved ? `${g.notYetApproved.toLocaleString()} not yet approved by you` : ''
+      ].filter(Boolean).join(' · ');
   if(!btn.dataset.wired){
     btn.dataset.wired = '1';
     btn.addEventListener('click', runBulkResend);
@@ -2799,10 +2801,10 @@ async function runBulkResend(){
   const btn = document.getElementById('directory-bulk-resend-btn'), note = document.getElementById('directory-bulk-resend-note');
   if(bulkResendRunning){ bulkResendStop = true; btn.textContent = 'Stopping…'; return; }
   const g = bulkResendGroups();
-  if(!g.toSend.length) return;
-  if(!confirm(`Send the confirmation email again to ${g.toSend.length.toLocaleString()} churches that haven't confirmed yet?\n\nThis sends real emails right now, one at a time. Churches already emailed in the last 7 days (${g.recent.length.toLocaleString()}), declined churches, churches without an email, and entries you haven't approved are left out. You can press Stop partway through.`)) return;
+  if(!g.columnReady || !g.toSend.length) return;
+  if(!confirm(`Email ${g.toSend.length.toLocaleString()} churches that haven't confirmed yet, telling them Find a Church is now live in the app?\n\nThis sends real emails right now, one at a time. Each church can only receive this email once. Churches that already confirmed, declined churches, churches without an email, and entries you haven't approved are left out. You can press Stop partway through.`)) return;
   bulkResendRunning = true; bulkResendStop = false;
-  let sent = 0, failed = 0; const failures = [];
+  let sent = 0, skipped = 0, failed = 0; const failures = [];
   try{
     const { data: { session } } = await supabaseClient.auth.getSession();
     const token = session?.access_token || '';
@@ -2812,13 +2814,15 @@ async function runBulkResend(){
       btn.textContent = `Stop (sending ${i + 1} of ${g.toSend.length})`;
       note.textContent = `${sent} sent${failed ? ` · ${failed} failed` : ''}`;
       try{
-        const res = await fetch('/.netlify/functions/send-single-church-confirmation', {
+        const res = await fetch('/.netlify/functions/send-church-live-notice', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ churchId: r.id })
         });
         const result = await res.json().catch(() => ({}));
-        if(result.status === 'success') sent++; else { failed++; failures.push(`${r.name || r.id}: ${result.error || res.statusText || 'unknown error'}`); }
+        if(result.status === 'success') sent++;
+        else if(result.status === 'skipped') skipped++;
+        else { failed++; failures.push(`${r.name || r.id}: ${result.error || res.statusText || 'unknown error'}`); if(res.status === 403 || res.status === 500) break; }
       }catch(e){ failed++; failures.push(`${r.name || r.id}: ${e.message}`); }
       await new Promise(res => setTimeout(res, 700)); // gentle pace so the email service never rate-limits
     }
@@ -2828,7 +2832,7 @@ async function runBulkResend(){
   const stopped = bulkResendStop; bulkResendStop = false;
   await loadChurchDirectoryList();
   const note2 = document.getElementById('directory-bulk-resend-note');
-  if(note2) note2.textContent = `${stopped ? 'Stopped. ' : 'Done. '}${sent} sent${failed ? `, ${failed} failed` : ''}.`;
+  if(note2) note2.textContent = `${stopped ? 'Stopped. ' : 'Done. '}${sent} sent${skipped ? `, ${skipped} skipped` : ''}${failed ? `, ${failed} failed` : ''}.`;
   if(failures.length) alert('Some did not send:\n' + failures.slice(0, 15).join('\n') + (failures.length > 15 ? `\n…and ${failures.length - 15} more` : ''));
 }
 
