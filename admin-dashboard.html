@@ -1994,6 +1994,103 @@ function previousWindow(rangeKey){
   return { start: ps, end: pe };
 }
 
+// ---------- Overview map: where people use the app, courses, site and assessments ----------
+let locMap = null, locMapLayer = 'all', locMapGrain = 'city', locMapData = null;
+const locMapLayerLabels = { all: 'Everything', app: 'App', course: 'Courses', site: 'Websites', gifts: 'Gifts assessments' };
+function loadLeaflet(){
+  return new Promise((resolve, reject) => {
+    if(window.L) return resolve();
+    const css = document.createElement('link'); css.rel = 'stylesheet';
+    css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
+    document.head.appendChild(css);
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
+    sc.onload = resolve; sc.onerror = reject;
+    document.head.appendChild(sc);
+  });
+}
+function locMapShellHtml(){
+  return `
+    <div style="margin:26px 0 10px;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:17px;margin:0 0 4px;">Map</h3>
+      <div style="font-size:12.5px;color:var(--ink-soft);">Where people were in the selected time range. Each person counts once, at their most recent place. Location is by network (nearest city), not GPS, and only builds up from the day tracking went live.</div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+      ${Object.keys(locMapLayerLabels).map(k => `<button type="button" class="mini-btn ${k===locMapLayer?'active':''}" data-loc-layer="${k}">${locMapLayerLabels[k]}</button>`).join('')}
+      <span style="flex:1"></span>
+      <button type="button" class="mini-btn ${locMapGrain==='city'?'active':''}" data-loc-grain="city">Cities</button>
+      <button type="button" class="mini-btn ${locMapGrain==='state'?'active':''}" data-loc-grain="state">States</button>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:stretch;">
+      <div id="loc-map" style="flex:2 1 420px;min-width:0;height:380px;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--bg-soft);"></div>
+      <div id="loc-map-list" style="flex:1 1 220px;min-width:0;max-height:380px;overflow:auto;border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;font-size:13px;"></div>
+    </div>
+    <div id="loc-map-note" style="font-size:12px;color:var(--ink-soft);margin-top:6px;"></div>`;
+}
+function locGroupPoints(points, grain){
+  if(grain === 'city') return points.map(p => ({ name: [p.city || p.region || p.country, p.region_code && p.city ? p.region_code : null, (p.country && p.country !== 'United States' && p.country !== 'USA') ? p.country : null].filter(Boolean).join(', '), lat: Number(p.lat), lng: Number(p.lng), people: Number(p.people) }));
+  const m = {};
+  points.forEach(p => {
+    const key = (p.country || '') + '|' + (p.region || '');
+    const g = m[key] || (m[key] = { name: [p.region || p.country, (p.country && p.country !== 'United States' && p.region) ? p.country : null].filter(Boolean).join(', '), people: 0, wLat: 0, wLng: 0 });
+    g.people += Number(p.people); g.wLat += Number(p.lat) * Number(p.people); g.wLng += Number(p.lng) * Number(p.people);
+  });
+  return Object.values(m).map(g => ({ name: g.name, lat: g.wLat / g.people, lng: g.wLng / g.people, people: g.people }));
+}
+function renderLocMapPoints(){
+  const listEl = document.getElementById('loc-map-list'), noteEl = document.getElementById('loc-map-note');
+  if(!listEl || !locMapData) return;
+  const pts = locGroupPoints(locMapData.points || [], locMapGrain).sort((a, b) => b.people - a.people);
+  const max = pts.length ? pts[0].people : 1;
+  if(locMap){
+    if(locMap._fjLayer) locMap.removeLayer(locMap._fjLayer);
+    const grp = L.featureGroup();
+    pts.forEach(p => {
+      L.circleMarker([p.lat, p.lng], { radius: 5 + 17 * Math.sqrt(p.people / max), color: '#8A6A1F', weight: 1.5, fillColor: '#B08D3E', fillOpacity: 0.55 })
+        .bindTooltip(`${p.name}: ${p.people.toLocaleString()} ${p.people === 1 ? 'person' : 'people'}`).addTo(grp);
+    });
+    grp.addTo(locMap); locMap._fjLayer = grp;
+    if(pts.length){ try{ locMap.fitBounds(grp.getBounds().pad(0.25), { maxZoom: 7 }); }catch(e){} } else { locMap.setView([20, 0], 2); }
+  }
+  listEl.innerHTML = pts.length
+    ? pts.slice(0, 40).map(p => `<div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid var(--line);"><span style="min-width:0;overflow-wrap:anywhere;">${escapeHtmlReport(p.name)}</span><strong>${p.people.toLocaleString()}</strong></div>`).join('')
+    : `<div style="color:var(--ink-soft);">No located activity in this range yet.</div>`;
+  const total = Number(locMapData.located) || 0, layerTotal = Number(locMapData.layer_total) || 0;
+  noteEl.textContent = locMapLayer === 'gifts'
+    ? `${total.toLocaleString()} of ${layerTotal.toLocaleString()} people who took an assessment have a known location (signed-in people seen since tracking started).`
+    : `${total.toLocaleString()} ${total === 1 ? 'person' : 'people'} located.`;
+}
+async function paintLocationMap(){
+  const host = document.getElementById('loc-map-host');
+  if(!host) return;
+  host.innerHTML = locMapShellHtml();
+  if(locMap){ try{ locMap.remove(); }catch(e){} locMap = null; }
+  host.querySelectorAll('[data-loc-layer]').forEach(b => b.addEventListener('click', () => { locMapLayer = b.dataset.locLayer; paintLocationMap(); }));
+  host.querySelectorAll('[data-loc-grain]').forEach(b => b.addEventListener('click', () => {
+    locMapGrain = b.dataset.locGrain;
+    host.querySelectorAll('[data-loc-grain]').forEach(x => x.classList.toggle('active', x.dataset.locGrain === locMapGrain));
+    renderLocMapPoints();
+  }));
+  const layerAtStart = locMapLayer, rangeAtStart = dashboardRangeKey;
+  try{
+    const [{ data, error }] = await Promise.all([
+      supabaseClient.rpc('get_location_map_data', { p_layer: layerAtStart, p_start: rangeStartDate(rangeAtStart).toISOString() }),
+      loadLeaflet().catch(() => null)
+    ]);
+    if(error) throw error;
+    if(layerAtStart !== locMapLayer || rangeAtStart !== dashboardRangeKey || !document.getElementById('loc-map')) return;
+    locMapData = data || { points: [], located: 0, layer_total: 0 };
+    if(window.L){
+      locMap = L.map('loc-map', { scrollWheelZoom: false, worldCopyJump: true }).setView([20, 0], 2);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap contributors' }).addTo(locMap);
+    }
+    renderLocMapPoints();
+  }catch(e){
+    console.warn('location map failed', e);
+    const n = document.getElementById('loc-map-note'); if(n) n.textContent = 'Could not load the map data. Run map-locations.sql in Supabase if you have not yet.';
+  }
+}
+
 async function paintDashboard(){
   const body = document.getElementById('dashboard-body');
   if(!body || !dashboardCache) return;
@@ -2133,6 +2230,8 @@ async function paintDashboard(){
       return card(fmt(g.total), label, `+${fmt(g.added)} ${phrase} · ${growthTxt}`, { delta: deltaHtml(g.added, g.prev), info: 'People currently subscribed (unsubscribes are not counted). The badge compares new sign-ups in the selected range to the previous period. Growth is new sign-ups as a percent of the list size at the start of the range.' });
     }).join(''));
 
+  body.insertAdjacentHTML('beforeend', '<div id="loc-map-host"></div>');
+  paintLocationMap();
   document.getElementById('dash-view-lists').addEventListener('click', () => renderSubscriberList('main'));
   document.getElementById('dash-view-course').addEventListener('click', renderChurchesOverview);
   document.getElementById('dash-view-app').addEventListener('click', renderPushNotifications);
