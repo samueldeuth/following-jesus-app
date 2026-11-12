@@ -2866,7 +2866,7 @@ function renderDirectoryRows(filterText){
           <input type="checkbox" data-toggle-featured="${r.id}" ${r.featured ? 'checked' : ''} /> Featured
         </label>
         ${r.status === 'pending_confirmation' ? `<button class="mini-btn gold" data-confirm-directory="${r.id}">Confirm & Go Live</button>` : ''}
-        ${r.status === 'pending_confirmation' && r.contact_email && !r.admin_approved_at ? `<button class="mini-btn gold" data-approve-and-send="${r.id}">Approve</button>` : ''}
+        ${r.status === 'pending_confirmation' && r.contact_email && !r.admin_approved_at ? `<button class="mini-btn gold" data-approve-and-send="${r.id}">Approve &amp; Go Live</button>` : ''}
         ${r.contact_email && r.status !== 'declined' && (r.status !== 'pending_confirmation' || r.admin_approved_at) ? `<button class="mini-btn" data-send-single="${r.id}">${r.confirmation_email_sent_at ? 'Re-send Confirmation' : 'Send Confirmation'}</button>` : ''}
         ${r.status === 'confirmed' && !r.church_confirmed_at ? `<button class="mini-btn" data-mark-church-confirmed="${r.id}" title="Use this if you've confirmed directly with the church yourself -- skips needing them to click the email link">Mark Confirmed by Church</button>` : ''}
         <button class="mini-btn" data-edit-directory="${r.id}">Edit</button>
@@ -2932,7 +2932,7 @@ function renderDirectoryRows(filterText){
   });
   document.querySelectorAll('[data-approve-and-send]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if(!confirm('Approve this church and send them the confirmation email now?')) return;
+      if(!confirm('Approve this church, put it live in the app now, and email them? They can still confirm, fix the details, or remove it from the link in the email.')) return;
       btn.disabled = true;
       btn.textContent = 'Sending…';
       try {
@@ -2942,8 +2942,9 @@ function renderDirectoryRows(filterText){
         // send below reuses the exact same trusted one-at-a-time
         // function as the regular Send Confirmation button -- no
         // separate email-sending logic to keep in sync.
-        const { error: approveError } = await supabaseClient.from('church_directory').update({ admin_approved_at: new Date().toISOString() }).eq('id', btn.dataset.approveAndSend);
-        if(approveError){ alert('Could not approve: ' + approveError.message); btn.disabled = false; btn.textContent = 'Approve'; return; }
+        // Approving now also puts the church live (status 'confirmed'); the church's email lets them confirm, fix or remove it.
+        const { error: approveError } = await supabaseClient.from('church_directory').update({ admin_approved_at: new Date().toISOString(), status: 'confirmed' }).eq('id', btn.dataset.approveAndSend);
+        if(approveError){ alert('Could not approve: ' + approveError.message); btn.disabled = false; btn.textContent = 'Approve & Go Live'; return; }
 
         const { data: { session } } = await supabaseClient.auth.getSession();
         const res = await fetch('/.netlify/functions/send-single-church-confirmation', {
@@ -2961,7 +2962,7 @@ function renderDirectoryRows(filterText){
       } catch(e) {
         alert('Could not send: ' + e.message);
         btn.disabled = false;
-        btn.textContent = 'Approve';
+        btn.textContent = 'Approve & Go Live';
       }
     });
   });
