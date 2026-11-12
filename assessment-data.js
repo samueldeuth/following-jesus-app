@@ -673,6 +673,26 @@
         ],
         ref: 'Eph 4:11–13; 1 Cor 12:18'
       },
+      // Required on the last page (Five-Fold only): their church and current
+      // role there. Saved inside answers (answers.CHURCH, answers.CHURCH_ROLE),
+      // never scored. "Not part of a church" skips the church name.
+      churchInfo: {
+        churchId: 'CHURCH',
+        roleId: 'CHURCH_ROLE',
+        churchPrompt: 'What church do you attend?',
+        churchPlaceholder: 'Church name and city',
+        rolePrompt: 'What is your current role in your church?',
+        noChurchKey: 'NONE',
+        roleOptions: [
+          { key: 'LEAD_PASTOR', label: 'Lead or senior pastor' },
+          { key: 'STAFF_PASTOR', label: 'Associate or staff pastor' },
+          { key: 'STAFF', label: 'Ministry staff or director' },
+          { key: 'VOL_LEADER', label: 'Volunteer leader (small group, team, or ministry leader)' },
+          { key: 'VOLUNTEER', label: 'Serving on a team' },
+          { key: 'ATTENDER', label: 'Attending, not serving yet' },
+          { key: 'NONE', label: 'Not part of a church right now' }
+        ]
+      },
       bands: [ // out of 50
         { min: 42, label: 'Strong' }, { min: 32, label: 'Developing' },
         { min: 22, label: 'Supporting' }, { min: 0, label: 'Not primary right now' }

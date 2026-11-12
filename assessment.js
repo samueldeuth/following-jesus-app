@@ -75,6 +75,7 @@
         Object.keys(s.answers).forEach(id => {
           const v = s.answers[id];
           if (A.groupRole && id === A.groupRole.id) answers[id] = v;
+          else if (A.churchInfo && (id === A.churchInfo.churchId || id === A.churchInfo.roleId)) answers[id] = v;
           else if (ORDER.some(q => q.id === id) && FJ.isValidAnswer(v)) answers[id] = v;
         }); // the tie-breaker pick is dropped; it's asked again if still needed
         const moved = { answers, page:s.page|0, finished:!!s.finished };
@@ -157,13 +158,105 @@
       // Sign in first, so nobody answers 90 statements and then loses them at sign-in.
       if (!user) { setAutostart(true); renderWall('start'); return; }
       if (state.finished) clearState();
-      renderQuiz();
+      startQuiz();
     };
     const vl = document.getElementById('viewLastBtn');
     if (vl) vl.onclick = () => renderResults({ id:lastResult.id, answers:lastResult.answers, scores:lastResult.scores, ranked:lastResult.ranked, created_at:lastResult.created_at });
     const rs = document.getElementById('restartBtn');
     if (rs) rs.onclick = () => { clearState(); renderIntro(); };
     scrollTop();
+  }
+
+  // ---------- About you (Five-Fold only) ----------
+  // Asked right after sign-in, before the statements: their church and
+  // current role there. Required. Saved inside answers, never scored.
+  const CI = A.churchInfo;
+  function churchInfoDone(){
+    if (!CI) return true;
+    const role = state.answers[CI.roleId];
+    if (!CI.roleOptions.some(o => o.key === role)) return false;
+    return role === CI.noChurchKey || !!String(state.answers[CI.churchId] || '').trim();
+  }
+  function startQuiz(){
+    if (!churchInfoDone()) { renderAboutYou(renderQuiz); return; }
+    renderQuiz();
+  }
+  function renderAboutYou(next){
+    // Start from their last result's answers, if they have one.
+    const prev = (lastResult && lastResult.answers) || {};
+    if (state.answers[CI.roleId] === undefined && CI.roleOptions.some(o => o.key === prev[CI.roleId])) state.answers[CI.roleId] = prev[CI.roleId];
+    if (!state.answers[CI.churchId] && prev[CI.churchId]) state.answers[CI.churchId] = prev[CI.churchId];
+    const role = state.answers[CI.roleId];
+    app.innerHTML =
+      '<div class="wrap about-you">' +
+        '<div class="eyebrow" style="margin-top:28px">Before you begin</div>' +
+        '<h2 style="margin-top:8px">A little about you</h2>' +
+        '<p class="muted">This helps us point you to the right next steps for where you serve right now.</p>' +
+        '<fieldset class="q role-q" id="q-' + CI.roleId + '" style="border:1px solid var(--line)">' +
+          '<legend class="hidden">Your church role</legend>' +
+          '<p class="q-text">' + esc(CI.rolePrompt) + '</p>' +
+          '<div class="role-opts">' + CI.roleOptions.map(o =>
+            '<label class="role-opt"><input type="radio" name="' + CI.roleId + '" value="' + o.key + '"' + (role === o.key ? ' checked' : '') + '><span>' + esc(o.label) + '</span></label>').join('') +
+          '</div>' +
+        '</fieldset>' +
+        '<fieldset class="q church-q" id="q-' + CI.churchId + '" style="border:1px solid var(--line)' + (role === CI.noChurchKey ? ';display:none' : '') + '">' +
+          '<legend class="hidden">Your church</legend>' +
+          '<label class="q-text" for="churchInput" style="display:block">' + esc(CI.churchPrompt) + '</label>' +
+          '<input type="text" id="churchInput" class="church-input" maxlength="120" autocomplete="organization" placeholder="' + esc(CI.churchPlaceholder) + '" value="' + esc(state.answers[CI.churchId] || '') + '">' +
+        '</fieldset>' +
+        '<div class="quiz-error" id="quizErr"></div>' +
+        '<div class="quiz-nav">' +
+          '<button class="btn btn-light" id="backBtn">Back</button>' +
+          '<button class="btn btn-dark" id="nextBtn">Continue</button>' +
+        '</div>' +
+      '</div>';
+    const input = document.getElementById('churchInput');
+    const churchBox = document.getElementById('q-' + CI.churchId);
+    app.querySelectorAll('input[name="' + CI.roleId + '"]').forEach(inp => {
+      inp.addEventListener('change', () => {
+        state.answers[CI.roleId] = inp.value; saveState();
+        document.getElementById('q-' + CI.roleId).classList.remove('missing');
+        churchBox.style.display = inp.value === CI.noChurchKey ? 'none' : '';
+        document.getElementById('quizErr').textContent = '';
+      });
+    });
+    input.addEventListener('input', () => {
+      state.answers[CI.churchId] = input.value.trim(); saveState();
+      if (input.value.trim()) { churchBox.classList.remove('missing'); document.getElementById('quizErr').textContent = ''; }
+    });
+    if (!input.value) prefillChurch(input);
+    document.getElementById('backBtn').onclick = () => renderIntro();
+    document.getElementById('nextBtn').onclick = () => {
+      const r = state.answers[CI.roleId];
+      const missing = [];
+      if (!CI.roleOptions.some(o => o.key === r)) missing.push(CI.roleId);
+      if (r !== CI.noChurchKey && !String(state.answers[CI.churchId] || '').trim()) missing.push(CI.churchId);
+      if (missing.length) {
+        missing.forEach(id => document.getElementById('q-' + id).classList.add('missing'));
+        document.getElementById('quizErr').textContent = 'Please answer both questions to continue.';
+        document.getElementById('q-' + missing[0]).scrollIntoView({ behavior:'smooth', block:'center' });
+        return;
+      }
+      if (r === CI.noChurchKey) delete state.answers[CI.churchId];
+      else state.answers[CI.churchId] = String(state.answers[CI.churchId]).trim();
+      saveState();
+      next(); scrollTop();
+    };
+    scrollTop();
+  }
+  // If they're connected to a church on the platform, start with its name.
+  async function prefillChurch(input){
+    if (!user || !sb) return;
+    try {
+      const { data: prof } = await sb.from('profiles').select('church_id').eq('id', user.id).maybeSingle();
+      if (!prof || !prof.church_id) return;
+      const { data: church } = await sb.from('churches').select('name').eq('id', prof.church_id).maybeSingle();
+      if (church && church.name && !input.value && document.body.contains(input)) {
+        input.value = church.name;
+        state.answers[CI.churchId] = church.name;
+        saveState();
+      }
+    } catch (e) { /* prefill is a nice-to-have */ }
   }
 
   // ---------- Questions ----------
@@ -270,6 +363,7 @@
     const pre = FJ.scoreAnswers(TYPE, state.answers);
     if (pre.needsPick) { renderPick(pre.tieBreak); return; }
     if (!user) { renderWall(); return; }
+    if (!churchInfoDone()) { renderAboutYou(finish); return; }
     const result = FJ.scoreAnswers(TYPE, state.answers);
     const result_answers = Object.assign({}, state.answers);
     app.innerHTML = '<div class="loading">Saving your results…</div>';
@@ -528,7 +622,7 @@
 
     if (res.id) fillConfirmSlot(res.id, top);
     if (res.id) fillFeedbackSlot(res.id, top);
-    document.getElementById('retakeBtn').onclick = () => { clearState(); renderQuiz(); };
+    document.getElementById('retakeBtn').onclick = () => { clearState(); startQuiz(); };
     document.getElementById('inviteBtn').onclick = inviteFriend;
     const eb = document.getElementById('emailBtn');
     if (eb) eb.onclick = emailResults;
@@ -761,7 +855,7 @@
     // Just came back from sign-in with a finished assessment → save + show results.
     if (user && state.finished && FJ.scoreAnswers(TYPE, state.answers).complete) { setAutostart(false); finish(); return; }
     // Just came back from "Sign in to start" → go straight into the questions.
-    if (user && takeAutostart()) { if (state.finished) clearState(); renderQuiz(); return; }
+    if (user && takeAutostart()) { if (state.finished) clearState(); startQuiz(); return; }
 
     await loadLastResult();
     // Profile pages link here with ?view=results to jump straight to them.

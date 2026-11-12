@@ -283,3 +283,5 @@
   .pc-verse span{display:block; font-style:normal; font-size:12.5px; color:#57534d; margin-top:3px;}
   .pc-foot{font-size:12.5px; color:#8a857c; margin-top:10px;}
 }
+.church-input{width:100%; box-sizing:border-box; padding:12px 14px; border:1.5px solid var(--line); border-radius:10px; background:var(--paper); font:inherit; font-size:16px;}
+.church-input:focus{outline:2px solid var(--ember); outline-offset:1px;}
