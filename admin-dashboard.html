@@ -6850,7 +6850,7 @@ function renderSpiritualGiftsBody(){
       <button class="mini-btn" id="gifts-export-btn">Export (CSV)</button>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Person</th><th>Church</th><th>Taker's church</th><th>Church role</th><th>Assessment</th><th>Top results</th><th>Taken</th><th>Accuracy</th></tr></thead>
+      <thead><tr><th>Person</th><th>Church</th><th class="ff-only-col">Taker's church</th><th class="ff-only-col">Church role</th><th>Assessment</th><th>Top results</th><th>Taken</th><th>Accuracy</th></tr></thead>
       <tbody id="gifts-takers-tbody"></tbody>
     </table></div>
     ${giftQuestionBankHtml(type)}
@@ -6880,19 +6880,24 @@ function renderSpiritualGiftsBody(){
       (!since || new Date(d.r.created_at) >= since) &&
       (!q || (d.name + ' ' + d.email + ' ' + d.church + ' ' + d.takerChurch + ' ' + d.churchRole).toLowerCase().includes(q)));
     document.getElementById('gifts-takers-count').textContent = '(' + shownRows.length + ')';
-    if(!shownRows.length){ tbody.innerHTML = `<tr><td colspan="8" style="color:var(--ink-soft);">${(q || since || giftsTakersType !== 'all') ? 'No matches.' : 'No one yet.'}</td></tr>`; return; }
+    // Church and role come only from the Five-Fold assessment, so hide those two columns on the Spiritual Gifts-only view.
+    const colCount = giftsTakersType === 'gifts' ? 6 : 8;
+    let ffStyle = document.getElementById('ff-col-style');
+    if(!ffStyle){ ffStyle = document.createElement('style'); ffStyle.id = 'ff-col-style'; document.head.appendChild(ffStyle); }
+    ffStyle.textContent = giftsTakersType === 'gifts' ? '.ff-only-col{display:none;}' : '';
+    if(!shownRows.length){ tbody.innerHTML = `<tr><td colspan="${colCount}" style="color:var(--ink-soft);">${(q || since || giftsTakersType !== 'all') ? 'No matches.' : 'No one yet.'}</td></tr>`; return; }
     tbody.innerHTML = shownRows.map(d => `
       <tr class="clickable" data-gifts-result="${d.r.id}">
         <td><div class="student-name">${escapeHtmlReport(d.name)}</div><div class="student-email">${escapeHtmlReport(d.email)}</div></td>
         <td>${escapeHtmlReport(d.church || '—')}</td>
-        <td>${escapeHtmlReport(d.takerChurch || '—')}</td>
-        <td>${escapeHtmlReport(d.churchRole || '—')}</td>
+        <td class="ff-only-col">${escapeHtmlReport(d.takerChurch || '—')}</td>
+        <td class="ff-only-col">${escapeHtmlReport(d.churchRole || '—')}</td>
         <td>${escapeHtmlReport(d.typeLabel)}</td>
         <td>${d.top.map(escapeHtmlReport).join(', ')}</td>
         <td class="date-started">${new Date(d.r.created_at).toLocaleDateString()}</td>
         <td>${feedbackByResult[d.r.id] ? feedbackByResult[d.r.id].accuracy + '/5' : '—'}</td>
       </tr>
-      <tr class="gifts-detail-row" data-gifts-detail="${d.r.id}" style="display:none;"><td colspan="8" style="background:var(--bg-soft);">${giftScoresHtml(d.type, d.r)}${giftFeedbackLineHtml(feedbackByResult[d.r.id])}</td></tr>`).join('');
+      <tr class="gifts-detail-row" data-gifts-detail="${d.r.id}" style="display:none;"><td colspan="${colCount}" style="background:var(--bg-soft);">${giftScoresHtml(d.type, d.r)}${giftFeedbackLineHtml(feedbackByResult[d.r.id])}</td></tr>`).join('');
     tbody.querySelectorAll('[data-gifts-result]').forEach(tr => {
       tr.addEventListener('click', () => {
         const detail = tbody.querySelector(`[data-gifts-detail="${tr.dataset.giftsResult}"]`);
@@ -6912,13 +6917,14 @@ function renderSpiritualGiftsBody(){
     // Exports exactly what the list is showing (range, assessment and search filters applied).
     const giftKeys = FJ.ASSESSMENTS.gifts.categories.map(c => c.key);
     const officeKeys = FJ.ASSESSMENTS.fivefold.categories.map(c => c.key);
-    const headers = ['Name', 'Email', 'Church', "Taker's church", 'Church role', 'Assessment', 'Taken', 'Top', 'Accuracy (1-5)', 'Top felt right', 'Feedback comment',
+    const ffCols = giftsTakersType !== 'gifts';
+    const headers = ['Name', 'Email', 'Church', ...(ffCols ? ["Taker's church", 'Church role'] : []), 'Assessment', 'Taken', 'Top', 'Accuracy (1-5)', 'Top felt right', 'Feedback comment',
       ...giftKeys.map(k => giftName('gifts', k)), ...officeKeys.map(k => giftName('fivefold', k))];
     const lines = [headers.map(csvEscape).join(',')];
     shownRows.forEach(d => {
       const f = feedbackByResult[d.r.id];
       const sc = d.r.scores || {};
-      lines.push([d.name, d.email, d.church, d.takerChurch, d.churchRole, d.typeLabel, new Date(d.r.created_at).toLocaleDateString(), d.top.join('; '),
+      lines.push([d.name, d.email, d.church, ...(ffCols ? [d.takerChurch, d.churchRole] : []), d.typeLabel, new Date(d.r.created_at).toLocaleDateString(), d.top.join('; '),
         f ? f.accuracy : '', f ? (GIFT_FEEDBACK_TOPFIT[f.top_fit] || f.top_fit) : '', f ? (f.comment || '') : '',
         ...giftKeys.map(k => d.type === 'gifts' ? (sc[k] ?? '') : ''), ...officeKeys.map(k => d.type === 'fivefold' ? (sc[k] ?? '') : '')].map(csvEscape).join(','));
     });
