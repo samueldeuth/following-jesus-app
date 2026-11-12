@@ -2009,6 +2009,36 @@ function loadLeaflet(){
     document.head.appendChild(sc);
   });
 }
+// Simple line-art base map (country and US state outlines, no street map tiles).
+// Outline data loads once from a CDN and is cached; if it can't load, the dots still show on a blank background.
+let locBaseGeo = null;
+async function loadLocBaseGeo(){
+  if(locBaseGeo) return locBaseGeo;
+  await new Promise((res, rej) => {
+    if(window.topojson) return res();
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js';
+    sc.onload = res; sc.onerror = rej; document.head.appendChild(sc);
+  });
+  const [world, us] = await Promise.all([
+    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json').then(r => r.json()),
+    fetch('https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/states-10m.json').then(r => r.json())
+  ]);
+  locBaseGeo = {
+    countries: topojson.feature(world, world.objects.countries),
+    states: topojson.feature(us, us.objects.states)
+  };
+  return locBaseGeo;
+}
+async function addLineArtBase(map){
+  try{
+    const g = await loadLocBaseGeo();
+    if(locMap !== map) return;
+    L.geoJSON(g.countries, { interactive: false, style: { color: '#B9B5A8', weight: 0.8, fillColor: '#FFFFFF', fillOpacity: 1 } }).addTo(map).bringToBack();
+    L.geoJSON(g.states, { interactive: false, style: { color: '#D4D1C6', weight: 0.6, fill: false } }).addTo(map);
+    if(map._fjLayer) map._fjLayer.bringToFront();
+  }catch(e){ console.warn('map outlines failed', e); }
+}
 function locMapShellHtml(){
   return `
     <div style="margin:26px 0 10px;">
@@ -2022,7 +2052,7 @@ function locMapShellHtml(){
       <button type="button" class="mini-btn ${locMapGrain==='state'?'active':''}" data-loc-grain="state">States</button>
     </div>
     <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:stretch;">
-      <div id="loc-map" style="flex:2 1 420px;min-width:0;height:380px;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--bg-soft);"></div>
+      <div id="loc-map" style="flex:2 1 420px;min-width:0;height:380px;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#EFEEE9;"></div>
       <div id="loc-map-list" style="flex:1 1 220px;min-width:0;max-height:380px;overflow:auto;border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;font-size:13px;"></div>
     </div>
     <div id="loc-map-note" style="font-size:12px;color:var(--ink-soft);margin-top:6px;"></div>`;
@@ -2082,7 +2112,8 @@ async function paintLocationMap(){
     locMapData = data || { points: [], located: 0, layer_total: 0 };
     if(window.L){
       locMap = L.map('loc-map', { scrollWheelZoom: false, worldCopyJump: true }).setView([20, 0], 2);
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap contributors' }).addTo(locMap);
+      locMap.attributionControl.setPrefix(false);
+      addLineArtBase(locMap);
     }
     renderLocMapPoints();
   }catch(e){
@@ -6657,9 +6688,24 @@ async function fetchAllRows(buildQuery){
   return out;
 }
 
+// Five-Fold "church role" answers: key -> label. Uses the labels from assessment-data.js when loaded, else this map.
+const FIVEFOLD_ROLE_LABELS = {
+  LEAD_PASTOR: 'Lead or senior pastor', STAFF_PASTOR: 'Associate or campus pastor', STAFF: 'Ministry staff or director',
+  VOL_LEADER: 'Volunteer leader', VOLUNTEER: 'Serving on a team', ATTENDER: 'Attending, not serving yet', NONE: 'Not part of a church right now'
+};
+function fiveFoldRoleLabel(key){
+  if(!key) return '';
+  try {
+    const opts = window.FJ_ASSESSMENT.ASSESSMENTS.fivefold.churchInfo.roleOptions;
+    const hit = (opts || []).find(o => o.key === key);
+    if(hit && hit.label) return hit.label;
+  } catch(e){}
+  return FIVEFOLD_ROLE_LABELS[key] || String(key);
+}
+
 async function loadGiftsAdminData(){
   const results = await fetchAllRows(() => supabaseClient.from('gift_assessment_results')
-    .select('id, user_id, assessment_type, scores, ranked, created_at')
+    .select('id, user_id, assessment_type, scores, ranked, answers, created_at')
     .order('created_at', { ascending: false }));
   const userIds = [...new Set(results.map(r => r.user_id))];
   const profilesById = {};
@@ -6804,7 +6850,7 @@ function renderSpiritualGiftsBody(){
       <button class="mini-btn" id="gifts-export-btn">Export (CSV)</button>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Person</th><th>Church</th><th>Assessment</th><th>Top results</th><th>Taken</th><th>Shared</th><th>Accuracy</th></tr></thead>
+      <thead><tr><th>Person</th><th>Church</th><th>Taker's church</th><th>Church role</th><th>Assessment</th><th>Top results</th><th>Taken</th><th>Accuracy</th></tr></thead>
       <tbody id="gifts-takers-tbody"></tbody>
     </table></div>
     ${giftQuestionBankHtml(type)}
@@ -6818,7 +6864,9 @@ function renderSpiritualGiftsBody(){
       name: p.full_name || 'Unnamed', email: p.email || '',
       church: p.church_id ? (churchNameById[p.church_id] || '') : '',
       top: (r.ranked || []).slice(0, FJ.ASSESSMENTS[t].topCount).map(k => giftName(t, k)),
-      shared: !!shareById[r.user_id]
+      // What the person typed / picked on the Five-Fold assessment (taken after Nov 12, 2026). Blank for older results and Spiritual Gifts.
+      takerChurch: (t === 'fivefold' && r.answers && typeof r.answers.CHURCH === 'string') ? r.answers.CHURCH.trim() : '',
+      churchRole: (t === 'fivefold' && r.answers) ? fiveFoldRoleLabel(r.answers.CHURCH_ROLE) : ''
     };
   })).sort((a, b) => new Date(b.r.created_at) - new Date(a.r.created_at));
 
@@ -6830,20 +6878,21 @@ function renderSpiritualGiftsBody(){
     shownRows = rowsData.filter(d =>
       (giftsTakersType === 'all' || d.type === giftsTakersType) &&
       (!since || new Date(d.r.created_at) >= since) &&
-      (!q || (d.name + ' ' + d.email + ' ' + d.church).toLowerCase().includes(q)));
+      (!q || (d.name + ' ' + d.email + ' ' + d.church + ' ' + d.takerChurch + ' ' + d.churchRole).toLowerCase().includes(q)));
     document.getElementById('gifts-takers-count').textContent = '(' + shownRows.length + ')';
-    if(!shownRows.length){ tbody.innerHTML = `<tr><td colspan="7" style="color:var(--ink-soft);">${(q || since || giftsTakersType !== 'all') ? 'No matches.' : 'No one yet.'}</td></tr>`; return; }
+    if(!shownRows.length){ tbody.innerHTML = `<tr><td colspan="8" style="color:var(--ink-soft);">${(q || since || giftsTakersType !== 'all') ? 'No matches.' : 'No one yet.'}</td></tr>`; return; }
     tbody.innerHTML = shownRows.map(d => `
       <tr class="clickable" data-gifts-result="${d.r.id}">
         <td><div class="student-name">${escapeHtmlReport(d.name)}</div><div class="student-email">${escapeHtmlReport(d.email)}</div></td>
         <td>${escapeHtmlReport(d.church || '—')}</td>
+        <td>${escapeHtmlReport(d.takerChurch || '—')}</td>
+        <td>${escapeHtmlReport(d.churchRole || '—')}</td>
         <td>${escapeHtmlReport(d.typeLabel)}</td>
         <td>${d.top.map(escapeHtmlReport).join(', ')}</td>
         <td class="date-started">${new Date(d.r.created_at).toLocaleDateString()}</td>
-        <td>${d.shared ? 'Yes' : '—'}</td>
         <td>${feedbackByResult[d.r.id] ? feedbackByResult[d.r.id].accuracy + '/5' : '—'}</td>
       </tr>
-      <tr class="gifts-detail-row" data-gifts-detail="${d.r.id}" style="display:none;"><td colspan="7" style="background:var(--bg-soft);">${giftScoresHtml(d.type, d.r)}${giftFeedbackLineHtml(feedbackByResult[d.r.id])}</td></tr>`).join('');
+      <tr class="gifts-detail-row" data-gifts-detail="${d.r.id}" style="display:none;"><td colspan="8" style="background:var(--bg-soft);">${giftScoresHtml(d.type, d.r)}${giftFeedbackLineHtml(feedbackByResult[d.r.id])}</td></tr>`).join('');
     tbody.querySelectorAll('[data-gifts-result]').forEach(tr => {
       tr.addEventListener('click', () => {
         const detail = tbody.querySelector(`[data-gifts-detail="${tr.dataset.giftsResult}"]`);
@@ -6863,13 +6912,13 @@ function renderSpiritualGiftsBody(){
     // Exports exactly what the list is showing (range, assessment and search filters applied).
     const giftKeys = FJ.ASSESSMENTS.gifts.categories.map(c => c.key);
     const officeKeys = FJ.ASSESSMENTS.fivefold.categories.map(c => c.key);
-    const headers = ['Name', 'Email', 'Church', 'Assessment', 'Taken', 'Shared with church', 'Top', 'Accuracy (1-5)', 'Top felt right', 'Feedback comment',
+    const headers = ['Name', 'Email', 'Church', "Taker's church", 'Church role', 'Assessment', 'Taken', 'Top', 'Accuracy (1-5)', 'Top felt right', 'Feedback comment',
       ...giftKeys.map(k => giftName('gifts', k)), ...officeKeys.map(k => giftName('fivefold', k))];
     const lines = [headers.map(csvEscape).join(',')];
     shownRows.forEach(d => {
       const f = feedbackByResult[d.r.id];
       const sc = d.r.scores || {};
-      lines.push([d.name, d.email, d.church, d.typeLabel, new Date(d.r.created_at).toLocaleDateString(), d.shared ? 'Yes' : 'No', d.top.join('; '),
+      lines.push([d.name, d.email, d.church, d.takerChurch, d.churchRole, d.typeLabel, new Date(d.r.created_at).toLocaleDateString(), d.top.join('; '),
         f ? f.accuracy : '', f ? (GIFT_FEEDBACK_TOPFIT[f.top_fit] || f.top_fit) : '', f ? (f.comment || '') : '',
         ...giftKeys.map(k => d.type === 'gifts' ? (sc[k] ?? '') : ''), ...officeKeys.map(k => d.type === 'fivefold' ? (sc[k] ?? '') : '')].map(csvEscape).join(','));
     });
