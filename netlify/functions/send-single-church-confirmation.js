@@ -44,8 +44,14 @@ async function getCallerRole(userAccessToken) {
   return rows[0]?.role || null;
 }
 
-function buildEmailHtml(churchName, confirmToken) {
+function buildEmailHtml(churchName, confirmToken, isLive) {
   const confirmUrl = `${APP_URL}/confirm-church-directory-entry?token=${confirmToken}`;
+  const body = isLive
+    ? `<p>Good news: <strong>Find a Church</strong> is now live in the Following Jesus app, and <strong>${escapeHtml(churchName)}</strong> is listed. People near you can now find your church, get connected, and start serving.</p>
+    <p>Please take a second to check your listing. You can confirm it's correct, fix any details, or remove your church from the directory if you'd rather not be listed.</p>`
+    : `<p>We're building a new "Find a Church" feature in the Following Jesus app — it helps people get connected, planted, and serving in a local church near them.</p>
+    <p>We'd love to feature <strong>${escapeHtml(churchName)}</strong> in our church directory. Can you take a second to confirm your info is correct?</p>`;
+  const buttonLabel = isLive ? 'Review Our Listing →' : 'Confirm Our Info →';
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"></head>
@@ -55,10 +61,9 @@ function buildEmailHtml(churchName, confirmToken) {
       <img src="${LOGO_URL}" alt="Following Jesus" style="max-width:200px;width:100%;height:auto;" />
     </div>
     <p>Hi there,</p>
-    <p>We're building a new "Find a Church" feature in the Following Jesus app — it helps people get connected, planted, and serving in a local church near them.</p>
-    <p>We'd love to feature <strong>${escapeHtml(churchName)}</strong> in our church directory. Can you take a second to confirm your info is correct?</p>
+    ${body}
     <p style="margin: 28px 0;">
-      <a href="${confirmUrl}" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">Confirm Our Info →</a>
+      <a href="${confirmUrl}" style="background:#0a0a0a;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:600;">${buttonLabel}</a>
     </p>
     <p>Thank you,<br>Following Jesus Team</p>
   </div>
@@ -93,7 +98,7 @@ exports.handler = async function (event) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Missing churchId.' }) };
   }
 
-  const churchRes = await fetch(`${SUPABASE_URL}/rest/v1/church_directory?id=eq.${churchId}&select=name,contact_email,confirmation_token`, {
+  const churchRes = await fetch(`${SUPABASE_URL}/rest/v1/church_directory?id=eq.${churchId}&select=name,contact_email,confirmation_token,status`, {
     headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${userAccessToken}` }
   });
   if (!churchRes.ok) {
@@ -116,8 +121,8 @@ exports.handler = async function (event) {
         from: FROM_EMAIL,
         to: church.contact_email,
         reply_to: 'info@followingjesusbook.com',
-        subject: `Feature ${church.name} in our new church directory`,
-        html: buildEmailHtml(church.name, church.confirmation_token)
+        subject: church.status === 'confirmed' ? `${church.name} is now listed in the Following Jesus app` : `Feature ${church.name} in our new church directory`,
+        html: buildEmailHtml(church.name, church.confirmation_token, church.status === 'confirmed')
       })
     });
     if (!res.ok) {
