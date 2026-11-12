@@ -2774,10 +2774,13 @@ let bulkResendRunning = false, bulkResendStop = false;
 function bulkResendGroups(){
   const columnReady = !allDirectoryRows.length || ('live_notice_sent_at' in allDirectoryRows[0]);
   const candidates = allDirectoryRows.filter(r => r.contact_email && r.status !== 'declined' && !r.church_confirmed_at && (r.status !== 'pending_confirmation' || r.admin_approved_at));
+  // Anyone who already got a church-directory email in the last 2 days is held back, so nobody gets two emails back to back.
+  const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
   const alreadySent = candidates.filter(r => r.live_notice_sent_at);
-  const toSend = candidates.filter(r => !r.live_notice_sent_at);
+  const justEmailed = candidates.filter(r => !r.live_notice_sent_at && r.confirmation_email_sent_at && new Date(r.confirmation_email_sent_at).getTime() > twoDaysAgo);
+  const toSend = candidates.filter(r => !r.live_notice_sent_at && !justEmailed.includes(r));
   const notYetApproved = allDirectoryRows.filter(r => r.status === 'pending_confirmation' && !r.admin_approved_at).length;
-  return { columnReady, alreadySent, toSend, notYetApproved };
+  return { columnReady, alreadySent, justEmailed, toSend, notYetApproved };
 }
 function paintBulkResend(){
   const wrap = document.getElementById('directory-bulk-resend'), btn = document.getElementById('directory-bulk-resend-btn'), note = document.getElementById('directory-bulk-resend-note');
@@ -2790,6 +2793,7 @@ function paintBulkResend(){
     ? 'Run church-live-notice.sql in Supabase first.'
     : [
         g.alreadySent.length ? `${g.alreadySent.length.toLocaleString()} already sent` : '',
+        g.justEmailed.length ? `${g.justEmailed.length.toLocaleString()} held back (emailed in the last 2 days)` : '',
         g.notYetApproved ? `${g.notYetApproved.toLocaleString()} not yet approved by you` : ''
       ].filter(Boolean).join(' · ');
   if(!btn.dataset.wired){
@@ -2802,7 +2806,7 @@ async function runBulkResend(){
   if(bulkResendRunning){ bulkResendStop = true; btn.textContent = 'Stopping…'; return; }
   const g = bulkResendGroups();
   if(!g.columnReady || !g.toSend.length) return;
-  if(!confirm(`Email ${g.toSend.length.toLocaleString()} churches that haven't confirmed yet, telling them Find a Church is now live in the app?\n\nThis sends real emails right now, one at a time. Each church can only receive this email once. Churches that already confirmed, declined churches, churches without an email, and entries you haven't approved are left out. You can press Stop partway through.`)) return;
+  if(!confirm(`Email ${g.toSend.length.toLocaleString()} churches that haven't confirmed yet, telling them Find a Church is now live in the app?\n\nThis sends real emails right now, one at a time. Each church can only receive this email once. Churches that already confirmed, churches emailed in the last 2 days (${g.justEmailed.length.toLocaleString()}), declined churches, churches without an email, and entries you haven't approved are left out. You can press Stop partway through.`)) return;
   bulkResendRunning = true; bulkResendStop = false;
   let sent = 0, skipped = 0, failed = 0; const failures = [];
   try{
