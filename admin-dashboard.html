@@ -2042,8 +2042,7 @@ async function addLineArtBase(map){
 function locMapShellHtml(){
   return `
     <div style="margin:26px 0 10px;">
-      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:17px;margin:0 0 4px;">Map</h3>
-      <div style="font-size:12.5px;color:var(--ink-soft);">Where people were in the selected time range. Each person counts once, at their most recent place. Location is by network (nearest city), not GPS, and only builds up from the day tracking went live.</div>
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:17px;margin:0;">Map <button type="button" class="info-icon-btn" data-info="Where people were in the selected time range. Each person counts once, at their most recent place. Location is by network (nearest city), not GPS, and only builds up from the day tracking went live.">i</button></h3>
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
       ${Object.keys(locMapLayerLabels).map(k => `<button type="button" class="mini-btn ${k===locMapLayer?'active':''}" data-loc-layer="${k}">${locMapLayerLabels[k]}</button>`).join('')}
@@ -2117,6 +2116,7 @@ async function paintLocationMap(){
   const host = document.getElementById('loc-map-host');
   if(!host) return;
   host.innerHTML = locMapShellHtml();
+  if(typeof initInfoTooltips === 'function') initInfoTooltips();
   if(locMap){ try{ locMap.remove(); }catch(e){} locMap = null; }
   host.querySelectorAll('[data-loc-layer]').forEach(b => b.addEventListener('click', () => { locMapLayer = b.dataset.locLayer; paintLocationMap(); }));
   host.querySelectorAll('[data-loc-grain]').forEach(b => b.addEventListener('click', () => {
