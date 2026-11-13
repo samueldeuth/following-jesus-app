@@ -2052,6 +2052,7 @@ function locMapShellHtml(){
       <button type="button" class="mini-btn ${locMapGrain==='state'?'active':''}" data-loc-grain="state">States</button>
       <button type="button" class="mini-btn ${locMapGrain==='country'?'active':''}" data-loc-grain="country">Countries</button>
     </div>
+    <div id="loc-map-counts" style="display:flex;gap:22px;flex-wrap:wrap;margin:0 0 10px;"></div>
     <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:stretch;">
       <div id="loc-map" style="flex:2 1 420px;min-width:0;height:380px;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#EFEEE9;"></div>
       <div id="loc-map-list" style="flex:1 1 220px;min-width:0;max-height:380px;overflow:auto;border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;font-size:13px;"></div>
@@ -2082,6 +2083,18 @@ function renderLocMapPoints(){
   if(!listEl || !locMapData) return;
   const pts = locGroupPoints(locMapData.points || [], locMapGrain).sort((a, b) => b.people - a.people);
   const max = pts.length ? pts[0].people : 1;
+  const countsEl = document.getElementById('loc-map-counts');
+  if(countsEl){
+    const raw = locMapData.points || [], cs = new Set(), sts = new Set(), cts = new Set();
+    raw.forEach(p => {
+      const c = p.country || '';
+      if(c) cs.add(c);
+      if(p.region) sts.add(c + '|' + p.region);
+      if(p.city) cts.add(c + '|' + (p.region || '') + '|' + p.city);
+    });
+    const stat = (n, one, many) => `<div><span style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;">${n.toLocaleString()}</span> <span style="font-size:13px;color:var(--ink-soft);">${n === 1 ? one : many}</span></div>`;
+    countsEl.innerHTML = stat(cs.size, 'country', 'countries') + stat(sts.size, 'state/province', 'states/provinces') + stat(cts.size, 'city', 'cities');
+  }
   if(locMap){
     if(locMap._fjLayer) locMap.removeLayer(locMap._fjLayer);
     const grp = L.featureGroup();
