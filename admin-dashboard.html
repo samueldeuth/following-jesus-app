@@ -2050,6 +2050,7 @@ function locMapShellHtml(){
       <span style="flex:1"></span>
       <button type="button" class="mini-btn ${locMapGrain==='city'?'active':''}" data-loc-grain="city">Cities</button>
       <button type="button" class="mini-btn ${locMapGrain==='state'?'active':''}" data-loc-grain="state">States</button>
+      <button type="button" class="mini-btn ${locMapGrain==='country'?'active':''}" data-loc-grain="country">Countries</button>
     </div>
     <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:stretch;">
       <div id="loc-map" style="flex:2 1 420px;min-width:0;height:380px;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#EFEEE9;"></div>
@@ -2059,6 +2060,15 @@ function locMapShellHtml(){
 }
 function locGroupPoints(points, grain){
   if(grain === 'city') return points.map(p => ({ name: [p.city || p.region || p.country, p.region_code && p.city ? p.region_code : null, (p.country && p.country !== 'United States' && p.country !== 'USA') ? p.country : null].filter(Boolean).join(', '), lat: Number(p.lat), lng: Number(p.lng), people: Number(p.people) }));
+  if(grain === 'country'){
+    const c = {};
+    points.forEach(p => {
+      const key = p.country || 'Unknown';
+      const g = c[key] || (c[key] = { name: key, people: 0, wLat: 0, wLng: 0 });
+      g.people += Number(p.people); g.wLat += Number(p.lat) * Number(p.people); g.wLng += Number(p.lng) * Number(p.people);
+    });
+    return Object.values(c).map(g => ({ name: g.name, lat: g.wLat / g.people, lng: g.wLng / g.people, people: g.people }));
+  }
   const m = {};
   points.forEach(p => {
     const key = (p.country || '') + '|' + (p.region || '');
