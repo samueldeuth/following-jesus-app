@@ -2254,6 +2254,10 @@ async function paintDashboard(){
   const livePrev = live ? live.filter(r => inP(r.created_at)).length : null;
   const pending = dir ? dir.filter(r => r.status === 'pending_confirmation').length : 0;
 
+  const courseChurchesActive = allChurches.filter(ch => !['draft', 'archived'].includes(ch.course_status || 'live'));
+  const courseChurchHasDates = courseChurchesActive.some(ch => !!ch.created_at);
+  const courseChurchNew = courseChurchHasDates ? courseChurchesActive.filter(ch => inR(ch.created_at)).length : courseChurchesActive.length;
+  const courseChurchPrev = courseChurchHasDates ? courseChurchesActive.filter(ch => inP(ch.created_at)).length : null;
   const total = (n, what) => (n === null || n === undefined) ? '' : `${fmt(n)} ${what}`;
   body.innerHTML =
     section('Course', 'dash-view-course', [
@@ -2273,7 +2277,7 @@ async function paintDashboard(){
     ].join('')) +
     section('Churches', 'dash-view-churches', [
       card(fmt(dirNew), 'Total Churches', `${total(dirTotal, 'total')}${pending ? ` · ${fmt(pending)} pending confirmation` : ''}`, { delta: deltaHtml(dirNew, dirPrev), info: 'Churches added to the Church Directory in the selected range.' }),
-      card(fmt(liveNew), 'Live on Search', total(live ? live.length : null, 'live total'), { delta: deltaHtml(liveNew, livePrev), info: 'Directory churches marked Confirmed, which are the ones people can find in the app. The big number is by the date the church was added to the directory.' })
+      card(fmt(courseChurchNew), 'Active Churches with the Course', total(courseChurchesActive.length, 'active total'), { delta: deltaHtml(courseChurchNew === courseChurchesActive.length && !courseChurchHasDates ? null : courseChurchNew, courseChurchPrev), info: 'Churches running the course whose course page is not Draft or Archived (the same churches counted as Active on the Course page). The big number is how many of them joined in the selected range; the small number is all active churches with the course.' })
     ].join('')) +
     section('Lists', 'dash-view-lists', ['main','church_leader'].map(aud => {
       const g = listGrowth && listGrowth[aud];
