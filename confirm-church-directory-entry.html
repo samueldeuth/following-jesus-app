@@ -91,6 +91,88 @@ function renderContent(html){
   document.getElementById('content').innerHTML = `<div class="logo-badge">Following Jesus</div>${html}`;
 }
 
+function addLocationHtml(parentName){
+  return `
+    <div id="addLocationSection" style="margin-top:32px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.1);text-align:left;">
+      <p class="field-label" style="font-size:13px;color:rgba(255,255,255,0.75);margin-bottom:12px;"><strong style="color:#fff;font-size:15px;">Have another campus or location?</strong><br>Add it here and it'll be featured in the app too. You can add as many as you need.</p>
+      <label class="field-label">Campus / Location Name</label>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <span style="font-size:14px;color:rgba(255,255,255,0.5);white-space:nowrap;">${escapeHtml(parentName)} |</span>
+        <input type="text" class="address-input" id="newLocationName" placeholder="e.g. Downtown Campus" style="margin-bottom:0;" />
+      </div>
+      <label class="field-label">Address</label>
+      <div id="newLocationAddressHost"><gmp-place-autocomplete id="newLocationAddress" placeholder="Street, City, State, Zip"></gmp-place-autocomplete></div>
+      <button type="button" class="btn btn-secondary" id="addLocationBtn">Add This Location</button>
+      <p id="addLocationStatus" style="font-size:13px;color:rgba(255,255,255,0.5);margin-top:8px;"></p>
+    </div>
+  `;
+}
+
+function wireAddLocation(token, parentName){
+  // Requiring a real selection from the dropdown (rather than accepting
+  // whatever raw text someone typed) is what actually guarantees the
+  // address sent to the server is a real, Google-verified one.
+  let selectedNewLocationAddress = null;
+  let useTextAddress = false;
+  // If Google's address suggestions haven't loaded after a few seconds
+  // (blocked script, ad blocker, slow connection), fall back to a plain
+  // address box. The server geocodes whatever is typed anyway and rejects
+  // anything it can't find, so nothing unverified gets saved.
+  setTimeout(() => {
+    if(customElements.get('gmp-place-autocomplete')) return;
+    const host = document.getElementById('newLocationAddressHost');
+    if(!host) return;
+    useTextAddress = true;
+    host.innerHTML = '<input type="text" class="address-input" id="newLocationAddressText" placeholder="Street, City, State, Zip" />';
+  }, 4000);
+  document.getElementById('newLocationAddress').addEventListener('gmp-select', async ({ placePrediction }) => {
+    const place = placePrediction.toPlace();
+    await place.fetchFields({ fields: ['formattedAddress'] });
+    selectedNewLocationAddress = place.formattedAddress;
+  });
+
+  document.getElementById('addLocationBtn').addEventListener('click', async () => {
+    const suffix = document.getElementById('newLocationName').value.trim();
+    const statusEl = document.getElementById('addLocationStatus');
+    if(!suffix){ alert('Please enter a name for this location (e.g. "Downtown Campus").'); return; }
+    // Combines with the parent church's own name using the same
+    // "Parent Church | Campus" convention already used throughout this
+    // project (e.g. "Awaken Church | Bressi Campus") -- this is what
+    // actually makes it clear in search results that this is a
+    // location of the SAME church, not an unrelated standalone entry.
+    const name = `${parentName} | ${suffix}`;
+    const typed = useTextAddress ? ((document.getElementById('newLocationAddressText') || {}).value || '').trim() : '';
+    if(!selectedNewLocationAddress && !typed){ alert(useTextAddress ? 'Please enter the full street address.' : 'Please choose an address from the suggestions as you type.'); return; }
+    const address = selectedNewLocationAddress || typed;
+    const btn = document.getElementById('addLocationBtn');
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+    try {
+      const res = await fetch('/.netlify/functions/confirm-church-directory-entry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, name, address, action: 'addLocation' })
+      });
+      const result = await res.json();
+      if(result.status === 'success'){
+        statusEl.textContent = `${name} added ✓ — add another below if you have more.`;
+        statusEl.style.color = '#8fd4c1';
+        document.getElementById('newLocationName').value = '';
+        selectedNewLocationAddress = null;
+        const t = document.getElementById('newLocationAddressText'); if(t) t.value = '';
+      } else if(result.status === 'geocode_failed'){
+        statusEl.textContent = "Couldn't find that address on the map — check spelling and try again.";
+      } else {
+        statusEl.textContent = 'Something went wrong. Please try again.';
+      }
+    } catch(e) {
+      statusEl.textContent = 'Something went wrong. Please try again.';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Add This Location';
+  });
+}
+
 async function init(){
   const token = getToken();
   if(!token){
@@ -122,6 +204,7 @@ function renderMainScreen(token, entry){
     </div>
     <button type="button" class="btn btn-primary" id="confirmBtn">${alreadyLive ? 'Yes, Keep My Church Featured' : 'Yes, This Is Correct'}</button>
     <button type="button" class="btn btn-secondary" id="editBtn">Fix This Info</button>
+    <button type="button" class="btn btn-secondary" id="addCampusJump">Add Another Campus or Location</button>
     <button type="button" class="btn btn-text" id="rejectBtn">${alreadyLive ? "Remove us from the directory" : "This isn't accurate — remove it"}</button>
     <div id="editForm" style="display:none;margin-top:16px;text-align:left;">
       <label class="field-label">Church Name</label>
@@ -131,67 +214,15 @@ function renderMainScreen(token, entry){
       <button type="button" class="btn btn-primary" id="saveEditBtn">Save${alreadyLive ? '' : ' & Confirm'}</button>
     </div>
 
-    <div style="margin-top:32px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.1);text-align:left;">
-      <p class="field-label" style="font-size:13px;color:rgba(255,255,255,0.75);margin-bottom:12px;">Have another campus or location? Add it below and it'll be featured too.</p>
-      <label class="field-label">Campus / Location Name</label>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-        <span style="font-size:14px;color:rgba(255,255,255,0.5);white-space:nowrap;">${escapeHtml(entry.name)} |</span>
-        <input type="text" class="address-input" id="newLocationName" placeholder="e.g. Downtown Campus" style="margin-bottom:0;" />
-      </div>
-      <label class="field-label">Address</label>
-      <gmp-place-autocomplete id="newLocationAddress" placeholder="Street, City, State, Zip"></gmp-place-autocomplete>
-      <button type="button" class="btn btn-secondary" id="addLocationBtn">Add This Location</button>
-      <p id="addLocationStatus" style="font-size:13px;color:rgba(255,255,255,0.5);margin-top:8px;"></p>
-    </div>
+    ${addLocationHtml(entry.name)}
   `);
 
-  // Requiring a real selection from the dropdown (rather than accepting
-  // whatever raw text someone typed) is what actually guarantees the
-  // address sent to the server is a real, Google-verified one.
-  let selectedNewLocationAddress = null;
-  document.getElementById('newLocationAddress').addEventListener('gmp-select', async ({ placePrediction }) => {
-    const place = placePrediction.toPlace();
-    await place.fetchFields({ fields: ['formattedAddress'] });
-    selectedNewLocationAddress = place.formattedAddress;
-  });
-
-  document.getElementById('addLocationBtn').addEventListener('click', async () => {
-    const suffix = document.getElementById('newLocationName').value.trim();
-    const statusEl = document.getElementById('addLocationStatus');
-    if(!suffix){ alert('Please enter a name for this location (e.g. "Downtown Campus").'); return; }
-    // Combines with the parent church's own name using the same
-    // "Parent Church | Campus" convention already used throughout this
-    // project (e.g. "Awaken Church | Bressi Campus") -- this is what
-    // actually makes it clear in search results that this is a
-    // location of the SAME church, not an unrelated standalone entry.
-    const name = `${entry.name} | ${suffix}`;
-    if(!selectedNewLocationAddress){ alert('Please choose an address from the suggestions as you type.'); return; }
-    const address = selectedNewLocationAddress;
-    const btn = document.getElementById('addLocationBtn');
-    btn.disabled = true;
-    btn.textContent = 'Adding…';
-    try {
-      const res = await fetch('/.netlify/functions/confirm-church-directory-entry', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, name, address, action: 'addLocation' })
-      });
-      const result = await res.json();
-      if(result.status === 'success'){
-        statusEl.textContent = `${name} added ✓`;
-        statusEl.style.color = '#8fd4c1';
-        document.getElementById('newLocationName').value = '';
-        selectedNewLocationAddress = null;
-      } else if(result.status === 'geocode_failed'){
-        statusEl.textContent = "Couldn't find that address on the map — check spelling and try again.";
-      } else {
-        statusEl.textContent = 'Something went wrong. Please try again.';
-      }
-    } catch(e) {
-      statusEl.textContent = 'Something went wrong. Please try again.';
-    }
-    btn.disabled = false;
-    btn.textContent = 'Add This Location';
+  wireAddLocation(token, entry.name);
+  const jump = document.getElementById('addCampusJump');
+  if(jump) jump.addEventListener('click', () => {
+    const el = document.getElementById('addLocationSection');
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => document.getElementById('newLocationName').focus(), 400);
   });
 
   const confirmBtn = document.getElementById('confirmBtn');
@@ -206,7 +237,9 @@ function renderMainScreen(token, entry){
         <div class="status-icon">✓</div>
         <h1>You're All Set</h1>
         <p class="detail" style="text-align:center;">Thanks! <strong>${escapeHtml(entry.name)}</strong> ${alreadyLive ? 'will stay featured' : 'will now show up as a featured church'} to anyone nearby searching in the app.</p>
+      ${addLocationHtml(entry.name)}
       `);
+      wireAddLocation(token, entry.name);
     } else {
       btn.disabled = false;
       btn.textContent = originalLabel;
@@ -251,7 +284,9 @@ function renderMainScreen(token, entry){
           <div class="status-icon">✓</div>
           <h1>You're All Set</h1>
           <p class="detail" style="text-align:center;">Thanks! <strong>${escapeHtml(name)}</strong> will now show up as a featured church to anyone nearby searching in the app.</p>
+        ${addLocationHtml(name)}
         `);
+        wireAddLocation(token, name);
       } else if(result.status === 'geocode_failed'){
         btn.disabled = false;
         btn.textContent = 'Save & Confirm';
