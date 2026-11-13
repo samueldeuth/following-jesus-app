@@ -2255,9 +2255,8 @@ async function paintDashboard(){
   const pending = dir ? dir.filter(r => r.status === 'pending_confirmation').length : 0;
 
   const courseChurchesActive = allChurches.filter(ch => !['draft', 'archived'].includes(ch.course_status || 'live'));
-  const courseChurchHasDates = courseChurchesActive.some(ch => !!ch.created_at);
-  const courseChurchNew = courseChurchHasDates ? courseChurchesActive.filter(ch => inR(ch.created_at)).length : courseChurchesActive.length;
-  const courseChurchPrev = courseChurchHasDates ? courseChurchesActive.filter(ch => inP(ch.created_at)).length : null;
+  const courseChurchIds = new Set(courseChurchesActive.map(ch => ch.id));
+  const courseChurchActiveNow = new Set(allRows.filter(r => r.church_id && courseChurchIds.has(r.church_id) && r.status !== 'archived' && (inR(r.last_activity_at) || inR(r.completed_at))).map(r => r.church_id)).size;
   const total = (n, what) => (n === null || n === undefined) ? '' : `${fmt(n)} ${what}`;
   body.innerHTML =
     section('Course', 'dash-view-course', [
@@ -2277,7 +2276,7 @@ async function paintDashboard(){
     ].join('')) +
     section('Churches', 'dash-view-churches', [
       card(fmt(dirNew), 'Total Churches', `${total(dirTotal, 'total')}${pending ? ` · ${fmt(pending)} pending confirmation` : ''}`, { delta: deltaHtml(dirNew, dirPrev), info: 'Churches added to the Church Directory in the selected range.' }),
-      card(fmt(courseChurchNew), 'Active Churches with the Course', total(courseChurchesActive.length, 'active total'), { delta: deltaHtml(courseChurchNew === courseChurchesActive.length && !courseChurchHasDates ? null : courseChurchNew, courseChurchPrev), info: 'Churches running the course whose course page is not Draft or Archived (the same churches counted as Active on the Course page). The big number is how many of them joined in the selected range; the small number is all active churches with the course.' })
+      card(fmt(courseChurchActiveNow), 'Active Churches with the Course', total(courseChurchesActive.length, 'with the course'), { info: 'Big number: churches running the course (course page not Draft or Archived) that had at least one student sign in, use the app, or finish a lesson during the selected range. Small number: all churches running the course. No comparison badge, because a student\'s last activity only keeps their most recent date.' })
     ].join('')) +
     section('Lists', 'dash-view-lists', ['main','church_leader'].map(aud => {
       const g = listGrowth && listGrowth[aud];
