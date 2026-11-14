@@ -2112,6 +2112,39 @@ function renderLocMapPoints(){
     ? `${total.toLocaleString()} of ${layerTotal.toLocaleString()} people who took an assessment have a known location (signed-in people seen since tracking started).`
     : `${total.toLocaleString()} ${total === 1 ? 'person' : 'people'} located.`;
 }
+
+// Warns at the top of the Overview when the daily iOS / Android install updates are failing
+// (for example Apple needs an agreement signed) or the numbers have simply stopped moving.
+async function fillAppStatsAlert(installRows){
+  const host = document.getElementById('app-stats-alert');
+  if(!host) return;
+  let status = [];
+  try { const { data } = await supabaseClient.from('app_fetch_status').select('*'); status = data || []; } catch(e){ /* table not created yet */ }
+  const stores = [
+    { source: 'apple', platform: 'ios', label: 'iOS' },
+    { source: 'android', platform: 'android', label: 'Android' }
+  ];
+  const msgs = [];
+  stores.forEach(st => {
+    const row = status.find(r => r.source === st.source);
+    const failing = row && row.last_error_at && (!row.last_success_at || row.last_error_at > row.last_success_at);
+    const dates = (installRows || []).filter(r => r.platform === st.platform).map(r => r.stat_date).sort();
+    const newest = dates.length ? dates[dates.length - 1] : null;
+    const ageDays = newest ? Math.floor((Date.now() - new Date(newest + 'T00:00:00').getTime()) / 86400000) : null;
+    if(failing){
+      const err = String(row.last_error || '');
+      if(/REQUIRED_AGREEMENTS|agreement/i.test(err)){
+        msgs.push(`<strong>Apple needs you to accept an agreement.</strong> iOS install numbers are frozen${newest ? ` at ${new Date(newest + 'T00:00:00').toLocaleDateString()}` : ''} until you do. Sign in to App Store Connect as the account holder, open <em>Business</em> (or the banner on the home page) and accept anything marked New or Expired. The numbers catch up on the next daily update after that.`);
+      } else {
+        msgs.push(`<strong>The daily ${st.label} install update is failing</strong> (since ${new Date(row.last_error_at).toLocaleDateString()}): ${escapeHtmlReport(err.slice(0, 220))}${err.length > 220 ? '…' : ''} Details are in Netlify, Functions, scheduled-fetch-${st.source}-downloads.`);
+      }
+    } else if(ageDays !== null && ageDays > 4){
+      msgs.push(`<strong>${st.label} install numbers haven't updated since ${new Date(newest + 'T00:00:00').toLocaleDateString()}.</strong> Check the Netlify function log for scheduled-fetch-${st.source}-downloads.`);
+    }
+  });
+  host.innerHTML = msgs.map(m => `<div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:var(--radius);padding:10px 14px;margin:0 0 10px;font-size:13px;color:#7F1D1D;line-height:1.5;">⚠️ ${m}</div>`).join('');
+}
+
 async function paintLocationMap(){
   const host = document.getElementById('loc-map-host');
   if(!host) return;
@@ -2253,12 +2286,14 @@ async function paintDashboard(){
   const dirPrev = dir ? dir.filter(r => inP(r.created_at)).length : null;
   const livePrev = live ? live.filter(r => inP(r.created_at)).length : null;
   const pending = dir ? dir.filter(r => r.status === 'pending_confirmation').length : 0;
+  const onHold = dir ? dir.filter(r => r.status === 'on_hold').length : 0;
 
   const courseChurchesActive = allChurches.filter(ch => !['draft', 'archived'].includes(ch.course_status || 'live'));
   const courseChurchIds = new Set(courseChurchesActive.map(ch => ch.id));
   const courseChurchActiveNow = new Set(allRows.filter(r => r.church_id && courseChurchIds.has(r.church_id) && r.status !== 'archived' && (inR(r.last_activity_at) || inR(r.completed_at))).map(r => r.church_id)).size;
   const total = (n, what) => (n === null || n === undefined) ? '' : `${fmt(n)} ${what}`;
   body.innerHTML =
+    '<div id="app-stats-alert"></div>' +
     section('Course', 'dash-view-course', [
       card(fmt(newStudents), 'New Students', total(totalStudents, 'total enrolled'), { delta: deltaHtml(newStudents, prevStudents), info: 'Students who enrolled in a course during the selected time range.' }),
       card(fmt(activeInRange), 'Active Students', total(totalActive, 'active overall'), { info: 'Big number: students who signed in, used the app, or finished a lesson during the selected range. Small number: all students currently counted as active (activity within the last 6 months, not archived).' }),
@@ -2275,7 +2310,7 @@ async function paintDashboard(){
       card(fmt(giftsNew), 'Combined Total', total(giftsAll, 'total incl. retakes'), { delta: deltaHtml(giftsNew, giftsPrev), info: 'Every completed assessment of both kinds in the selected range, counting retakes. The first two cards count each person once.' })
     ].join('')) +
     section('Churches', 'dash-view-churches', [
-      card(fmt(dirNew), 'Total Churches', `${total(dirTotal, 'total')}${pending ? ` · ${fmt(pending)} pending confirmation` : ''}`, { delta: deltaHtml(dirNew, dirPrev), info: 'Churches added to the Church Directory in the selected range.' }),
+      card(fmt(dirNew), 'Total Churches', `${total(dirTotal, 'total')}${pending ? ` · ${fmt(pending)} pending confirmation` : ''}${onHold ? ` · ${fmt(onHold)} on hold` : ''}`, { delta: deltaHtml(dirNew, dirPrev), info: 'Churches added to the Church Directory in the selected range.' }),
       card(fmt(courseChurchActiveNow), 'Active Churches with the Course', total(courseChurchesActive.length, 'with the course'), { info: 'Big number: churches running the course (course page not Draft or Archived) that had at least one student sign in, use the app, or finish a lesson during the selected range. Small number: all churches running the course. No comparison badge, because a student\'s last activity only keeps their most recent date.' })
     ].join('')) +
     section('Lists', 'dash-view-lists', ['main','church_leader'].map(aud => {
@@ -2288,6 +2323,7 @@ async function paintDashboard(){
     }).join(''));
 
   body.insertAdjacentHTML('beforeend', '<div id="loc-map-host"></div>');
+  fillAppStatsAlert(d.installRows);
   paintLocationMap();
   document.getElementById('dash-view-lists').addEventListener('click', () => renderSubscriberList('main'));
   document.getElementById('dash-view-course').addEventListener('click', renderChurchesOverview);
@@ -2752,6 +2788,14 @@ async function renderChurchDirectory(){
 }
 
 let allDirectoryRows = [];
+// Reasons for parking a church. A held church is hidden from Find a Church and gets no emails.
+const HOLD_REASONS = {
+  waiting_first_order: 'Waiting on first book order',
+  sample_sent: 'Sample sent, waiting to hear back',
+  waiting_reply: 'Waiting on the church to reply',
+  verify_details: 'Need to verify details',
+  other: 'Other'
+};
 
 async function loadChurchDirectoryList(){
   const listEl = document.getElementById('directory-list');
@@ -2770,16 +2814,14 @@ async function loadChurchDirectoryList(){
   // only reorders the pending/non-pending grouping, not the
   // alphabetical order already established within each group.
   rows.sort((a, b) => {
-    const aPending = a.status === 'pending_confirmation' ? 0 : 1;
-    const bPending = b.status === 'pending_confirmation' ? 0 : 1;
-    return aPending - bPending;
+    const rank = (r) => r.status === 'pending_confirmation' ? 0 : (r.status === 'on_hold' ? 1 : 2);
+    return rank(a) - rank(b);
   });
   allDirectoryRows = rows;
   if(countEl){
     const pending = rows.filter(r => r.status === 'pending_confirmation').length;
-    countEl.textContent = pending
-      ? `${rows.length.toLocaleString()} churches in the directory — ${pending.toLocaleString()} still pending confirmation.`
-      : `${rows.length.toLocaleString()} churches in the directory.`;
+    const held = rows.filter(r => r.status === 'on_hold').length;
+    countEl.textContent = `${rows.length.toLocaleString()} churches in the directory${pending ? ` — ${pending.toLocaleString()} still pending confirmation` : ''}${held ? `${pending ? ',' : ' —'} ${held.toLocaleString()} on hold` : ''}.`;
   }
 
   paintBulkResend();
@@ -2799,7 +2841,7 @@ async function loadChurchDirectoryList(){
 let bulkResendRunning = false, bulkResendStop = false;
 function bulkResendGroups(){
   const columnReady = !allDirectoryRows.length || ('live_notice_sent_at' in allDirectoryRows[0]);
-  const candidates = allDirectoryRows.filter(r => r.contact_email && r.status !== 'declined' && !r.church_confirmed_at && (r.status !== 'pending_confirmation' || r.admin_approved_at));
+  const candidates = allDirectoryRows.filter(r => r.contact_email && r.status !== 'declined' && r.status !== 'on_hold' && !r.church_confirmed_at && (r.status !== 'pending_confirmation' || r.admin_approved_at));
   // Anyone who already got a church-directory email in the last 2 days is held back, so nobody gets two emails back to back.
   const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
   const alreadySent = candidates.filter(r => r.live_notice_sent_at);
@@ -2880,9 +2922,10 @@ function renderDirectoryRows(filterText){
     <div class="group-row" style="flex-direction:column;align-items:stretch;gap:8px;" data-directory-id="${r.id}">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <strong>${(r.name||'').replace(/</g,'&lt;')}</strong>
-        <span style="font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.03em;">${sourceLabel[r.source] || r.source}${r.status === 'pending_confirmation' ? ' · Pending confirmation' : ''}${r.status === 'declined' ? ' · Declined by church' : ''}</span>
+        <span style="font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.03em;">${sourceLabel[r.source] || r.source}${r.status === 'pending_confirmation' ? ' · Pending confirmation' : ''}${r.status === 'declined' ? ' · Declined by church' : ''}${r.status === 'on_hold' ? ' · On hold' : ''}</span>
       </div>
       <div style="font-size:12.5px;color:var(--ink-soft);">${(r.address||'No address yet').replace(/</g,'&lt;')}</div>
+      ${r.status === 'on_hold' ? `<div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:6px;padding:8px 10px;font-size:12.5px;color:#78350F;"><strong>On hold: ${escapeHtmlReport(HOLD_REASONS[r.hold_reason] || r.hold_reason || 'No reason given')}</strong>${r.held_at ? ` <span style="opacity:.8;">(since ${new Date(r.held_at).toLocaleDateString()})</span>` : ''}${r.hold_note ? `<div style="margin-top:3px;white-space:pre-wrap;">${escapeHtmlReport(r.hold_note)}</div>` : ''}<div style="margin-top:3px;opacity:.8;">Not shown in Find a Church and no emails are sent while on hold.</div></div>` : ''}
       ${r.contact_email ? `<div style="font-size:11.5px;color:var(--ink-soft);">${r.contact_email}${r.confirmation_email_sent_at ? ` · Last sent ${new Date(r.confirmation_email_sent_at).toLocaleDateString()}` : ' · Never sent'}</div>` : ''}
       ${r.church_confirmed_at
         ? `<div style="font-size:11.5px;color:#166534;">✓ Confirmed by church on ${new Date(r.church_confirmed_at).toLocaleDateString()}</div>`
@@ -2893,10 +2936,19 @@ function renderDirectoryRows(filterText){
         </label>
         ${r.status === 'pending_confirmation' ? `<button class="mini-btn gold" data-confirm-directory="${r.id}">Confirm & Go Live</button>` : ''}
         ${r.status === 'pending_confirmation' && r.contact_email && !r.admin_approved_at ? `<button class="mini-btn gold" data-approve-and-send="${r.id}">Approve &amp; Go Live</button>` : ''}
-        ${r.contact_email && r.status !== 'declined' && (r.status !== 'pending_confirmation' || r.admin_approved_at) ? `<button class="mini-btn" data-send-single="${r.id}">${r.confirmation_email_sent_at ? 'Re-send Confirmation' : 'Send Confirmation'}</button>` : ''}
+        ${r.contact_email && r.status !== 'declined' && r.status !== 'on_hold' && (r.status !== 'pending_confirmation' || r.admin_approved_at) ? `<button class="mini-btn" data-send-single="${r.id}">${r.confirmation_email_sent_at ? 'Re-send Confirmation' : 'Send Confirmation'}</button>` : ''}
         ${r.status === 'confirmed' && !r.church_confirmed_at ? `<button class="mini-btn" data-mark-church-confirmed="${r.id}" title="Use this if you've confirmed directly with the church yourself -- skips needing them to click the email link">Mark Confirmed by Church</button>` : ''}
+        ${r.status !== 'declined' ? `<button class="mini-btn" data-hold-open="${r.id}">${r.status === 'on_hold' ? 'Edit Hold' : 'Put on Hold'}</button>` : ''}
+        ${r.status === 'on_hold' ? `<button class="mini-btn gold" data-hold-release="${r.id}">Take off Hold</button>` : ''}
         <button class="mini-btn" data-edit-directory="${r.id}">Edit</button>
         <button class="mini-btn danger" data-delete-directory="${r.id}" style="margin-left:auto;">Delete</button>
+      </div>
+      <div id="hold-form-${r.id}" style="display:none;padding-top:6px;border-top:1px solid var(--line, #eee);">
+        <label class="field-hint" style="display:block;margin-bottom:4px;">Why is this on hold?</label>
+        <select class="field-input" id="hold-reason-${r.id}" style="margin-bottom:8px;">${Object.keys(HOLD_REASONS).map(k => `<option value="${k}" ${(r.hold_reason || 'waiting_first_order') === k ? 'selected' : ''}>${HOLD_REASONS[k]}</option>`).join('')}</select>
+        <textarea class="field-input" id="hold-note-${r.id}" rows="3" placeholder="Note to your future self (optional), e.g. agreed to a sample, check back after the first order" style="margin-bottom:8px;">${escapeHtmlReport(r.hold_note || '')}</textarea>
+        <button class="mini-btn" data-hold-save="${r.id}" style="background:var(--ink);color:#fff;border-color:var(--ink);">${r.status === 'on_hold' ? 'Save Hold' : 'Put on Hold'}</button>
+        <span id="hold-status-${r.id}" style="font-size:12.5px;color:var(--ink-soft);margin-left:8px;"></span>
       </div>
       <div id="edit-directory-form-${r.id}" style="display:none;padding-top:6px;border-top:1px solid var(--line, #eee);">
         <input type="text" class="field-input" id="edit-directory-name-${r.id}" value="${(r.name||'').replace(/"/g,'&quot;')}" placeholder="Church name" style="margin-bottom:8px;" />
@@ -2909,6 +2961,47 @@ function renderDirectoryRows(filterText){
     </div>
   `).join('');
 
+  document.querySelectorAll('[data-hold-open]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const f = document.getElementById('hold-form-' + btn.dataset.holdOpen);
+      f.style.display = f.style.display === 'none' ? 'block' : 'none';
+    });
+  });
+  document.querySelectorAll('[data-hold-save]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.holdSave;
+      const row = allDirectoryRows.find(x => x.id === id);
+      const statusEl = document.getElementById('hold-status-' + id);
+      btn.disabled = true; statusEl.textContent = 'Saving…';
+      const alreadyHeld = row && row.status === 'on_hold';
+      const updates = {
+        status: 'on_hold',
+        hold_reason: document.getElementById('hold-reason-' + id).value,
+        hold_note: document.getElementById('hold-note-' + id).value.trim() || null,
+        held_at: alreadyHeld && row.held_at ? row.held_at : new Date().toISOString(),
+        held_from_status: alreadyHeld ? (row.held_from_status || 'pending_confirmation') : (row ? row.status : 'pending_confirmation')
+      };
+      const { error } = await supabaseClient.from('church_directory').update(updates).eq('id', id);
+      if(error){
+        btn.disabled = false;
+        statusEl.textContent = /check constraint|column/i.test(error.message) ? 'Run church-hold.sql in Supabase first.' : 'Could not save: ' + error.message;
+        return;
+      }
+      await loadChurchDirectoryList();
+    });
+  });
+  document.querySelectorAll('[data-hold-release]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.holdRelease;
+      const row = allDirectoryRows.find(x => x.id === id);
+      const back = (row && row.held_from_status) || 'pending_confirmation';
+      if(!confirm(back === 'confirmed' ? 'Take this church off hold? It was live before, so it will show in Find a Church again.' : 'Take this church off hold? It goes back to pending confirmation (still not live until you approve it).')) return;
+      btn.disabled = true;
+      const { error } = await supabaseClient.from('church_directory').update({ status: back, hold_reason: null, hold_note: null, held_at: null, held_from_status: null }).eq('id', id);
+      if(error){ alert('Could not take off hold: ' + error.message); btn.disabled = false; return; }
+      await loadChurchDirectoryList();
+    });
+  });
   document.querySelectorAll('[data-toggle-featured]').forEach(cb => {
     cb.addEventListener('change', async () => {
       cb.disabled = true;
