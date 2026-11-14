@@ -184,6 +184,30 @@ function rowsFromCsv(csv) {
   return rows;
 }
 
+
+// Records whether this daily job worked, so the admin Overview can warn when it doesn't.
+// Never throws: a problem here must not break the stats update itself.
+async function recordFetchStatus(source, ok, message) {
+  try {
+    const now = new Date().toISOString();
+    const row = ok
+      ? { source, last_success_at: now, last_error: null }
+      : { source, last_error_at: now, last_error: String(message || 'Unknown error').slice(0, 1000) };
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/app_fetch_status?on_conflict=source`, {
+      method: 'POST',
+      headers: {
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify(row)
+    });
+  } catch (e) {
+    console.error('Could not record fetch status:', e.message);
+  }
+}
+
 exports.handler = async () => {
   try {
     const key = await getGoogleServiceAccountKey();
@@ -226,10 +250,12 @@ exports.handler = async () => {
       await upsertDownloadStats(cleaned);
     }
 
+    await recordFetchStatus('android', true);
     console.log(`Updated ${allRows.length} days of Android installs (${monthsDone.join(', ')}).`);
     return { statusCode: 200, body: `Updated ${allRows.length} days of Android installs.` };
   } catch (err) {
     console.error('Android downloads fetch failed:', err);
+    await recordFetchStatus('android', false, err.message);
     return { statusCode: 500, body: err.message };
   }
 };

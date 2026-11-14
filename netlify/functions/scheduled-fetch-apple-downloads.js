@@ -126,6 +126,31 @@ function formatDate(d) {
   return d.toISOString().slice(0, 10);
 }
 
+let lastApiError = null; // first Apple error seen during this run, for the admin warning
+
+// Records whether this daily job worked, so the admin Overview can warn when it doesn't.
+// Never throws: a problem here must not break the stats update itself.
+async function recordFetchStatus(source, ok, message) {
+  try {
+    const now = new Date().toISOString();
+    const row = ok
+      ? { source, last_success_at: now, last_error: null }
+      : { source, last_error_at: now, last_error: String(message || 'Unknown error').slice(0, 1000) };
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/app_fetch_status?on_conflict=source`, {
+      method: 'POST',
+      headers: {
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify(row)
+    });
+  } catch (e) {
+    console.error('Could not record fetch status:', e.message);
+  }
+}
+
 const FIRST_TIME_TYPES = new Set(['1', '1F', '1T', 'F1']);
 const REDOWNLOAD_TYPES = new Set(['3', '3F', '3T', 'F3']);
 const BACKFILL_DAYS_PER_RUN = 15;
@@ -160,6 +185,7 @@ async function fetchDay(jwt, vendor, dateStr) {
   if (!response.ok) {
     const text = await response.text();
     console.error(`Apple API error ${response.status} for ${dateStr}: ${text}`);
+    if (!lastApiError) lastApiError = `Apple API error ${response.status}: ${text}`;
     return null;
   }
 
@@ -225,11 +251,20 @@ exports.handler = async () => {
 
     if (rows.length) await upsertDownloadStat(rows);
 
+    // If Apple refused every day we asked for, that is a real failure (for example
+    // an agreement that needs signing), not "nothing to update".
+    if (!rows.length && lastApiError) {
+      await recordFetchStatus('apple', false, lastApiError);
+      return { statusCode: 500, body: lastApiError };
+    }
+    await recordFetchStatus('apple', true);
+
     const summary = rows.map(r => `${r.stat_date}: ${r.new_installs} new / ${r.reinstalls} re / ${r.downloads} units`).join('; ');
     console.log(`iOS stats updated for ${rows.length} days. ${summary}`);
     return { statusCode: 200, body: `iOS stats updated for ${rows.length} days.` };
   } catch (err) {
     console.error('Apple downloads fetch failed:', err);
+    await recordFetchStatus('apple', false, err.message);
     return { statusCode: 500, body: err.message };
   }
 };
