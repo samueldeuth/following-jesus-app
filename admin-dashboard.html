@@ -1278,9 +1278,10 @@ function rangeStartDate(rangeKey){
   if(rangeKey === '90d') return new Date(now.getTime() - 90*24*60*60*1000);
   if(rangeKey === 'mtd') return new Date(now.getFullYear(), now.getMonth(), 1);
   if(rangeKey === 'ytd') return new Date(now.getFullYear(), 0, 1);
+  if(rangeKey === 'all') return new Date(2015, 0, 1); // everything on record
   return new Date(now.getTime() - 30*24*60*60*1000);
 }
-const rangeLabels = { 'today': 'Today', '7d': 'Last 7 Days', '30d': 'Last 30 Days', '90d': 'Last 90 Days', 'mtd': 'Month to Date', 'ytd': 'Year to Date' };
+const rangeLabels = { 'today': 'Today', '7d': 'Last 7 Days', '30d': 'Last 30 Days', '90d': 'Last 90 Days', 'mtd': 'Month to Date', 'ytd': 'Year to Date', 'all': 'All Time' };
 let overviewRangeKey = 'today';
 
 // Churches and students are already cached client-side (allChurches,
@@ -1916,7 +1917,7 @@ function downloadAllAnnualGraphics(){
 // Course page.
 let dashboardRangeKey = 'mtd';
 let dashboardCache = null;
-const dashboardRangePhrase = { 'today': 'today', '7d': 'in the last 7 days', '30d': 'in the last 30 days', '90d': 'in the last 90 days', 'mtd': 'month to date', 'ytd': 'year to date' };
+const dashboardRangePhrase = { 'today': 'today', '7d': 'in the last 7 days', '30d': 'in the last 30 days', '90d': 'in the last 90 days', 'mtd': 'month to date', 'ytd': 'year to date', 'all': 'all time' };
 
 async function loadDashboardData(){
   const safe = async (fn) => { try { return await fn(); } catch(e){ console.warn('dashboard stat failed', e); return null; } };
@@ -1949,6 +1950,7 @@ async function loadListGrowth(rangeKey){
 
 // Green +% / red -% badge comparing a current number to the previous period's.
 function deltaBadge(cur, prev){
+  if(overviewRangeKey === 'all' || dashboardRangeKey === 'all') return ''; // no previous period for all time
   if(cur === null || cur === undefined || prev === null || prev === undefined) return '';
   const tip = `vs ${Number(prev).toLocaleString()} in the previous period`;
   if(prev === 0 && cur === 0) return `<span class="delta flat" title="${tip}">0%</span>`;
@@ -1984,6 +1986,8 @@ function previousWindow(rangeKey){
   } else if(rangeKey === 'ytd'){
     ps = new Date(now.getFullYear() - 1, 0, 1);
     pe = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), now.getSeconds());
+  } else if(rangeKey === 'all'){
+    ps = start; pe = start;
   } else if(rangeKey === 'today'){
     ps = new Date(start.getTime() - 86400000);
     pe = new Date(now.getTime() - 86400000);
@@ -2030,12 +2034,34 @@ async function loadLocBaseGeo(){
   };
   return locBaseGeo;
 }
+// Draw outlines as plain strokes. Any line that jumps more than 180 degrees of longitude
+// (Alaska's Aleutian islands, Russia, Fiji cross the date line) is cut there, which is what
+// used to draw long stray lines across the whole map.
+function locOutlineLines(fc, skipIds){
+  const lines = [];
+  const ring = (r) => {
+    let cur = [];
+    for(let k = 0; k < r.length; k++){
+      const pt = [r[k][1], r[k][0]];
+      if(cur.length && Math.abs(r[k][0] - r[k-1][0]) > 180){ lines.push(cur); cur = []; }
+      cur.push(pt);
+    }
+    if(cur.length > 1) lines.push(cur);
+  };
+  fc.features.forEach(f => {
+    if(skipIds && skipIds.includes(String(f.id))) return;
+    const g = f.geometry; if(!g) return;
+    const polys = g.type === 'Polygon' ? [g.coordinates] : (g.type === 'MultiPolygon' ? g.coordinates : []);
+    polys.forEach(poly => poly.forEach(ring));
+  });
+  return lines;
+}
 async function addLineArtBase(map){
   try{
     const g = await loadLocBaseGeo();
     if(locMap !== map) return;
-    L.geoJSON(g.countries, { interactive: false, style: { color: '#B9B5A8', weight: 0.8, fillColor: '#FFFFFF', fillOpacity: 1 } }).addTo(map).bringToBack();
-    L.geoJSON(g.states, { interactive: false, style: { color: '#D4D1C6', weight: 0.6, fill: false } }).addTo(map);
+    L.polyline(locOutlineLines(g.countries, ['010']), { interactive: false, color: '#9C988A', weight: 0.9, fill: false, noClip: false }).addTo(map);
+    L.polyline(locOutlineLines(g.states), { interactive: false, color: '#CFCCC0', weight: 0.6, fill: false }).addTo(map);
     if(map._fjLayer) map._fjLayer.bringToFront();
   }catch(e){ console.warn('map outlines failed', e); }
 }
@@ -2115,34 +2141,83 @@ function renderLocMapPoints(){
 
 // Warns at the top of the Overview when the daily iOS / Android install updates are failing
 // (for example Apple needs an agreement signed) or the numbers have simply stopped moving.
-async function fillAppStatsAlert(installRows){
+async function fillAppStatsAlert(installRows, showHidden){
   const host = document.getElementById('app-stats-alert');
   if(!host) return;
-  let status = [];
+  let status = [], states = [];
   try { const { data } = await supabaseClient.from('app_fetch_status').select('*'); status = data || []; } catch(e){ /* table not created yet */ }
+  try { const { data } = await supabaseClient.from('admin_alert_state').select('*'); states = data || []; } catch(e){ /* table not created yet */ }
   const stores = [
     { source: 'apple', platform: 'ios', label: 'iOS' },
     { source: 'android', platform: 'android', label: 'Android' }
   ];
-  const msgs = [];
+  // Each alert has a key and a signature. "Dismiss" hides it until tomorrow.
+  // "Resolved" hides it until the problem CHANGES (a different error, or the numbers
+  // move and then stall again), because the signature then no longer matches.
+  const alerts = [];
   stores.forEach(st => {
     const row = status.find(r => r.source === st.source);
     const failing = row && row.last_error_at && (!row.last_success_at || row.last_error_at > row.last_success_at);
     const dates = (installRows || []).filter(r => r.platform === st.platform).map(r => r.stat_date).sort();
     const newest = dates.length ? dates[dates.length - 1] : null;
     const ageDays = newest ? Math.floor((Date.now() - new Date(newest + 'T00:00:00').getTime()) / 86400000) : null;
+    const key = 'app_stats:' + st.source;
     if(failing){
       const err = String(row.last_error || '');
+      const sig = 'err:' + (row.last_success_at || 'never') + ':' + err.slice(0, 80);
+      let html;
       if(/REQUIRED_AGREEMENTS|agreement/i.test(err)){
-        msgs.push(`<strong>Apple needs you to accept an agreement.</strong> iOS install numbers are frozen${newest ? ` at ${new Date(newest + 'T00:00:00').toLocaleDateString()}` : ''} until you do. Sign in to App Store Connect as the account holder, open <em>Business</em> (or the banner on the home page) and accept anything marked New or Expired. The numbers catch up on the next daily update after that.`);
+        html = `<strong>Apple needs you to accept an agreement.</strong> iOS install numbers are frozen${newest ? ` at ${new Date(newest + 'T00:00:00').toLocaleDateString()}` : ''} until you do. Sign in to App Store Connect as the account holder, open <em>Business</em> (or the banner on the home page) and accept anything marked New or Expired. The numbers catch up on the next daily update after that.`;
       } else {
-        msgs.push(`<strong>The daily ${st.label} install update is failing</strong> (since ${new Date(row.last_error_at).toLocaleDateString()}): ${escapeHtmlReport(err.slice(0, 220))}${err.length > 220 ? '…' : ''} Details are in Netlify, Functions, scheduled-fetch-${st.source}-downloads.`);
+        html = `<strong>The daily ${st.label} install update is failing</strong> (since ${new Date(row.last_error_at).toLocaleDateString()}): ${escapeHtmlReport(err.slice(0, 220))}${err.length > 220 ? '…' : ''} Details are in Netlify, Functions, scheduled-fetch-${st.source}-downloads.`;
       }
+      alerts.push({ key, sig, html });
     } else if(ageDays !== null && ageDays > 4){
-      msgs.push(`<strong>${st.label} install numbers haven't updated since ${new Date(newest + 'T00:00:00').toLocaleDateString()}.</strong> Check the Netlify function log for scheduled-fetch-${st.source}-downloads.`);
+      alerts.push({ key, sig: 'stale:' + newest, html: `<strong>${st.label} install numbers haven't updated since ${new Date(newest + 'T00:00:00').toLocaleDateString()}.</strong> Check the Netlify function log for scheduled-fetch-${st.source}-downloads.` });
     }
   });
-  host.innerHTML = msgs.map(m => `<div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:var(--radius);padding:10px 14px;margin:0 0 10px;font-size:13px;color:#7F1D1D;line-height:1.5;">⚠️ ${m}</div>`).join('');
+  const isHidden = (a) => {
+    const st = states.find(x => x.alert_key === a.key);
+    if(!st) return false;
+    if(st.resolved_signature && st.resolved_signature === a.sig) return true;
+    return !!(st.dismissed_until && new Date(st.dismissed_until).getTime() > Date.now());
+  };
+  const active = alerts.filter(a => !isHidden(a));
+  const hidden = alerts.filter(a => isHidden(a));
+  const btn = 'background:#fff;border:1px solid var(--line);border-radius:6px;padding:3px 9px;font-size:12px;color:var(--ink);cursor:pointer;';
+  const open = !!showHidden; // showHidden doubles as "panel is open"
+  const bellSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>';
+  const card = (a, idx, isActive) => `<div style="border-top:1px solid var(--line);padding:10px 0;font-size:13px;line-height:1.5;">${isActive ? '⚠️' : '✓'} ${a.html}
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">${isActive
+      ? `<button type="button" style="${btn}" data-alert-dismiss="${idx}" title="Hide until tomorrow, then show again">Dismiss until tomorrow</button><button type="button" style="${btn}" data-alert-resolve="${idx}" title="Hide until the problem changes">Resolved</button>`
+      : `<button type="button" style="${btn}" data-alert-reopen="${idx}">Bring back</button>`}</div></div>`;
+  host.innerHTML = `<div style="position:relative;display:flex;justify-content:flex-end;margin:6px 0 0;">
+    <button type="button" id="alert-bell" title="${active.length ? active.length + ' alert' + (active.length === 1 ? '' : 's') + ' to review' : 'No alerts'}" style="position:relative;background:#fff;border:1px solid var(--line);border-radius:999px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink);">${bellSvg}${active.length ? '<span style="position:absolute;top:5px;right:6px;width:10px;height:10px;border-radius:50%;background:#DC2626;border:2px solid #fff;"></span>' : ''}</button>
+    ${open ? `<div style="position:absolute;top:44px;right:0;z-index:20;width:min(440px,calc(100vw - 32px));max-height:70vh;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.12);padding:12px 14px;">
+      <div style="font-weight:700;font-size:14px;margin-bottom:6px;">Alerts</div>
+      ${active.length ? active.map((a, i) => card(a, i, true)).join('') : '<div style="font-size:13px;color:var(--ink-soft);padding:6px 0;">Nothing needs your attention.</div>'}
+      ${hidden.length ? `<div style="font-weight:700;font-size:13px;margin:12px 0 0;color:var(--ink-soft);">Dismissed or resolved</div>${hidden.map((a, i) => card(a, i, false)).join('')}` : ''}
+    </div>` : ''}
+  </div>`;
+  const rerender = (o) => fillAppStatsAlert(installRows, o);
+  const save = async (a, fields, btnEl) => {
+    btnEl.disabled = true;
+    const { error } = await supabaseClient.from('admin_alert_state').upsert({ alert_key: a.key, updated_at: new Date().toISOString(), ...fields }, { onConflict: 'alert_key' });
+    if(error){ btnEl.disabled = false; alert('Could not save that. Run admin-alert-state.sql in Supabase first. (' + error.message + ')'); return; }
+    rerender(true);
+  };
+  host.querySelector('#alert-bell').addEventListener('click', (e) => { e.stopPropagation(); rerender(!open); });
+  host.querySelectorAll('[data-alert-dismiss]').forEach(b => b.addEventListener('click', () => {
+    const t = new Date(); t.setHours(24, 0, 0, 0); // start of tomorrow, local time
+    save(active[Number(b.dataset.alertDismiss)], { dismissed_until: t.toISOString() }, b);
+  }));
+  host.querySelectorAll('[data-alert-resolve]').forEach(b => b.addEventListener('click', () => {
+    const a = active[Number(b.dataset.alertResolve)];
+    save(a, { resolved_signature: a.sig, dismissed_until: null }, b);
+  }));
+  host.querySelectorAll('[data-alert-reopen]').forEach(b => b.addEventListener('click', () => {
+    save(hidden[Number(b.dataset.alertReopen)], { resolved_signature: null, dismissed_until: null }, b);
+  }));
 }
 
 async function paintLocationMap(){
@@ -2167,7 +2242,7 @@ async function paintLocationMap(){
     if(layerAtStart !== locMapLayer || rangeAtStart !== dashboardRangeKey || !document.getElementById('loc-map')) return;
     locMapData = data || { points: [], located: 0, layer_total: 0 };
     if(window.L){
-      locMap = L.map('loc-map', { scrollWheelZoom: false, worldCopyJump: true }).setView([20, 0], 2);
+      locMap = L.map('loc-map', { scrollWheelZoom: false, worldCopyJump: false, minZoom: 1, maxBounds: [[-85,-200],[85,200]] }).setView([20, 0], 2);
       locMap.attributionControl.setPrefix(false);
       addLineArtBase(locMap);
     }
@@ -2192,6 +2267,7 @@ async function paintDashboard(){
   const plus = (n) => (n === null || n === undefined) ? '' : `+${Number(n).toLocaleString()} ${phrase}`;
   const info = (t) => `<button type="button" class="info-icon-btn" data-info="${escapeHtmlReport(t)}">i</button>`;
   const deltaHtml = (cur, prev) => {
+    if(dashboardRangeKey === 'all') return '';
     if(cur === null || cur === undefined || prev === null || prev === undefined) return '';
     const tip = `vs ${fmt(prev)} in the previous period`;
     if(prev === 0 && cur === 0) return `<span class="delta flat" title="${tip}">0%</span>`;
