@@ -1593,7 +1593,8 @@ async function loadAnnualLiveHints(){
     const { count, error } = await supabaseClient.from('certificates').select('id', { count: 'exact', head: true }).gte('issued_at', new Date(yr, 0, 1).toISOString()).lt('issued_at', new Date(yr + 1, 0, 1).toISOString());
     if(!error) live.course = count || 0;
   } catch(e){}
-  live.started = allRows.filter(r => r.enrolled_at && r.enrolled_at >= new Date(yr, 0, 1).toISOString() && r.enrolled_at < new Date(yr + 1, 0, 1).toISOString()).length;
+  // Started = people who began a course (created their course login) this year; each person counts once.
+  live.started = new Set(allRows.filter(r => r.enrolled_at && r.enrolled_at >= new Date(yr, 0, 1).toISOString() && r.enrolled_at < new Date(yr + 1, 0, 1).toISOString()).map(r => r.student_id || r.enrollment_id)).size;
   try {
     const { data, error } = await supabaseClient.from('app_download_stats').select('stat_date, new_installs, downloads').gte('stat_date', `${yr}-01-01`).lte('stat_date', `${yr}-12-31`).limit(2000);
     if(!error && data){
