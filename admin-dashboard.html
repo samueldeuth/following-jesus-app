@@ -1581,18 +1581,19 @@ async function onAnnualAddCategory(){
 }
 
 // This year's live numbers for the two rows the dashboard can measure itself:
-// "FJ Course" = courses completed in the year (certificates issued) and
+// "FJ Course (started)" = new course students in the year, "FJ Course (completed)" = certificates issued, and
 // "FJ App (Downloads)" = new installs in the year. A button writes them into
 // the table (replacing whatever is in this year's two boxes).
 async function loadAnnualLiveHints(){
   const el = document.getElementById('annual-live-hints');
   if(!el) return;
   const yr = new Date().getFullYear();
-  const live = { course: null, app: null, appSince: null, gifts: null, courseChurches: null };
+  const live = { course: null, started: null, app: null, appSince: null, gifts: null, courseChurches: null };
   try {
     const { count, error } = await supabaseClient.from('certificates').select('id', { count: 'exact', head: true }).gte('issued_at', new Date(yr, 0, 1).toISOString()).lt('issued_at', new Date(yr + 1, 0, 1).toISOString());
     if(!error) live.course = count || 0;
   } catch(e){}
+  live.started = allRows.filter(r => r.enrolled_at && r.enrolled_at >= new Date(yr, 0, 1).toISOString() && r.enrolled_at < new Date(yr + 1, 0, 1).toISOString()).length;
   try {
     const { data, error } = await supabaseClient.from('app_download_stats').select('stat_date, new_installs, downloads').gte('stat_date', `${yr}-01-01`).lte('stat_date', `${yr}-12-31`).limit(2000);
     if(!error && data){
@@ -1612,9 +1613,10 @@ async function loadAnnualLiveHints(){
   }
   annualLive = live;
   const giftsCat = annualGiftsCategory();
-  const hasCourseRow = annualState.cats.some(c => c.name === 'FJ Course');
+  const hasCourseRow = !!(annualCourseStartedCategory() || annualCourseCompletedCategory());
   const hasAppRow = annualState.cats.some(c => c.name === 'FJ App (Downloads)');
   const parts = [];
+  if(live.started !== null && annualCourseStartedCategory()) parts.push(`course students started in ${yr}: <b>${live.started.toLocaleString()}</b>`);
   if(live.course !== null) parts.push(`courses completed in ${yr}: <b>${live.course.toLocaleString()}</b>`);
   if(live.gifts !== null && giftsCat) parts.push(`people who took the Gifts + Five-Fold assessments in ${yr}: <b>${live.gifts.toLocaleString()}</b>`);
   if(live.courseChurches !== null && annualChurchesCategory()) parts.push(`churches with a new course student in ${yr}: <b>${live.courseChurches.toLocaleString()}</b> <span style="color:var(--ink-soft);">(course side only; book-ordering churches are added separately)</span>`);
@@ -1628,13 +1630,20 @@ async function loadAnnualLiveHints(){
 let annualLive = null;
 // The row for assessment takers (matched by name, since the row was added by hand).
 function annualChurchesCategory(){ const c = annualState.cats.find(x => /church/i.test(x.name) && /impact|served/i.test(x.name)); return c ? c.name : null; }
+// Course rows: "FJ Course (started)" (older name: "FJ Course") and "FJ Course (completed)".
+function annualCourseStartedCategory(){ const c = annualState.cats.find(x => /^FJ Course( \(started\))?$/i.test(x.name.trim())); return c ? c.name : null; }
+function annualCourseCompletedCategory(){ const c = annualState.cats.find(x => /^FJ Course \(completed\)$/i.test(x.name.trim())); return c ? c.name : null; }
 function annualGiftsCategory(){ const c = annualState.cats.find(x => /gift/i.test(x.name)); return c ? c.name : null; }
 
 async function fillAnnualFromLive(){
   if(!annualLive) return;
   const yr = new Date().getFullYear();
   const jobs = [];
-  if(annualLive.course !== null && annualState.cats.some(c => c.name === 'FJ Course')) jobs.push(['FJ Course', annualLive.course]);
+  const startedCat = annualCourseStartedCategory(), completedCat = annualCourseCompletedCategory();
+  if(annualLive.started !== null && startedCat && completedCat) jobs.push([startedCat, annualLive.started]);
+  // Until the "(completed)" row exists, the old single course row keeps holding completions as before.
+  if(annualLive.course !== null && completedCat) jobs.push([completedCat, annualLive.course]);
+  else if(annualLive.course !== null && startedCat) jobs.push([startedCat, annualLive.course]);
   if(annualLive.app !== null && annualState.cats.some(c => c.name === 'FJ App (Downloads)')) jobs.push(['FJ App (Downloads)', annualLive.app]);
   const gc = annualGiftsCategory();
   if(annualLive.gifts !== null && gc) jobs.push([gc, annualLive.gifts]);
