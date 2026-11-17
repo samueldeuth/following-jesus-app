@@ -1641,10 +1641,9 @@ async function fillAnnualFromLive(){
   const yr = new Date().getFullYear();
   const jobs = [];
   const startedCat = annualCourseStartedCategory(), completedCat = annualCourseCompletedCategory();
-  if(annualLive.started !== null && startedCat && completedCat) jobs.push([startedCat, annualLive.started]);
-  // Until the "(completed)" row exists, the old single course row keeps holding completions as before.
+  if(annualLive.started !== null && startedCat) jobs.push([startedCat, annualLive.started]);
+  // Completions only fill a "(completed)" row if you have one; otherwise they are not written anywhere.
   if(annualLive.course !== null && completedCat) jobs.push([completedCat, annualLive.course]);
-  else if(annualLive.course !== null && startedCat) jobs.push([startedCat, annualLive.course]);
   if(annualLive.app !== null && annualState.cats.some(c => c.name === 'FJ App (Downloads)')) jobs.push(['FJ App (Downloads)', annualLive.app]);
   const gc = annualGiftsCategory();
   if(annualLive.gifts !== null && gc) jobs.push([gc, annualLive.gifts]);
