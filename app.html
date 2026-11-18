@@ -1992,6 +1992,11 @@
    paper screen background) need to change. */
 #screen-plans .plans-card { background: var(--white); }
 
+
+/* Jesus tab: curved share arrow, top right of the intro */
+#screen-jesus .jesus-hero { position: relative; }
+.jesus-share-arrow { position:absolute; top:14px; right:2px; display:inline-flex; align-items:center; gap:6px; background: rgba(10,10,10,0.06); color: var(--black); border:none; border-radius:999px; padding:8px 14px 8px 11px; font-size:13px; font-weight:600; cursor:pointer; }
+.jesus-share-arrow svg { width:18px; height:18px; }
 /* ---- Memory Verse ---- */
 #screen-plans .mv-home { display:flex; align-items:center; gap:12px; justify-content:space-between; background: var(--white); border-radius:8px; padding:16px 18px; margin-bottom:14px; }
 .mv-home-title { font-size:16px; font-weight:700; color: var(--black); }
@@ -2100,6 +2105,10 @@
           <button type="button" class="banner-slide banner-photo" id="blogBannerSlide" data-track="From the Blog" onclick="goToTab('screen-blog')">
             <div class="banner-eyebrow">From the Blog</div>
             <div class="banner-title" id="blogBannerTitle">Embracing Obscurity: The Path to Purpose</div>
+          </button>
+          <button type="button" class="banner-slide gold" id="memoryVerseBannerSlide" data-track="Memory Verse: Today banner">
+            <div class="banner-eyebrow" id="memoryVerseBannerEyebrow">Memory Verse</div>
+            <div class="banner-title" id="memoryVerseBannerTitle">Hide God's Word in your heart</div>
           </button>
           <button type="button" class="banner-slide banner-photo" onclick="openEmbed('https://open.spotify.com/embed/playlist/4CJLU84OYEK5CCr02l45mF?utm_source=generator&theme=0','Worship Playlist','https://open.spotify.com/playlist/4CJLU84OYEK5CCr02l45mF')" style="background-image:linear-gradient(0deg, rgba(0,0,0,0.75), rgba(0,0,0,0.15)), url('/assets/worship-playlist-banner.jpg');">
             <div class="banner-eyebrow">Listen</div>
@@ -2442,6 +2451,10 @@
     <!-- JESUS -->
     <section class="screen" id="screen-jesus">
       <div class="jesus-hero">
+        <button type="button" class="jesus-share-arrow" id="jesusShareArrowBtn" aria-label="Share this page with a friend" data-track="Jesus: Share arrow (top)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4l6 5.5-6 5.5V12c-6 0-9.5 1.8-12 7 .8-6.5 4.5-10.5 12-11z"/></svg>
+          <span>Share</span>
+        </button>
         <svg class="cross" viewBox="0 0 24 24" fill="none" stroke="#c89b3c" stroke-width="1.6"><line x1="12" y1="2" x2="12" y2="22"/><line x1="5" y1="8" x2="19" y2="8"/></svg>
         <p>Maybe you're searching for answers about who Jesus is, and maybe even considering whether to follow Him. This isn't a list of rules — it's a personal introduction.</p>
       </div>
@@ -2533,6 +2546,17 @@
           </div>
           <button type="button" class="app-alert-btn" id="devoReminderModalDoneBtn" style="width:100%;background:var(--black);color:#fff;padding:12px;border-radius:12px;font-size:14px;font-weight:600;border:none;cursor:pointer;margin-top:20px;">Done</button>
         </div>
+      </div>
+    </div>
+
+    <div class="verse-alert-modal-overlay" id="featureTipOverlay">
+      <div class="verse-alert-modal-card" style="max-width:330px;text-align:center;">
+        <div class="today-eyebrow" style="justify-content:center; margin-bottom:10px;"><span>Try this</span></div>
+        <h3 class="verse-alert-modal-title" id="featureTipTitle" style="margin-bottom:10px;"></h3>
+        <p id="featureTipBody" style="font-size:14px; line-height:1.5; color:var(--ink-soft); margin:0 0 20px;"></p>
+        <button type="button" class="app-alert-btn" id="featureTipGo" style="width:100%;background:var(--black);color:#fff;padding:12px;border-radius:12px;font-size:14px;font-weight:600;border:none;cursor:pointer;"></button>
+        <button type="button" id="featureTipLater" data-track="Feature tip: Not now" style="display:block;width:100%;background:none;border:none;color:var(--ink-soft);font-size:14px;padding:12px 0 2px;cursor:pointer;">Not now</button>
+        <button type="button" id="featureTipOff" data-track="Feature tip: Turn off tips" style="background:none;border:none;color:var(--ink-soft);font-size:12px;text-decoration:underline;padding:8px 0 0;cursor:pointer;">Turn off tips</button>
       </div>
     </div>
 
@@ -2639,7 +2663,7 @@
   document.getElementById('becomeDiscipleBannerBtn').addEventListener('click', openBecomeDiscipleFlow);
   document.getElementById('startDiscipleshipBtn').addEventListener('click', openBecomeDiscipleFlow);
   document.getElementById('startDiscipleshipMidBtn').addEventListener('click', openBecomeDiscipleFlow);
-  document.getElementById('shareJesusPageBtn').addEventListener('click', async () => {
+  const shareJesusPage = async () => {
     const url = 'https://followingjesus.com/who-is-jesus.html';
     const shareData = {
       title: 'Who Is Jesus?',
@@ -2663,7 +2687,9 @@
     } catch (e) {
       alert(url);
     }
-  });
+  };
+  document.getElementById('shareJesusPageBtn').addEventListener('click', shareJesusPage);
+  document.getElementById('jesusShareArrowBtn').addEventListener('click', shareJesusPage);
   // Deferred via setTimeout(...,0) rather than calling getGlobalDiscipleCount
   // directly here -- this code runs during initial page setup, BEFORE the
   // 'const supabaseClient = ...' declaration further down in this same
@@ -3031,12 +3057,30 @@
         <div class="mv-home-title">Memory Verse</div>
         <div class="mv-home-sub">${escapeHtmlMain(sub)}</div>
       </div>
-      <button type="button" class="mv-home-btn" id="memoryVerseHomeBtn">${cta}</button>
+      <button type="button" class="mv-home-btn" id="memoryVerseHomeBtn" data-track="Memory Verse: Open card">${cta}</button>
     `;
     document.getElementById('memoryVerseHomeBtn').addEventListener('click', openMemoryVerse);
+
+    // Today slider slide: same state, shorter wording
+    const bEy = document.getElementById('memoryVerseBannerEyebrow');
+    const bTi = document.getElementById('memoryVerseBannerTitle');
+    if (bEy && bTi) {
+      bEy.textContent = st ? `Memory Verse · ${st.memorized.length} of 52` : 'Memory Verse';
+      bTi.textContent = st ? 'Keep practicing your verse' : "Hide God's Word in your heart";
+      if (st) {
+        try {
+          const plan = await loadDevoPlanFull(st.plan);
+          const e = plan.days[st.day - 1];
+          if (e) bTi.textContent = (st.memorized.includes(st.day) ? 'Next up: ' : 'Practice ') + mvCleanRef(e.reference);
+        } catch (e) {}
+      }
+    }
   }
+  let mvReturn = 'screen-today';
 
   async function openMemoryVerse() {
+    const activeScr = document.querySelector('.screen.active');
+    if (activeScr && activeScr.id) mvReturn = activeScr.id;
     hideMainScreens();
     document.getElementById('devoPlanModal').classList.add('open');
     showPageHeader('Memory Verse');
@@ -3045,16 +3089,16 @@
     if (!st) renderMemoryVersePicker(); else renderMemoryVerse();
   }
 
-  function mvLeave() { goToTab('screen-plans'); }
+  function mvLeave() { goToTab(mvReturn || 'screen-today'); }
 
   function renderMemoryVersePicker() {
     const body = document.getElementById('devoPlanModalBody');
     body.innerHTML = `
-      <a class="back-link" id="mvBack">← Plans</a>
+      <a class="back-link" id="mvBack">← Back</a>
       <p class="dm-p" style="margin-top:14px;">Pick a set to memorize from. You'll work on one verse at a time and tap “I've memorized this” when it sticks. You can switch sets any time and your progress in each set is kept.</p>
       <div class="mv-picker">
         ${Object.keys(DEVOTIONAL_PLANS_MANIFEST).map(k => `
-          <button type="button" class="mv-pick" data-plan="${k}">
+          <button type="button" class="mv-pick" data-plan="${k}" data-track="Memory Verse: Choose set ${k}">
             <span class="mv-pick-title">${escapeHtmlMain(DEVOTIONAL_PLANS_MANIFEST[k].title)}</span>
             <span class="mv-pick-sub">${escapeHtmlMain(DEVOTIONAL_PLANS_MANIFEST[k].subtitle)}</span>
           </button>`).join('')}
@@ -3078,7 +3122,7 @@
     const meta = DEVOTIONAL_PLANS_MANIFEST[st.plan];
     const day = st.day;
     const done = st.memorized.includes(day);
-    body.innerHTML = `<a class="back-link" id="mvBack">← Plans</a><div class="bible-loading" style="padding:24px 4px;">Loading verse…</div>`;
+    body.innerHTML = `<a class="back-link" id="mvBack">← Back</a><div class="bible-loading" style="padding:24px 4px;">Loading verse…</div>`;
     document.getElementById('mvBack').addEventListener('click', mvLeave);
 
     let plan, text;
@@ -3086,8 +3130,8 @@
       plan = await loadDevoPlanFull(st.plan);
       text = await mvVerseText(st.plan, day);
     } catch (e) {
-      body.innerHTML = `<a class="back-link" id="mvBack">← Plans</a><div class="bible-error" style="margin-top:14px;">Couldn't load this verse right now. Check your connection and try again.</div>
-        <button type="button" class="mv-btn" id="mvRetry" style="margin-top:12px;">Try again</button>`;
+      body.innerHTML = `<a class="back-link" id="mvBack">← Back</a><div class="bible-error" style="margin-top:14px;">Couldn't load this verse right now. Check your connection and try again.</div>
+        <button type="button" class="mv-btn" id="mvRetry" data-track="Memory Verse: Retry" style="margin-top:12px;">Try again</button>`;
       document.getElementById('mvBack').addEventListener('click', mvLeave);
       document.getElementById('mvRetry').addEventListener('click', renderMemoryVerse);
       return;
@@ -3095,18 +3139,23 @@
     const ref = mvCleanRef(plan.days[day - 1].reference);
 
     body.innerHTML = `
-      <a class="back-link" id="mvBack">← Plans</a>
+      <a class="back-link" id="mvBack">← Back</a>
       <div class="mv-setline">
         <span>${escapeHtmlMain(meta.title)}</span>
-        <button type="button" class="mv-link" id="mvChangeSet">Change set</button>
+        <span style="display:inline-flex; align-items:center; gap:12px;">
+          <button type="button" class="verse-alert-bell" id="devoReminderBellBtn" data-track="Memory Verse: Reminder bell" aria-label="Memory verse reminder settings" style="margin-top:0;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line class="verse-alert-bell-slash" x1="3" y1="3" x2="21" y2="21"/></svg>
+          </button>
+          <button type="button" class="mv-link" id="mvChangeSet" data-track="Memory Verse: Change set">Change set</button>
+        </span>
       </div>
       <div class="mv-count">${st.memorized.length} of 52 memorized</div>
       <div class="plan-bar-top" style="margin-top:12px;">
-        <button type="button" id="mvPrev" class="bible-navbtn" aria-label="Previous verse" ${day <= 1 ? 'style="visibility:hidden;"' : ''}>
+        <button type="button" id="mvPrev" data-track="Memory Verse: Previous verse" class="bible-navbtn" aria-label="Previous verse" ${day <= 1 ? 'style="visibility:hidden;"' : ''}>
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
         <div class="plan-day-label">Verse ${day} <span class="plan-day-of">of 52</span></div>
-        <button type="button" id="mvNext" class="bible-navbtn" aria-label="Next verse" ${day >= 52 ? 'style="visibility:hidden;"' : ''}>
+        <button type="button" id="mvNext" data-track="Memory Verse: Next verse" class="bible-navbtn" aria-label="Next verse" ${day >= 52 ? 'style="visibility:hidden;"' : ''}>
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 18l6-6-6-6"/></svg>
         </button>
       </div>
@@ -3120,6 +3169,8 @@
     `;
     document.getElementById('mvBack').addEventListener('click', mvLeave);
     document.getElementById('mvChangeSet').addEventListener('click', renderMemoryVersePicker);
+    updateDevoReminderBell('memory_verse');
+    document.getElementById('devoReminderBellBtn').addEventListener('click', () => openDevoReminderModal('memory_verse'));
     if (day > 1) document.getElementById('mvPrev').addEventListener('click', async () => { st.day = day - 1; await mvSave(); renderMemoryVerse(); });
     if (day < 52) document.getElementById('mvNext').addEventListener('click', async () => { st.day = day + 1; await mvSave(); renderMemoryVerse(); });
 
@@ -3136,13 +3187,13 @@
         <div class="mv-modes-label">Practice with missing words</div>
         <div class="mv-levels" role="group" aria-label="How many words to hide">
           ${[['few', 'A few'], ['some', 'Some'], ['most', 'Most']].map(([k, l]) =>
-            `<button type="button" class="mv-level ${mvLevel === k ? 'on' : ''}" data-level="${k}">${l}</button>`).join('')}
+            `<button type="button" class="mv-level ${mvLevel === k ? 'on' : ''}" data-level="${k}" data-track="Memory Verse: Blanks ${k}">${l}</button>`).join('')}
         </div>
-        <button type="button" class="mv-btn" id="mvPractice">Practice</button>
+        <button type="button" class="mv-btn" id="mvPractice" data-track="Memory Verse: Practice">Practice</button>
       </div>
       ${done
-        ? `<button type="button" class="mv-btn mv-btn-ghost" id="mvUndo">Not yet – keep practicing this one</button>`
-        : `<button type="button" class="mv-btn mv-btn-main" id="mvMemorized">I've memorized this ✓</button>`}
+        ? `<button type="button" class="mv-btn mv-btn-ghost" id="mvUndo" data-track="Memory Verse: Not yet">Not yet – keep practicing this one</button>`
+        : `<button type="button" class="mv-btn mv-btn-main" id="mvMemorized" data-track="Memory Verse: Memorized">I've memorized this ✓</button>`}
     `;
     actions.querySelectorAll('.mv-level').forEach(b => b.addEventListener('click', () => {
       mvLevel = b.dataset.level;
@@ -3173,14 +3224,14 @@
     stage.innerHTML = `
       <p class="bible-text mv-verse" id="mvPractiseText">${html}</p>
       <div class="mv-bank" id="mvBank" aria-label="Word bank">
-        ${pr.bank.map((w, k) => `<button type="button" class="mv-chip" data-k="${k}">${escapeHtmlMain(w)}</button>`).join('')}
+        ${pr.bank.map((w, k) => `<button type="button" class="mv-chip" data-k="${k}" data-track="Memory Verse: Word chip">${escapeHtmlMain(w)}</button>`).join('')}
       </div>
       <div class="mv-feedback" id="mvFeedback" aria-live="polite">Tap the word that fits the next blank.</div>
     `;
     actions.innerHTML = `
       <div class="mv-row">
-        <button type="button" class="mv-btn" id="mvAgain">New blanks</button>
-        <button type="button" class="mv-btn mv-btn-ghost" id="mvShow">Show verse</button>
+        <button type="button" class="mv-btn" id="mvAgain" data-track="Memory Verse: Practice again">New blanks</button>
+        <button type="button" class="mv-btn mv-btn-ghost" id="mvShow" data-track="Memory Verse: Show verse">Show verse</button>
       </div>
     `;
     const fb = document.getElementById('mvFeedback');
@@ -3207,10 +3258,10 @@
           fb.textContent = done ? 'Nice work. Try “Most” for a bigger challenge.' : 'Nice work! Try more blanks, or tap “I\'ve memorized this” below.';
           actions.innerHTML = `
             <div class="mv-row">
-              <button type="button" class="mv-btn" id="mvAgain">Practice again</button>
-              ${done ? '' : '<button type="button" class="mv-btn mv-btn-main" id="mvMemorized">I\'ve memorized this ✓</button>'}
+              <button type="button" class="mv-btn" id="mvAgain" data-track="Memory Verse: Practice again">Practice again</button>
+              ${done ? '' : '<button type="button" class="mv-btn mv-btn-main" id="mvMemorized" data-track="Memory Verse: Memorized">I\'ve memorized this ✓</button>'}
             </div>
-            <button type="button" class="mv-link" id="mvBackRead" style="margin-top:10px;">Back to the verse</button>`;
+            <button type="button" class="mv-link" id="mvBackRead" data-track="Memory Verse: Back to verse" style="margin-top:10px;">Back to the verse</button>`;
           bindEnd();
         } else {
           fb.textContent = `${pr.blanks.length - nextBlank} to go.`;
@@ -3242,7 +3293,7 @@
     const body = document.getElementById('devoPlanModalBody');
     const meta = DEVOTIONAL_PLANS_MANIFEST[st.plan];
     body.innerHTML = `
-      <a class="back-link" id="mvBack">← Plans</a>
+      <a class="back-link" id="mvBack">← Back</a>
       <div class="bible-reader mv-card mv-celebrate" style="margin-top:14px; text-align:center;">
         <div class="mv-check">✓</div>
         <div class="bible-chapter-title" style="margin-top:8px;">${finished ? `You've memorized all 52!` : 'Memorized'}</div>
@@ -3251,8 +3302,8 @@
           ? '<p class="dm-p">Hide these words in your heart. Pick another set whenever you\'re ready.</p>'
           : '<p class="dm-p">Ready for the next one whenever you are.</p>'}
         ${finished
-          ? '<button type="button" class="mv-btn mv-btn-main" id="mvPickSet">Choose another set</button>'
-          : '<button type="button" class="mv-btn mv-btn-main" id="mvGoNext">Next verse</button><button type="button" class="mv-link" id="mvLater" style="margin-top:10px;">Done for now</button>'}
+          ? '<button type="button" class="mv-btn mv-btn-main" id="mvPickSet" data-track="Memory Verse: Choose another set">Choose another set</button>'
+          : '<button type="button" class="mv-btn mv-btn-main" id="mvGoNext" data-track="Memory Verse: Next verse after memorized">Next verse</button><button type="button" class="mv-link" id="mvLater" data-track="Memory Verse: Done for now" style="margin-top:10px;">Done for now</button>'}
       </div>
     `;
     document.getElementById('mvBack').addEventListener('click', mvLeave);
@@ -3272,14 +3323,99 @@
     host.innerHTML = `
       <div class="mv-modes-label" style="margin-top:22px;">Memorized</div>
       <div class="mv-memlist">
-        ${days.map(d => `<button type="button" class="mv-memitem" data-day="${d}">${escapeHtmlMain(mvCleanRef(plan.days[d - 1].reference))}</button>`).join('')}
+        ${days.map(d => `<button type="button" class="mv-memitem" data-day="${d}" data-track="Memory Verse: Open memorized verse">${escapeHtmlMain(mvCleanRef(plan.days[d - 1].reference))}</button>`).join('')}
       </div>`;
     host.querySelectorAll('.mv-memitem').forEach(b => b.addEventListener('click', async () => {
       st.day = parseInt(b.dataset.day, 10); await mvSave(); renderMemoryVerse();
     }));
   }
   window.renderMemoryVerseHomeCard = renderMemoryVerseHomeCard;
-  window.addEventListener('load', () => renderMemoryVerseHomeCard());
+  window.addEventListener('load', () => {
+    renderMemoryVerseHomeCard();
+    const bs = document.getElementById('memoryVerseBannerSlide');
+    if (bs) bs.addEventListener('click', openMemoryVerse);
+  });
+
+
+  // ---------- Weekly feature tip ----------
+  // A once-a-week, skippable popup on Today that points regular users to
+  // one feature they haven't tried yet, rotating through a short list.
+  // Only shows for people who've opened the app on 3+ different days in
+  // the last 2 weeks, never more than once every 7 days, never over
+  // another screen/popup, and "Turn off tips" stops it for good. State is
+  // one small saved blob (same storage as everything else here).
+  const TIP_KEY = 'featureTips';
+  const TIP_MIN_DAYS = 3, TIP_WINDOW_DAYS = 14, TIP_GAP_DAYS = 7;
+  const FEATURE_TIPS = [
+    { id: 'memory_verse', title: 'Memorize a verse', body: 'Pick a verse set, practice with missing words, and tap “Memorized” when it sticks.', cta: 'Try Memory Verse',
+      done: async () => !!(await mvLoad()), go: () => openMemoryVerse() },
+    { id: 'reading_reminder', title: 'Never miss a day', body: 'Turn on a daily reminder for your Bible reading plan and pick the time that fits your morning.', cta: 'Open Bible',
+      done: async () => !!(await getNotifPrefs()).readingReminder, go: () => goToTab('screen-bible') },
+    { id: 'plans52', title: '52 Bible Verses', body: 'One verse and one short devotional at a time, for hope, miracles, new believers, kids, men, or youth.', cta: 'See the plans',
+      done: async () => false, go: () => goToTab('screen-plans') },
+    { id: 'share_good_news', title: 'Share the Good News', body: 'Gospel visuals and Bible verse graphics you can send to a friend in a couple of taps.', cta: 'Open Share',
+      done: async () => false, go: () => openGoodNewsPage() },
+    { id: 'course', title: 'Take the free course', body: 'Walk through the essentials of following Jesus, one short lesson at a time.', cta: 'Start the course',
+      done: async () => false, go: () => window.open('https://followingjesus.com/course', '_blank', 'noopener') }
+  ];
+
+  function tipDayKey(d) { const x = d || new Date(); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; }
+  function tipDaysBetween(a, b) { return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000); }
+
+  // Pure decision: should a tip show today, and which one? (state is mutated by the caller)
+  function tipDecide(state, today, doneIds) {
+    if (state.off) return null;
+    const recent = (state.days || []).filter(d => { const n = tipDaysBetween(d, today); return n >= 0 && n < TIP_WINDOW_DAYS; });
+    if (new Set(recent).size < TIP_MIN_DAYS) return null;
+    if (state.lastShown && tipDaysBetween(state.lastShown, today) < TIP_GAP_DAYS) return null;
+    let pool = FEATURE_TIPS.filter(t => !doneIds.includes(t.id));
+    if (!pool.length) return null;
+    let fresh = pool.filter(t => !(state.seen || []).includes(t.id));
+    if (!fresh.length) { state.seen = []; fresh = pool; }
+    return fresh[0];
+  }
+
+  async function maybeShowFeatureTip() {
+    try {
+      const state = Object.assign({ days: [], seen: [], lastShown: null, off: false }, await dSafeGet(TIP_KEY) || {});
+      const today = tipDayKey();
+      if (!state.days.includes(today)) state.days.push(today);
+      state.days = state.days.filter(d => { const n = tipDaysBetween(d, today); return n >= 0 && n < 30; });
+      await dSafeSet(TIP_KEY, state);
+      // Only on the Today screen with nothing else open on top of it.
+      const scr = document.querySelector('.screen.active');
+      if (!scr || scr.id !== 'screen-today') return;
+      if (document.querySelector('.disciple-modal.open, .article-modal.open, .embed-modal.open, .verse-alert-modal-overlay.open')) return;
+      const doneIds = [];
+      for (const t of FEATURE_TIPS) { try { if (await t.done()) doneIds.push(t.id); } catch (e) {} }
+      const tip = tipDecide(state, today, doneIds);
+      if (!tip) return;
+      state.lastShown = today;
+      state.seen = (state.seen || []).concat(tip.id);
+      await dSafeSet(TIP_KEY, state);
+      const ov = document.getElementById('featureTipOverlay');
+      document.getElementById('featureTipTitle').textContent = tip.title;
+      document.getElementById('featureTipBody').textContent = tip.body;
+      const go = document.getElementById('featureTipGo');
+      go.textContent = tip.cta;
+      go.setAttribute('data-track', 'Feature tip: ' + tip.id);
+      go.onclick = () => { ov.classList.remove('open'); tip.go(); };
+      ov.classList.add('open');
+    } catch (e) {}
+  }
+  (function initFeatureTip() {
+    const ov = document.getElementById('featureTipOverlay');
+    if (!ov) return;
+    const close = () => ov.classList.remove('open');
+    document.getElementById('featureTipLater').addEventListener('click', close);
+    ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+    document.getElementById('featureTipOff').addEventListener('click', async () => {
+      const s = Object.assign({ days: [], seen: [], lastShown: null }, await dSafeGet(TIP_KEY) || {});
+      s.off = true; await dSafeSet(TIP_KEY, s); close();
+    });
+    window.addEventListener('load', () => setTimeout(maybeShowFeatureTip, 3500));
+  })();
+  window.__featureTip = { decide: tipDecide, show: maybeShowFeatureTip };
 
   // ---------- 52-Day Plan reminders ----------
   // One shared modal (see the static markup next to #devoPlanModalBody)
@@ -3301,20 +3437,26 @@
   // not part of this one) learning about these same 6 new tag names --
   // this only builds the client-side toggle and tag-setting half.
   let currentDevoReminderPlan = null;
+  // 'memory_verse' reuses this same modal with its own pref/tag keys.
+  function devoReminderKeys(planKey) {
+    return planKey === 'memory_verse'
+      ? { pref: 'memoryVerseReminder', tag: 'memory_verse', title: 'Memory Verse Reminder' }
+      : { pref: `devoReminder_${planKey}`, tag: `devo_reminder_${planKey}`, title: `${DEVOTIONAL_PLANS_MANIFEST[planKey].title} Reminder` };
+  }
 
   async function updateDevoReminderBell(planKey) {
     const bellBtn = document.getElementById('devoReminderBellBtn');
     if (!bellBtn) return;
     const prefs = await getNotifPrefs();
-    bellBtn.classList.toggle('off', !prefs[`devoReminder_${planKey}`]);
+    bellBtn.classList.toggle('off', !prefs[devoReminderKeys(planKey).pref]);
   }
 
   async function openDevoReminderModal(planKey) {
     currentDevoReminderPlan = planKey;
-    const plan = DEVOTIONAL_PLANS_MANIFEST[planKey];
     const prefs = await getNotifPrefs();
-    const prefKey = `devoReminder_${planKey}`;
-    document.getElementById('devoReminderModalTitle').textContent = `${plan.title} Reminder`;
+    const keys = devoReminderKeys(planKey);
+    const prefKey = keys.pref;
+    document.getElementById('devoReminderModalTitle').textContent = keys.title;
     const toggleBtn = document.getElementById('devoReminderToggle');
     toggleBtn.classList.toggle('on', !!prefs[prefKey]);
     toggleBtn.querySelector('.notif-toggle-state').textContent = prefs[prefKey] ? 'On' : 'Off';
@@ -3333,18 +3475,17 @@
 
     toggleBtn.addEventListener('click', async () => {
       if (!currentDevoReminderPlan) return;
-      const prefKey = `devoReminder_${currentDevoReminderPlan}`;
-      const tagKey = `devo_reminder_${currentDevoReminderPlan}`;
+      const { pref: prefKey, tag: tagKey } = devoReminderKeys(currentDevoReminderPlan);
       await toggleNotifPref(prefKey, tagKey, toggleBtn, toggleBtn.querySelector('.notif-toggle-state'), null);
       updateDevoReminderBell(currentDevoReminderPlan);
     });
     freqSelect.addEventListener('change', () => {
       if (!currentDevoReminderPlan) return;
-      updateNotifSetting(`devoReminder_${currentDevoReminderPlan}`, `devo_reminder_${currentDevoReminderPlan}`, 'Freq', freqSelect.value);
+      { const k = devoReminderKeys(currentDevoReminderPlan); updateNotifSetting(k.pref, k.tag, 'Freq', freqSelect.value); }
     });
     hourSelect.addEventListener('change', () => {
       if (!currentDevoReminderPlan) return;
-      updateNotifSetting(`devoReminder_${currentDevoReminderPlan}`, `devo_reminder_${currentDevoReminderPlan}`, 'Hour', hourSelect.value);
+      { const k = devoReminderKeys(currentDevoReminderPlan); updateNotifSetting(k.pref, k.tag, 'Hour', hourSelect.value); }
     });
     const closeModal = () => overlay.classList.remove('open');
     doneBtn.addEventListener('click', closeModal);
@@ -7164,7 +7305,7 @@ const fjTap = (function(){
   const POPUP_NAMES = {
     shareChooserOverlay: 'Share', verseOfDayModalOverlay: 'Verse alert', findChurchModalOverlay: 'Find a Church', readingReminderModalOverlay: 'Reading reminder',
     devoReminderModalOverlay: 'Devo reminder', discipleModal: 'Disciple', gospelModal: 'Share The Word', goodNewsModal: 'Good News',
-    devoPlanModal: 'Plan', articleModal: 'Blog article', embedModal: 'Player', modalPortal: 'Popup'
+    featureTipOverlay: 'Feature tip', devoPlanModal: 'Plan', articleModal: 'Blog article', embedModal: 'Player', modalPortal: 'Popup'
   };
   function titleCase(t){ return t.toLowerCase().replace(/(^|[\s(-])([a-z])/g, (m, a, b) => a + b.toUpperCase()); }
 
@@ -7195,6 +7336,7 @@ const fjTap = (function(){
     if (label.indexOf(' \u00B7 ') > 0) label = label.split(' \u00B7 ')[0];   // "Plan name \u00B7 Read right here..." -> "Plan name"
     if (/[A-Za-z]{2}/.test(label) && label === label.toUpperCase()) label = titleCase(label); // CSS capitals -> normal case
     label = label.replace(/\bFj\b/g, 'FJ');
+    if (/^Memory Verse: /.test(label)) return label;   // own names, not "Plan: ..."
     if (label === '\u2715' || label === '\u2716' || label === '\u00D7') label = 'Close';
     if (el.classList && el.classList.contains('tab-btn')) return 'Tab: ' + label;
     // The same destination can be reached from the top banners and the "More" grid; name them apart.
@@ -10184,6 +10326,7 @@ async function renderDiscipleshipApp() {
     add('reading_reminder', 'readingReminder');
     add('verse_of_day', 'verseOfDay');
     PUSH_PLAN_KEYS.forEach((k) => add(`devo_reminder_${k}`, `devoReminder_${k}`));
+    add('memory_verse', 'memoryVerseReminder');
     return out;
   }
 
@@ -10451,7 +10594,9 @@ async function renderDiscipleshipApp() {
     devoReminder_new_believer: false, devoReminder_new_believerFreq: 'daily', devoReminder_new_believerHour: '07',
     devoReminder_kids: false, devoReminder_kidsFreq: 'daily', devoReminder_kidsHour: '07',
     devoReminder_men: false, devoReminder_menFreq: 'daily', devoReminder_menHour: '07',
-    devoReminder_youth: false, devoReminder_youthFreq: 'daily', devoReminder_youthHour: '07'
+    devoReminder_youth: false, devoReminder_youthFreq: 'daily', devoReminder_youthHour: '07',
+    // Memory Verse reminder: a gentle weekly nudge (Mondays) by default once switched on
+    memoryVerseReminder: false, memoryVerseReminderFreq: 'weekly', memoryVerseReminderHour: '08'
   };
   async function getNotifPrefs() {
     const stored = await dSafeGet('notifPrefs');
@@ -11265,7 +11410,7 @@ async function renderDiscipleshipApp() {
     } else {
       showLogoHeader();
     }
-    if (screenId === 'screen-plans' && typeof renderMemoryVerseHomeCard === 'function') renderMemoryVerseHomeCard();
+    if ((screenId === 'screen-plans' || screenId === 'screen-today') && typeof renderMemoryVerseHomeCard === 'function') renderMemoryVerseHomeCard();
     panel.scrollTop = 0;
   }
 
@@ -11446,6 +11591,7 @@ async function renderDiscipleshipApp() {
       renderProfileSettings(false);
       return;
     }
+    if (hash === 'memory-verse') { await openMemoryVerse(); return; }
     applyTab(HASH_TO_SCREEN[hash] || 'screen-today');
   }
 
