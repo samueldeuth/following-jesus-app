@@ -1992,6 +1992,45 @@
    paper screen background) need to change. */
 #screen-plans .plans-card { background: var(--white); }
 
+/* ---- Memory Verse ---- */
+#screen-plans .mv-home { display:flex; align-items:center; gap:12px; justify-content:space-between; background: var(--white); border-radius:8px; padding:16px 18px; margin-bottom:14px; }
+.mv-home-title { font-size:16px; font-weight:700; color: var(--black); }
+.mv-home-sub { font-size:13px; color: rgba(10,10,10,0.6); margin-top:2px; }
+.mv-home-btn, .mv-btn { background: var(--black); color:#fff; border:none; border-radius:10px; padding:11px 18px; font-size:14px; font-weight:600; cursor:pointer; }
+.mv-home-btn { flex:none; }
+#devoPlanModal .mv-btn { display:block; width:100%; margin-top:10px; }
+#devoPlanModal .mv-btn-ghost { background: rgba(10,10,10,0.06); color: var(--black); }
+#devoPlanModal .mv-btn-main { background: var(--black); color:#fff; }
+#devoPlanModal .mv-row { display:flex; gap:10px; }
+#devoPlanModal .mv-row .mv-btn { flex:1; }
+#devoPlanModal .mv-link { background:none; border:none; color: rgba(10,10,10,0.55); font-size:13px; text-decoration:underline; cursor:pointer; padding:4px 0; }
+#devoPlanModal .mv-setline { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:12px; font-size:14px; font-weight:600; color: var(--black); }
+#devoPlanModal .mv-count { font-size:13px; color: rgba(10,10,10,0.55); margin-top:2px; }
+#devoPlanModal .mv-badge { display:inline-block; font-size:11px; font-weight:600; background: rgba(10,10,10,0.08); border-radius:999px; padding:2px 8px; vertical-align:middle; margin-left:6px; }
+#devoPlanModal .mv-verse { font-size:19px; line-height:1.7; }
+#devoPlanModal .mv-picker { display:flex; flex-direction:column; gap:10px; margin-top:14px; }
+#devoPlanModal .mv-pick { text-align:left; background: rgba(10,10,10,0.05); border:none; border-radius:10px; padding:14px 16px; cursor:pointer; color: var(--black); }
+#devoPlanModal .mv-pick-title { display:block; font-size:15px; font-weight:700; }
+#devoPlanModal .mv-pick-sub { display:block; font-size:13px; color: rgba(10,10,10,0.6); margin-top:2px; }
+#devoPlanModal .mv-modes { margin-top:14px; }
+#devoPlanModal .mv-modes-label { font-size:13px; font-weight:600; color: rgba(10,10,10,0.6); }
+#devoPlanModal .mv-levels { display:flex; gap:8px; margin-top:8px; }
+#devoPlanModal .mv-level { flex:1; background: rgba(10,10,10,0.05); border:1.5px solid transparent; border-radius:10px; padding:9px 0; font-size:14px; color: var(--black); cursor:pointer; }
+#devoPlanModal .mv-level.on { border-color: var(--black); font-weight:600; }
+#devoPlanModal .mv-blank { display:inline-block; border-bottom:2px solid rgba(10,10,10,0.45); text-align:center; line-height:1.2; vertical-align:baseline; }
+#devoPlanModal .mv-blank.current { border-bottom-color: var(--black); background: rgba(10,10,10,0.07); }
+#devoPlanModal .mv-blank.filled { border-bottom-color: transparent; font-weight:600; }
+#devoPlanModal .mv-bank { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+#devoPlanModal .mv-chip { background: var(--white); border:1.5px solid rgba(10,10,10,0.25); color: var(--black); border-radius:999px; padding:8px 14px; font-size:15px; cursor:pointer; }
+#devoPlanModal .mv-chip.used { opacity:0.25; border-style:dashed; }
+#devoPlanModal .mv-chip.wrong { border-color:#b3261e; background:#fbe9e7; }
+#devoPlanModal .mv-feedback { font-size:13px; color: rgba(10,10,10,0.6); margin-top:12px; min-height:18px; }
+#devoPlanModal .mv-memlist { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+#devoPlanModal .mv-memitem { background: rgba(10,10,10,0.06); border:none; border-radius:999px; padding:7px 12px; font-size:13px; color: var(--black); cursor:pointer; }
+#devoPlanModal .mv-check { width:48px; height:48px; border-radius:50%; background: var(--black); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:24px; }
+@media (prefers-reduced-motion: no-preference) { #devoPlanModal .mv-chip.wrong { animation: mvShake .3s; } }
+@keyframes mvShake { 25% { transform:translateX(-4px); } 75% { transform:translateX(4px); } }
+
 /* Bible tab: the reading-plan bar, mode toggle, and reader chrome were
    all authored white-text-on-dark against the old black screen
    background — every rule below exists because that element sits
@@ -2352,6 +2391,7 @@
     <!-- PLANS -->
     <section class="screen" id="screen-plans">
       <div class="stack" style="margin-top:18px;">
+        <div class="mv-home" id="memoryVerseHomeCard"></div>
         <div class="plans-card">
         <div class="plan-cover-grid">
         <button type="button" class="plan-cover-card" style="grid-column: span 2; aspect-ratio: auto; height: 140px; border:none; cursor:pointer; padding:0;" onclick="openNativeReadingPlan()">
@@ -2892,6 +2932,354 @@
       if (el) el.textContent = 'Verse unavailable right now — check your connection.';
     }
   }
+
+
+  // ---------- Memory Verse ----------
+  // Optional, quiet memorization helper built on the six 52-verse sets.
+  // Pick a set, work on one verse at a time, practice by filling in
+  // missing words from a word bank, and tap "I've memorized this" when
+  // it's learned -- that moves on to the next verse. No streaks, no
+  // scores, no leaderboard. Progress is one small saved blob (same
+  // dSafeGet/dSafeSet storage the 52-day plans use), so no new table.
+  // Verse wording is the public-domain WEB, same as the plan verse view.
+  const MV_KEY = 'memoryVerse';
+  const mvVerseTextCache = {};
+  let mvState = null;           // { plan, day, memorized: [] } or null
+  let mvLevel = 'some';         // practice difficulty (resets each session)
+  const MV_LEVELS = { few: 0.2, some: 0.4, most: 0.7 };
+
+  async function mvLoad() {
+    if (mvState) return mvState;
+    const saved = await dSafeGet(MV_KEY);
+    mvState = (saved && saved.plan && DEVOTIONAL_PLANS_MANIFEST[saved.plan]) ? {
+      plan: saved.plan,
+      day: Math.min(Math.max(parseInt(saved.day, 10) || 1, 1), 52),
+      memorized: Array.isArray(saved.memorized) ? saved.memorized : []
+    } : null;
+    return mvState;
+  }
+  async function mvSave() {
+    await dSafeSet(MV_KEY, mvState);
+    // also keep each set's own place, so switching sets never loses progress
+    if (mvState) await dSafeSet(MV_KEY + '_' + mvState.plan, { day: mvState.day, memorized: mvState.memorized });
+  }
+
+  function mvCleanRef(ref) { return String(ref || '').replace(/\s*(NIV|ESV|MSG)\s*$/i, ''); }
+
+  async function mvVerseText(planKey, day) {
+    const k = planKey + '|' + day;
+    if (mvVerseTextCache[k]) return mvVerseTextCache[k];
+    const plan = await loadDevoPlanFull(planKey);
+    const ref = mvCleanRef(plan.days[day - 1].reference);
+    const res = await fetch(`https://bible-api.com/${encodeURIComponent(ref)}?translation=web`);
+    const data = await res.json();
+    const text = data && data.text ? data.text.trim().replace(/\s+/g, ' ') : '';
+    if (!text) throw new Error('no text');
+    mvVerseTextCache[k] = text;
+    return text;
+  }
+
+  // Next verse after `day` that isn't memorized yet (wraps around); null when all 52 are done.
+  function mvNextDay(day, memorized) {
+    for (let i = 1; i <= 52; i++) {
+      const d = ((day - 1 + i) % 52) + 1;
+      if (!memorized.includes(d)) return d;
+    }
+    return null;
+  }
+
+  // Splits verse text into words and picks which ones become blanks.
+  // Pure function (rng injected) so it can be tested.
+  function mvBuildPractice(text, fraction, rng) {
+    const tokens = text.split(' ').map(raw => {
+      const m = raw.match(/^([^\p{L}\p{N}]*)([\p{L}\p{N}][\p{L}\p{N}'’\-]*)(.*)$/u);
+      return m ? { pre: m[1], word: m[2], post: m[3] } : { pre: raw, word: '', post: '' };
+    });
+    const candidates = [];
+    tokens.forEach((t, i) => { if (t.word) candidates.push(i); });
+    const want = Math.min(candidates.length, Math.max(1, Math.round(candidates.length * fraction)));
+    const pool = candidates.slice();
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const blanks = pool.slice(0, want).sort((a, b) => a - b);
+    const bank = blanks.map(i => tokens[i].word);
+    for (let i = bank.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [bank[i], bank[j]] = [bank[j], bank[i]];
+    }
+    return { tokens, blanks, bank };
+  }
+
+  function mvNormalize(w) { return w.toLowerCase().replace(/[’]/g, "'"); }
+
+  async function renderMemoryVerseHomeCard() {
+    const el = document.getElementById('memoryVerseHomeCard');
+    if (!el) return;
+    let st = null;
+    try { st = await mvLoad(); } catch (e) {}
+    let sub = 'Learn a verse at a time from the 52 Bible Verses sets.';
+    let cta = 'Start';
+    if (st) {
+      const m = DEVOTIONAL_PLANS_MANIFEST[st.plan];
+      sub = `${st.memorized.length} of 52 memorized · ${m.title.replace(/^52 Bible Verses\s*/i, '52 Verses ')}`;
+      cta = 'Practice';
+    }
+    el.innerHTML = `
+      <div class="mv-home-text">
+        <div class="mv-home-title">Memory Verse</div>
+        <div class="mv-home-sub">${escapeHtmlMain(sub)}</div>
+      </div>
+      <button type="button" class="mv-home-btn" id="memoryVerseHomeBtn">${cta}</button>
+    `;
+    document.getElementById('memoryVerseHomeBtn').addEventListener('click', openMemoryVerse);
+  }
+
+  async function openMemoryVerse() {
+    hideMainScreens();
+    document.getElementById('devoPlanModal').classList.add('open');
+    showPageHeader('Memory Verse');
+    pushUrlHash('memory-verse');
+    const st = await mvLoad();
+    if (!st) renderMemoryVersePicker(); else renderMemoryVerse();
+  }
+
+  function mvLeave() { goToTab('screen-plans'); }
+
+  function renderMemoryVersePicker() {
+    const body = document.getElementById('devoPlanModalBody');
+    body.innerHTML = `
+      <a class="back-link" id="mvBack">← Plans</a>
+      <p class="dm-p" style="margin-top:14px;">Pick a set to memorize from. You'll work on one verse at a time and tap “I've memorized this” when it sticks. You can switch sets any time and your progress in each set is kept.</p>
+      <div class="mv-picker">
+        ${Object.keys(DEVOTIONAL_PLANS_MANIFEST).map(k => `
+          <button type="button" class="mv-pick" data-plan="${k}">
+            <span class="mv-pick-title">${escapeHtmlMain(DEVOTIONAL_PLANS_MANIFEST[k].title)}</span>
+            <span class="mv-pick-sub">${escapeHtmlMain(DEVOTIONAL_PLANS_MANIFEST[k].subtitle)}</span>
+          </button>`).join('')}
+      </div>
+    `;
+    document.getElementById('mvBack').addEventListener('click', mvLeave);
+    body.querySelectorAll('.mv-pick').forEach(b => b.addEventListener('click', async () => {
+      const key = b.dataset.plan;
+      const prev = await dSafeGet(MV_KEY + '_' + key);
+      mvState = { plan: key, day: (prev && prev.day) || 1, memorized: (prev && prev.memorized) || [] };
+      if (mvState.memorized.includes(mvState.day)) mvState.day = mvNextDay(mvState.day, mvState.memorized) || mvState.day;
+      await mvSave();
+      renderMemoryVerse();
+    }));
+  }
+
+  async function renderMemoryVerse() {
+    const st = await mvLoad();
+    if (!st) { renderMemoryVersePicker(); return; }
+    const body = document.getElementById('devoPlanModalBody');
+    const meta = DEVOTIONAL_PLANS_MANIFEST[st.plan];
+    const day = st.day;
+    const done = st.memorized.includes(day);
+    body.innerHTML = `<a class="back-link" id="mvBack">← Plans</a><div class="bible-loading" style="padding:24px 4px;">Loading verse…</div>`;
+    document.getElementById('mvBack').addEventListener('click', mvLeave);
+
+    let plan, text;
+    try {
+      plan = await loadDevoPlanFull(st.plan);
+      text = await mvVerseText(st.plan, day);
+    } catch (e) {
+      body.innerHTML = `<a class="back-link" id="mvBack">← Plans</a><div class="bible-error" style="margin-top:14px;">Couldn't load this verse right now. Check your connection and try again.</div>
+        <button type="button" class="mv-btn" id="mvRetry" style="margin-top:12px;">Try again</button>`;
+      document.getElementById('mvBack').addEventListener('click', mvLeave);
+      document.getElementById('mvRetry').addEventListener('click', renderMemoryVerse);
+      return;
+    }
+    const ref = mvCleanRef(plan.days[day - 1].reference);
+
+    body.innerHTML = `
+      <a class="back-link" id="mvBack">← Plans</a>
+      <div class="mv-setline">
+        <span>${escapeHtmlMain(meta.title)}</span>
+        <button type="button" class="mv-link" id="mvChangeSet">Change set</button>
+      </div>
+      <div class="mv-count">${st.memorized.length} of 52 memorized</div>
+      <div class="plan-bar-top" style="margin-top:12px;">
+        <button type="button" id="mvPrev" class="bible-navbtn" aria-label="Previous verse" ${day <= 1 ? 'style="visibility:hidden;"' : ''}>
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="plan-day-label">Verse ${day} <span class="plan-day-of">of 52</span></div>
+        <button type="button" id="mvNext" class="bible-navbtn" aria-label="Next verse" ${day >= 52 ? 'style="visibility:hidden;"' : ''}>
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+      <div class="bible-reader mv-card" style="margin-top:12px;">
+        <div class="bible-chapter-title">${escapeHtmlMain(ref)}${done ? ' <span class="mv-badge">Memorized ✓</span>' : ''}</div>
+        <div id="mvStage"></div>
+        <div class="bible-translation-note">World English Bible &middot; public domain</div>
+      </div>
+      <div id="mvActions"></div>
+      <div id="mvMemList"></div>
+    `;
+    document.getElementById('mvBack').addEventListener('click', mvLeave);
+    document.getElementById('mvChangeSet').addEventListener('click', renderMemoryVersePicker);
+    if (day > 1) document.getElementById('mvPrev').addEventListener('click', async () => { st.day = day - 1; await mvSave(); renderMemoryVerse(); });
+    if (day < 52) document.getElementById('mvNext').addEventListener('click', async () => { st.day = day + 1; await mvSave(); renderMemoryVerse(); });
+
+    mvRenderRead(text, done);
+    mvRenderMemorizedList(plan);
+  }
+
+  function mvRenderRead(text, done) {
+    const stage = document.getElementById('mvStage');
+    const actions = document.getElementById('mvActions');
+    stage.innerHTML = `<p class="bible-text mv-verse">${escapeHtmlMain(text)}</p>`;
+    actions.innerHTML = `
+      <div class="mv-modes">
+        <div class="mv-modes-label">Practice with missing words</div>
+        <div class="mv-levels" role="group" aria-label="How many words to hide">
+          ${[['few', 'A few'], ['some', 'Some'], ['most', 'Most']].map(([k, l]) =>
+            `<button type="button" class="mv-level ${mvLevel === k ? 'on' : ''}" data-level="${k}">${l}</button>`).join('')}
+        </div>
+        <button type="button" class="mv-btn" id="mvPractice">Practice</button>
+      </div>
+      ${done
+        ? `<button type="button" class="mv-btn mv-btn-ghost" id="mvUndo">Not yet – keep practicing this one</button>`
+        : `<button type="button" class="mv-btn mv-btn-main" id="mvMemorized">I've memorized this ✓</button>`}
+    `;
+    actions.querySelectorAll('.mv-level').forEach(b => b.addEventListener('click', () => {
+      mvLevel = b.dataset.level;
+      actions.querySelectorAll('.mv-level').forEach(x => x.classList.toggle('on', x === b));
+    }));
+    document.getElementById('mvPractice').addEventListener('click', () => mvRenderPractice(text, done));
+    const memBtn = document.getElementById('mvMemorized');
+    if (memBtn) memBtn.addEventListener('click', mvMarkMemorized);
+    const undoBtn = document.getElementById('mvUndo');
+    if (undoBtn) undoBtn.addEventListener('click', async () => {
+      mvState.memorized = mvState.memorized.filter(d => d !== mvState.day);
+      await mvSave(); renderMemoryVerse();
+    });
+  }
+
+  function mvRenderPractice(text, done) {
+    const stage = document.getElementById('mvStage');
+    const actions = document.getElementById('mvActions');
+    const pr = mvBuildPractice(text, MV_LEVELS[mvLevel] || 0.4, Math.random);
+    const filled = {};            // token index -> true
+    let nextBlank = 0;            // index into pr.blanks
+    const blankSet = new Set(pr.blanks);
+
+    const html = pr.tokens.map((t, i) => {
+      if (!blankSet.has(i)) return escapeHtmlMain(t.pre + t.word + t.post);
+      return `${escapeHtmlMain(t.pre)}<span class="mv-blank" data-i="${i}" style="min-width:${Math.max(3, t.word.length)}ch;">&nbsp;</span>${escapeHtmlMain(t.post)}`;
+    }).join(' ');
+    stage.innerHTML = `
+      <p class="bible-text mv-verse" id="mvPractiseText">${html}</p>
+      <div class="mv-bank" id="mvBank" aria-label="Word bank">
+        ${pr.bank.map((w, k) => `<button type="button" class="mv-chip" data-k="${k}">${escapeHtmlMain(w)}</button>`).join('')}
+      </div>
+      <div class="mv-feedback" id="mvFeedback" aria-live="polite">Tap the word that fits the next blank.</div>
+    `;
+    actions.innerHTML = `
+      <div class="mv-row">
+        <button type="button" class="mv-btn" id="mvAgain">New blanks</button>
+        <button type="button" class="mv-btn mv-btn-ghost" id="mvShow">Show verse</button>
+      </div>
+    `;
+    const fb = document.getElementById('mvFeedback');
+    const refreshCurrent = () => {
+      stage.querySelectorAll('.mv-blank').forEach(b => b.classList.remove('current'));
+      if (nextBlank < pr.blanks.length) {
+        const cur = stage.querySelector(`.mv-blank[data-i="${pr.blanks[nextBlank]}"]`);
+        if (cur) cur.classList.add('current');
+      }
+    };
+    refreshCurrent();
+    stage.querySelectorAll('.mv-chip').forEach(chip => chip.addEventListener('click', () => {
+      if (chip.disabled || nextBlank >= pr.blanks.length) return;
+      const idx = pr.blanks[nextBlank];
+      const want = pr.tokens[idx].word;
+      if (mvNormalize(chip.textContent) === mvNormalize(want)) {
+        const slot = stage.querySelector(`.mv-blank[data-i="${idx}"]`);
+        slot.textContent = want;
+        slot.classList.add('filled');
+        chip.disabled = true; chip.classList.add('used');
+        filled[idx] = true; nextBlank++;
+        refreshCurrent();
+        if (nextBlank >= pr.blanks.length) {
+          fb.textContent = done ? 'Nice work. Try “Most” for a bigger challenge.' : 'Nice work! Try more blanks, or tap “I\'ve memorized this” below.';
+          actions.innerHTML = `
+            <div class="mv-row">
+              <button type="button" class="mv-btn" id="mvAgain">Practice again</button>
+              ${done ? '' : '<button type="button" class="mv-btn mv-btn-main" id="mvMemorized">I\'ve memorized this ✓</button>'}
+            </div>
+            <button type="button" class="mv-link" id="mvBackRead" style="margin-top:10px;">Back to the verse</button>`;
+          bindEnd();
+        } else {
+          fb.textContent = `${pr.blanks.length - nextBlank} to go.`;
+        }
+      } else {
+        chip.classList.add('wrong');
+        fb.textContent = 'Not that one. Try another word.';
+        setTimeout(() => chip.classList.remove('wrong'), 450);
+      }
+    }));
+    function bindEnd() {
+      const again = document.getElementById('mvAgain');
+      if (again) again.addEventListener('click', () => mvRenderPractice(text, done));
+      const mem = document.getElementById('mvMemorized');
+      if (mem) mem.addEventListener('click', mvMarkMemorized);
+      const back = document.getElementById('mvBackRead');
+      if (back) back.addEventListener('click', () => mvRenderRead(text, done));
+    }
+    document.getElementById('mvAgain').addEventListener('click', () => mvRenderPractice(text, done));
+    document.getElementById('mvShow').addEventListener('click', () => mvRenderRead(text, done));
+  }
+
+  async function mvMarkMemorized() {
+    const st = mvState;
+    if (!st.memorized.includes(st.day)) st.memorized.push(st.day);
+    const nxt = mvNextDay(st.day, st.memorized);
+    const finished = st.memorized.length >= 52;
+    await mvSave();
+    const body = document.getElementById('devoPlanModalBody');
+    const meta = DEVOTIONAL_PLANS_MANIFEST[st.plan];
+    body.innerHTML = `
+      <a class="back-link" id="mvBack">← Plans</a>
+      <div class="bible-reader mv-card mv-celebrate" style="margin-top:14px; text-align:center;">
+        <div class="mv-check">✓</div>
+        <div class="bible-chapter-title" style="margin-top:8px;">${finished ? `You've memorized all 52!` : 'Memorized'}</div>
+        <p class="dm-p">${st.memorized.length} of 52 in ${escapeHtmlMain(meta.title)}.</p>
+        ${finished
+          ? '<p class="dm-p">Hide these words in your heart. Pick another set whenever you\'re ready.</p>'
+          : '<p class="dm-p">Ready for the next one whenever you are.</p>'}
+        ${finished
+          ? '<button type="button" class="mv-btn mv-btn-main" id="mvPickSet">Choose another set</button>'
+          : '<button type="button" class="mv-btn mv-btn-main" id="mvGoNext">Next verse</button><button type="button" class="mv-link" id="mvLater" style="margin-top:10px;">Done for now</button>'}
+      </div>
+    `;
+    document.getElementById('mvBack').addEventListener('click', mvLeave);
+    const goNext = document.getElementById('mvGoNext');
+    if (goNext) goNext.addEventListener('click', async () => { st.day = nxt; await mvSave(); renderMemoryVerse(); });
+    const later = document.getElementById('mvLater');
+    if (later) later.addEventListener('click', async () => { st.day = nxt; await mvSave(); mvLeave(); });
+    const pick = document.getElementById('mvPickSet');
+    if (pick) pick.addEventListener('click', renderMemoryVersePicker);
+  }
+
+  function mvRenderMemorizedList(plan) {
+    const st = mvState;
+    const host = document.getElementById('mvMemList');
+    if (!host || !st.memorized.length) return;
+    const days = st.memorized.slice().sort((a, b) => a - b);
+    host.innerHTML = `
+      <div class="mv-modes-label" style="margin-top:22px;">Memorized</div>
+      <div class="mv-memlist">
+        ${days.map(d => `<button type="button" class="mv-memitem" data-day="${d}">${escapeHtmlMain(mvCleanRef(plan.days[d - 1].reference))}</button>`).join('')}
+      </div>`;
+    host.querySelectorAll('.mv-memitem').forEach(b => b.addEventListener('click', async () => {
+      st.day = parseInt(b.dataset.day, 10); await mvSave(); renderMemoryVerse();
+    }));
+  }
+  window.renderMemoryVerseHomeCard = renderMemoryVerseHomeCard;
+  window.addEventListener('load', () => renderMemoryVerseHomeCard());
 
   // ---------- 52-Day Plan reminders ----------
   // One shared modal (see the static markup next to #devoPlanModalBody)
@@ -10877,6 +11265,7 @@ async function renderDiscipleshipApp() {
     } else {
       showLogoHeader();
     }
+    if (screenId === 'screen-plans' && typeof renderMemoryVerseHomeCard === 'function') renderMemoryVerseHomeCard();
     panel.scrollTop = 0;
   }
 
