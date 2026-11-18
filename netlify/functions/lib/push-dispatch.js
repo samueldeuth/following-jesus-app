@@ -3,8 +3,8 @@
 // The brain of the push system. Runs every 15 minutes (see netlify.toml ->
 // send-daily-notifications -> push-dispatch-background) and does three jobs:
 //
-//   1. REMINDERS  -- reading reminder, verse of the day, the six 52-day plan
-//      reminders. Each phone stores its own choices (on/off, daily/weekly,
+//   1. REMINDERS  -- reading reminder, verse of the day, memory verse, the six
+//      52-day plan reminders. Each phone stores its own choices (on/off, daily/weekly,
 //      hour) in push_prefs plus its own timezone in push_devices. A
 //      reminder is "due" when the phone's LOCAL clock is inside the
 //      15-minute slot of the hour it chose -- the same "7 AM wherever you
@@ -42,6 +42,7 @@ const DEVOTIONAL_PLAN_TITLES = {
 const READING_TARGET_URL = 'https://followingjesus.com/app#bible';
 const VERSE_TARGET_URL = 'https://followingjesus.com/app';
 const DEVO_PLAN_TARGET_URL = 'https://followingjesus.com/app#plans';
+const MEMORY_VERSE_TARGET_URL = 'https://followingjesus.com/app#memory-verse';
 
 // ---------- small helpers ----------
 function slotKeyFor(now) {
@@ -107,6 +108,8 @@ async function buildContent(kind, localDate, cache, fetchVerseText) {
       body: text ? `${truncateForPush(text, 130)} — ${label}` : `Open today's verse from ${label} →`,
       targetUrl: VERSE_TARGET_URL,
     };
+  } else if (kind === 'memory_verse') {
+    content = { title: 'Memory Verse', body: 'Take a minute to practice your memory verse.', targetUrl: MEMORY_VERSE_TARGET_URL };
   } else if (kind.startsWith('devo_reminder_')) {
     const title = DEVOTIONAL_PLAN_TITLES[kind.slice('devo_reminder_'.length)];
     if (title) content = { title, body: `Don't forget today's reading in ${title}!`, targetUrl: DEVO_PLAN_TARGET_URL };
