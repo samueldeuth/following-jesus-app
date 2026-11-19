@@ -2391,6 +2391,7 @@
           <select id="translationSelect" class="bible-select-inline bible-select-translation">
             <option value="bsb" selected>BSB</option>
             <option value="kjv">KJV</option>
+            <option value="web">WEB</option>
             <option value="webbe">WEB (British)</option>
           </select>
           <select id="bookSelect" class="bible-select-inline"></select>
@@ -2612,7 +2613,7 @@
 // Standard Bible (public domain, uses "LORD") comes from the free
 // HelloAO API one chapter at a time and is sliced into the same shape
 // the old bible-api.com calls returned: { text, verses:[{verse,text}] }.
-// KJV / ASV / WEB British still come from bible-api.com. If a BSB request
+// KJV / WEB / WEB British still come from bible-api.com. If a BSB request
 // fails, we quietly fall back to WEB British (also "LORD") so a verse never
 // goes blank.
 (function () {
