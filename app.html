@@ -3289,12 +3289,58 @@
     document.getElementById('mvShow').addEventListener('click', () => mvRenderRead(text, done));
   }
 
+
+  // ---- Memory Verse badges ----
+  // First verse, 7 verses (across all sets), and a finished 52-verse set.
+  // Awarded through the same award_badge() the other badges use, only for
+  // signed-in people. A badge is only remembered as "awarded" after the
+  // server accepts it, so a failed attempt is retried next time.
+  async function mvProgressTotals() {
+    let total = 0, completedSets = 0;
+    for (const k of Object.keys(DEVOTIONAL_PLANS_MANIFEST)) {
+      let s = null;
+      try { s = await dSafeGet(MV_KEY + '_' + k); } catch (e) {}
+      const n = s && Array.isArray(s.memorized) ? new Set(s.memorized).size : 0;
+      total += n;
+      if (n >= 52) completedSets++;
+    }
+    return { total, completedSets };
+  }
+  function mvBadgesWanted(t) {
+    const want = [];
+    if (t.total >= 1) want.push('memory_first_verse');
+    if (t.total >= 7) want.push('memory_seven_verses');
+    if (t.completedSets >= 1) want.push('memory_set_complete');
+    return want;
+  }
+  async function mvAwardBadges() {
+    try {
+      if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session || !session.user) return;
+      const want = mvBadgesWanted(await mvProgressTotals());
+      if (!want.length) return;
+      const done = new Set((await dSafeGet('mvBadgesAwarded')) || []);
+      let any = false;
+      for (const key of want) {
+        if (done.has(key)) continue;
+        const { error } = await supabaseClient.rpc('award_badge', { p_badge_key: key });
+        if (error) { console.log('[memory verse] badge not awarded yet', key, error.message); continue; }
+        done.add(key); any = true;
+      }
+      await dSafeSet('mvBadgesAwarded', Array.from(done));
+      if (any && typeof celebrateNewBadgesIfAny === 'function') await celebrateNewBadgesIfAny(session.user.id);
+    } catch (e) {}
+  }
+  window.__mvBadges = { wanted: mvBadgesWanted };
+
   async function mvMarkMemorized() {
     const st = mvState;
     if (!st.memorized.includes(st.day)) st.memorized.push(st.day);
     const nxt = mvNextDay(st.day, st.memorized);
     const finished = st.memorized.length >= 52;
     await mvSave();
+    mvAwardBadges();   // first verse / 7 verses / finished set (signed-in only; never blocks)
     const body = document.getElementById('devoPlanModalBody');
     const meta = DEVOTIONAL_PLANS_MANIFEST[st.plan];
     body.innerHTML = `
@@ -3337,6 +3383,7 @@
   window.renderMemoryVerseHomeCard = renderMemoryVerseHomeCard;
   window.addEventListener('load', () => {
     renderMemoryVerseHomeCard();
+    setTimeout(mvAwardBadges, 6000);   // catches badges earned while signed out
     const bs = document.getElementById('memoryVerseBannerSlide');
     if (bs) bs.addEventListener('click', openMemoryVerse);
   });
@@ -3991,6 +4038,9 @@
     { key: 'good_news_sharer', title: 'Good News Sharer', description: 'Leading people to Jesus is the greatest joy!', svg: '<circle r="58" fill="#e3f6f3" stroke="#0d7a6e" stroke-width="2"/><circle r="47" fill="#2fbfa8"/><rect x="-7" y="-32" width="14" height="64" rx="2" fill="#0d7a6e"/><rect x="-22" y="-14" width="44" height="14" rx="2" fill="#0d7a6e"/>' },
     { key: 'disciple_maker', title: 'Disciple Maker', description: 'Time to make disciples!', svg: '<circle r="58" fill="#f2ede2" stroke="#6b4423" stroke-width="2"/><circle r="47" fill="#d4b896"/><g fill="#6b4423"><circle cx="-10" cy="-14" r="10"/><path d="M-26,22 C-26,4 6,4 6,22 Z"/></g><g stroke="#6b4423" stroke-width="3" stroke-linecap="round"><line x1="21" y1="-8" x2="21" y2="8"/><line x1="13" y1="0" x2="29" y2="0"/></g>' },
     { key: 'first_disciple', title: 'First Disciple', description: 'The first person joins your group! Now the journey begins.', svg: '<circle r="58" fill="#e9f1e6" stroke="#2f5d34" stroke-width="2"/><circle r="47" fill="#a9cfa0"/><g fill="#2f5d34"><circle cx="-18" cy="-14" r="9"/><path d="M-30,22 C-30,4 -6,4 -6,22 Z"/><circle cx="18" cy="-14" r="9"/><path d="M6,22 C6,4 30,4 30,22 Z"/></g>' },
+    { key: 'memory_first_verse', title: 'First Verse', description: 'You memorized your first verse. Hidden in your heart!', svg: '<circle r="58" fill="#f3efdc" stroke="#6b5a1e" stroke-width="2"/><circle r="47" fill="#dccb7e"/><circle cx="-13" cy="-8" r="9" fill="#6b5a1e"/><path d="M-22,-8 C-22,6 -16,14 -8,17 L-10,9 C-14,7 -14,3 -14,-1 Z" fill="#6b5a1e"/><circle cx="13" cy="-8" r="9" fill="#6b5a1e"/><path d="M4,-8 C4,6 10,14 18,17 L16,9 C12,7 12,3 12,-1 Z" fill="#6b5a1e"/>' },
+    { key: 'memory_seven_verses', title: '7 Verses', description: 'Seven verses memorized. God\'s Word is taking root in you!', svg: '<circle r="58" fill="#e9eef6" stroke="#2c3e7a" stroke-width="2"/><circle r="47" fill="#a4b7ea"/><path d="M-26,-14 C-14,-19 -4,-16 0,-10 L0,14 C-4,9 -14,6 -26,11 Z" fill="#2c3e7a"/><path d="M26,-14 C14,-19 4,-16 0,-10 L0,14 C4,9 14,6 26,11 Z" fill="#2c3e7a"/><text x="0" y="-22" text-anchor="middle" font-family="Georgia, serif" font-size="30" font-weight="700" fill="#2c3e7a">7</text><path d="M-14,26 L14,26" stroke="#2c3e7a" stroke-width="3" stroke-linecap="round"/>' },
+    { key: 'memory_set_complete', title: 'Set Complete', description: 'You memorized every verse in a full 52-verse set. Well done!', svg: '<circle r="58" fill="#f7ecc8" stroke="#8a6d1a" stroke-width="2"/><circle r="47" fill="#ecc95e"/><path d="M-30,18 C-40,2 -38,-18 -24,-30" fill="none" stroke="#8a6d1a" stroke-width="3" stroke-linecap="round"/><path d="M30,18 C40,2 38,-18 24,-30" fill="none" stroke="#8a6d1a" stroke-width="3" stroke-linecap="round"/><g fill="#8a6d1a"><ellipse cx="-34" cy="-6" rx="5" ry="2.6" transform="rotate(-60 -34 -6)"/><ellipse cx="-31" cy="-18" rx="5" ry="2.6" transform="rotate(-40 -31 -18)"/><ellipse cx="-35" cy="6" rx="5" ry="2.6" transform="rotate(-80 -35 6)"/><ellipse cx="34" cy="-6" rx="5" ry="2.6" transform="rotate(60 34 -6)"/><ellipse cx="31" cy="-18" rx="5" ry="2.6" transform="rotate(40 31 -18)"/><ellipse cx="35" cy="6" rx="5" ry="2.6" transform="rotate(80 35 6)"/></g><text x="0" y="9" text-anchor="middle" font-family="Georgia, serif" font-size="30" font-weight="700" fill="#6b5412">52</text><path d="M-10,19 L-3,26 L11,13" fill="none" stroke="#6b5412" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>' },
     { key: 'firm_foundation', title: 'Firm Foundation', description: 'Your life is built on the rock of Jesus!', svg: '<circle r="58" fill="#eceee8" stroke="#3f4a42" stroke-width="2"/><circle r="47" fill="#9db0a3"/><path d="M-32,22 L-22,4 L-10,11 L2,-4 L16,7 L32,16 L32,26 L-32,26 Z" fill="#3f4a42"/><rect x="-15" y="-8" width="30" height="18" fill="#eceee8" stroke="#3f4a42" stroke-width="2"/><path d="M-19,-8 L0,-26 L19,-8 Z" fill="#3f4a42"/>' }
   ];
 
