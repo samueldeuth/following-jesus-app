@@ -2389,9 +2389,9 @@
         </button>
         <div class="bible-bottombar-picker">
           <select id="translationSelect" class="bible-select-inline bible-select-translation">
-            <option value="web">WEB</option>
+            <option value="bsb" selected>BSB</option>
             <option value="kjv">KJV</option>
-            <option value="asv">ASV</option>
+            <option value="webbe">WEB (British)</option>
           </select>
           <select id="bookSelect" class="bible-select-inline"></select>
           <select id="chapterSelect" class="bible-select-inline bible-select-chapter"></select>
@@ -2606,6 +2606,109 @@
 
 </div>
 
+<script>
+// ---------- Shared Bible text loader (BSB default) ----------
+// One place that fetches scripture text for every screen. The Berean
+// Standard Bible (public domain, uses "LORD") comes from the free
+// HelloAO API one chapter at a time and is sliced into the same shape
+// the old bible-api.com calls returned: { text, verses:[{verse,text}] }.
+// KJV / ASV / WEB British still come from bible-api.com. If a BSB request
+// fails, we quietly fall back to WEB British (also "LORD") so a verse never
+// goes blank.
+(function () {
+  var BOOK_LIST = [["GEN","Genesis"],["EXO","Exodus"],["LEV","Leviticus"],["NUM","Numbers"],["DEU","Deuteronomy"],["JOS","Joshua"],["JDG","Judges"],["RUT","Ruth"],["1SA","1 Samuel"],["2SA","2 Samuel"],["1KI","1 Kings"],["2KI","2 Kings"],["1CH","1 Chronicles"],["2CH","2 Chronicles"],["EZR","Ezra"],["NEH","Nehemiah"],["EST","Esther"],["JOB","Job"],["PSA","Psalms"],["PRO","Proverbs"],["ECC","Ecclesiastes"],["SNG","Song of Solomon"],["ISA","Isaiah"],["JER","Jeremiah"],["LAM","Lamentations"],["EZK","Ezekiel"],["DAN","Daniel"],["HOS","Hosea"],["JOL","Joel"],["AMO","Amos"],["OBA","Obadiah"],["JON","Jonah"],["MIC","Micah"],["NAM","Nahum"],["HAB","Habakkuk"],["ZEP","Zephaniah"],["HAG","Haggai"],["ZEC","Zechariah"],["MAL","Malachi"],["MAT","Matthew"],["MRK","Mark"],["LUK","Luke"],["JHN","John"],["ACT","Acts"],["ROM","Romans"],["1CO","1 Corinthians"],["2CO","2 Corinthians"],["GAL","Galatians"],["EPH","Ephesians"],["PHP","Philippians"],["COL","Colossians"],["1TH","1 Thessalonians"],["2TH","2 Thessalonians"],["1TI","1 Timothy"],["2TI","2 Timothy"],["TIT","Titus"],["PHM","Philemon"],["HEB","Hebrews"],["JAS","James"],["1PE","1 Peter"],["2PE","2 Peter"],["1JN","1 John"],["2JN","2 John"],["3JN","3 John"],["JUD","Jude"],["REV","Revelation"]];
+  var ALIAS = {};
+  function norm(s) { return String(s).toLowerCase().replace(/[^a-z0-9]/g, ''); }
+  BOOK_LIST.forEach(function (b) { ALIAS[norm(b[0])] = b[0]; ALIAS[norm(b[1])] = b[0]; });
+  ALIAS.psalm = 'PSA'; ALIAS.songofsongs = 'SNG'; ALIAS.songofsolomon = 'SNG'; ALIAS.revelations = 'REV';
+  ALIAS.mark = 'MRK'; ALIAS.john = 'JHN'; ALIAS.ezekiel = 'EZK'; ALIAS.joel = 'JOL';
+
+  // "Romans 4:18[^c49]", "Colossians 2:12 (esv)", "James 4:8a", "PSA 119:1-88",
+  // "BK 3-4", "John 3:16-4:2", "GEN 1" -> { id, c1, v1, c2, v2 } (null verse = whole chapter)
+  function parseRef(ref) {
+    var s = String(ref || '').replace(/\[\^[^\]]*\]/g, '').replace(/\([^)]*\)/g, '').replace(/\s*(NIV|ESV|MSG|NLT|NKJV|KJV)\s*$/i, '').trim();
+    var m = s.match(/^(.+?)\s+(\d+)(?::(\d+)[a-z]?)?(?:\s*[-–—]\s*(?:(\d+):)?(\d+)[a-z]?)?$/);
+    if (!m) return null;
+    var id = ALIAS[norm(m[1])];
+    if (!id) return null;
+    var c1 = +m[2], v1 = m[3] ? +m[3] : null, c2 = c1, v2 = v1;
+    if (m[5]) {
+      if (v1 === null) { c2 = +m[5]; }              // chapter range "3-4"
+      else if (m[4]) { c2 = +m[4]; v2 = +m[5]; }    // "3:16-4:2"
+      else { v2 = +m[5]; }                          // verse range
+    }
+    return { id: id, c1: c1, v1: v1, c2: c2, v2: v2 };
+  }
+
+  function verseText(content) {
+    var out = '';
+    (content || []).forEach(function (p) {
+      if (typeof p === 'string') out += (out && !/\s$/.test(out) ? ' ' : '') + p;
+      else if (p && typeof p.text === 'string' && !p.descriptive) out += (out && !/\s$/.test(out) ? ' ' : '') + p.text;
+    });
+    return out.replace(/\s+/g, ' ').trim();
+  }
+
+  var chapterCache = {};
+  function bsbChapter(id, ch) {
+    var k = id + '/' + ch;
+    if (!chapterCache[k]) {
+      chapterCache[k] = fetch('https://bible.helloao.org/api/BSB/' + id + '/' + ch + '.json')
+        .then(function (r) { if (!r.ok) throw new Error('helloao ' + r.status); return r.json(); })
+        .then(function (j) {
+          var vs = [];
+          ((j.chapter && j.chapter.content) || []).forEach(function (it) {
+            if (it && it.type === 'verse') vs.push({ verse: it.number, text: verseText(it.content) });
+          });
+          if (!vs.length) throw new Error('no verses');
+          return vs;
+        })
+        .catch(function (e) { delete chapterCache[k]; throw e; });
+    }
+    return chapterCache[k];
+  }
+
+  async function bsbGet(ref) {
+    var p = parseRef(ref);
+    if (!p) throw new Error('unparsed ref ' + ref);
+    var verses = [];
+    for (var c = p.c1; c <= p.c2; c++) {
+      var vs = await bsbChapter(p.id, c);
+      vs.forEach(function (v) {
+        if (p.v1 !== null) {
+          if (c === p.c1 && v.verse < p.v1) return;
+          if (c === p.c2 && p.v2 !== null && v.verse > p.v2) return;
+        }
+        verses.push({ chapter: c, verse: v.verse, text: v.text });
+      });
+    }
+    if (!verses.length) throw new Error('empty slice');
+    return { translation: 'bsb', verses: verses, text: verses.map(function (v) { return v.text; }).join(' ') };
+  }
+
+  async function apiGet(ref, tr) {
+    var p = parseRef(ref);
+    var q = p ? (p.id + '+' + p.c1 + (p.v1 !== null ? ':' + p.v1 : '') + (p.c2 !== p.c1 || p.v2 !== p.v1 ? '-' + (p.c2 !== p.c1 && p.v1 !== null ? p.c2 + ':' : '') + (p.v2 !== null ? p.v2 : p.c2) : ''))
+              : encodeURIComponent(String(ref).replace(/\[\^[^\]]*\]|\([^)]*\)/g, '').trim());
+    var res = await fetch('https://bible-api.com/' + q + '?translation=' + tr);
+    if (!res.ok) throw new Error('bible-api ' + res.status);
+    var d = await res.json();
+    if (!d || !d.verses) throw new Error('bible-api empty');
+    return { translation: tr, verses: d.verses, text: String(d.text || '').trim() };
+  }
+
+  // get(ref, translation) -> { text, verses:[{verse,text}] }; throws only if every source fails.
+  async function get(ref, tr) {
+    tr = (tr || 'bsb').toLowerCase();
+    if (tr === 'bsb') {
+      try { return await bsbGet(ref); } catch (e) { return await apiGet(ref, 'webbe'); }
+    }
+    return await apiGet(ref, tr);
+  }
+
+  window.fjBible = { get: get, parseRef: parseRef, DEFAULT: 'bsb' };
+})();
+</script>
 <script>
   // These need to be declared here, at the very top of the script, rather
   // than further down near the rest of the Supabase setup code — some
@@ -2948,14 +3051,13 @@
       <div class="bible-reader" style="margin-top:14px;">
         <div class="bible-chapter-title">${escapeHtmlMain(entry.reference.replace(/\s*(NIV|ESV|MSG)\s*$/i, ''))}</div>
         <p class="bible-text" id="devoVerseText">Loading verse…</p>
-        <div class="bible-translation-note">World English Bible &middot; public domain</div>
+        <div class="bible-translation-note">Berean Standard Bible &middot; public domain</div>
       </div>
     `;
     document.getElementById('devoVerseBack').addEventListener('click', () => renderDevoPlanDay(planKey, day));
     try {
       const cleanRef = entry.reference.replace(/\s*(NIV|ESV|MSG)\s*$/i, '');
-      const res = await fetch(`https://bible-api.com/${encodeURIComponent(cleanRef)}?translation=web`);
-      const data = await res.json();
+      const data = await window.fjBible.get(cleanRef, 'bsb');
       const el = document.getElementById('devoVerseText');
       if (el) el.textContent = data && data.text ? data.text.trim() : 'Verse unavailable right now.';
     } catch (e) {
@@ -2972,7 +3074,7 @@
   // it's learned -- that moves on to the next verse. No streaks, no
   // scores, no leaderboard. Progress is one small saved blob (same
   // dSafeGet/dSafeSet storage the 52-day plans use), so no new table.
-  // Verse wording is the public-domain WEB, same as the plan verse view.
+  // Verse wording is the public-domain Berean Standard Bible (BSB), same as the plan verse view.
   const MV_KEY = 'memoryVerse';
   const mvVerseTextCache = {};
   let mvState = null;           // { plan, day, memorized: [] } or null
@@ -3002,8 +3104,7 @@
     if (mvVerseTextCache[k]) return mvVerseTextCache[k];
     const plan = await loadDevoPlanFull(planKey);
     const ref = mvCleanRef(plan.days[day - 1].reference);
-    const res = await fetch(`https://bible-api.com/${encodeURIComponent(ref)}?translation=web`);
-    const data = await res.json();
+    const data = await window.fjBible.get(ref, 'bsb');
     const text = data && data.text ? data.text.trim().replace(/\s+/g, ' ') : '';
     if (!text) throw new Error('no text');
     mvVerseTextCache[k] = text;
@@ -3167,7 +3268,7 @@
       <div class="bible-reader mv-card" style="margin-top:12px;">
         <div class="bible-chapter-title">${escapeHtmlMain(ref)}${done ? ' <span class="mv-badge">Memorized ✓</span>' : ''}</div>
         <div id="mvStage"></div>
-        <div class="bible-translation-note">World English Bible &middot; public domain</div>
+        <div class="bible-translation-note">Berean Standard Bible &middot; public domain</div>
       </div>
       <div id="mvActions"></div>
       <div id="mvMemList"></div>
@@ -4530,11 +4631,8 @@
   let todaysGospelCards = [];
 
   async function fetchGospelVerseText(bibleRef) {
-    const [id, ...rest] = bibleRef.split(' ');
     try {
-      const res = await fetch(`https://bible-api.com/${id}+${rest.join(' ')}?translation=web`);
-      if (!res.ok) throw new Error(`bible-api.com returned ${res.status}`);
-      const data = await res.json();
+      const data = await window.fjBible.get(bibleRef, 'bsb');
       const text = (data.text || '').trim().replace(/\s+/g, ' ');
       if (!text) throw new Error('empty verse text');
       return text;
@@ -10878,8 +10976,7 @@ async function renderDiscipleshipApp() {
     const translation = translationSelect.value;
     reader.innerHTML = `<div class="bible-loading">Loading ${book[1]} ${chapter}…</div>`;
     try {
-      const res = await fetch(`https://bible-api.com/${book[0]}+${chapter}?translation=${translation}`);
-      const data = await res.json();
+      const data = await window.fjBible.get(`${book[0]} ${chapter}`, translation);
       if (!data.verses) throw new Error('No verses');
       const versesHtml = data.verses.map(v => `<sup>${v.verse}</sup>${v.text.trim()} `).join('');
       reader.innerHTML = `<div class="bible-chapter-title">${book[1]} ${chapter}</div><div class="bible-text">${versesHtml}</div>`;
@@ -11072,15 +11169,13 @@ async function renderDiscipleshipApp() {
     const chapter = match[1];
     const verse = match[2] || '1';
 
-    // 'web' matches translationSelect's default (first/no explicit
+    // 'bsb' matches translationSelect's default (first/no explicit
     // "selected" option) elsewhere in this file, and matches the
     // translation send-daily-notifications.js requests server-side.
-    const translation = 'web';
+    const translation = 'bsb';
 
     try {
-      const res = await fetch(`https://bible-api.com/${id}+${chapter}:${verse}?translation=${translation}`);
-      if (!res.ok) throw new Error(`bible-api.com returned ${res.status}`);
-      const data = await res.json();
+      const data = await window.fjBible.get(`${id} ${chapter}:${verse}`, translation);
       const text = (data.text || '').trim().replace(/\s+/g, ' ');
       if (!text) throw new Error('empty verse text');
       textEl.textContent = `"${text}"`;
@@ -11270,9 +11365,7 @@ async function renderDiscipleshipApp() {
     reader.innerHTML = `<div class="bible-loading">Loading Day ${planDay}…</div>`;
     try {
       const chunks = await Promise.all(refs.map(async ref => {
-        const [id, rest] = ref.split(/ (.+)/);
-        const res = await fetch(`https://bible-api.com/${id}+${rest}?translation=${translationSelect.value}`);
-        const data = await res.json();
+        const data = await window.fjBible.get(ref, translationSelect.value);
         return { label: refLabel(ref), verses: data.verses || [] };
       }));
       reader.innerHTML = chunks.map((c, i) => `
@@ -11370,9 +11463,7 @@ async function renderDiscipleshipApp() {
     planPlayLabel.textContent = 'Loading…';
     try {
       const chunks = await Promise.all(refs.map(async ref => {
-        const [id, rest] = ref.split(/ (.+)/);
-        const res = await fetch(`https://bible-api.com/${id}+${rest}?translation=${translationSelect.value}`);
-        const data = await res.json();
+        const data = await window.fjBible.get(ref, translationSelect.value);
         return (data.verses || []).map(v => v.text.trim()).join(' ');
       }));
       planQueue = chunks;
