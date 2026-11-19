@@ -2164,7 +2164,7 @@
         <div class="today-track" id="todayTrack">
           <div class="today-slide" id="todaySlideVerse">
             <div class="today-eyebrow">
-              <span>Verse of the Day</span>
+              <span id="todaySlideVerseTitle">Verse of the Day</span>
               <span class="date" id="todayVerseDate">Loading…</span>
             </div>
             <div class="today-verse" id="todayVerseText">
@@ -11254,13 +11254,14 @@ async function renderDiscipleshipApp() {
         '<div class="today-ref">' + esc(refLabel) + '</div>';
       return d;
     };
-    track.appendChild(mk('Observe the Verse', 2, '', e.o));
-    track.appendChild(mk('Apply the Verse', 3, '', e.a));
-    track.appendChild(mk('Pray the Verse', 4, 'soap-prayer', e.p));
+    const t1 = document.getElementById('todaySlideVerseTitle'); if (t1) t1.textContent = 'Scripture';
+    track.appendChild(mk('Observation', 2, '', e.o));
+    track.appendChild(mk('Application', 3, '', e.a));
+    track.appendChild(mk('Prayer', 4, 'soap-prayer', e.p));
     track.classList.add('soap-on');
     let swiped = false;
     try { swiped = localStorage.getItem('fj_soapSwiped') === '1'; } catch (err) {}
-    dots.innerHTML = '<button type="button" class="active" aria-label="Verse"></button><button type="button" aria-label="Observation"></button><button type="button" aria-label="Application"></button><button type="button" aria-label="Prayer"></button>' +
+    dots.innerHTML = '<button type="button" class="active" aria-label="Scripture"></button><button type="button" aria-label="Observation"></button><button type="button" aria-label="Application"></button><button type="button" aria-label="Prayer"></button>' +
       (swiped ? '' : '<span class="today-soap-hint" id="todaySoapHint">Swipe \u203a</span>');
     dots.classList.add('on');
     const btns = [...dots.querySelectorAll('button')];
