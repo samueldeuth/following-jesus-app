@@ -249,6 +249,35 @@
     color: var(--ink-soft);
   }
 
+  /* SOAP swipe: on days that have a Scripture / Observation / Application /
+     Prayer set, the Today card becomes a 4-card swipe. Everything here only
+     applies once JS adds .soap-on, so other days look exactly as before. */
+  .today-track.soap-on {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin: 0 -26px;
+  }
+  .today-track.soap-on::-webkit-scrollbar { display: none; }
+  .today-track.soap-on .today-slide {
+    flex: 0 0 100%;
+    box-sizing: border-box;
+    padding: 0 26px;
+    scroll-snap-align: start;
+  }
+  .today-slide .today-verse.soap-text { font-style: normal; font-size: 18px; line-height: 1.55; }
+  .today-slide .today-verse.soap-prayer { font-style: italic; font-size: 19px; }
+  .today-soap-dots { display: none; align-items: center; justify-content: center; gap: 7px; margin-top: 16px; }
+  .today-soap-dots.on { display: flex; }
+  .today-soap-dots button {
+    width: 7px; height: 7px; padding: 0; border: none; border-radius: 50%;
+    background: rgba(0,0,0,0.2); cursor: pointer;
+  }
+  .today-soap-dots button.active { background: var(--ember); width: 18px; border-radius: 4px; }
+  .today-soap-hint { font-size: 11.5px; letter-spacing: 0.04em; color: var(--ink-soft); margin-left: 6px; }
+
   .notif-toggle {
     display: flex;
     align-items: center;
@@ -2132,14 +2161,19 @@
       </div>
 
       <div class="today">
-        <div class="today-eyebrow">
-          <span>Verse of the Day</span>
-          <span class="date" id="todayVerseDate">Loading…</span>
+        <div class="today-track" id="todayTrack">
+          <div class="today-slide" id="todaySlideVerse">
+            <div class="today-eyebrow">
+              <span>Verse of the Day</span>
+              <span class="date" id="todayVerseDate">Loading…</span>
+            </div>
+            <div class="today-verse" id="todayVerseText">
+              Loading today's verse…
+            </div>
+            <div class="today-ref" id="todayVerseRef"></div>
+          </div>
         </div>
-        <div class="today-verse" id="todayVerseText">
-          Loading today's verse…
-        </div>
-        <div class="today-ref" id="todayVerseRef"></div>
+        <div class="today-soap-dots" id="todaySoapDots" aria-label="Verse of the Day cards"></div>
         <button type="button" class="verse-alert-bell with-label" id="verseOfDayBellBtn" aria-label="Verse of the Day alert settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line class="verse-alert-bell-slash" x1="3" y1="3" x2="21" y2="21"/></svg>
           <span>Daily verse alert</span>
@@ -11187,6 +11221,62 @@ async function renderDiscipleshipApp() {
       textEl.textContent = 'Open today\u2019s verse in the Bible tab to see this verse.';
     }
     refEl.textContent = `${bookName(id).toUpperCase()} ${chapterVersePart}`;
+    try { loadTodaySoap(todaysRef, refEl.textContent); } catch (e) { /* card stays a single verse */ }
+  }
+
+  // ---------- Verse of the Day: Observation / Application / Prayer swipe ----------
+  // The words live in /soap-bank.json (keyed by the same reference as
+  // VERSE_OF_DAY_LIST) so entries can be added without touching this file.
+  // A day with no entry simply keeps the single verse card.
+  let soapBankPromise = null;
+  function getSoapBank() {
+    if (!soapBankPromise) {
+      soapBankPromise = fetch('/soap-bank.json')
+        .then(r => { if (!r.ok) throw new Error('soap ' + r.status); return r.json(); })
+        .catch(e => { soapBankPromise = null; return null; });
+    }
+    return soapBankPromise;
+  }
+  async function loadTodaySoap(todaysRef, refLabel) {
+    const track = document.getElementById('todayTrack');
+    const dots = document.getElementById('todaySoapDots');
+    const dateEl = document.getElementById('todayVerseDate');
+    if (!track || !dots || track.classList.contains('soap-on')) return;
+    const bank = await getSoapBank();
+    const e = bank && bank.entries && bank.entries[todaysRef];
+    if (!e || !e.o || !e.a || !e.p) return;
+    const esc = escapeHtmlMain;
+    const mk = (title, step, cls, text) => {
+      const d = document.createElement('div');
+      d.className = 'today-slide';
+      d.innerHTML = '<div class="today-eyebrow"><span>' + esc(title) + '</span><span class="date">' + step + ' of 4</span></div>' +
+        '<div class="today-verse soap-text ' + cls + '">' + esc(text) + '</div>' +
+        '<div class="today-ref">' + esc(refLabel) + '</div>';
+      return d;
+    };
+    track.appendChild(mk('Observe the Verse', 2, '', e.o));
+    track.appendChild(mk('Apply the Verse', 3, '', e.a));
+    track.appendChild(mk('Pray the Verse', 4, 'soap-prayer', e.p));
+    track.classList.add('soap-on');
+    let swiped = false;
+    try { swiped = localStorage.getItem('fj_soapSwiped') === '1'; } catch (err) {}
+    dots.innerHTML = '<button type="button" class="active" aria-label="Verse"></button><button type="button" aria-label="Observation"></button><button type="button" aria-label="Application"></button><button type="button" aria-label="Prayer"></button>' +
+      (swiped ? '' : '<span class="today-soap-hint" id="todaySoapHint">Swipe \u203a</span>');
+    dots.classList.add('on');
+    const btns = [...dots.querySelectorAll('button')];
+    btns.forEach((b, i) => b.addEventListener('click', () => track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' })));
+    let t = null;
+    track.addEventListener('scroll', () => {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        const i = Math.max(0, Math.min(3, Math.round(track.scrollLeft / Math.max(1, track.clientWidth))));
+        btns.forEach((b, j) => b.classList.toggle('active', j === i));
+        if (i > 0) {
+          const h = document.getElementById('todaySoapHint'); if (h) h.remove();
+          try { localStorage.setItem('fj_soapSwiped', '1'); } catch (err) {}
+        }
+      }, 60);
+    }, { passive: true });
   }
   loadTodayVerse();
 
