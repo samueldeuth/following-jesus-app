@@ -123,7 +123,8 @@
         var el = allClicks ? t.closest('[data-track], a[href], button') : t.closest('[data-track]');
         if (!el) return;
         if (el.closest('input, textarea, select, form')) { if (!el.hasAttribute('data-track')) return; }
-        var label = (el.getAttribute('data-track') || el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+        var heading = el.querySelector && el.querySelector('h1,h2,h3,h4');
+        var label = (el.getAttribute('data-track') || el.getAttribute('aria-label') || (heading && heading.textContent) || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60);
         if (!label) return;
         var key = label + '|' + areaOf(el), now = Date.now();
         if (key === lastKey && now - lastAt < 500) return;
