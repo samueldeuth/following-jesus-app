@@ -4053,7 +4053,38 @@ function paintWebsiteReport(r, start){
   const campRows = (r.campaigns || []).map(x => `<tr><td style="font-weight:600;">${escapeHtmlReport(x.campaign)}</td><td>${escapeHtmlReport([x.source, x.medium].filter(Boolean).join(' / '))}</td><td>${n(x.visits)}</td></tr>`).join('');
   const countries = r.countries || [];
   const maxCty = Math.max(1, ...countries.map(c => Number(c.visits)));
-  const ctyRows = countries.map(c => `<tr><td style="font-weight:600;">${escapeHtmlReport(websiteCountryName(c.country))}</td><td style="width:50%;">${bar(c.visits, maxCty, websiteDelta(c.visits, c.prev_visits))}</td></tr>`).join('');
+  // Country > state/province > city tree. Older visits (before states and cities were saved) have no region.
+  const places = r.places || [];
+  const geo = {};
+  places.forEach(pl => {
+    const c = geo[pl.country] || (geo[pl.country] = { regions: {}, known: 0 });
+    const rk = pl.region || '';
+    const rg = c.regions[rk] || (c.regions[rk] = { visits: 0, cities: {} });
+    rg.visits += Number(pl.visits);
+    if(pl.city) rg.cities[pl.city] = (rg.cities[pl.city] || 0) + Number(pl.visits);
+    if(rk) c.known += Number(pl.visits);
+  });
+  const gk = (...a) => escapeHtmlReport(a.join('|'));
+  const geoRows = (c) => {
+    const g = geo[c.country];
+    const regs = g ? Object.keys(g.regions).filter(k => k).sort((a, b) => g.regions[b].visits - g.regions[a].visits) : [];
+    const unknown = g && g.regions[''] ? g.regions[''].visits : 0;
+    const toggle = (open) => `<button type="button" class="geo-toggle" aria-expanded="false" style="border:0;background:none;cursor:pointer;font-size:12px;width:20px;padding:0;color:var(--ink-soft);">&#9656;</button>`;
+    let html = `<tr class="geo-c" data-geo="${gk(c.country)}"><td style="font-weight:600;">${regs.length ? toggle() : '<span style="display:inline-block;width:20px;"></span>'}${escapeHtmlReport(websiteCountryName(c.country))}</td><td style="width:50%;">${bar(c.visits, maxCty, websiteDelta(c.visits, c.prev_visits))}</td></tr>`;
+    regs.forEach(rk => {
+      const rg = g.regions[rk];
+      const cities = Object.keys(rg.cities).sort((a, b) => rg.cities[b] - rg.cities[a]);
+      html += `<tr class="geo-r" data-geo-parent="${gk(c.country)}" data-geo="${gk(c.country, rk)}" style="display:none;"><td style="padding-left:30px;">${cities.length ? toggle() : '<span style="display:inline-block;width:20px;"></span>'}${escapeHtmlReport(rk)}</td><td>${bar(rg.visits, maxCty, '')}</td></tr>`;
+      cities.forEach(ct => {
+        html += `<tr class="geo-t" data-geo-parent="${gk(c.country, rk)}" data-geo-root="${gk(c.country)}" style="display:none;"><td style="padding-left:62px;color:var(--ink-soft);">${escapeHtmlReport(ct)}</td><td>${bar(rg.cities[ct], maxCty, '')}</td></tr>`;
+      });
+    });
+    if(regs.length && unknown){
+      html += `<tr class="geo-r" data-geo-parent="${gk(c.country)}" style="display:none;"><td style="padding-left:30px;color:var(--ink-soft);"><span style="display:inline-block;width:20px;"></span>Not recorded (earlier visits)</td><td>${bar(unknown, maxCty, '')}</td></tr>`;
+    }
+    return html;
+  };
+  const ctyRows = countries.map(geoRows).join('');
   const pages = r.pages || [];
   const maxPg = Math.max(1, ...pages.map(p => Number(p.views)));
   const pageRows = pages.map(p => `<tr><td><div style="font-weight:600;">${escapeHtmlReport(WEBSITE_PAGE_NAMES[p.path] || p.path)}</div><div style="font-size:11.5px;color:var(--ink-soft);">${escapeHtmlReport(p.path)}</div></td>
@@ -4085,7 +4116,7 @@ function paintWebsiteReport(r, start){
       ${campRows ? `<h4 style="font-size:13.5px;margin:18px 0 8px;">Tagged campaigns</h4>${table(['Campaign', 'Source / medium', 'Visits'], campRows, '')}` : ''}
     </div>
     <div class="card" style="margin-bottom:18px;max-width:900px;">
-      ${h3('Where in the world', 'Country is worked out by Netlify from the visitor\'s network when they arrive. It is approximate, and the address itself is never saved.')}
+      ${h3('Where in the world', 'Country, state and city are worked out by Netlify from the visitor\'s network when they arrive. They are approximate (a city can be the nearest big town), and the address itself is never saved. Tap the arrow beside a country to see its states or provinces, and beside a state to see its cities. States and cities only show for visits after this was added.')}
       ${table(['Country', 'Visits'], ctyRows, 'No visits in this range.')}
     </div>
     <div class="card" style="margin-bottom:18px;max-width:900px;">
@@ -4102,6 +4133,27 @@ function paintWebsiteReport(r, start){
     </div>
     <button class="mini-btn" id="website-export-btn">Export (CSV)</button>`;
 
+  bodyEl.querySelectorAll('.geo-toggle').forEach(btn => btn.addEventListener('click', () => {
+    const row = btn.closest('tr');
+    const key = row.dataset.geo;
+    const open = btn.getAttribute('aria-expanded') !== 'true';
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.innerHTML = open ? '&#9662;' : '&#9656;';
+    const rows = Array.from(bodyEl.querySelectorAll('tr[data-geo-parent], tr[data-geo-root]'));
+    if(open){
+      rows.filter(x => x.dataset.geoParent === key).forEach(x => { x.style.display = ''; });
+    } else {
+      // closing a country also closes its states; closing a state hides its cities
+      const hide = (k) => rows.filter(x => x.dataset.geoParent === k).forEach(x => {
+        x.style.display = 'none';
+        const tb = x.querySelector('.geo-toggle');
+        if(tb){ tb.setAttribute('aria-expanded', 'false'); tb.innerHTML = '&#9656;'; }
+        if(x.dataset.geo) hide(x.dataset.geo);
+      });
+      hide(key);
+    }
+  }));
+
   document.getElementById('website-export-btn').addEventListener('click', () => {
     const lines = [['Section', 'Name', 'Detail', 'Count', 'People', 'Previous period'].map(csvEscape).join(',')];
     const add = (...cols) => lines.push(cols.map(csvEscape).join(','));
@@ -4113,6 +4165,7 @@ function paintWebsiteReport(r, start){
     (r.referrers || []).forEach(x => add('Referring site', x.host, x.source, x.visits, '', ''));
     (r.campaigns || []).forEach(x => add('Campaign', x.campaign, [x.source, x.medium].filter(Boolean).join(' / '), x.visits, '', ''));
     countries.forEach(c => add('Country', websiteCountryName(c.country), c.country, c.visits, '', c.prev_visits));
+    places.filter(pl => pl.region).forEach(pl => add('Place', [pl.city, pl.region].filter(Boolean).join(', '), websiteCountryName(pl.country), pl.visits, '', ''));
     pages.forEach(p => add('Page', WEBSITE_PAGE_NAMES[p.path] || p.path, p.path, p.views, p.visitors, p.prev_views));
     clicks.forEach(c => add('Tap', c.label, [c.area, c.path].filter(Boolean).join(' '), c.clicks, c.people, c.prev_clicks));
     devs.forEach(d => add('Device', d.device, '', d.visits, '', ''));
