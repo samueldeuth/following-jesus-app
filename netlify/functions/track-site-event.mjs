@@ -1,7 +1,7 @@
 // netlify/functions/track-site-event.mjs
 //
-// Receives one tiny visit/click event from /fj-track.js, adds the visitor's COUNTRY
-// (Netlify works it out; the IP address itself is never read or stored), and saves it
+// Receives one tiny visit/click event from /fj-track.js, adds the visitor's COUNTRY, state and city
+// (Netlify works them out; the IP address itself is never read or stored), and saves it
 // through the log_site_event() database function created by website-tracking.sql.
 //
 // No environment variables needed: it uses the same public (anon) Supabase key the
@@ -27,7 +27,11 @@ export default async (req, context) => {
     try { b = await req.json(); } catch (e) { return done(); }
     if (!b || typeof b !== 'object') return done();
 
-    const country = (context && context.geo && context.geo.country && context.geo.country.code) || null;
+    const geo = (context && context.geo) || {};
+    const country = (geo.country && geo.country.code) || null;
+    // State/province and city are Netlify's approximate guess from the network; the IP itself is never read.
+    const region = (geo.subdivision && (geo.subdivision.name || geo.subdivision.code)) || null;
+    const city = geo.city || null;
 
     await fetch(`${SUPABASE_URL}/rest/v1/rpc/log_site_event`, {
       method: 'POST',
@@ -51,7 +55,9 @@ export default async (req, context) => {
         p_utm_campaign: str(b.utm_campaign, 80),
         p_country: country,
         p_device: str(b.device, 10),
-        p_in_app: b.in_app === true
+        p_in_app: b.in_app === true,
+        p_region: str(region, 60),
+        p_city: str(city, 60)
       })
     });
   } catch (e) {
