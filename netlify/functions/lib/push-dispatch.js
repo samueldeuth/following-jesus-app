@@ -77,12 +77,36 @@ function truncateForPush(text, maxLen) {
   return text.slice(0, maxLen).replace(/\s+\S*$/, '') + '…';
 }
 
-async function defaultFetchVerseText(ref, translation = 'web') {
+// Verse-of-the-Day wording comes from the Berean Standard Bible (public
+// domain, "LORD") via the free HelloAO API, one chapter per request; if that
+// fails we fall back to WEB British (also "LORD") on bible-api.com.
+function bsbVerseText(item) {
+  let out = '';
+  for (const p of item.content || []) {
+    const t = typeof p === 'string' ? p : (p && typeof p.text === 'string' && !p.descriptive ? p.text : '');
+    if (t) out += (out && !/\s$/.test(out) ? ' ' : '') + t;
+  }
+  return out.replace(/\s+/g, ' ').trim();
+}
+
+async function defaultFetchVerseText(ref) {
   const [id, ...rest] = ref.split(' ');
-  const m = rest.join(' ').match(/^(\d+)(?::(\d+))?/);
+  const m = rest.join(' ').match(/^(\d+)(?::(\d+)(?:-(\d+))?)?/);
   if (!m) return null;
+  const chapter = m[1];
+  const v1 = m[2] ? Number(m[2]) : 1;
+  const v2 = m[3] ? Number(m[3]) : v1;
   try {
-    const res = await fetch(`https://bible-api.com/${id}+${m[1]}:${m[2] || '1'}?translation=${translation}`);
+    const res = await fetch(`https://bible.helloao.org/api/BSB/${id}/${chapter}.json`);
+    if (!res.ok) throw new Error(`helloao ${res.status}`);
+    const data = await res.json();
+    const text = ((data.chapter && data.chapter.content) || [])
+      .filter(it => it && it.type === 'verse' && it.number >= v1 && it.number <= v2)
+      .map(bsbVerseText).join(' ').trim();
+    if (text) return text;
+  } catch (e) { /* fall through to the backup source */ }
+  try {
+    const res = await fetch(`https://bible-api.com/${id}+${chapter}:${v1}?translation=webbe`);
     if (!res.ok) return null;
     const data = await res.json();
     return (data.text || '').trim().replace(/\s+/g, ' ') || null;
