@@ -365,6 +365,7 @@ details.gifts-sec[open] > summary .gs-chev{transform:rotate(90deg);}
     <a class="sidebar-link" id="sidebar-dashboard-link">Overview</a>
     <a class="sidebar-link" id="sidebar-overview-link">Course</a>
     <a class="sidebar-link" id="sidebar-push-notifications-link">App</a>
+    <a class="sidebar-link" id="sidebar-website-link">Website</a>
     <a class="sidebar-link" id="sidebar-church-directory-link">Church Directory</a>
     <a class="sidebar-link" id="sidebar-spiritual-gifts-link">Spiritual Gifts</a>
     <a class="sidebar-link" id="sidebar-annual-link">Annual Review</a>
@@ -466,9 +467,11 @@ function cleanRedirectUrl(){
 // an acceptable fallback for those.
 let viewingDashboard = false;
 let viewingAnnual = false;
+let viewingWebsite = false;
 function setViewHash(hash){
   viewingDashboard = (hash === 'dashboard');
   viewingAnnual = (hash === 'annual');
+  viewingWebsite = (hash === 'website');
   history.replaceState(null, '', hash ? '#' + hash : window.location.pathname + window.location.search);
 }
 
@@ -497,6 +500,7 @@ function restoreViewFromHash(){
   if(hash === '#church-directory'){ renderChurchDirectory(); return; }
   if(hash === '#spiritual-gifts'){ renderSpiritualGifts(); return; }
   if(hash === '#annual'){ renderAnnual(); return; }
+  if(hash === '#website'){ renderWebsite(); return; }
   renderDashboard();
 }
 
@@ -512,7 +516,7 @@ function restoreViewFromHash(){
 // whole point of what lets a page refresh land back where the admin
 // actually was (a specific church or course) instead of always
 // bouncing to Overview.
-if(window.location.hash && !window.location.hash.includes('access_token') && !/^#(church|course|dashboard|annual|all-students|push-notifications|church-directory|spiritual-gifts):?/.test(window.location.hash)){
+if(window.location.hash && !window.location.hash.includes('access_token') && !/^#(church|course|dashboard|annual|website|all-students|push-notifications|church-directory|spiritual-gifts):?/.test(window.location.hash)){
   history.replaceState(null, '', window.location.pathname + window.location.search);
 }
 
@@ -605,7 +609,7 @@ window.addEventListener('beforeunload', (e) => {
 // click handler -- stopImmediatePropagation on cancel is what actually
 // prevents that handler from ever firing and discarding the edit.
 document.querySelector('.admin-sidebar').addEventListener('click', (e) => {
-  const navTarget = e.target.closest('#sidebar-dashboard-link, #sidebar-overview-link, #sidebar-push-notifications-link, #sidebar-church-directory-link, #sidebar-spiritual-gifts-link, .sidebar-church-item, #sidebar-annual-link');
+  const navTarget = e.target.closest('#sidebar-dashboard-link, #sidebar-overview-link, #sidebar-push-notifications-link, #sidebar-church-directory-link, #sidebar-spiritual-gifts-link, .sidebar-church-item, #sidebar-annual-link, #sidebar-website-link');
   if(!navTarget || !hasUnsavedChurchEdits) return;
   if(!confirm('You have unsaved changes on this page. Leave without saving?')){
     e.preventDefault();
@@ -803,6 +807,7 @@ async function init(){
   document.getElementById('sidebar-church-directory-link').addEventListener('click', renderChurchDirectory);
   document.getElementById('sidebar-spiritual-gifts-link').addEventListener('click', renderSpiritualGifts);
   document.getElementById('sidebar-annual-link').addEventListener('click', renderAnnual);
+  document.getElementById('sidebar-website-link').addEventListener('click', renderWebsite);
   document.getElementById('sidebar-church-search').addEventListener('input', renderSidebar);
   wireAddChurchForm();
   restoreViewFromHash();
@@ -1217,11 +1222,12 @@ function renderSidebar(){
   });
 
   document.getElementById('sidebar-dashboard-link').classList.toggle('active', viewingDashboard);
-  document.getElementById('sidebar-overview-link').classList.toggle('active', !viewingDashboard && !viewingAnnual && activeChurchId === null && activeCourseId === null && !viewingNoChurch && !viewingPushNotifications && !viewingChurchDirectory && !viewingSpiritualGifts);
+  document.getElementById('sidebar-overview-link').classList.toggle('active', !viewingDashboard && !viewingAnnual && !viewingWebsite && activeChurchId === null && activeCourseId === null && !viewingNoChurch && !viewingPushNotifications && !viewingChurchDirectory && !viewingSpiritualGifts);
   document.getElementById('sidebar-push-notifications-link').classList.toggle('active', viewingPushNotifications);
   document.getElementById('sidebar-church-directory-link').classList.toggle('active', viewingChurchDirectory);
   document.getElementById('sidebar-spiritual-gifts-link').classList.toggle('active', viewingSpiritualGifts);
   document.getElementById('sidebar-annual-link').classList.toggle('active', viewingAnnual);
+  document.getElementById('sidebar-website-link').classList.toggle('active', viewingWebsite);
 
   positionSidebarToggleBtn();
 }
@@ -3943,6 +3949,179 @@ async function loadAppTaps(){
     document.body.appendChild(a); a.click(); a.remove();
   });
   bodyEl.querySelectorAll('[data-taps-screen]').forEach(b => b.addEventListener('click', () => { appTapsScreen = b.dataset.tapsScreen; appTapsPage = 0; loadAppTaps(); }));
+}
+
+// ---------- Website: visits, clicks, traffic sources and countries for followingjesus.com ----------
+// Reads one report from the get_site_report() database function (website-tracking.sql).
+// Numbers come from /fj-track.js on the public pages, so they only cover days since it went live.
+let websiteRangeKey = 'mtd';
+const WEBSITE_SOURCE_NAMES = {
+  search: 'Search (Google, Bing and others)', direct: 'Direct (typed or bookmarked)', social: 'Social media',
+  email: 'Email', ai: 'AI assistants (ChatGPT and others)', referral: 'Other websites', app: 'From the app'
+};
+const WEBSITE_PAGE_NAMES = {
+  '/': 'Homepage', '/app': 'App in the browser', '/course': 'Free course', '/who-is-jesus': 'Who is Jesus?',
+  '/spiritual-gifts-assessment': 'Spiritual Gifts assessment', '/five-fold-office-assessment': 'Five-Fold Office assessment',
+  '/theprocessofpromotion': 'The Process of Promotion', '/discipleship-assimilation-essentials': 'Discipleship & Assimilation Essentials',
+  '/preaching-essentials-course': 'Preaching Essentials', '/biblical-parenting-course': '7 Biblical Principles on Parenting',
+  '/how-to-write-publish-book-course': 'How To Write & Publish Your Book'
+};
+function websiteCountryName(code){
+  if(!code || code === '??') return 'Unknown';
+  try { return new Intl.DisplayNames(['en'], { type: 'region' }).of(code) || code; } catch(e){ return code; }
+}
+function websiteDelta(cur, prev){
+  if(websiteRangeKey === 'all') return '';
+  cur = Number(cur) || 0; prev = Number(prev) || 0;
+  const tip = `vs ${prev.toLocaleString()} in the previous period`;
+  if(prev === 0 && cur === 0) return `<span class="delta flat" title="${tip}">0%</span>`;
+  if(prev === 0) return `<span class="delta up" title="${tip}">+new</span>`;
+  const pct = Math.round((cur - prev) / prev * 100);
+  if(pct === 0) return `<span class="delta flat" title="${tip}">0%</span>`;
+  return pct > 0 ? `<span class="delta up" title="${tip}">+${pct.toLocaleString()}%</span>` : `<span class="delta down" title="${tip}">&minus;${Math.abs(pct).toLocaleString()}%</span>`;
+}
+function renderWebsite(){
+  activeChurchId = null; activeCourseId = null; viewingNoChurch = false; viewingAllStudents = false;
+  viewingSubscriberList = false; viewingPushNotifications = false;
+  viewingChurchDirectory = false; viewingSpiritualGifts = false;
+  setViewHash('website');
+  renderSidebar();
+  document.getElementById('content').innerHTML = `
+    <div style="text-align:left;">
+    <h2 style="font-family:'Space Grotesk',sans-serif;margin:16px 0 4px;">Website <button type="button" class="info-icon-btn" data-info="Visits to followingjesus.com (the homepage, free course, assessments and course pages). A visit is one person's trip to the site; a person who comes back later is a new visit. Counting started the day tracking went live, so earlier days are empty. No names, emails or IP addresses are stored. To leave your own visits out, open followingjesus.com/?notrack=1 once on each of your devices.">i</button></h2>
+    <div id="website-range" style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 16px;"></div>
+    <div id="website-body"><span style="font-size:13px;color:var(--ink-soft);">Loading…</span></div>
+    </div>`;
+  loadWebsiteReport();
+}
+async function loadWebsiteReport(){
+  const rangeEl = document.getElementById('website-range');
+  const bodyEl = document.getElementById('website-body');
+  if(!rangeEl || !bodyEl) return;
+  const rangeAtStart = websiteRangeKey;
+  rangeEl.innerHTML = Object.keys(rangeLabels).map(k =>
+    `<button class="mini-btn" data-web-range="${k}" ${k === websiteRangeKey ? 'style="background:var(--ink);color:#fff;border-color:var(--ink);"' : ''}>${rangeLabels[k]}</button>`).join('');
+  rangeEl.querySelectorAll('[data-web-range]').forEach(b => b.addEventListener('click', () => { websiteRangeKey = b.dataset.webRange; loadWebsiteReport(); }));
+  bodyEl.innerHTML = `<span style="font-size:13px;color:var(--ink-soft);">Loading…</span>`;
+  const start = rangeStartDate(websiteRangeKey), now = new Date();
+  const prev = previousWindow(websiteRangeKey);
+  const { data, error } = await supabaseClient.rpc('get_site_report', {
+    p_start: start.toISOString(), p_end: new Date(now.getTime() + 60000).toISOString(),
+    p_prev_start: prev.start.toISOString(), p_prev_end: prev.end.toISOString()
+  });
+  if(rangeAtStart !== websiteRangeKey || !document.getElementById('website-body')) return; // user clicked away
+  if(error){
+    bodyEl.innerHTML = `<span style="font-size:13px;color:var(--red);">Could not load website numbers (${escapeHtmlReport(error.message || String(error))}). If this is new, make sure website-tracking.sql has been run in Supabase.</span>`;
+    return;
+  }
+  paintWebsiteReport(data || {}, start);
+}
+function paintWebsiteReport(r, start){
+  const bodyEl = document.getElementById('website-body');
+  const t = r.totals || {};
+  const n = (v) => Number(v || 0).toLocaleString();
+  const since = r.tracking_since ? new Date(r.tracking_since) : null;
+  if(!since){
+    bodyEl.innerHTML = `<div class="card" style="max-width:680px;"><p style="margin:0;font-size:14px;">No visits recorded yet. Once the tracker file and the homepage update are live, visits start appearing here within a minute or two. Open followingjesus.com in a private window to test it (your own visits count unless you have opened followingjesus.com/?notrack=1 on that device).</p></div>`;
+    return;
+  }
+  const sinceNote = since > start
+    ? `<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 14px;">Counting began ${since.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}, so this range only includes days from then on.</p>` : '';
+  const bar = (v, max, extra) => `<div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${Math.round(Number(v) / Math.max(1, max) * 100)}%"></div></div><span class="bar-text">${n(v)}</span>${extra || ''}</div>`;
+  const table = (heads, rowsHtml, emptyMsg) => rowsHtml ? `<div class="table-scroll"><table><thead><tr>${heads.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rowsHtml}</tbody></table></div>` : `<span style="font-size:13px;color:var(--ink-soft);">${emptyMsg}</span>`;
+  const info = (txt) => `<button type="button" class="info-icon-btn" data-info="${escapeHtmlReport(txt)}">i</button>`;
+  const h3 = (title, tip) => `<h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:6px;">${title}${tip ? info(tip) : ''}</h3>`;
+
+  // visits per day (last 45 days of the range, empty days included)
+  const dayKey = (d) => d.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+  const byDay = {}; (r.daily || []).forEach(d => { byDay[d.day] = d; });
+  const days = []; const today = new Date();
+  const firstDay = new Date(Math.max(start.getTime(), since.getTime() - 86400000));
+  for(let d = new Date(today); d >= firstDay && days.length < 45; d = new Date(d.getTime() - 86400000)) days.unshift(dayKey(d));
+  const maxDay = Math.max(1, ...days.map(k => (byDay[k] ? byDay[k].visits : 0)));
+  const dailyHtml = days.length > 1 ? `<div style="display:flex;align-items:flex-end;gap:3px;height:90px;">${days.map(k => {
+    const v = byDay[k] ? byDay[k].visits : 0;
+    return `<div title="${k}: ${v} visit${v === 1 ? '' : 's'}" style="flex:1;min-width:3px;background:var(--ink);opacity:${v ? 1 : .12};height:${Math.max(3, Math.round(v / maxDay * 100))}%;border-radius:2px 2px 0 0;"></div>`;
+  }).join('')}</div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-soft);margin-top:4px;"><span>${days[0]}</span><span>${days[days.length - 1]}</span></div>` : '';
+
+  const sources = r.sources || [];
+  const maxSrc = Math.max(1, ...sources.map(s => Number(s.visits)));
+  const srcRows = sources.map(s => `<tr><td style="font-weight:600;">${escapeHtmlReport(WEBSITE_SOURCE_NAMES[s.source] || s.source)}</td>
+    <td style="width:46%;">${bar(s.visits, maxSrc, websiteDelta(s.visits, s.prev_visits))}</td>
+    <td>${Number(t.visits) ? Math.round(Number(s.visits) / Number(t.visits) * 100) : 0}%</td></tr>`).join('');
+  const refRows = (r.referrers || []).map(x => `<tr><td>${escapeHtmlReport(x.host)}</td><td>${escapeHtmlReport(WEBSITE_SOURCE_NAMES[x.source] || x.source)}</td><td>${n(x.visits)}</td></tr>`).join('');
+  const campRows = (r.campaigns || []).map(x => `<tr><td style="font-weight:600;">${escapeHtmlReport(x.campaign)}</td><td>${escapeHtmlReport([x.source, x.medium].filter(Boolean).join(' / '))}</td><td>${n(x.visits)}</td></tr>`).join('');
+  const countries = r.countries || [];
+  const maxCty = Math.max(1, ...countries.map(c => Number(c.visits)));
+  const ctyRows = countries.map(c => `<tr><td style="font-weight:600;">${escapeHtmlReport(websiteCountryName(c.country))}</td><td style="width:50%;">${bar(c.visits, maxCty, websiteDelta(c.visits, c.prev_visits))}</td></tr>`).join('');
+  const pages = r.pages || [];
+  const maxPg = Math.max(1, ...pages.map(p => Number(p.views)));
+  const pageRows = pages.map(p => `<tr><td><div style="font-weight:600;">${escapeHtmlReport(WEBSITE_PAGE_NAMES[p.path] || p.path)}</div><div style="font-size:11.5px;color:var(--ink-soft);">${escapeHtmlReport(p.path)}</div></td>
+    <td style="width:40%;">${bar(p.views, maxPg, websiteDelta(p.views, p.prev_views))}</td><td>${n(p.visitors)}</td></tr>`).join('');
+  const clicks = r.clicks || [];
+  const maxClk = Math.max(1, ...clicks.map(c => Number(c.clicks)));
+  const AREA_NAMES = { hero: 'Top banner', header: 'Menu bar', footer: 'Footer', start: 'Start where you are', gifts: 'Discover how God made you', blogsection: 'Blog', courses: 'More courses', churches: 'For churches', 'email popup': 'Email sign-up popup' };
+  const areaName = (a) => a ? (AREA_NAMES[String(a).toLowerCase()] || a.replace(/^./, ch => ch.toUpperCase())) : '';
+  const clickRows = clicks.map(c => `<tr><td style="font-weight:600;">${escapeHtmlReport(c.label)}</td><td>${escapeHtmlReport(areaName(c.area))}${c.path && c.path !== '/' ? `<div style="font-size:11.5px;color:var(--ink-soft);">${escapeHtmlReport(c.path)}</div>` : ''}</td>
+    <td style="width:34%;">${bar(c.clicks, maxClk, websiteDelta(c.clicks, c.prev_clicks))}</td><td>${n(c.people)}</td></tr>`).join('');
+  const devs = r.devices || [];
+  const devTotal = devs.reduce((s, d) => s + Number(d.visits), 0) || 1;
+  const devHtml = devs.map(d => `<div class="summary-card" style="min-width:110px;"><div class="num">${Math.round(Number(d.visits) / devTotal * 100)}%</div><div class="label">${escapeHtmlReport(({ mobile: 'Phone', tablet: 'Tablet', desktop: 'Computer', unknown: 'Unknown' })[d.device] || d.device)}</div></div>`).join('');
+
+  bodyEl.innerHTML = `
+    ${sinceNote}
+    <div class="summary-row" style="margin-bottom:18px;">
+      <div class="summary-card"><div class="num">${n(t.visits)}${websiteDelta(t.visits, t.prev_visits)}</div><div class="label">Visits</div></div>
+      <div class="summary-card"><div class="num">${n(t.visitors)}${websiteDelta(t.visitors, t.prev_visitors)}</div><div class="label">People <span style="opacity:.7;">(different browsers)</span></div></div>
+      <div class="summary-card"><div class="num">${n(t.page_views)}${websiteDelta(t.page_views, t.prev_page_views)}</div><div class="label">Pages viewed</div></div>
+      <div class="summary-card"><div class="num">${n(t.clicks)}${websiteDelta(t.clicks, t.prev_clicks)}</div><div class="label">Button &amp; link taps</div></div>
+      <div class="summary-card"><div class="num">${n(t.in_app_visits)}${websiteDelta(t.in_app_visits, t.prev_in_app_visits)}</div><div class="label">Visits from inside the app</div></div>
+    </div>
+    ${dailyHtml ? `<div class="card" style="margin-bottom:18px;max-width:900px;">${h3('Visits per day')}${dailyHtml}</div>` : ''}
+    <div class="card" style="margin-bottom:18px;max-width:900px;">
+      ${h3('Where visitors came from', 'How each visit started. Search = Google, Bing and similar. Direct = typed the address, used a bookmark, or the link had no source (many texts and some email apps look like this). From the app = opened from a link inside the Following Jesus app. Add ?utm_source=...&utm_medium=email&utm_campaign=... to links in your emails to see them as Email and by campaign.')}
+      ${table(['Source', 'Visits', 'Share'], srcRows, 'No visits in this range.')}
+      ${refRows ? `<h4 style="font-size:13.5px;margin:18px 0 8px;">Top sites that sent people</h4>${table(['Site', 'Type', 'Visits'], refRows, '')}` : ''}
+      ${campRows ? `<h4 style="font-size:13.5px;margin:18px 0 8px;">Tagged campaigns</h4>${table(['Campaign', 'Source / medium', 'Visits'], campRows, '')}` : ''}
+    </div>
+    <div class="card" style="margin-bottom:18px;max-width:900px;">
+      ${h3('Where in the world', 'Country is worked out by Netlify from the visitor\'s network when they arrive. It is approximate, and the address itself is never saved.')}
+      ${table(['Country', 'Visits'], ctyRows, 'No visits in this range.')}
+    </div>
+    <div class="card" style="margin-bottom:18px;max-width:900px;">
+      ${h3('Most visited pages')}
+      ${table(['Page', 'Views', 'People'], pageRows, 'No visits in this range.')}
+    </div>
+    <div class="card" style="margin-bottom:18px;max-width:900px;">
+      ${h3('What people tap', 'Buttons and links tapped on the homepage. The same label can appear in more than one place on the page, so each row shows where it was.')}
+      ${table(['Button or link', 'Where', 'Taps', 'People'], clickRows, 'No taps in this range yet.')}
+    </div>
+    <div class="card" style="margin-bottom:18px;max-width:900px;">
+      ${h3('Phone or computer')}
+      <div class="summary-row">${devHtml || '<span style="font-size:13px;color:var(--ink-soft);">No visits in this range.</span>'}</div>
+    </div>
+    <button class="mini-btn" id="website-export-btn">Export (CSV)</button>`;
+
+  document.getElementById('website-export-btn').addEventListener('click', () => {
+    const lines = [['Section', 'Name', 'Detail', 'Count', 'People', 'Previous period'].map(csvEscape).join(',')];
+    const add = (...cols) => lines.push(cols.map(csvEscape).join(','));
+    add('Totals', 'Visits', rangeLabels[websiteRangeKey], t.visits, t.visitors, t.prev_visits);
+    add('Totals', 'Pages viewed', '', t.page_views, '', t.prev_page_views);
+    add('Totals', 'Button & link taps', '', t.clicks, '', t.prev_clicks);
+    add('Totals', 'Visits from inside the app', '', t.in_app_visits, '', t.prev_in_app_visits);
+    sources.forEach(s => add('Source', WEBSITE_SOURCE_NAMES[s.source] || s.source, '', s.visits, '', s.prev_visits));
+    (r.referrers || []).forEach(x => add('Referring site', x.host, x.source, x.visits, '', ''));
+    (r.campaigns || []).forEach(x => add('Campaign', x.campaign, [x.source, x.medium].filter(Boolean).join(' / '), x.visits, '', ''));
+    countries.forEach(c => add('Country', websiteCountryName(c.country), c.country, c.visits, '', c.prev_visits));
+    pages.forEach(p => add('Page', WEBSITE_PAGE_NAMES[p.path] || p.path, p.path, p.views, p.visitors, p.prev_views));
+    clicks.forEach(c => add('Tap', c.label, [c.area, c.path].filter(Boolean).join(' '), c.clicks, c.people, c.prev_clicks));
+    devs.forEach(d => add('Device', d.device, '', d.visits, '', ''));
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'website-' + websiteRangeKey + '-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  });
 }
 
 async function loadAppDownloadStats(){
