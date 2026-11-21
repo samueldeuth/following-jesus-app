@@ -283,6 +283,74 @@
   .today-eyebrow-right .verse-alert-bell svg { width: 15px; height: 15px; }
   .today-soap-hint { font-size: 11.5px; letter-spacing: 0.04em; color: var(--ink-soft); margin-left: 6px; }
 
+  /* Verse of the Day as a photo card: tap it to open the four SOAP panels full screen. */
+  .today.votd-photo {
+    background-color: #14303f; background-size: cover; background-position: center;
+    border-radius: 22px; padding: 22px 22px 14px; color: #fff; cursor: pointer;
+    box-shadow: 0 14px 32px rgba(0,0,0,0.28); -webkit-tap-highlight-color: transparent;
+  }
+  .today.votd-photo .today-slide { display: flex; flex-direction: column; }
+  .today.votd-photo .today-eyebrow { color: rgba(255,255,255,0.85); order: 0; }
+  .today.votd-photo .today-eyebrow .date { color: rgba(255,255,255,0.8); }
+  .today.votd-photo .today-ref { order: 1; margin-top: 10px; font-size: 18px; font-weight: 700; letter-spacing: 0; color: #fff; }
+  .today.votd-photo .today-verse {
+    order: 2; color: #fff; font-size: 22px; line-height: 1.4; margin: 16px 0 0;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden;
+  }
+  .votd-bar { order: 3; display: flex; align-items: center; gap: 18px; margin-top: 14px; color: #fff; font-size: 13px; font-weight: 600; }
+  .votd-bar button, .votd-actions button {
+    background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 6px 0;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .votd-bar svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .votd-heart.on svg { fill: #e5484d; stroke: #e5484d; }
+  .votd-open { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; opacity: 0.92; }
+  .votd-open svg { width: 15px !important; height: 15px !important; }
+  body.votd-lock { overflow: hidden; }
+  .votd-full {
+    position: fixed; inset: 0; z-index: 480; display: none; color: #fff; /* above the tab bar, below the app's alert popups (500) */
+    background-color: #0c1a1f; background-size: cover; background-position: center;
+  }
+  .votd-full.open { display: block; animation: votdIn 0.2s ease; }
+  @keyframes votdIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+  .votd-full-top {
+    position: absolute; left: 0; right: 0; top: 0; z-index: 2; display: flex; justify-content: space-between;
+    padding: calc(env(safe-area-inset-top, 0px) + 14px) 18px 0;
+  }
+  .votd-circ {
+    width: 42px; height: 42px; border-radius: 50%; border: none; color: #fff; cursor: pointer;
+    background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center;
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  }
+  .votd-circ svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .votd-panels {
+    position: absolute; inset: 0; display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .votd-panels::-webkit-scrollbar { display: none; }
+  .votd-panel {
+    flex: 0 0 100%; scroll-snap-align: start; overflow-y: auto; box-sizing: border-box;
+    padding: calc(env(safe-area-inset-top, 0px) + 96px) 28px calc(env(safe-area-inset-bottom, 0px) + 190px);
+    display: flex;
+  }
+  .votd-panel-in { margin: auto 0; width: 100%; }
+  .votd-tag { color: #c89b3c; font-weight: 700; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 16px; }
+  .votd-text { font-family: var(--font-serif); font-size: 25px; line-height: 1.45; }
+  .votd-text.it { font-style: italic; }
+  .votd-text.s1 { font-size: 30px; } .votd-text.s3 { font-size: 21px; } .votd-text.s4 { font-size: 18px; line-height: 1.5; }
+  .votd-sref { margin-top: 18px; font-weight: 600; opacity: 0.8; font-size: 15px; letter-spacing: 0.04em; }
+  .votd-dots { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 138px); display: flex; justify-content: center; align-items: center; gap: 8px; pointer-events: none; }
+  .votd-dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.35); }
+  .votd-dots i.a { width: 20px; border-radius: 4px; background: #c89b3c; }
+  .votd-swipehint { position: absolute; right: 28px; bottom: calc(env(safe-area-inset-bottom, 0px) + 134px); font-size: 12px; opacity: 0.7; pointer-events: none; }
+  .votd-actions {
+    position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 36px);
+    display: flex; justify-content: space-around; z-index: 2;
+  }
+  .votd-actions button { flex-direction: column; gap: 7px; font-size: 13px; font-weight: 600; padding: 8px 24px; }
+  .votd-actions svg { width: 30px; height: 30px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .votd-actions .votd-heart.on svg { fill: #e5484d; stroke: #e5484d; }
+
   .notif-toggle {
     display: flex;
     align-items: center;
@@ -2218,7 +2286,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="2" x2="12" y2="22"/><line x1="5" y1="8" x2="19" y2="8"/></svg>
         <span>
           <span class="disciple-banner-title">Share the Good News</span>
-          <span class="disciple-banner-sub">Gospel visuals and Bible verse graphics to share</span>
+          <span class="disciple-banner-sub">Ready-made visuals to walk someone through the gospel</span>
         </span>
         <span class="disciple-banner-arrow">→</span>
       </button>
@@ -2246,27 +2314,6 @@
         <span class="disciple-banner-arrow">→</span>
       </a>
 
-
-      <!-- One "Share the Good News" banner opens this small chooser (it replaced two separate banners). -->
-      <div class="verse-alert-modal-overlay" id="shareChooserOverlay">
-        <div class="verse-alert-modal-card" style="max-width:340px;text-align:left;">
-          <h3 class="verse-alert-modal-title">What would you like to share?</h3>
-          <button type="button" class="disciple-banner" id="shareChoiceGospelBtn" style="margin:0 0 10px;width:100%;">
-            <span>
-              <span class="disciple-banner-title">The Gospel in pictures</span>
-              <span class="disciple-banner-sub">Ready-made visuals that walk someone through the gospel</span>
-            </span>
-            <span class="disciple-banner-arrow">&rarr;</span>
-          </button>
-          <button type="button" class="disciple-banner disciple-banner-white" id="shareChoiceVerseBtn" style="margin:0;width:100%;">
-            <span>
-              <span class="disciple-banner-title">Bible verse graphics</span>
-              <span class="disciple-banner-sub">Custom verse images for your social media</span>
-            </span>
-            <span class="disciple-banner-arrow">&rarr;</span>
-          </button>
-        </div>
-      </div>
 
       <div class="verse-alert-modal-overlay" id="findChurchModalOverlay">
         <div class="verse-alert-modal-card" style="max-width:440px;max-height:82vh;overflow-y:auto;text-align:left;position:relative;">
@@ -2888,13 +2935,8 @@
     pushUrlHash('good-news');
   };
   document.getElementById('shareGoodNewsBtn').addEventListener('click', openGoodNewsPage);
-  // The one Today banner asks which kind of sharing first, then opens that page.
-  const shareChooser = document.getElementById('shareChooserOverlay');
-  const closeShareChooser = () => shareChooser.classList.remove('open');
-  document.getElementById('shareGoodNewsBannerBtn').addEventListener('click', () => shareChooser.classList.add('open'));
-  shareChooser.addEventListener('click', (e) => { if (e.target === shareChooser) closeShareChooser(); });
-  document.getElementById('shareChoiceGospelBtn').addEventListener('click', () => { closeShareChooser(); openGoodNewsPage(); });
-  document.getElementById('shareChoiceVerseBtn').addEventListener('click', () => { closeShareChooser(); openShareTheWordPage(); });
+  // The Today banner goes straight to the gospel share pictures (the Bible verse graphics page is no longer linked from here).
+  document.getElementById('shareGoodNewsBannerBtn').addEventListener('click', openGoodNewsPage);
   document.getElementById('shareYourFaithBannerSlide').addEventListener('click', openGoodNewsPage);
 
   // ---------- 52-Day Devotional Plans ----------
@@ -3550,7 +3592,7 @@
       done: async () => !!(await getNotifPrefs()).readingReminder, go: () => goToTab('screen-bible') },
     { id: 'plans52', title: '52 Bible Verses', body: 'One verse and one short devotional at a time, for hope, miracles, new believers, kids, men, or youth.', cta: 'See the plans',
       done: async () => false, go: () => goToTab('screen-plans') },
-    { id: 'share_good_news', title: 'Share the Good News', body: 'Gospel visuals and Bible verse graphics you can send to a friend in a couple of taps.', cta: 'Open Share',
+    { id: 'share_good_news', title: 'Share the Good News', body: 'Gospel visuals you can send to a friend in a couple of taps.', cta: 'Open Share',
       done: async () => false, go: () => openGoodNewsPage() },
     { id: 'course', title: 'Take the free course', body: 'Walk through the essentials of following Jesus, one short lesson at a time.', cta: 'Start the course',
       done: async () => false, go: () => window.open('https://followingjesus.com/course', '_blank', 'noopener') }
@@ -11231,7 +11273,7 @@ async function renderDiscipleshipApp() {
       textEl.textContent = 'Open today\u2019s verse in the Bible tab to see this verse.';
     }
     refEl.textContent = `${bookName(id).toUpperCase()} ${chapterVersePart}`;
-    try { loadTodaySoap(todaysRef, refEl.textContent); } catch (e) { /* card stays a single verse */ }
+    try { setupVotd(todaysRef, refEl.textContent); } catch (e) { /* card stays a plain verse card */ }
   }
 
   // ---------- Verse of the Day: Observation / Application / Prayer swipe ----------
@@ -11247,63 +11289,197 @@ async function renderDiscipleshipApp() {
     }
     return soapBankPromise;
   }
-  async function loadTodaySoap(todaysRef, refLabel) {
-    const track = document.getElementById('todayTrack');
-    const dots = document.getElementById('todaySoapDots');
-    const dateEl = document.getElementById('todayVerseDate');
-    if (!track || !dots || track.classList.contains('soap-on')) return;
-    const bank = await getSoapBank();
-    const e = bank && bank.entries && bank.entries[todaysRef];
-    if (!e || !e.o || !e.a || !e.p) return;
-    const esc = escapeHtmlMain;
-    const mk = (title, step, cls, text) => {
-      const d = document.createElement('div');
-      d.className = 'today-slide';
-      d.innerHTML = '<div class="today-eyebrow"><span>' + esc(title) + '</span><span class="date">' + step + ' of 4</span></div>' +
-        '<div class="today-verse soap-text ' + cls + '">' + esc(text) + '</div>';
-      return d;
-    };
-    const t1 = document.getElementById('todaySlideVerseTitle'); if (t1) t1.textContent = 'Scripture';
-    track.appendChild(mk('Observation', 2, '', e.o));
-    track.appendChild(mk('Application', 3, '', e.a));
-    const prayerSlide = mk('Prayer', 4, 'soap-prayer', e.p);
-    // Share arrow on the last card: turns the whole Scripture + Observation +
-    // Application + Prayer into one story-sized picture to text or post.
-    const prayerDate = prayerSlide.querySelector('.today-eyebrow .date');
-    if (prayerDate) {
-      const right = document.createElement('span');
-      right.className = 'today-eyebrow-right';
-      prayerDate.parentNode.insertBefore(right, prayerDate);
-      right.appendChild(prayerDate);
-      const sb = document.createElement('button');
-      sb.type = 'button';
-      sb.className = 'verse-alert-bell soap-share-btn';
-      sb.setAttribute('aria-label', 'Share today\u2019s verse as an image');
-      sb.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7.5 7.5L12 3l4.5 4.5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
-      sb.addEventListener('click', () => shareTodaySoap(sb, todaysRef, refLabel, e));
-      right.appendChild(sb);
+  // ---------- Verse of the Day: photo card, full-screen SOAP panels, hearts and shares ----------
+  // The Today card is one photo verse card. Tapping it opens the Scripture /
+  // Observation / Application / Prayer panels full screen (swipe between them,
+  // heart, share as a story-sized picture). Hearts and share totals come from
+  // votd-social.sql; if that hasn't been run, the heart/share counts simply
+  // stay hidden and everything else still works.
+  const votd = { ref: '', refLabel: '', date: '', verse: '', entry: null, hearts: 0, shares: 0, hearted: false, socialOk: false, busy: false };
+  const VOTD_SVG = {
+    heart: '<svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>',
+    share: '<svg viewBox="0 0 24 24"><path d="M12 15V3"/><path d="M7.5 7.5L12 3l4.5 4.5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>',
+    close: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    bell: '<svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
+    expand: '<svg viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>'
+  };
+  function votdFmt(n) {
+    n = Number(n) || 0;
+    if (n < 3) return ''; // a couple of hearts looks emptier than none; counts appear from 3
+    return n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'K' : String(n);
+  }
+  function votdPhotoBg(strong) {
+    const seed = 'votd-' + votd.refLabel.replace(/[^A-Za-z0-9]+/g, '-');
+    const a = strong ? 0.62 : 0.5, z = strong ? 0.9 : 0.82;
+    return 'linear-gradient(180deg, rgba(8,16,22,' + a + '), rgba(8,16,22,' + z + ')), url("' + natureBackgroundUrlForCard(seed) + '"), linear-gradient(170deg, #2a6486 0%, #1b4a66 40%, #14303f 75%, #0c1a1f 100%)';
+  }
+  function votdRenderSocial() {
+    document.querySelectorAll('.votd-heart').forEach(b => {
+      b.style.display = votd.socialOk ? '' : 'none';
+      b.classList.toggle('on', votd.hearted);
+      b.setAttribute('aria-pressed', votd.hearted ? 'true' : 'false');
+      const n = b.querySelector('.votd-n'); if (n) n.textContent = votdFmt(votd.hearts);
+    });
+    document.querySelectorAll('.votd-share-n').forEach(n => { n.textContent = votd.socialOk ? votdFmt(votd.shares) : ''; });
+  }
+  async function votdLoadSocial() {
+    try {
+      if (!supabaseClient) throw new Error('no client');
+      const { data, error } = await supabaseClient.rpc('get_votd_social', { p_date: votd.date, p_ref: votd.ref });
+      if (error || !data) throw (error || new Error('no data'));
+      votd.hearts = Number(data.hearts) || 0; votd.shares = Number(data.shares) || 0; votd.hearted = !!data.hearted;
+      votd.socialOk = true;
+    } catch (err) { votd.socialOk = false; }
+    votdRenderSocial();
+  }
+  async function votdIsSignedIn() {
+    try { const { data: { session } } = await supabaseClient.auth.getSession(); return !!(session && session.user); } catch (err) { return false; }
+  }
+  async function votdToggleHeart() {
+    if (votd.busy) return;
+    if (!(await votdIsSignedIn())) { await showAppAlert('Sign in to your Following Jesus account to heart a verse.'); return; }
+    votd.busy = true;
+    const before = { hearted: votd.hearted, hearts: votd.hearts };
+    votd.hearted = !votd.hearted; votd.hearts = Math.max(0, votd.hearts + (votd.hearted ? 1 : -1));
+    votdRenderSocial();
+    try {
+      const { data, error } = await supabaseClient.rpc('toggle_votd_heart', { p_date: votd.date, p_ref: votd.ref });
+      if (error || !data) throw (error || new Error('no data'));
+      votd.hearted = !!data.hearted; votd.hearts = Number(data.hearts) || 0;
+    } catch (err) { votd.hearted = before.hearted; votd.hearts = before.hearts; }
+    votd.busy = false; votdRenderSocial();
+  }
+  // A random id this phone makes up, used only so one person's repeat shares count once.
+  function votdDeviceId() {
+    try {
+      let id = localStorage.getItem('fj_votd_device');
+      if (!id || id.length < 8) {
+        const a = new Uint8Array(12); (window.crypto || window.msCrypto).getRandomValues(a);
+        id = Array.prototype.map.call(a, b => ('0' + b.toString(16)).slice(-2)).join('');
+        localStorage.setItem('fj_votd_device', id);
+      }
+      return id;
+    } catch (err) { return null; }
+  }
+  async function votdShare(btn) {
+    const shared = await shareTodaySoap(btn, votd);
+    if (!shared || !votd.socialOk) return;
+    try {
+      // Anyone can share, signed in or not; both are counted once per verse per day.
+      const { data } = await supabaseClient.rpc('log_votd_share', { p_date: votd.date, p_ref: votd.ref, p_device: votdDeviceId() });
+      if (data && data.shares != null) { votd.shares = Number(data.shares) || votd.shares; votdRenderSocial(); }
+    } catch (err) { /* the count is a nicety; never get in the way of sharing */ }
+  }
+  function votdPanels() {
+    const list = [];
+    if (votd.verse) list.push({ tag: 'Scripture', text: '“' + votd.verse + (/”$/.test(votd.verse) ? '' : '”'), it: true, ref: votd.refLabel });
+    if (votd.entry) {
+      list.push({ tag: 'Observation', text: votd.entry.o });
+      list.push({ tag: 'Application', text: votd.entry.a });
+      list.push({ tag: 'Prayer', text: votd.entry.p, it: true });
     }
-    track.appendChild(prayerSlide);
-    track.classList.add('soap-on');
-    let swiped = false;
-    try { swiped = localStorage.getItem('fj_soapSwiped') === '1'; } catch (err) {}
-    dots.innerHTML = '<button type="button" class="active" aria-label="Scripture"></button><button type="button" aria-label="Observation"></button><button type="button" aria-label="Application"></button><button type="button" aria-label="Prayer"></button>' +
-      (swiped ? '' : '<span class="today-soap-hint" id="todaySoapHint">Swipe \u203a</span>');
-    dots.classList.add('on');
-    const btns = [...dots.querySelectorAll('button')];
-    btns.forEach((b, i) => b.addEventListener('click', () => track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' })));
+    return list;
+  }
+  function votdEnsureOverlay() {
+    let ov = document.getElementById('votdFull');
+    if (ov) return ov;
+    ov = document.createElement('div');
+    ov.id = 'votdFull'; ov.className = 'votd-full';
+    ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', 'Verse of the Day');
+    ov.innerHTML =
+      '<div class="votd-panels" id="votdPanels"></div>' +
+      '<div class="votd-full-top"><button type="button" class="votd-circ" id="votdClose" aria-label="Close verse of the day">' + VOTD_SVG.close + '</button>' +
+      '<button type="button" class="votd-circ" id="votdFullBell" aria-label="Verse of the Day alert settings">' + VOTD_SVG.bell + '</button></div>' +
+      '<div class="votd-dots" id="votdDots"></div><div class="votd-swipehint" id="votdSwipeHint">Swipe ›</div>' +
+      '<div class="votd-actions"><button type="button" class="votd-heart" aria-label="Heart today’s verse">' + VOTD_SVG.heart + '<span>Heart <span class="votd-n"></span></span></button>' +
+      '<button type="button" class="votd-sharebtn" aria-label="Share today’s verse as an image">' + VOTD_SVG.share + '<span>Share <span class="votd-share-n"></span></span></button></div>';
+    document.body.appendChild(ov);
+    ov.querySelector('#votdClose').addEventListener('click', votdClose);
+    ov.querySelector('#votdFullBell').addEventListener('click', () => {
+      votdClose();
+      const bell = document.getElementById('verseOfDayBellBtn'); if (bell) bell.click();
+    });
+    ov.querySelector('.votd-heart').addEventListener('click', votdToggleHeart);
+    ov.querySelector('.votd-sharebtn').addEventListener('click', (ev) => votdShare(ev.currentTarget));
+    const panels = ov.querySelector('#votdPanels');
     let t = null;
-    track.addEventListener('scroll', () => {
+    panels.addEventListener('scroll', () => {
       clearTimeout(t);
       t = setTimeout(() => {
-        const i = Math.max(0, Math.min(3, Math.round(track.scrollLeft / Math.max(1, track.clientWidth))));
-        btns.forEach((b, j) => b.classList.toggle('active', j === i));
+        const dots = [...ov.querySelectorAll('#votdDots i')];
+        const i = Math.max(0, Math.min(dots.length - 1, Math.round(panels.scrollLeft / Math.max(1, panels.clientWidth))));
+        dots.forEach((d, j) => d.classList.toggle('a', j === i));
         if (i > 0) {
-          const h = document.getElementById('todaySoapHint'); if (h) h.remove();
+          const h = document.getElementById('votdSwipeHint'); if (h) h.remove();
           try { localStorage.setItem('fj_soapSwiped', '1'); } catch (err) {}
         }
       }, 60);
     }, { passive: true });
+    document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && ov.classList.contains('open')) votdClose(); });
+    return ov;
+  }
+  function votdOpen() {
+    const list = votdPanels();
+    if (!list.length) return;
+    const ov = votdEnsureOverlay();
+    const esc = escapeHtmlMain;
+    const panels = ov.querySelector('#votdPanels');
+    panels.innerHTML = list.map(pn => {
+      const n = pn.text.length;
+      const size = n <= 160 ? 's1' : (n <= 320 ? '' : (n <= 520 ? 's3' : 's4'));
+      return '<section class="votd-panel"><div class="votd-panel-in"><div class="votd-tag">' + esc(pn.tag) + '</div>' +
+        '<div class="votd-text ' + (pn.it ? 'it ' : '') + size + '">' + esc(pn.text) + '</div>' +
+        (pn.ref ? '<div class="votd-sref">' + esc(pn.ref) + '</div>' : '') + '</div></section>';
+    }).join('');
+    ov.querySelector('#votdDots').innerHTML = list.map((_, i) => '<i class="' + (i === 0 ? 'a' : '') + '"></i>').join('');
+    let swiped = false; try { swiped = localStorage.getItem('fj_soapSwiped') === '1'; } catch (err) {}
+    const hint = ov.querySelector('#votdSwipeHint');
+    if (hint) hint.style.display = (swiped || list.length < 2) ? 'none' : '';
+    ov.style.backgroundImage = votdPhotoBg(true);
+    panels.scrollLeft = 0;
+    ov.classList.add('open'); document.body.classList.add('votd-lock');
+    votdRenderSocial();
+  }
+  function votdClose() {
+    const ov = document.getElementById('votdFull');
+    if (ov) ov.classList.remove('open');
+    document.body.classList.remove('votd-lock');
+  }
+  let votdCardWired = false;
+  async function setupVotd(todaysRef, refLabel) {
+    const card = document.querySelector('.today');
+    const slide = document.getElementById('todaySlideVerse');
+    const textEl = document.getElementById('todayVerseText');
+    if (!card || !slide || !textEl) return;
+    votd.ref = todaysRef; votd.refLabel = refLabel; votd.date = currentDayKey();
+    votd.verse = textEl.dataset.loaded === '1' ? textEl.textContent.trim().replace(/^[“"]+|[”"]+$/g, '') : '';
+    const bank = await getSoapBank();
+    const e = bank && bank.entries && bank.entries[todaysRef];
+    votd.entry = (e && e.o && e.a && e.p) ? e : null;
+    if (!votd.verse && !votd.entry) return; // nothing worth opening: leave the plain card as it was
+    card.classList.add('votd-photo');
+    card.style.backgroundImage = votdPhotoBg(false);
+    if (!document.getElementById('votdBar')) {
+      const bar = document.createElement('div');
+      bar.id = 'votdBar'; bar.className = 'votd-bar';
+      bar.innerHTML =
+        '<button type="button" class="votd-heart" aria-label="Heart today’s verse">' + VOTD_SVG.heart + '<span class="votd-n"></span></button>' +
+        '<button type="button" class="votd-sharebtn" aria-label="Share today’s verse as an image">' + VOTD_SVG.share + '<span class="votd-share-n"></span></button>' +
+        '<span class="votd-open">' + (votd.entry ? 'Open the full SOAP' : 'Open full screen') + VOTD_SVG.expand + '</span>';
+      slide.appendChild(bar);
+    }
+    if (!votdCardWired) {
+      votdCardWired = true;
+      card.addEventListener('click', (ev) => {
+        const t = ev.target;
+        if (!t || !t.closest || !card.classList.contains('votd-photo')) return;
+        if (t.closest('#verseOfDayBellBtn')) return; // bell keeps its own job
+        if (t.closest('.votd-heart')) { votdToggleHeart(); return; }
+        if (t.closest('.votd-sharebtn')) { votdShare(t.closest('.votd-sharebtn')); return; }
+        votdOpen();
+      });
+    }
+    votdLoadSocial();
   }
 
   // ---------- Verse of the Day: share the whole SOAP as a story-sized picture ----------
@@ -11351,9 +11527,9 @@ async function renderDiscipleshipApp() {
     const TOP = 250, BOTTOM = 1610;
     const sections = [];
     if (d.verse) sections.push({ label: 'Scripture', text: '“' + d.verse + (/”$/.test(d.verse) ? '' : '”'), ref: d.ref, italic: true });
-    sections.push({ label: 'Observation', text: d.o });
-    sections.push({ label: 'Application', text: d.a });
-    sections.push({ label: 'Prayer', text: d.p, italic: true });
+    if (d.o) sections.push({ label: 'Observation', text: d.o });
+    if (d.a) sections.push({ label: 'Application', text: d.a });
+    if (d.p) sections.push({ label: 'Prayer', text: d.p, italic: true });
 
     const font = (sec, size) => (sec.italic ? 'italic 500 ' : '400 ') + size + 'px Fraunces, serif';
     const layout = (size) => {
@@ -11414,29 +11590,27 @@ async function renderDiscipleshipApp() {
   }
 
   let soapShareBusy = false;
-  async function shareTodaySoap(btn, todaysRef, refLabel, e) {
-    if (soapShareBusy) return;
+  async function shareTodaySoap(btn, d) {
+    if (soapShareBusy) return false;
     soapShareBusy = true;
     if (btn) btn.style.opacity = '0.5';
     try {
-      const vt = document.getElementById('todayVerseText');
-      let verse = '';
-      if (vt && vt.dataset.loaded === '1') verse = vt.textContent.trim().replace(/^[“"]+|[”"]+$/g, '');
       const canvas = document.createElement('canvas');
+      const entry = d.entry || {};
       await drawSoapStory(canvas, {
-        ref: refLabel, verse, o: e.o, a: e.a, p: e.p,
+        ref: d.refLabel, verse: d.verse, o: entry.o, a: entry.a, p: entry.p,
         dateLabel: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
       });
       const blob = await new Promise(res => canvas.toBlob(res, 'image/png', 0.95));
-      if (!blob) return;
-      const fileName = 'verse-of-the-day-' + todaysRef.replace(/[^A-Za-z0-9]+/g, '-').toLowerCase() + '.png';
+      if (!blob) return false;
+      const fileName = 'verse-of-the-day-' + d.ref.replace(/[^A-Za-z0-9]+/g, '-').toLowerCase() + '.png';
       const file = new File([blob], fileName, { type: 'image/png' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
-          await navigator.share({ files: [file], title: 'Following Jesus', text: refLabel + ' — Verse of the Day from Following Jesus' });
-          return;
+          await navigator.share({ files: [file], title: 'Following Jesus', text: d.refLabel + ' — Verse of the Day from Following Jesus' });
+          return true;
         } catch (err) {
-          if (err && err.name === 'AbortError') return; // closed the share sheet on purpose
+          if (err && err.name === 'AbortError') return false; // closed the share sheet on purpose
         }
       }
       const url = URL.createObjectURL(blob);
@@ -11444,7 +11618,8 @@ async function renderDiscipleshipApp() {
       a.href = url; a.download = fileName;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
-    } catch (err) { /* sharing is optional; never break the card */ }
+      return true;
+    } catch (err) { return false; /* sharing is optional; never break the card */ }
     finally { soapShareBusy = false; if (btn) btn.style.opacity = ''; }
   }
   loadTodayVerse();
