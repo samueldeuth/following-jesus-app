@@ -2107,6 +2107,7 @@
 #screen-jesus .jesus-hero { position: relative; }
 .jesus-share-arrow { position:absolute; top:14px; right:2px; display:inline-flex; align-items:center; gap:6px; background: rgba(10,10,10,0.06); color: var(--black); border:none; border-radius:999px; padding:8px 14px 8px 11px; font-size:13px; font-weight:600; cursor:pointer; }
 .jesus-share-arrow svg { width:18px; height:18px; }
+.jesus-share-arrow.jesus-share-inline { position:static; }
 /* Memory Verse slide on the Today slider */
 .mv-banner-count { font-size:14px; color: rgba(255,255,255,0.85); margin-top:4px; }
 .mv-banner-verse { font-size:19px; font-weight:700; color:#fff; margin-top:6px; letter-spacing:0.01em; }
@@ -2580,8 +2581,6 @@
         <div class="jesus-verse">"If you declare with your mouth, 'Jesus is Lord,' and believe in your heart that God raised Him from the dead, you will be saved." <span>— Romans 10:9</span></div>
       </div>
 
-      <button type="button" class="jesus-cta" id="startDiscipleshipMidBtn" data-track="Start Your Discipleship Journey (middle of page)">Start Your Discipleship Journey &rarr;</button>
-
       <div class="jesus-prayer">
         <div class="jesus-kicker" style="color:var(--ember);">Ready to Follow Jesus?</div>
         <p style="margin-top:10px;">If you're ready to go all in, begin with this prayer:</p>
@@ -2592,7 +2591,12 @@
 
       <button type="button" class="jesus-cta" id="startDiscipleshipBtn">Start Your Discipleship Journey →</button>
 
-      <button type="button" class="jesus-cta" id="shareJesusPageBtn">Share This Page →</button>
+      <div style="display:flex; justify-content:center; margin:26px 0 6px;">
+        <button type="button" class="jesus-share-arrow jesus-share-inline" id="shareJesusPageBtn" aria-label="Share this page with a friend" data-track="Jesus: Share arrow (bottom)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7.5 7.5L12 3l4.5 4.5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+          <span>Share</span>
+        </button>
+      </div>
     </section>
 
     <!-- These 4 render as additional full-height "screens" alongside the
@@ -2866,7 +2870,6 @@
   }
   document.getElementById('becomeDiscipleBannerBtn').addEventListener('click', openBecomeDiscipleFlow);
   document.getElementById('startDiscipleshipBtn').addEventListener('click', openBecomeDiscipleFlow);
-  document.getElementById('startDiscipleshipMidBtn').addEventListener('click', openBecomeDiscipleFlow);
   const shareJesusPage = async (ev) => {
     const url = 'https://followingjesus.com/who-is-jesus.html';
     const btn = ev && ev.currentTarget;
