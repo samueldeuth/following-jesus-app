@@ -9073,7 +9073,8 @@ function showAppAlert(message, opts = {}) {
   });
 }
 
-function showAppConfirm(message) {
+function showAppConfirm(message, opts = {}) {
+  const yesLabel = opts.yesLabel || 'Confirm', noLabel = opts.noLabel || 'Cancel';
   return new Promise(resolve => {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -9081,8 +9082,8 @@ function showAppConfirm(message) {
       <div class="modal-sheet">
         <p style="font-size:14px; line-height:1.5; white-space:pre-line; margin:0 0 18px;">${escapeHtml(message)}</p>
         <div class="modal-actions">
-          <button class="primary" id="appConfirmYes">Confirm</button>
-          <button class="secondary" id="appConfirmNo">Cancel</button>
+          <button class="primary" id="appConfirmYes">${escapeHtml(yesLabel)}</button>
+          <button class="secondary" id="appConfirmNo">${escapeHtml(noLabel)}</button>
         </div>
       </div>`;
     document.getElementById('modalPortal').appendChild(overlay);
@@ -11397,11 +11398,24 @@ async function renderDiscipleshipApp() {
     return (acct && (acct.email || acct.name)) ? 'lost' : 'anon';
   }
   const VOTD_MSG_ANON = 'Sign in to your Following Jesus account to heart a verse.';
-  const VOTD_MSG_LOST = 'We couldn’t confirm your sign-in just now. Close and reopen the app and try again. If it still happens, sign out and back in from the Profile tab.';
+  const VOTD_MSG_LOST = 'Your account is saved on this phone, but it needs a quick sign-in again before you can heart a verse. It only takes a few seconds, and Apple or Google both work.';
+  // Opens the normal sign-in screen (Apple / Google) so the person can reconnect without hunting for it.
+  async function votdSignInAgain() {
+    const yes = await showAppConfirm(VOTD_MSG_LOST, { yesLabel: 'Sign in again', noLabel: 'Not now' });
+    if (!yes) return;
+    try { votdClose(); } catch (err) {}
+    closeAllModals();
+    hideMainScreens();
+    showPageHeader('Sign in');
+    document.getElementById('discipleModal').classList.add('open');
+    localStorage.setItem('fj_oauth_return_to', 'profile');
+    renderAccountStep();
+  }
   async function votdToggleHeart() {
     if (votd.busy) return;
     const authState = await votdAuthState();
-    if (authState !== 'ok') { await showAppAlert(authState === 'lost' ? VOTD_MSG_LOST : VOTD_MSG_ANON); return; }
+    if (authState === 'lost') { await votdSignInAgain(); return; }
+    if (authState !== 'ok') { await showAppAlert(VOTD_MSG_ANON); return; }
     votd.busy = true;
     const before = { hearted: votd.hearted, hearts: votd.hearts };
     votd.hearted = !votd.hearted; votd.hearts = Math.max(0, votd.hearts + (votd.hearted ? 1 : -1));
@@ -11412,7 +11426,7 @@ async function renderDiscipleshipApp() {
       votd.hearted = !!data.hearted; votd.hearts = Number(data.hearts) || 0;
     } catch (err) {
       votd.hearted = before.hearted; votd.hearts = before.hearts;
-      if (err && /sign in required/i.test(String(err.message || ''))) { votd.busy = false; votdRenderSocial(); await showAppAlert(VOTD_MSG_LOST); return; }
+      if (err && /sign in required/i.test(String(err.message || ''))) { votd.busy = false; votdRenderSocial(); await votdSignInAgain(); return; }
     }
     votd.busy = false; votdRenderSocial();
   }
