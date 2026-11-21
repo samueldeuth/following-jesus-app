@@ -4786,7 +4786,25 @@
   // always gets the same photo, so a given verse's background stays put
   // for that one day and rotates to something new the next -- matches
   // the same daily cadence the card selection itself now uses.
+  // Hand-picked photo library: when /assets/nature/list.json exists ({"count":N}),
+  // photos 001.jpg ... NNN.jpg in /assets/nature/ are used (one per day, shifted per card so
+  // different cards the same day get different pictures). Until then -- or if the list can't
+  // be read -- the Pexels function below is used exactly as before.
+  let natureLib = null;
+  const natureLibReady = fetch('/assets/nature/list.json', { cache: 'no-cache' })
+    .then(r => r.ok ? r.json() : null)
+    .then(j => { if (j && Number(j.count) > 0) natureLib = { count: Math.floor(Number(j.count)), ext: /^[a-z]{3,4}$/.test(j.ext || '') ? j.ext : 'jpg' }; })
+    .catch(() => {});
+  function natureLibUrl(cardId) {
+    const [y, m, d] = currentDayKey().split('-').map(Number);
+    const dayNum = Math.floor((Date.UTC(y, m - 1, d) - Date.UTC(2026, 0, 1)) / 86400000);
+    let h = 0; const str = String(cardId);
+    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 100003;
+    const idx = (((dayNum + h) % natureLib.count) + natureLib.count) % natureLib.count;
+    return '/assets/nature/' + String(idx + 1).padStart(3, '0') + '.' + natureLib.ext;
+  }
   function natureBackgroundUrlForCard(cardId) {
+    if (natureLib) return natureLibUrl(cardId);
     return `/.netlify/functions/get-nature-photo?seed=${encodeURIComponent(cardId)}&week=${encodeURIComponent(currentDayKey())}`;
   }
 
@@ -11457,6 +11475,7 @@ async function renderDiscipleshipApp() {
     const slide = document.getElementById('todaySlideVerse');
     const textEl = document.getElementById('todayVerseText');
     if (!card || !slide || !textEl) return;
+    await natureLibReady;
     votd.ref = todaysRef; votd.refLabel = refLabel; votd.date = currentDayKey();
     votd.verse = textEl.dataset.loaded === '1' ? textEl.textContent.trim().replace(/^[“"]+|[”"]+$/g, '') : '';
     const bank = await getSoapBank();
