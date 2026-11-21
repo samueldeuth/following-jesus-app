@@ -11374,12 +11374,34 @@ async function renderDiscipleshipApp() {
     } catch (err) { votd.socialOk = false; }
     votdRenderSocial();
   }
-  async function votdIsSignedIn() {
-    try { const { data: { session } } = await supabaseClient.auth.getSession(); return !!(session && session.user); } catch (err) { return false; }
+  // Apple and Google sign-ins both end up as the same kind of account session, so the check below
+  // never looks at which one was used. It only asks: is there a real (not anonymous) session?
+  // Everyone also gets a silent anonymous identity, which must NOT count as signed in.
+  // A session read can fail for a moment on phones (the app reads it from many places at start-up),
+  // so it is retried and refreshed before anyone is told to sign in.
+  //   'ok'   = real account session
+  //   'lost' = the app remembers an account on this phone but no live session could be read
+  //   'anon' = nobody has signed in on this phone
+  async function votdAuthState() {
+    let session = null;
+    for (let i = 0; i < 3 && !session; i++) {
+      try { const r = await supabaseClient.auth.getSession(); session = r && r.data && r.data.session; } catch (err) {}
+      if (!session && i < 2) await new Promise(res => setTimeout(res, 350));
+    }
+    if (!session) {
+      try { const r = await supabaseClient.auth.refreshSession(); session = r && r.data && r.data.session; } catch (err) {}
+    }
+    if (session && session.user && session.user.is_anonymous !== true) return 'ok';
+    let acct = null;
+    try { acct = await dSafeGet('account'); } catch (err) {}
+    return (acct && (acct.email || acct.name)) ? 'lost' : 'anon';
   }
+  const VOTD_MSG_ANON = 'Sign in to your Following Jesus account to heart a verse.';
+  const VOTD_MSG_LOST = 'We couldn’t confirm your sign-in just now. Close and reopen the app and try again. If it still happens, sign out and back in from the Profile tab.';
   async function votdToggleHeart() {
     if (votd.busy) return;
-    if (!(await votdIsSignedIn())) { await showAppAlert('Sign in to your Following Jesus account to heart a verse.'); return; }
+    const authState = await votdAuthState();
+    if (authState !== 'ok') { await showAppAlert(authState === 'lost' ? VOTD_MSG_LOST : VOTD_MSG_ANON); return; }
     votd.busy = true;
     const before = { hearted: votd.hearted, hearts: votd.hearts };
     votd.hearted = !votd.hearted; votd.hearts = Math.max(0, votd.hearts + (votd.hearted ? 1 : -1));
@@ -11388,7 +11410,10 @@ async function renderDiscipleshipApp() {
       const { data, error } = await supabaseClient.rpc('toggle_votd_heart', { p_date: votd.date, p_ref: votd.ref });
       if (error || !data) throw (error || new Error('no data'));
       votd.hearted = !!data.hearted; votd.hearts = Number(data.hearts) || 0;
-    } catch (err) { votd.hearted = before.hearted; votd.hearts = before.hearts; }
+    } catch (err) {
+      votd.hearted = before.hearted; votd.hearts = before.hearts;
+      if (err && /sign in required/i.test(String(err.message || ''))) { votd.busy = false; votdRenderSocial(); await showAppAlert(VOTD_MSG_LOST); return; }
+    }
     votd.busy = false; votdRenderSocial();
   }
   // A random id this phone makes up, used only so one person's repeat shares count once.
