@@ -11223,6 +11223,7 @@ async function renderDiscipleshipApp() {
       const text = (data.text || '').trim().replace(/\s+/g, ' ');
       if (!text) throw new Error('empty verse text');
       textEl.textContent = `"${text}"`;
+      textEl.dataset.loaded = '1';
     } catch (err) {
       // Same spirit as the notification's fallback: if the verse text
       // can't be fetched, still show something useful (the reference)
@@ -11265,7 +11266,24 @@ async function renderDiscipleshipApp() {
     const t1 = document.getElementById('todaySlideVerseTitle'); if (t1) t1.textContent = 'Scripture';
     track.appendChild(mk('Observation', 2, '', e.o));
     track.appendChild(mk('Application', 3, '', e.a));
-    track.appendChild(mk('Prayer', 4, 'soap-prayer', e.p));
+    const prayerSlide = mk('Prayer', 4, 'soap-prayer', e.p);
+    // Share arrow on the last card: turns the whole Scripture + Observation +
+    // Application + Prayer into one story-sized picture to text or post.
+    const prayerDate = prayerSlide.querySelector('.today-eyebrow .date');
+    if (prayerDate) {
+      const right = document.createElement('span');
+      right.className = 'today-eyebrow-right';
+      prayerDate.parentNode.insertBefore(right, prayerDate);
+      right.appendChild(prayerDate);
+      const sb = document.createElement('button');
+      sb.type = 'button';
+      sb.className = 'verse-alert-bell soap-share-btn';
+      sb.setAttribute('aria-label', 'Share today\u2019s verse as an image');
+      sb.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7.5 7.5L12 3l4.5 4.5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
+      sb.addEventListener('click', () => shareTodaySoap(sb, todaysRef, refLabel, e));
+      right.appendChild(sb);
+    }
+    track.appendChild(prayerSlide);
     track.classList.add('soap-on');
     let swiped = false;
     try { swiped = localStorage.getItem('fj_soapSwiped') === '1'; } catch (err) {}
@@ -11286,6 +11304,148 @@ async function renderDiscipleshipApp() {
         }
       }, 60);
     }, { passive: true });
+  }
+
+  // ---------- Verse of the Day: share the whole SOAP as a story-sized picture ----------
+  // 1080 x 1920 (Instagram / Facebook story shape). Same pattern as the Gospel
+  // cards: native share sheet with the picture attached, or a download if the
+  // device can't share files. Background is the same daily nature photo used
+  // for the other share pictures, falling back to a dark gradient.
+  async function drawSoapStory(canvas, d) {
+    const W = 1080, H = 1920, X = 96, TW = W - X * 2;
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    try {
+      if (document.fonts && document.fonts.load) {
+        await Promise.all([
+          document.fonts.load('italic 500 40px Fraunces'), document.fonts.load('400 40px Fraunces'),
+          document.fonts.load('700 24px Archivo'), document.fonts.load('600 24px Archivo')
+        ]);
+      }
+    } catch (err) {}
+
+    let photoLoaded = false;
+    try {
+      const img = await Promise.race([
+        loadImage(natureBackgroundUrlForCard('votd-' + d.ref.replace(/[^A-Za-z0-9]+/g, '-'))),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('photo timeout')), 4500))
+      ]);
+      const ir = img.width / img.height, cr = W / H;
+      let dw, dh, ox, oy;
+      if (ir > cr) { dh = H; dw = H * ir; ox = (W - dw) / 2; oy = 0; } else { dw = W; dh = W / ir; ox = 0; oy = (H - dh) / 2; }
+      ctx.drawImage(img, ox, oy, dw, dh);
+      photoLoaded = true;
+    } catch (err) { /* plain gradient below */ }
+    if (photoLoaded) {
+      const ov = ctx.createLinearGradient(0, 0, 0, H);
+      ov.addColorStop(0, 'rgba(10,10,10,0.72)'); ov.addColorStop(1, 'rgba(10,10,10,0.88)');
+      ctx.fillStyle = ov; ctx.fillRect(0, 0, W, H);
+    } else {
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, '#1c1c1c'); g.addColorStop(1, '#3a3a3a');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    }
+
+    // Story apps cover the top and bottom of the picture with their own buttons,
+    // so everything that matters stays between these two lines.
+    const TOP = 250, BOTTOM = 1610;
+    const sections = [];
+    if (d.verse) sections.push({ label: 'Scripture', text: '“' + d.verse + (/”$/.test(d.verse) ? '' : '”'), ref: d.ref, italic: true });
+    sections.push({ label: 'Observation', text: d.o });
+    sections.push({ label: 'Application', text: d.a });
+    sections.push({ label: 'Prayer', text: d.p, italic: true });
+
+    const font = (sec, size) => (sec.italic ? 'italic 500 ' : '400 ') + size + 'px Fraunces, serif';
+    const layout = (size) => {
+      let total = 0;
+      const out = sections.map(sec => {
+        ctx.font = font(sec, size);
+        const lines = wrapCanvasText(ctx, sec.text, TW);
+        const lh = Math.round(size * 1.42);
+        const h = 46 + lines.length * lh + (sec.ref ? 52 : 0);
+        total += h;
+        return { sec, lines, lh, h };
+      });
+      total += (sections.length - 1) * 46;
+      return { out, total };
+    };
+    let size = 42, L = layout(size);
+    while (L.total > BOTTOM - TOP && size > 26) { size -= 2; L = layout(size); }
+    // Very long passages: trim the Scripture with an ellipsis rather than overflow.
+    if (L.total > BOTTOM - TOP && d.verse) {
+      const words = d.verse.split(' ');
+      while (L.total > BOTTOM - TOP && words.length > 12) {
+        words.length = Math.max(12, words.length - 6);
+        sections[0].text = '“' + words.join(' ').replace(/[,;:\s]+$/, '') + '…”';
+        L = layout(size);
+      }
+    }
+
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    // Title block, centered above the sections
+    ctx.fillStyle = '#c89b3c'; ctx.fillRect(W / 2 - 40, 176, 80, 5);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '700 24px Archivo, sans-serif';
+    ctx.fillText('VERSE OF THE DAY  ·  ' + d.dateLabel.toUpperCase(), W / 2, 222);
+
+    // Spread leftover space evenly so short days don't bunch up at the top.
+    const spare = Math.max(0, (BOTTOM - TOP) - L.total);
+    const gap = 46 + Math.min(40, spare / Math.max(1, sections.length));
+    let y = TOP + Math.min(60, spare / 4);
+    ctx.textAlign = 'left';
+    L.out.forEach(({ sec, lines, lh }) => {
+      ctx.fillStyle = '#c89b3c'; ctx.font = '700 24px Archivo, sans-serif';
+      ctx.fillText(sec.label.toUpperCase(), X, y + 24);
+      y += 46;
+      ctx.fillStyle = '#ffffff'; ctx.font = font(sec, size);
+      lines.forEach(line => { y += lh; ctx.fillText(line, X, y - Math.round(lh * 0.28)); });
+      if (sec.ref) {
+        ctx.fillStyle = 'rgba(255,255,255,0.72)'; ctx.font = '600 28px Archivo, sans-serif';
+        ctx.fillText(sec.ref, X, y + 40); y += 52;
+      }
+      y += gap;
+    });
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '700 26px Archivo, sans-serif';
+    ctx.fillText('FOLLOWING JESUS', W / 2, 1690);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '500 22px Archivo, sans-serif';
+    ctx.fillText('followingjesus.com', W / 2, 1728);
+  }
+
+  let soapShareBusy = false;
+  async function shareTodaySoap(btn, todaysRef, refLabel, e) {
+    if (soapShareBusy) return;
+    soapShareBusy = true;
+    if (btn) btn.style.opacity = '0.5';
+    try {
+      const vt = document.getElementById('todayVerseText');
+      let verse = '';
+      if (vt && vt.dataset.loaded === '1') verse = vt.textContent.trim().replace(/^[“"]+|[”"]+$/g, '');
+      const canvas = document.createElement('canvas');
+      await drawSoapStory(canvas, {
+        ref: refLabel, verse, o: e.o, a: e.a, p: e.p,
+        dateLabel: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+      });
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png', 0.95));
+      if (!blob) return;
+      const fileName = 'verse-of-the-day-' + todaysRef.replace(/[^A-Za-z0-9]+/g, '-').toLowerCase() + '.png';
+      const file = new File([blob], fileName, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: 'Following Jesus', text: refLabel + ' — Verse of the Day from Following Jesus' });
+          return;
+        } catch (err) {
+          if (err && err.name === 'AbortError') return; // closed the share sheet on purpose
+        }
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fileName;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (err) { /* sharing is optional; never break the card */ }
+    finally { soapShareBusy = false; if (btn) btn.style.opacity = ''; }
   }
   loadTodayVerse();
 
