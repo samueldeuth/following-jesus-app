@@ -4812,15 +4812,21 @@
   let natureLib = null;
   const natureLibReady = fetch('/assets/nature/list.json', { cache: 'no-cache' })
     .then(r => r.ok ? r.json() : null)
-    .then(j => { if (j && Number(j.count) > 0) natureLib = { count: Math.floor(Number(j.count)), ext: /^[a-z]{3,4}$/.test(j.ext || '') ? j.ext : 'jpg' }; })
+    .then(j => { if (j && Number(j.count) > 0) {
+      const count = Math.floor(Number(j.count));
+      // optional "order": a hand-checked sequence (photo numbers) so neighbouring days never look alike
+      const order = Array.isArray(j.order) && j.order.length === count && j.order.every(n => Number.isInteger(n) && n >= 1 && n <= count) ? j.order : null;
+      natureLib = { count, order, ext: /^[a-z]{3,4}$/.test(j.ext || '') ? j.ext : 'jpg' };
+    } })
     .catch(() => {});
   function natureLibUrl(cardId) {
     const [y, m, d] = currentDayKey().split('-').map(Number);
     const dayNum = Math.floor((Date.UTC(y, m - 1, d) - Date.UTC(2026, 0, 1)) / 86400000);
     let h = 0; const str = String(cardId);
     for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 100003;
-    const idx = (((dayNum + h) % natureLib.count) + natureLib.count) % natureLib.count;
-    return '/assets/nature/' + String(idx + 1).padStart(3, '0') + '.' + natureLib.ext;
+    const pos = (((dayNum + h) % natureLib.count) + natureLib.count) % natureLib.count;
+    const num = natureLib.order ? natureLib.order[pos] : pos + 1;
+    return '/assets/nature/' + String(num).padStart(3, '0') + '.' + natureLib.ext;
   }
   function natureBackgroundUrlForCard(cardId) {
     if (natureLib) return natureLibUrl(cardId);
