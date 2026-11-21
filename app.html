@@ -349,7 +349,7 @@
     position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 36px);
     display: flex; justify-content: space-around; z-index: 2;
   }
-  .votd-actions button { flex-direction: column; gap: 7px; font-size: 13px; font-weight: 600; padding: 8px 24px; }
+  .votd-actions button { flex-direction: column; gap: 7px; font-size: 13px; font-weight: 600; padding: 8px 16px; }
   .votd-actions svg { width: 30px; height: 30px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
   .votd-actions .votd-heart.on svg { fill: #e5484d; stroke: #e5484d; }
 
@@ -2553,7 +2553,7 @@
     <section class="screen" id="screen-jesus">
       <div class="jesus-hero">
         <button type="button" class="jesus-share-arrow" id="jesusShareArrowBtn" aria-label="Share this page with a friend" data-track="Jesus: Share arrow (top)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4l6 5.5-6 5.5V12c-6 0-9.5 1.8-12 7 .8-6.5 4.5-10.5 12-11z"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7.5 7.5L12 3l4.5 4.5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
           <span>Share</span>
         </button>
         <svg class="cross" viewBox="0 0 24 24" fill="none" stroke="#c89b3c" stroke-width="1.6"><line x1="12" y1="2" x2="12" y2="22"/><line x1="5" y1="8" x2="19" y2="8"/></svg>
@@ -2867,21 +2867,38 @@
   document.getElementById('becomeDiscipleBannerBtn').addEventListener('click', openBecomeDiscipleFlow);
   document.getElementById('startDiscipleshipBtn').addEventListener('click', openBecomeDiscipleFlow);
   document.getElementById('startDiscipleshipMidBtn').addEventListener('click', openBecomeDiscipleFlow);
-  const shareJesusPage = async () => {
+  const shareJesusPage = async (ev) => {
     const url = 'https://followingjesus.com/who-is-jesus.html';
-    const shareData = {
-      title: 'Who Is Jesus?',
-      text: 'A personal introduction to who Jesus is.',
-      url
-    };
+    const btn = ev && ev.currentTarget;
+    const text = 'Who is Jesus? A personal introduction: Savior, Friend, and Lord. ' + url;
+    // Preferred: a story-size picture summarizing the page (the link rides along in the message).
+    if (!shareJesusBusy) {
+      shareJesusBusy = true; if (btn) btn.style.opacity = '0.5';
+      try {
+        const canvas = document.createElement('canvas');
+        await drawJesusStory(canvas);
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/png', 0.95));
+        if (blob) {
+          const file = new File([blob], 'who-is-jesus.png', { type: 'image/png' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({ files: [file], title: 'Who Is Jesus?', text });
+              return;
+            } catch (e) {
+              if (e && e.name === 'AbortError') return; // closed the share sheet on purpose
+            }
+          }
+        }
+      } catch (e) { /* fall through to the plain link below */ }
+      finally { shareJesusBusy = false; if (btn) btn.style.opacity = ''; }
+    }
+    // Fallback (device can't share pictures, or the picture failed): share the link as before.
+    const shareData = { title: 'Who Is Jesus?', text: 'A personal introduction to who Jesus is.', url };
     if (navigator.share) {
       try {
         await navigator.share(shareData);
         return;
       } catch (e) {
-        // Same reasoning as the gospel card share button: AbortError just
-        // means the person closed the share sheet themselves -- nothing
-        // to fall back to for that case, only genuine failures should.
         if (e && e.name === 'AbortError') return;
       }
     }
@@ -2892,6 +2909,7 @@
       alert(url);
     }
   };
+  let shareJesusBusy = false;
   document.getElementById('shareJesusPageBtn').addEventListener('click', shareJesusPage);
   document.getElementById('jesusShareArrowBtn').addEventListener('click', shareJesusPage);
   // Deferred via setTimeout(...,0) rather than calling getGlobalDiscipleCount
@@ -11385,8 +11403,9 @@ async function renderDiscipleshipApp() {
       return id;
     } catch (err) { return null; }
   }
-  async function votdShare(btn) {
-    const shared = await shareTodaySoap(btn, votd);
+  async function votdShare(btn, fullSoap) {
+    // The normal Share button sends just the verse picture; the full four-part SOAP is its own button in the full-screen view.
+    const shared = await shareTodaySoap(btn, votd, !fullSoap);
     if (!shared || !votd.socialOk) return;
     try {
       // Anyone can share, signed in or not; both are counted once per verse per day.
@@ -11416,7 +11435,8 @@ async function renderDiscipleshipApp() {
       '<button type="button" class="votd-circ" id="votdFullBell" aria-label="Verse of the Day alert settings">' + VOTD_SVG.bell + '</button></div>' +
       '<div class="votd-dots" id="votdDots"></div><div class="votd-swipehint" id="votdSwipeHint">Swipe ›</div>' +
       '<div class="votd-actions"><button type="button" class="votd-heart" aria-label="Heart today’s verse">' + VOTD_SVG.heart + '<span>Heart <span class="votd-n"></span></span></button>' +
-      '<button type="button" class="votd-sharebtn" aria-label="Share today’s verse as an image">' + VOTD_SVG.share + '<span>Share <span class="votd-share-n"></span></span></button></div>';
+      '<button type="button" class="votd-sharebtn" aria-label="Share today’s verse as an image">' + VOTD_SVG.share + '<span>Share <span class="votd-share-n"></span></span></button>' +
+      '<button type="button" class="votd-sharefull" aria-label="Share the full SOAP as an image">' + VOTD_SVG.share + '<span>Full SOAP</span></button></div>';
     document.body.appendChild(ov);
     ov.querySelector('#votdClose').addEventListener('click', votdClose);
     ov.querySelector('#votdFullBell').addEventListener('click', () => {
@@ -11425,6 +11445,7 @@ async function renderDiscipleshipApp() {
     });
     ov.querySelector('.votd-heart').addEventListener('click', votdToggleHeart);
     ov.querySelector('.votd-sharebtn').addEventListener('click', (ev) => votdShare(ev.currentTarget));
+    ov.querySelector('.votd-sharefull').addEventListener('click', (ev) => votdShare(ev.currentTarget, true));
     const panels = ov.querySelector('#votdPanels');
     let t = null;
     panels.addEventListener('scroll', () => {
@@ -11447,6 +11468,7 @@ async function renderDiscipleshipApp() {
     if (!list.length) return;
     const ov = votdEnsureOverlay();
     const esc = escapeHtmlMain;
+    const fullBtn = ov.querySelector('.votd-sharefull'); if (fullBtn) fullBtn.style.display = votd.entry ? '' : 'none';
     const panels = ov.querySelector('#votdPanels');
     panels.innerHTML = list.map(pn => {
       const n = pn.text.length;
@@ -11541,7 +11563,8 @@ async function renderDiscipleshipApp() {
     } catch (err) { /* plain gradient below */ }
     if (photoLoaded) {
       const ov = ctx.createLinearGradient(0, 0, 0, H);
-      ov.addColorStop(0, 'rgba(10,10,10,0.72)'); ov.addColorStop(1, 'rgba(10,10,10,0.88)');
+      const sh = d.verseOnly ? [0.5, 0.72] : [0.72, 0.88];
+      ov.addColorStop(0, 'rgba(10,10,10,' + sh[0] + ')'); ov.addColorStop(1, 'rgba(10,10,10,' + sh[1] + ')');
       ctx.fillStyle = ov; ctx.fillRect(0, 0, W, H);
     } else {
       const g = ctx.createLinearGradient(0, 0, W, H);
@@ -11558,6 +11581,38 @@ async function renderDiscipleshipApp() {
     if (d.a) sections.push({ label: 'Application', text: d.a });
     if (d.p) sections.push({ label: 'Prayer', text: d.p, italic: true });
 
+    if (d.verseOnly && sections.length) {
+      // Just the verse: big, centered, easy to read at a glance -- the version people will actually post.
+      const text = sections[0].text;
+      let fs = 70, lines, lh;
+      const fit = () => { ctx.font = 'italic 500 ' + fs + 'px Fraunces, serif'; lines = wrapCanvasText(ctx, text, TW); lh = Math.round(fs * 1.36); };
+      fit();
+      while (lines.length * lh > 1000 && fs > 34) { fs -= 2; fit(); }
+      if (lines.length * lh > 1000 && d.verse) {
+        const words = d.verse.split(' ');
+        while (lines.length * lh > 1000 && words.length > 12) {
+          words.length = Math.max(12, words.length - 6);
+          sections[0].text = '“' + words.join(' ').replace(/[,;:\s]+$/, '') + '…”';
+          ctx.font = 'italic 500 ' + fs + 'px Fraunces, serif'; lines = wrapCanvasText(ctx, sections[0].text, TW);
+        }
+      }
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = '#c89b3c'; ctx.fillRect(W / 2 - 40, 150, 80, 5);
+      ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.font = '700 32px Archivo, sans-serif';
+      ctx.fillText('FOLLOWING JESUS', W / 2, 212);
+      ctx.fillStyle = 'rgba(255,255,255,0.72)'; ctx.font = '700 24px Archivo, sans-serif';
+      ctx.fillText('VERSE OF THE DAY', W / 2, 258);
+      const blockH = lines.length * lh + 110;
+      let y = TOP + Math.max(0, ((BOTTOM - TOP) - blockH) / 2);
+      ctx.fillStyle = '#ffffff'; ctx.font = 'italic 500 ' + fs + 'px Fraunces, serif';
+      lines.forEach(line => { y += lh; ctx.fillText(line, W / 2, y - Math.round(lh * 0.28)); });
+      ctx.fillStyle = '#c89b3c'; ctx.fillRect(W / 2 - 28, y + 38, 56, 3);
+      ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.font = '700 34px Archivo, sans-serif';
+      ctx.fillText(sections[0].ref, W / 2, y + 96);
+      ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = '600 28px Archivo, sans-serif';
+      ctx.fillText('followingjesus.com', W / 2, 1700);
+      return;
+    }
     const font = (sec, size) => (sec.italic ? 'italic 500 ' : '400 ') + size + 'px Fraunces, serif';
     const layout = (size) => {
       let total = 0;
@@ -11616,8 +11671,97 @@ async function renderDiscipleshipApp() {
     ctx.fillText('followingjesus.com', W / 2, 1728);
   }
 
+  // ---------- Who Is Jesus page: story-size summary picture ----------
+  async function drawJesusStory(canvas) {
+    const W = 1080, H = 1920, X = 96, TW = W - X * 2;
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    try {
+      if (document.fonts && document.fonts.load) {
+        await Promise.all([
+          document.fonts.load('italic 500 40px Fraunces'), document.fonts.load('400 40px Fraunces'),
+          document.fonts.load('700 24px Archivo'), document.fonts.load('600 24px Archivo')
+        ]);
+      }
+    } catch (err) {}
+    let photoLoaded = false;
+    try {
+      const img = await Promise.race([
+        loadImage(natureBackgroundUrlForCard('who-is-jesus')),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('photo timeout')), 4500))
+      ]);
+      const ir = img.width / img.height, cr = W / H;
+      let dw, dh, ox, oy;
+      if (ir > cr) { dh = H; dw = H * ir; ox = (W - dw) / 2; oy = 0; } else { dw = W; dh = W / ir; ox = 0; oy = (H - dh) / 2; }
+      ctx.drawImage(img, ox, oy, dw, dh);
+      photoLoaded = true;
+    } catch (err) {}
+    if (photoLoaded) {
+      const ov = ctx.createLinearGradient(0, 0, 0, H);
+      ov.addColorStop(0, 'rgba(10,10,10,0.66)'); ov.addColorStop(1, 'rgba(10,10,10,0.86)');
+      ctx.fillStyle = ov; ctx.fillRect(0, 0, W, H);
+    } else {
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, '#1c1c1c'); g.addColorStop(1, '#3a3a3a');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    }
+    const GOLD = '#c89b3c';
+    ctx.textBaseline = 'alphabetic';
+    // Header
+    ctx.textAlign = 'center';
+    ctx.fillStyle = GOLD; ctx.fillRect(W / 2 - 40, 190, 80, 5);
+    ctx.fillStyle = '#ffffff'; ctx.font = '600 76px Fraunces, serif';
+    ctx.fillText('Who Is Jesus?', W / 2, 296);
+    ctx.fillStyle = 'rgba(255,255,255,0.78)'; ctx.font = 'italic 500 34px Fraunces, serif';
+    ctx.fillText('A personal introduction', W / 2, 352);
+
+    const items = [
+      { k: 'SAVIOR', line: 'He paid the debt of our sin on the cross.', v: '“I am the way and the truth and the life. No one comes to the Father except through me.”', r: 'John 14:6' },
+      { k: 'FRIEND', line: 'He draws close to us with mercy, not shame.', v: '“Here I am! I stand at the door and knock. If anyone hears my voice and opens the door, I will come in and eat with that person, and they with me.”', r: 'Revelation 3:20' },
+      { k: 'LORD', line: 'Receive His gift and follow Him: freedom and purpose.', v: '“If you declare with your mouth, ‘Jesus is Lord,’ and believe in your heart that God raised Him from the dead, you will be saved.”', r: 'Romans 10:9' }
+    ];
+    const TOP = 440, BOTTOM = 1600;
+    let vs = 34, lineS = 34, blocks;
+    const layout = () => {
+      let total = 0;
+      blocks = items.map(it => {
+        ctx.font = '500 ' + lineS + 'px Archivo, sans-serif';
+        const ll = wrapCanvasText(ctx, it.line, TW);
+        ctx.font = 'italic 500 ' + vs + 'px Fraunces, serif';
+        const vl = wrapCanvasText(ctx, it.v, TW);
+        const lh = Math.round(vs * 1.38), llh = Math.round(lineS * 1.35);
+        const h = 54 + ll.length * llh + 14 + vl.length * lh + 48;
+        total += h; return { it, ll, vl, lh, llh, h };
+      });
+      total += (items.length - 1) * 54; return total;
+    };
+    let total = layout();
+    while (total > BOTTOM - TOP && vs > 24) { vs -= 2; lineS = Math.max(26, lineS - 1); total = layout(); }
+    const spare = Math.max(0, (BOTTOM - TOP) - total);
+    let y = TOP + Math.min(40, spare / 3);
+    const gap = 54 + Math.min(40, spare / 3);
+    ctx.textAlign = 'left';
+    blocks.forEach(b => {
+      ctx.fillStyle = GOLD; ctx.font = '700 30px Archivo, sans-serif';
+      ctx.fillText(b.it.k, X, y + 30); y += 54;
+      ctx.fillStyle = '#ffffff'; ctx.font = '500 ' + lineS + 'px Archivo, sans-serif';
+      b.ll.forEach(l => { y += b.llh; ctx.fillText(l, X, y - 8); });
+      y += 14;
+      ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.font = 'italic 500 ' + vs + 'px Fraunces, serif';
+      b.vl.forEach(l => { y += b.lh; ctx.fillText(l, X, y - Math.round(b.lh * 0.28)); });
+      ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '600 26px Archivo, sans-serif';
+      y += 38; ctx.fillText(b.it.r, X, y); y += gap;
+    });
+    // Footer
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '700 26px Archivo, sans-serif';
+    ctx.fillText('FOLLOWING JESUS', W / 2, 1690);
+    ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.font = '500 24px Archivo, sans-serif';
+    ctx.fillText('followingjesus.com/who-is-jesus', W / 2, 1730);
+  }
+
   let soapShareBusy = false;
-  async function shareTodaySoap(btn, d) {
+  async function shareTodaySoap(btn, d, verseOnly) {
     if (soapShareBusy) return false;
     soapShareBusy = true;
     if (btn) btn.style.opacity = '0.5';
@@ -11625,12 +11769,12 @@ async function renderDiscipleshipApp() {
       const canvas = document.createElement('canvas');
       const entry = d.entry || {};
       await drawSoapStory(canvas, {
-        ref: d.refLabel, verse: d.verse, o: entry.o, a: entry.a, p: entry.p,
+        ref: d.refLabel, verse: d.verse, o: entry.o, a: entry.a, p: entry.p, verseOnly: !!verseOnly,
         dateLabel: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
       });
       const blob = await new Promise(res => canvas.toBlob(res, 'image/png', 0.95));
       if (!blob) return false;
-      const fileName = 'verse-of-the-day-' + d.ref.replace(/[^A-Za-z0-9]+/g, '-').toLowerCase() + '.png';
+      const fileName = (verseOnly ? 'verse-of-the-day-' : 'verse-of-the-day-soap-') + d.ref.replace(/[^A-Za-z0-9]+/g, '-').toLowerCase() + '.png';
       const file = new File([blob], fileName, { type: 'image/png' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
