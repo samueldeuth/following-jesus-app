@@ -297,12 +297,14 @@
     order: 2; color: #fff; font-size: 22px; line-height: 1.4; margin: 16px 0 0;
     display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden;
   }
-  .votd-bar { order: 3; display: flex; align-items: center; gap: 18px; margin-top: 14px; color: #fff; font-size: 13px; font-weight: 600; }
+  .votd-bar { order: 3; display: flex; align-items: center; gap: 6px; margin-top: 10px; color: #fff; font-size: 13px; font-weight: 600; }
+  .today .votd-bar button { min-width: 44px; min-height: 44px; padding: 10px 8px; margin: 0 -2px; justify-content: center; }
+  .today .votd-bar .votd-open { min-height: 44px; }
   .votd-bar button, .votd-actions button {
     background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 6px 0;
     display: inline-flex; align-items: center; gap: 6px;
   }
-  .votd-bar svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .votd-bar svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
   .votd-heart.on svg { fill: #e5484d; stroke: #e5484d; }
   .votd-open { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; opacity: 0.92; }
   .votd-open svg { width: 15px !important; height: 15px !important; }
@@ -1952,6 +1954,9 @@
 
 #goodNewsModal .gospel-card-preview { background: var(--white); border-color: var(--black); }
 #goodNewsModal .gospel-card-title { color: var(--black); }
+/* neutral placeholder while the card pictures load (was a teal tint with a teal icon) */
+#goodNewsModal .gospel-card-icon-box { background: rgba(10,10,10,0.07); }
+#goodNewsModal .gospel-card-icon-box svg { opacity: 0; }
 #goodNewsModal .gospel-card-message { color: rgba(10,10,10,0.75); }
 #goodNewsModal .gospel-card-ref { color: rgba(10,10,10,0.4); }
 
@@ -2933,6 +2938,7 @@
     document.getElementById('goodNewsModal').classList.add('open');
     renderGoodNewsGrid();
     pushUrlHash('good-news');
+    ['/assets/bridge-photo-square-cross.jpg','/assets/romans-photo-square-4.jpg'].forEach(u => { try { new Image().src = u; } catch (e) {} });
   };
   document.getElementById('shareGoodNewsBtn').addEventListener('click', openGoodNewsPage);
   // The Today banner goes straight to the gospel share pictures (the Bible verse graphics page is no longer linked from here).
@@ -11305,12 +11311,12 @@ async function renderDiscipleshipApp() {
   };
   function votdFmt(n) {
     n = Number(n) || 0;
-    if (n < 3) return ''; // a couple of hearts looks emptier than none; counts appear from 3
+    if (n < 2) return ''; // a lone heart/share shows no number; the count appears from the 2nd
     return n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'K' : String(n);
   }
   function votdPhotoBg(strong) {
     const seed = 'votd-' + votd.refLabel.replace(/[^A-Za-z0-9]+/g, '-');
-    const a = strong ? 0.62 : 0.5, z = strong ? 0.9 : 0.82;
+    const a = strong ? 0.36 : 0.74, z = strong ? 0.74 : 0.92; // Today card: heavier shade so the white verse pops; full screen: lighter so the photo shows
     return 'linear-gradient(180deg, rgba(8,16,22,' + a + '), rgba(8,16,22,' + z + ')), url("' + natureBackgroundUrlForCard(seed) + '"), linear-gradient(170deg, #2a6486 0%, #1b4a66 40%, #14303f 75%, #0c1a1f 100%)';
   }
   function votdRenderSocial() {
@@ -11476,6 +11482,8 @@ async function renderDiscipleshipApp() {
         if (t.closest('#verseOfDayBellBtn')) return; // bell keeps its own job
         if (t.closest('.votd-heart')) { votdToggleHeart(); return; }
         if (t.closest('.votd-sharebtn')) { votdShare(t.closest('.votd-sharebtn')); return; }
+        // a tap anywhere else on the heart/share row (near-misses included) must not open the full screen
+        if (t.closest('#votdBar') && !t.closest('.votd-open')) return;
         votdOpen();
       });
     }
