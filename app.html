@@ -11400,8 +11400,8 @@ async function renderDiscipleshipApp() {
   const VOTD_MSG_ANON = 'Sign in to your Following Jesus account to heart a verse.';
   const VOTD_MSG_LOST = 'Your account is saved on this phone, but it needs a quick sign-in again before you can heart a verse. It only takes a few seconds, and Apple or Google both work.';
   // Opens the normal sign-in screen (Apple / Google) so the person can reconnect without hunting for it.
-  async function votdSignInAgain() {
-    const yes = await showAppConfirm(VOTD_MSG_LOST, { yesLabel: 'Sign in again', noLabel: 'Not now' });
+  async function votdSignInAgain(msg, yesLabel) {
+    const yes = await showAppConfirm(msg || VOTD_MSG_LOST, { yesLabel: yesLabel || 'Sign in again', noLabel: 'Not now' });
     if (!yes) return;
     try { votdClose(); } catch (err) {}
     closeAllModals();
@@ -11415,7 +11415,7 @@ async function renderDiscipleshipApp() {
     if (votd.busy) return;
     const authState = await votdAuthState();
     if (authState === 'lost') { await votdSignInAgain(); return; }
-    if (authState !== 'ok') { await showAppAlert(VOTD_MSG_ANON); return; }
+    if (authState !== 'ok') { await votdSignInAgain(VOTD_MSG_ANON, 'Sign in'); return; }
     votd.busy = true;
     const before = { hearted: votd.hearted, hearts: votd.hearts };
     votd.hearted = !votd.hearted; votd.hearts = Math.max(0, votd.hearts + (votd.hearted ? 1 : -1));
