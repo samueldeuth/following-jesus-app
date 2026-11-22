@@ -91,6 +91,7 @@
 
   /* ---------- Header ---------- */
   header {
+    background: #000; /* pure black so the logo image (pure #000) blends in with no visible box */
     padding: 22px 24px 18px;
     text-align: center;
     border-bottom: 1px solid rgba(255,255,255,0.08);
@@ -12626,7 +12627,7 @@ async function renderDiscipleshipApp() {
     try {
       if (typeof median !== 'undefined' && median && median.statusbar && typeof median.statusbar.set === 'function') {
         // In Median, style 'dark' = white text/icons (for a dark bar); 'light' = black text.
-        median.statusbar.set({ style: 'dark', color: 'FF0A0A0A', overlay: false });
+        median.statusbar.set({ style: 'dark', color: 'FF000000', overlay: false });
         done = true;
       }
     } catch (e) {}
