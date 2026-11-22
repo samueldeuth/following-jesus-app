@@ -356,6 +356,7 @@
     display: flex; justify-content: space-around; z-index: 2;
   }
   .votd-actions button { flex-direction: column; gap: 7px; font-size: 13px; font-weight: 600; padding: 8px 16px; }
+  .votd-actions .votd-count { display: block; min-height: 1.3em; line-height: 1.3; }
   .votd-actions svg { width: 30px; height: 30px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
   .votd-actions .votd-heart.on svg { fill: #e5484d; stroke: #e5484d; }
 
@@ -11573,9 +11574,9 @@ async function renderDiscipleshipApp() {
       '<div class="votd-full-top"><button type="button" class="votd-circ" id="votdClose" aria-label="Close verse of the day">' + VOTD_SVG.close + '</button>' +
       '<button type="button" class="votd-circ" id="votdFullBell" aria-label="Verse of the Day alert settings">' + VOTD_SVG.bell + '</button></div>' +
       '<div class="votd-dots" id="votdDots"></div><div class="votd-swipehint" id="votdSwipeHint">Swipe ›</div>' +
-      '<div class="votd-actions"><button type="button" class="votd-heart" aria-label="Heart today’s verse">' + VOTD_SVG.heart + '<span>Heart <span class="votd-n"></span></span></button>' +
-      '<button type="button" class="votd-sharebtn" aria-label="Share today’s verse as an image">' + VOTD_SVG.share + '<span>Share <span class="votd-share-n"></span></span></button>' +
-      '<button type="button" class="votd-sharefull" aria-label="Share the full SOAP as an image">' + VOTD_SVG.share + '<span>Full SOAP</span></button></div>';
+      '<div class="votd-actions"><button type="button" class="votd-heart" aria-label="Heart today’s verse">' + VOTD_SVG.heart + '<span class="votd-count"><span class="votd-n"></span></span></button>' +
+      '<button type="button" class="votd-sharebtn" aria-label="Share today’s verse as an image">' + VOTD_SVG.share + '<span class="votd-count"><span class="votd-share-n"></span></span></button>' +
+      '<button type="button" class="votd-sharefull" aria-label="Share the full SOAP as an image">' + VOTD_SVG.share + '<span class="votd-count">SOAP</span></button></div>';
     document.body.appendChild(ov);
     ov.querySelector('#votdClose').addEventListener('click', votdClose);
     ov.querySelector('#votdFullBell').addEventListener('click', () => {
