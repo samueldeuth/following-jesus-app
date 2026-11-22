@@ -1274,6 +1274,39 @@
     cursor: pointer;
   }
 
+  /* ===== Today page v2: hero + grouped list, one 20px radius, serif titles ===== */
+  #screen-today .banner-slide { border-radius: 20px; text-align: left; align-items: flex-start; }
+  #screen-today .banner-slide .banner-eyebrow { text-transform: none; letter-spacing: 0; font-size: 11px; font-weight: 700; color: #c89b3c; opacity: 1; }
+  #screen-today .banner-slide .banner-title { font-family: var(--font-serif); font-weight: 500; font-size: 26px; line-height: 1.05; }
+  #screen-today .banner-dots span.active { background: #fff; }
+  #screen-today .today.votd-photo { border-radius: 20px; }
+  #screen-today .today.votd-photo .today-eyebrow { color: #c89b3c; font-weight: 700; letter-spacing: 0.04em; text-transform: none; font-size: 12px; }
+  #screen-today .today.votd-photo .today-eyebrow .date { color: rgba(255,255,255,0.85); font-weight: 500; }
+  #screen-today .today.votd-photo .verse-alert-bell:not(.off) { background: #fff; color: #0c0c0d; }
+  #screen-today .disciple-banner-hero {
+    display: block; background: #fff; color: #0c0c0d; border-radius: 20px;
+    padding: 22px 20px 20px; margin: 20px 20px 12px; width: calc(100% - 40px); box-sizing: border-box;
+  }
+  #screen-today .disciple-banner-hero:active { background: #ececec; }
+  #screen-today .disciple-banner-hero > svg, #screen-today .disciple-banner-hero .disciple-banner-arrow { display: none; }
+  #screen-today .hero-kicker { display: block; font-size: 12px; font-weight: 700; color: #8a6414; }
+  #screen-today .disciple-banner-hero .disciple-banner-title { font-family: var(--font-serif); font-weight: 500; font-size: 32px; line-height: 1.05; margin-top: 8px; color: #0c0c0d; letter-spacing: 0; }
+  #screen-today .disciple-banner-hero .disciple-banner-sub { color: #55555c; font-size: 14px; line-height: 1.4; margin-top: 8px; }
+  #screen-today .hero-go { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; background: #0c0c0d; color: #fff; border-radius: 22px; padding: 11px 18px; font-size: 14px; font-weight: 700; }
+  #screen-today .hero-go svg { width: 18px; height: 18px; }
+  #screen-today .today-action-list { margin: 0 20px; background: #1d1d20; border-radius: 20px; overflow: hidden; }
+  #screen-today .today-action-list .disciple-banner {
+    margin: 0; width: 100%; box-sizing: border-box; background: transparent; color: #fff;
+    border: none; border-top: 1px solid #2c2c31; border-radius: 0; padding: 16px; gap: 14px; text-decoration: none;
+  }
+  #screen-today .today-action-list .disciple-banner:first-child { border-top: 0; }
+  #screen-today .today-action-list .disciple-banner:active { background: #2a2a2f; }
+  #screen-today .today-action-list .disciple-banner svg { width: 28px; height: 28px; color: #fff; }
+  #screen-today .today-action-list .disciple-banner-title { font-size: 17px; font-weight: 800; line-height: 1.2; color: #fff; }
+  #screen-today .today-action-list .disciple-banner-sub { font-size: 13px; line-height: 1.35; color: #a8a8b0; }
+  #screen-today .today-action-list .disciple-banner .disciple-banner-arrow { color: #a8a8b0; }
+  #moreSectionLabel { margin-top: 26px; }
+
   /* ---------- Embed modal ----------
      These are children of .screens now (same as the 5 main tab
      sections), not viewport-covering overlays — height:100% matches
@@ -2319,15 +2352,18 @@
         </div>
       </div>
 
-      <button type="button" class="disciple-banner disciple-banner-secondary" id="becomeDiscipleBannerBtn">
+      <button type="button" class="disciple-banner disciple-banner-secondary disciple-banner-hero" id="becomeDiscipleBannerBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v6"/><path d="M12 22v-6"/><circle cx="12" cy="12" r="4"/></svg>
         <span>
+          <span class="hero-kicker">Start here</span>
           <span class="disciple-banner-title">Become a Disciple of Jesus</span>
           <span class="disciple-banner-sub">Build your life on a firm foundation | Invite a friend to join.</span>
+          <span class="hero-go">Begin <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
         </span>
         <span class="disciple-banner-arrow">→</span>
       </button>
 
+      <div class="today-action-list">
       <button type="button" class="disciple-banner disciple-banner-white" id="shareGoodNewsBannerBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="2" x2="12" y2="22"/><line x1="5" y1="8" x2="19" y2="8"/></svg>
         <span>
@@ -2359,6 +2395,7 @@
         </span>
         <span class="disciple-banner-arrow">→</span>
       </a>
+      </div>
 
 
       <div class="verse-alert-modal-overlay" id="findChurchModalOverlay">
