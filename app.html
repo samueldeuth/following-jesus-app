@@ -2177,6 +2177,10 @@
 
 /* Jesus tab: curved share arrow, top right of the intro */
 #screen-jesus .jesus-hero { position: relative; }
+#screen-jesus .jesus-hero-head { display: flex; align-items: center; gap: 10px; }
+#screen-jesus .jesus-hero-head .cross { flex: none; margin: 0; }
+#screen-jesus .jesus-hero-head { margin-bottom: 18px; min-height: 40px; padding-right: 110px; }
+#screen-jesus .jesus-hero-question { margin: 0; font-family: var(--font-serif); font-weight: 500; font-size: 28px; line-height: 1.1; color: var(--black); }
 .jesus-share-arrow { position:absolute; top:14px; right:2px; display:inline-flex; align-items:center; gap:6px; background: rgba(10,10,10,0.06); color: var(--black); border:none; border-radius:999px; padding:8px 14px 8px 11px; font-size:13px; font-weight:600; cursor:pointer; }
 .jesus-share-arrow svg { width:18px; height:18px; }
 .jesus-share-arrow.jesus-share-inline { position:static; }
@@ -2631,7 +2635,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7.5 7.5L12 3l4.5 4.5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
           <span>Share</span>
         </button>
-        <svg class="cross" viewBox="0 0 24 24" fill="none" stroke="#c89b3c" stroke-width="1.6"><line x1="12" y1="2" x2="12" y2="22"/><line x1="5" y1="8" x2="19" y2="8"/></svg>
+        <div class="jesus-hero-head">
+          <svg class="cross" viewBox="0 0 24 24" fill="none" stroke="#c89b3c" stroke-width="1.6"><line x1="12" y1="2" x2="12" y2="22"/><line x1="5" y1="8" x2="19" y2="8"/></svg>
+          <h1 class="jesus-hero-question">Who is Jesus?</h1>
+        </div>
         <p>Maybe you're searching for answers about who Jesus is, and maybe even considering whether to follow Him. This isn't a list of rules — it's a personal introduction.</p>
       </div>
 
@@ -12269,7 +12276,6 @@ async function renderDiscipleshipApp() {
   const TAB_PAGE_TITLES = {
     'screen-bible': 'The Bible',
     'screen-plans': 'Reading Plans',
-    'screen-jesus': 'Who Is Jesus?',
     'screen-blog': 'Articles'
   };
 
