@@ -176,6 +176,8 @@
     background: radial-gradient(circle at 85% 15%, rgba(255,255,255,0.18), transparent 55%);
   }
 
+  .banner-music-icon { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; color: #fff; }
+
   .banner-eyebrow {
     position: relative;
     font-family: var(--font-display);
@@ -2263,9 +2265,10 @@
             <div class="mv-banner-count" id="memoryVerseBannerCount">Hide God's Word in your heart</div>
             <div class="mv-banner-verse" id="memoryVerseBannerVerse"></div>
           </button>
-          <button type="button" class="banner-slide banner-photo" onclick="openEmbed('https://open.spotify.com/embed/playlist/4CJLU84OYEK5CCr02l45mF?utm_source=generator&theme=0','Worship Playlist','https://open.spotify.com/playlist/4CJLU84OYEK5CCr02l45mF')" style="background-image:linear-gradient(0deg, rgba(0,0,0,0.75), rgba(0,0,0,0.15)), url('/assets/worship-playlist-banner.jpg');">
-            <div class="banner-eyebrow">Listen</div>
-            <div class="banner-title">Worship Playlist</div>
+          <button type="button" class="banner-slide banner-photo" onclick="openEmbed('https://open.spotify.com/embed/playlist/4CJLU84OYEK5CCr02l45mF?utm_source=generator&theme=0','Top 50 Worship Songs','https://open.spotify.com/playlist/4CJLU84OYEK5CCr02l45mF')" style="background-image:linear-gradient(0deg, rgba(0,0,0,0.75), rgba(0,0,0,0.15)), url('/assets/worship-playlist-banner.jpg');">
+            <svg class="banner-music-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 15c2.5-1.2 5.5-1.2 8 0M7.5 12c3-1.5 6-1.5 9 0M7 9c3.5-1.8 6.5-1.8 10 0"/></svg>
+            <div class="banner-eyebrow">Listen on Spotify</div>
+            <div class="banner-title">Top 50 Worship Songs</div>
           </button>
           <a class="banner-slide banner-photo" href="https://followingjesus.com/course" target="_blank" rel="noopener" style="background-image:linear-gradient(0deg, rgba(0,0,0,0.75), rgba(0,0,0,0.15)), url('/assets/course-video-preview.jpg');">
             <div class="banner-eyebrow">Free Online Course</div>
@@ -2399,7 +2402,7 @@
             <span class="grid-item-title">Grow Your Faith</span>
           </span>
         </button>
-        <button type="button" class="grid-item" onclick="openEmbed('https://open.spotify.com/embed/playlist/4CJLU84OYEK5CCr02l45mF?utm_source=generator&theme=0','Worship Playlist','https://open.spotify.com/playlist/4CJLU84OYEK5CCr02l45mF')">
+        <button type="button" class="grid-item" onclick="openEmbed('https://open.spotify.com/embed/playlist/4CJLU84OYEK5CCr02l45mF?utm_source=generator&theme=0','Top 50 Worship Songs','https://open.spotify.com/playlist/4CJLU84OYEK5CCr02l45mF')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M8 15c2.5-1.2 5.5-1.2 8 0M7.5 12c3-1.5 6-1.5 9 0M7 9c3.5-1.8 6.5-1.8 10 0"/></svg>
           <span class="grid-item-text">
             <span class="grid-item-label">Encounter God</span>
@@ -2422,9 +2425,6 @@
 
       <div class="global-count-banner" id="todayDiscipleCounterText" hidden style="display:none">📣 Loading disciple count…</div>
 
-      <footer>
-        <div class="fword">Following Jesus</div>
-      </footer>
     </section>
 
     <!-- BIBLE -->
@@ -12401,7 +12401,7 @@ async function renderDiscipleshipApp() {
       // this would need the same per-item hash disciple/article use.
       openEmbed(
         'https://open.spotify.com/embed/playlist/4CJLU84OYEK5CCr02l45mF?utm_source=generator&theme=0',
-        'Worship Playlist',
+        'Top 50 Worship Songs',
         'https://open.spotify.com/playlist/4CJLU84OYEK5CCr02l45mF',
         true
       );
