@@ -2014,6 +2014,44 @@
 #discipleModal .secondary-btn { color: var(--black); border-color: rgba(10,10,10,0.25); }
 #discipleModal .dm-note { color: rgba(10,10,10,0.5); }
 
+
+/* ---------- Profile page (Profile 1: grouped sections) ---------- */
+#discipleModal .prof2 { font-family: var(--font-display); color: var(--black); padding-bottom: 24px; }
+#discipleModal .prof2 .prof-grp { background:#fff; border-radius:20px; overflow:hidden; }
+#discipleModal .prof2 .prof-who { display:flex; align-items:center; gap:14px; padding:18px 16px; }
+#discipleModal .prof2 .prof-av { flex:none; width:64px !important; height:64px !important; font-size:22px; margin:0; }
+#discipleModal .prof2 .prof-tx { flex:1; min-width:0; display:block; text-align:left; }
+#discipleModal .prof2 .profile-view-name { font-family:'Fraunces', Georgia, serif; font-weight:500; font-size:26px; line-height:1.05; color:var(--black); }
+#discipleModal .prof2 .profile-view-email { font-size:13px; color:#6d6b66; margin-top:4px; overflow:hidden; text-overflow:ellipsis; }
+#discipleModal .prof2 .prof-rb { flex:none; width:40px; height:40px; border-radius:20px; background:#f0efea; border:0; padding:0; color:var(--black); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+#discipleModal .prof2 .prof-rb svg { width:20px; height:20px; }
+#discipleModal .prof2 .prof-row { display:flex; align-items:center; gap:14px; padding:15px 16px; border:0; border-top:1px solid #ecebe6; border-radius:0; margin:0; background:transparent; width:100%; box-sizing:border-box; text-align:left; text-decoration:none; color:var(--black); font-family:inherit; cursor:default; }
+#discipleModal .prof2 .prof-ic { flex:none; width:26px; height:26px; display:flex; }
+#discipleModal .prof2 .prof-ic svg, #discipleModal .prof2 svg.prof-ic { width:26px; height:26px; }
+#discipleModal .prof2 .prof-gold { color:#8a6414; }
+#discipleModal .prof2 .prof-t { display:block; font-size:16px; font-weight:800; line-height:1.2; letter-spacing:0; color:var(--black); text-transform:none; }
+#discipleModal .prof2 .prof-s { display:block; font-size:13px; font-weight:500; color:#6d6b66; margin-top:3px; line-height:1.35; }
+#discipleModal .prof2 .prof-link { cursor:pointer; }
+#discipleModal .prof2 .prof-chev { flex:none; width:20px; height:20px; color:#9a988f; }
+#discipleModal .prof2 .prof-lbl { margin:26px 4px 10px; font-size:12px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:#8a6414; }
+#discipleModal .prof2 .prof-lbl .course-chevron { color:#8a6414; }
+#discipleModal .prof2 .prof-hero { display:flex; align-items:center; gap:14px; width:100%; margin:12px 0 0; padding:20px; border:0; border-radius:20px; background:#0c0c0d; color:#fff; font-family:inherit; text-align:left; cursor:pointer; box-sizing:border-box; }
+#discipleModal .prof2 .prof-hero-tx { flex:1; display:block; }
+#discipleModal .prof2 .prof-hero-k { display:block; font-size:12px; font-weight:700; color:#c89b3c; }
+#discipleModal .prof2 .prof-hero-h { display:block; font-family:'Fraunces', Georgia, serif; font-size:26px; font-weight:500; line-height:1.05; margin-top:6px; }
+#discipleModal .prof2 .prof-hero-arr { flex:none; width:44px; height:44px; border-radius:22px; background:#fff; color:#0c0c0d; display:flex; align-items:center; justify-content:center; }
+#discipleModal .prof2 .prof-hero-arr svg { width:22px; height:22px; }
+/* notification rows keep .notif-toggle/.on + .notif-toggle-state for the existing handlers; restyled as switch rows */
+#discipleModal .prof2 .prof-sw-row, #discipleModal .prof2 .prof-sw-row.on { cursor:pointer; background:transparent; color:var(--black); border-color:#ecebe6; }
+#discipleModal .prof2 .prof-sw-row:first-child { border-top:0; }
+#discipleModal .prof2 .prof-sw-row .notif-toggle-state { display:none; }
+#discipleModal .prof2 .prof-sw-row svg.prof-ic, #discipleModal .prof2 .prof-sw-row.on svg.prof-ic { width:26px; height:26px; color:var(--black); }
+#discipleModal .prof2 .prof-sw { flex:none; width:48px; height:28px; border-radius:14px; background:#d3d1ca; position:relative; transition:background .2s; }
+#discipleModal .prof2 .prof-sw::after { content:""; position:absolute; left:3px; top:3px; width:22px; height:22px; border-radius:11px; background:#fff; transition:transform .2s; }
+#discipleModal .prof2 .prof-sw-row.on .prof-sw { background:#0c0c0d; }
+#discipleModal .prof2 .prof-sw-row.on .prof-sw::after { transform:translateX(20px); }
+#discipleModal .prof2 .course-card-body { padding:0 16px 14px; }
+
 /* ---------- Share the Good News: white background, same pattern as
    the #discipleModal override above ----------
    Scoped to #goodNewsModal specifically. Both #goodNewsModal and
@@ -4502,68 +4540,67 @@
       notifPrefs = await getNotifPrefs();
     }
     const approvalHtml = (leaderApp && leaderApp.status === 'approved')
-      ? `<div class="approval-badge">✓ Approved as a leader by ${escapeHtmlMain(leaderApp.pastorName)} at ${escapeHtmlMain(leaderApp.church)}</div>`
+      ? `<div class="prof-row"><svg class="prof-ic prof-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg><div class="prof-tx"><div class="prof-t">Approved leader</div><div class="prof-s">Approved by ${escapeHtmlMain(leaderApp.pastorName)} at ${escapeHtmlMain(leaderApp.church)}</div></div></div>`
       : '';
 
     discipleBody.innerHTML = `
-      <div class="profile-view-row">
-        <label class="profile-photo-preview profile-photo-preview-lg profile-photo-hover" id="profPhotoPreview">
-          ${account && account.photoUrl ? `<img src="${account.photoUrl}" alt="Profile photo" />` : `<span>${account ? escapeHtmlMain(account.name.charAt(0).toUpperCase()) : '?'}</span>`}
-          <div class="profile-photo-edit-overlay">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-          </div>
-          <input type="file" accept="image/*" id="profPhotoInput" style="display:none;" />
-        </label>
-        <div style="flex:1;">
-          <div style="display:flex; align-items:center; gap:8px;">
+      <div class="prof2">
+      <div class="prof-grp">
+        <div class="prof-who">
+          <label class="profile-photo-preview profile-photo-hover prof-av" id="profPhotoPreview">
+            ${account && account.photoUrl ? `<img src="${account.photoUrl}" alt="Profile photo" />` : `<span>${account ? escapeHtmlMain(account.name.charAt(0).toUpperCase()) : '?'}</span>`}
+            <div class="profile-photo-edit-overlay">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            </div>
+            <input type="file" accept="image/*" id="profPhotoInput" style="display:none;" />
+          </label>
+          <div class="prof-tx">
             <div class="profile-view-name">${account ? escapeHtmlMain(account.name) : 'Your Profile'}</div>
-            <button type="button" id="profEditBtn" aria-label="Edit Profile" style="background:none; border:none; padding:4px; cursor:pointer; color:inherit; opacity:0.6; display:flex; align-items:center;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px; height:16px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-            </button>
-            <button type="button" id="profLogoutBtn" aria-label="Log out" title="Log out" style="background:none; border:none; padding:4px; cursor:pointer; color:inherit; opacity:0.6; display:flex; align-items:center;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            </button>
+            <div class="profile-view-email">${account ? escapeHtmlMain(account.email) : ''}</div>
           </div>
-          <div class="profile-view-email">${account ? escapeHtmlMain(account.email) : ''}</div>
+          <button type="button" id="profEditBtn" class="prof-rb" aria-label="Edit Profile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>
+          </button>
+          <button type="button" id="profLogoutBtn" class="prof-rb" aria-label="Log out" title="Log out">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/></svg>
+          </button>
+        </div>
+        ${approvalHtml}
+        <div class="prof-row" title="Best streak: ${longestStreak} ${longestStreak === 1 ? 'day' : 'days'}">
+          <svg class="prof-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 01-10 0c0-2 1-3 2-4 0 2 1 2.5 1.5 2.5C10 9 10.5 5.5 12 3z"/></svg>
+          <div class="prof-tx"><div class="prof-t">${currentStreak} ${currentStreak === 1 ? 'day' : 'days'} streak</div></div>
         </div>
       </div>
 
-      ${approvalHtml}
-
-      <div class="notif-toggle" style="margin-top:20px; width:100%; justify-content:center; padding:16px; cursor:default;" title="Best streak: ${longestStreak} ${longestStreak === 1 ? 'day' : 'days'}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3c2 2.5 5 6 5 9.5a5 5 0 01-10 0c0-1.6.7-3 1.5-4-.2 1.3.3 2.3 1.3 2.3.9 0 1.5-.8 1.2-1.8C10.5 7.5 12 5 12 3z"/></svg>
-        <span style="font-size:15px;">${currentStreak} ${currentStreak === 1 ? 'day' : 'days'} streak</span>
-      </div>
-
-      <button type="button" class="disciple-banner disciple-banner-secondary" id="goToDiscipleshipBtn" style="margin:20px 0 0; width:100%;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <span>
-          <span class="disciple-banner-title">Discipleship Dashboard</span>
-        </span>
-        <span class="disciple-banner-arrow">→</span>
+      <button type="button" class="prof-hero" id="goToDiscipleshipBtn">
+        <span class="prof-hero-tx"><span class="prof-hero-k">For leaders</span><span class="prof-hero-h">Discipleship Dashboard</span></span>
+        <span class="prof-hero-arr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
       </button>
 
       <!-- Spiritual Gifts results, filled in by fillProfileGifts() after render -->
       <div id="profileGiftsSlot"></div>
 
-      <div class="section-label" style="margin-top:24px; margin-bottom:12px;">Notifications</div>
-      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-        <button type="button" class="notif-toggle ${chatNotifsEnabled ? 'on' : ''}" id="chatNotifToggle" style="margin-top:0;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-          <span>Chat Notifications</span>
+      <div class="prof-lbl">Notifications</div>
+      <div class="prof-grp">
+        <button type="button" class="prof-row prof-sw-row notif-toggle ${chatNotifsEnabled ? 'on' : ''}" id="chatNotifToggle">
+          <svg class="prof-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>
+          <span class="prof-tx"><span class="prof-t">Chat Notifications</span></span>
           <span class="notif-toggle-state">${chatNotifsEnabled ? 'On' : 'Off'}</span>
+          <span class="prof-sw" aria-hidden="true"></span>
         </button>
-        <button type="button" class="notif-toggle ${notifPrefs.verseOfDay ? 'on' : ''}" id="profileVerseOfDayToggle" style="margin-top:0;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 5c3-1.5 6-1.5 9 0v14c-3-1.5-6-1.5-9 0V5z"/><path d="M21 5c-3-1.5-6-1.5-9 0v14c3-1.5 6-1.5 9 0V5z"/></svg>
-          <span>Verse of the Day</span>
+        <button type="button" class="prof-row prof-sw-row notif-toggle ${notifPrefs.verseOfDay ? 'on' : ''}" id="profileVerseOfDayToggle">
+          <svg class="prof-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5c3-1 6-1 8 1 2-2 5-2 8-1v13c-3-1-6-1-8 1-2-2-5-2-8-1z"/></svg>
+          <span class="prof-tx"><span class="prof-t">Verse of the Day</span></span>
           <span class="notif-toggle-state">${notifPrefs.verseOfDay ? 'On' : 'Off'}</span>
+          <span class="prof-sw" aria-hidden="true"></span>
         </button>
       </div>
 
-      <div class="section-label" style="margin-top:24px; margin-bottom:12px; cursor:pointer;" id="profileBadgesToggle">
+      <div class="prof-lbl" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between;" id="profileBadgesToggle">
         <span>Badges — ${earnedBadgeKeys.size} of ${BADGE_CATALOG.length}</span>
         <svg class="course-chevron ${badgesExpanded ? 'open' : ''}" id="profileBadgesChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
       </div>
+      <div class="prof-grp">
       ${(() => {
         // Always-visible preview strip, same idea as the reference
         // screenshot -- a few earned badge icons showing right under
@@ -4572,7 +4609,7 @@
         // nothing's earned yet (nothing worth previewing).
         const previewBadges = BADGE_CATALOG.filter(b => earnedBadgeKeys.has(b.key)).slice(0, 5);
         if (!previewBadges.length) return '';
-        return `<div style="display:flex; gap:6px; padding-bottom:14px; flex-wrap:wrap;">${previewBadges.map(b => `<svg viewBox="-58 -58 116 116" width="44" height="44" style="flex-shrink:0;">${b.svg}</svg>`).join('')}</div>`;
+        return `<div style="display:flex; gap:6px; padding:14px 16px; flex-wrap:wrap;">${previewBadges.map(b => `<svg viewBox="-58 -58 116 116" width="44" height="44" style="flex-shrink:0;">${b.svg}</svg>`).join('')}</div>`;
       })()}
       <div class="course-card-body ${badgesExpanded ? 'open' : ''}" id="profileBadgesBody">
         <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
@@ -4585,6 +4622,8 @@
             </div>`;
           }).join('')}
         </div>
+      </div>
+      </div>
       </div>
 
     `;
@@ -4711,19 +4750,21 @@
         href = path + '?view=results';
         heading = type === 'gifts' ? 'Your Spiritual Gifts' : 'Your Five-Fold Office';
       }
-      return `<a class="disciple-banner ${cls}" href="${href}" style="text-decoration:none; width:100%; margin:10px 0 0; box-sizing:border-box;">
-        ${icon}
-        <span>
-          <span class="disciple-banner-title">${escapeHtmlMain(heading)}</span>
-          <span class="disciple-banner-sub">${escapeHtmlMain(sub)}</span>
+      return `<a class="prof-row prof-link" href="${href}">
+        <span class="prof-ic">${icon}</span>
+        <span class="prof-tx">
+          <span class="prof-t">${escapeHtmlMain(heading)}</span>
+          ${sub ? `<span class="prof-s">${escapeHtmlMain(sub)}</span>` : ''}
         </span>
-        <span class="disciple-banner-arrow">→</span>
+        <svg class="prof-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
       </a>`;
     };
     slot.innerHTML = `
-      <div class="section-label" style="margin-top:24px; margin-bottom:2px;">Spiritual Gifts</div>
-      ${banner('gifts', 'disciple-banner-white', giftIcon, 'Discover Your Spiritual Gifts', 'Take the free assessment', '/spiritual-gifts-assessment')}
-      ${byType.fivefold ? banner('fivefold', 'disciple-banner-white', ffIcon, 'Five-Fold Ministry Assessment', '', '/five-fold-office-assessment') : '' /* the app links only to Spiritual Gifts; Five-Fold shows here only once someone has taken it */}
+      <div class="prof-lbl">Spiritual Gifts</div>
+      <div class="prof-grp">
+        ${banner('gifts', 'disciple-banner-white', giftIcon, 'Discover Your Spiritual Gifts', 'Take the free assessment', '/spiritual-gifts-assessment')}
+        ${byType.fivefold ? banner('fivefold', 'disciple-banner-white', ffIcon, 'Five-Fold Ministry Assessment', '', '/five-fold-office-assessment') : '' /* the app links only to Spiritual Gifts; Five-Fold shows here only once someone has taken it */}
+      </div>
     `;
   }
 
