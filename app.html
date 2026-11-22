@@ -109,6 +109,7 @@
      same bar, white text on the header's existing black background,
      rather than each of those views carrying its own separate title bar
      underneath the logo one. */
+  .header-page-title.wide-track { font-size: 13px; letter-spacing: 0.42em; padding-left: 0.42em; /* balances the trailing gap so the text stays centered */ }
   .header-page-title {
     font-family: var(--font-display);
     font-weight: 700;
@@ -12280,6 +12281,7 @@ async function renderDiscipleshipApp() {
   const TAB_PAGE_TITLES = {
     'screen-bible': 'The Bible',
     'screen-plans': 'Reading Plans',
+    'screen-jesus': 'Jesus',
     'screen-blog': 'Articles'
   };
 
@@ -12345,6 +12347,8 @@ async function renderDiscipleshipApp() {
     document.getElementById('headerLogo').style.display = 'none';
     const titleEl = document.getElementById('headerPageTitle');
     titleEl.textContent = title;
+    // Short static titles get the same wide tracking as the logo image; long dynamic ones (article titles) stay tight so they fit.
+    titleEl.classList.toggle('wide-track', String(title).length <= 22);
     titleEl.style.display = 'block';
   }
   function showLogoHeader() {
