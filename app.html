@@ -1229,7 +1229,7 @@
     text-align: left;
   }
 
-  /* More tiles: titles-only look (no icons), serif titles, colored tiles */
+  /* More tiles: black & white with serif titles, gold only on heading + small labels */
   .icon-grid .grid-item {
     border-radius: 20px;
     padding: 16px;
@@ -1240,9 +1240,7 @@
     background: #1d1d20;
     color: #fff;
   }
-  .icon-grid .grid-item svg { width: 30px; height: 30px; color: #c89b3c; }
-  .icon-grid .grid-item:nth-child(1) svg,
-  .icon-grid .grid-item:nth-child(4) svg { color: #1a1204; }
+  .icon-grid .grid-item svg { width: 30px; height: 30px; color: #fff; }
   .icon-grid .grid-item-text { gap: 6px; }
   .icon-grid .grid-item-label {
     font-family: var(--font-display);
@@ -1258,12 +1256,15 @@
     line-height: 1.04;
     color: #fff;
   }
-  .icon-grid .grid-item:nth-child(1) { background: #c89b3c; }
-  .icon-grid .grid-item:nth-child(1) .grid-item-label { color: #3a2a06; }
-  .icon-grid .grid-item:nth-child(1) .grid-item-title { color: #1a1204; }
-  .icon-grid .grid-item:nth-child(4) { background: #f1e7d0; }
-  .icon-grid .grid-item:nth-child(4) .grid-item-label { color: #6b4e10; }
-  .icon-grid .grid-item:nth-child(4) .grid-item-title { color: #1a1204; }
+  .icon-grid .grid-item:nth-child(1) { background: #ffffff; }
+  .icon-grid .grid-item:nth-child(1) svg,
+  .icon-grid .grid-item:nth-child(4) svg { color: #0c0c0d; }
+  .icon-grid .grid-item:nth-child(1) .grid-item-label { color: #8a6414; }
+  .icon-grid .grid-item:nth-child(1) .grid-item-title,
+  .icon-grid .grid-item:nth-child(4) .grid-item-title { color: #0c0c0d; }
+  .icon-grid .grid-item:nth-child(4) { background: #d9d9dc; }
+  .icon-grid .grid-item:nth-child(4) .grid-item-label { color: #7a5710; }
+  #moreSectionLabel { color: #c89b3c; }
 
   .banner-slide {
     border: none;
@@ -2375,7 +2376,7 @@
         </div>
       </div>
 
-      <div class="section-label">More</div>
+      <div class="section-label" id="moreSectionLabel">More</div>
       <div class="icon-grid">
         <a class="grid-item" href="https://followingjesus.com/course" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5.5v13l11-6.5-11-6.5z"/></svg>
