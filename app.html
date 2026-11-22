@@ -1229,6 +1229,42 @@
     text-align: left;
   }
 
+  /* More tiles: titles-only look (no icons), serif titles, colored tiles */
+  .icon-grid .grid-item {
+    border-radius: 20px;
+    padding: 16px;
+    min-height: 170px;
+    box-sizing: border-box;
+    justify-content: space-between;
+    gap: 16px;
+    background: #1d1d20;
+    color: #fff;
+  }
+  .icon-grid .grid-item svg { width: 30px; height: 30px; color: #c89b3c; }
+  .icon-grid .grid-item:nth-child(1) svg,
+  .icon-grid .grid-item:nth-child(4) svg { color: #1a1204; }
+  .icon-grid .grid-item-text { gap: 6px; }
+  .icon-grid .grid-item-label {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 12px;
+    color: #c89b3c;
+  }
+  .icon-grid .grid-item-title {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    font-size: 26px;
+    letter-spacing: 0;
+    line-height: 1.04;
+    color: #fff;
+  }
+  .icon-grid .grid-item:nth-child(1) { background: #c89b3c; }
+  .icon-grid .grid-item:nth-child(1) .grid-item-label { color: #3a2a06; }
+  .icon-grid .grid-item:nth-child(1) .grid-item-title { color: #1a1204; }
+  .icon-grid .grid-item:nth-child(4) { background: #f1e7d0; }
+  .icon-grid .grid-item:nth-child(4) .grid-item-label { color: #6b4e10; }
+  .icon-grid .grid-item:nth-child(4) .grid-item-title { color: #1a1204; }
+
   .banner-slide {
     border: none;
     font-family: inherit;
