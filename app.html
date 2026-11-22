@@ -2050,7 +2050,21 @@
 #discipleModal .prof2 .prof-sw::after { content:""; position:absolute; left:3px; top:3px; width:22px; height:22px; border-radius:11px; background:#fff; transition:transform .2s; }
 #discipleModal .prof2 .prof-sw-row.on .prof-sw { background:#0c0c0d; }
 #discipleModal .prof2 .prof-sw-row.on .prof-sw::after { transform:translateX(20px); }
-#discipleModal .prof2 .course-card-body { padding:0 16px 14px; }
+#discipleModal .prof2 .course-card-body { padding:0 16px; }
+
+
+/* Edit profile screen */
+#discipleModal .prof2 .prof-back { display:inline-block; margin:4px 4px 14px; color:#6d6b66; }
+#discipleModal .prof2 .prof-edit-av { display:flex; flex-direction:column; align-items:center; gap:10px; margin:4px 0 8px; }
+#discipleModal .prof2 .prof-av-lg { width:96px !important; height:96px !important; font-size:32px; }
+#discipleModal .prof2 .prof-edit-hint { font-size:12px; color:#6d6b66; }
+#discipleModal .prof2 .prof-field { display:block; padding:12px 16px; border-top:1px solid #ecebe6; }
+#discipleModal .prof2 .prof-field:first-child { border-top:0; }
+#discipleModal .prof2 .prof-field-l { display:block; font-size:12px; font-weight:700; color:#8a6414; margin-bottom:4px; }
+#discipleModal .prof2 .prof-field input[type=text] { width:100%; box-sizing:border-box; border:0; background:transparent; padding:0; margin:0; font-family:inherit; font-size:17px; font-weight:700; color:var(--black); outline:none; border-radius:0; }
+#discipleModal .prof2 .prof-save { display:block; width:100%; margin-top:16px; padding:17px; border:0; border-radius:20px; background:#0c0c0d; color:#fff; font-family:inherit; font-size:15px; font-weight:800; cursor:pointer; }
+#discipleModal .prof2 .prof-delete { display:block; width:100%; padding:16px; border:0; border-radius:20px; background:#fff; color:#b91c1c; font-family:inherit; font-size:15px; font-weight:800; cursor:pointer; }
+#discipleModal .prof2 .prof-note { font-size:13px; line-height:1.45; color:#6d6b66; margin:12px 4px 0; }
 
 /* ---------- Share the Good News: white background, same pattern as
    the #discipleModal override above ----------
@@ -4403,24 +4417,29 @@
 
     if (editMode) {
       discipleBody.innerHTML = `
-        <a class="back-link" id="profileBackBtn">← Cancel</a>
-        <div class="profile-view-row" style="align-items:flex-start;">
-          <label class="profile-photo-preview profile-photo-preview-lg profile-photo-hover" id="profPhotoPreview">
+        <div class="prof2">
+        <a class="back-link prof-back" id="profileBackBtn">← Cancel</a>
+        <div class="prof-edit-av">
+          <label class="profile-photo-preview profile-photo-hover prof-av prof-av-lg" id="profPhotoPreview">
             ${account && account.photoUrl ? `<img src="${account.photoUrl}" alt="Profile photo" />` : `<span>${account ? escapeHtmlMain(account.name.charAt(0).toUpperCase()) : '?'}</span>`}
             <div class="profile-photo-edit-overlay">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
             </div>
             <input type="file" accept="image/*" id="profPhotoInput" style="display:none;" />
           </label>
-          <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
-            <input type="text" id="profName" placeholder="Your full name" value="${account ? escapeHtmlMain(account.name) : ''}" />
-            <input type="text" id="profEmail" placeholder="Your email" value="${account ? escapeHtmlMain(account.email) : ''}" />
-          </div>
+          <div class="prof-edit-hint">Tap photo to change</div>
         </div>
-        <button class="primary-btn" id="profSaveBtn" style="margin-top:16px;">Save Changes</button>
+        <div class="prof-lbl">Your details</div>
+        <div class="prof-grp">
+          <label class="prof-field"><span class="prof-field-l">Name</span><input type="text" id="profName" placeholder="Your full name" value="${account ? escapeHtmlMain(account.name) : ''}" /></label>
+          <label class="prof-field"><span class="prof-field-l">Email</span><input type="text" id="profEmail" placeholder="Your email" value="${account ? escapeHtmlMain(account.email) : ''}" /></label>
+        </div>
+        <button class="prof-save" id="profSaveBtn">Save changes</button>
 
-        <button class="secondary-btn" id="profDeleteAccountBtn" style="margin-top:28px; color:#b91c1c; border-color:rgba(185,28,28,0.35);">Delete Account</button>
-        <p class="dm-note">This permanently deletes your account and everything tied to it — your profile, groups, messages, course progress, and certificates — on both the app and the course site. This can't be undone.</p>
+        <div class="prof-lbl" style="margin-top:34px;">Danger zone</div>
+        <button class="prof-delete" id="profDeleteAccountBtn">Delete account</button>
+        <p class="prof-note">This permanently deletes your account and everything tied to it — your profile, groups, messages, course progress, and certificates — on both the app and the course site. This can't be undone.</p>
+        </div>
       `;
       document.getElementById('profileBackBtn').onclick = () => renderProfileSettings(false);
       document.getElementById('profPhotoInput').onchange = async (e) => {
@@ -4600,29 +4619,24 @@
         <span>Badges — ${earnedBadgeKeys.size} of ${BADGE_CATALOG.length}</span>
         <svg class="course-chevron ${badgesExpanded ? 'open' : ''}" id="profileBadgesChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
       </div>
-      <div class="prof-grp">
+      <div class="prof-grp prof-badges">
       ${(() => {
-        // Always-visible preview strip, same idea as the reference
-        // screenshot -- a few earned badge icons showing right under
-        // the header even while collapsed, so there's something to
-        // see before ever tapping to expand. Hidden entirely if
-        // nothing's earned yet (nothing worth previewing).
-        const previewBadges = BADGE_CATALOG.filter(b => earnedBadgeKeys.has(b.key)).slice(0, 5);
-        if (!previewBadges.length) return '';
-        return `<div style="display:flex; gap:6px; padding:14px 16px; flex-wrap:wrap;">${previewBadges.map(b => `<svg viewBox="-58 -58 116 116" width="44" height="44" style="flex-shrink:0;">${b.svg}</svg>`).join('')}</div>`;
-      })()}
-      <div class="course-card-body ${badgesExpanded ? 'open' : ''}" id="profileBadgesBody">
-        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
-          ${BADGE_CATALOG.map(b => {
-            const earned = earnedBadgeKeys.has(b.key);
-            return `
+        // First row of badges is always visible; expanding just reveals the rest.
+        const tile = b => {
+          const earned = earnedBadgeKeys.has(b.key);
+          return `
             <div style="text-align:center; cursor:pointer;" data-info="${escapeHtmlMain(b.description)}">
               <svg viewBox="-58 -58 116 116" width="52" height="52" style="display:block; margin:0 auto 6px; filter:${earned ? 'none' : 'grayscale(1) opacity(0.4)'};">${b.svg}</svg>
               <div style="font-size:10px; font-weight:700; color:rgba(10,10,10,0.7); line-height:1.3;">${escapeHtmlMain(b.title)}</div>
             </div>`;
-          }).join('')}
-        </div>
+        };
+        const grid = 'display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;';
+        return `<div style="${grid} padding:16px 16px 0;">${BADGE_CATALOG.slice(0, 3).map(tile).join('')}</div>
+      <div class="course-card-body ${badgesExpanded ? 'open' : ''}" id="profileBadgesBody">
+        <div style="${grid} padding-top:12px;">${BADGE_CATALOG.slice(3).map(tile).join('')}</div>
       </div>
+      <div style="height:16px;"></div>`;
+      })()}
       </div>
       </div>
 
