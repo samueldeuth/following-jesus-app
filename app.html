@@ -12619,13 +12619,14 @@ async function renderDiscipleshipApp() {
   setTimeout(check, 3000);
 })();
 
-// ---------- Native status bar: black with light text (matches the app, not the white default) ----------
+// ---------- Native status bar: black with white text (matches the app, not the white default) ----------
 (function () {
   var done = false;
   function setBar() {
     try {
       if (typeof median !== 'undefined' && median && median.statusbar && typeof median.statusbar.set === 'function') {
-        median.statusbar.set({ style: 'light', color: 'FF0A0A0A', overlay: false });
+        // In Median, style 'dark' = white text/icons (for a dark bar); 'light' = black text.
+        median.statusbar.set({ style: 'dark', color: 'FF0A0A0A', overlay: false });
         done = true;
       }
     } catch (e) {}
