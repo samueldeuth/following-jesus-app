@@ -2438,6 +2438,78 @@
 #screen-jesus #startDiscipleshipBtn { border-radius:0 0 20px 20px; }
 
 
+
+  /* ===== Continue cards (Home) + My Plans / Completed (Plans) ===== */
+  #todayContinue { margin: 14px 0 0; }
+  #todayContinue[hidden] { display: none; }
+  .cc-track {
+    display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory;
+    padding: 0 20px; scroll-padding-left: 20px; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .cc-track::-webkit-scrollbar { display: none; }
+  .cc-card {
+    flex: 0 0 100%; scroll-snap-align: start; box-sizing: border-box; display: block; text-decoration: none;
+    background: #fff; color: #0c0c0d; border-radius: 20px; padding: 20px; cursor: pointer;
+  }
+  .cc-track.cc-multi .cc-card { flex-basis: 86%; }
+  .cc-card:active { background: #ececec; }
+  .cc-label { font-size: 12px; font-weight: 700; color: #8a6414; }
+  .cc-title { font-family: var(--font-serif); font-weight: 500; font-size: 26px; line-height: 1.08; margin-top: 6px; }
+  .cc-sub { font-size: 14px; line-height: 1.4; color: #55555c; margin-top: 6px; }
+  .cc-bar { height: 5px; border-radius: 3px; background: #e4e4e6; margin-top: 14px; overflow: hidden; }
+  .cc-bar i { display: block; height: 100%; background: #c89b3c; border-radius: 3px; }
+  .cc-btn {
+    display: block; width: 100%; box-sizing: border-box; margin-top: 16px; padding: 14px; border: 0; border-radius: 26px;
+    background: #0c0c0d; color: #fff; font-family: var(--font-display); font-size: 15px; font-weight: 800;
+    text-align: center; text-decoration: none; cursor: pointer;
+  }
+  .cc-btn.ghost { background: transparent; color: #0c0c0d; margin-top: 4px; }
+  /* Read for the day: shrinks to a calm dark row */
+  .cc-card.cc-quiet { background: #1d1d20; color: #fff; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+  .cc-card.cc-quiet:active { background: #2a2a2f; }
+  .cc-quiet-check { width: 28px; height: 28px; border-radius: 50%; background: #c89b3c; color: #0c0c0d; display: flex; align-items: center; justify-content: center; flex: none; }
+  .cc-quiet-check svg { width: 15px; height: 15px; }
+  .cc-quiet-title { font-size: 15px; font-weight: 800; }
+  .cc-quiet-sub { font-size: 13px; color: #a8a8b0; margin-top: 2px; }
+  .cc-dots { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
+  .cc-dots span { width: 6px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.3); }
+  .cc-dots span.active { background: #c89b3c; width: 18px; }
+
+  .cc-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 600; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .cc-dialog, .cc-finish { width: 100%; max-width: 340px; background: #fff; color: #0c0c0d; border-radius: 24px; padding: 26px 22px 18px; text-align: center; box-sizing: border-box; }
+  .cc-dialog-thumb { width: 96px; height: 96px; border-radius: 16px; object-fit: cover; display: block; margin: 0 auto 8px; }
+  .cc-dialog-plan { font-size: 13px; color: #55555c; margin-bottom: 12px; }
+  .cc-dialog h3 { font-family: var(--font-serif); font-weight: 500; font-size: 26px; margin: 0; }
+  .cc-dialog p, .cc-finish p { font-size: 14px; line-height: 1.45; color: #55555c; margin: 8px 0 4px; }
+  .cc-menu-wrap { align-items: flex-end; }
+  .cc-menu { width: 100%; max-width: 420px; background: #fff; border-radius: 24px; padding: 8px; margin-bottom: env(safe-area-inset-bottom, 0px); }
+  .cc-menu button { display: flex; align-items: center; gap: 14px; width: 100%; background: none; border: 0; padding: 16px; border-radius: 16px; font-size: 17px; color: #0c0c0d; font-family: inherit; text-align: left; cursor: pointer; }
+  .cc-menu button:active { background: #efefef; }
+  .cc-menu button svg { width: 24px; height: 24px; flex: none; }
+  .cc-menu button.danger { color: #c0392b; }
+  .cc-more { background: transparent; border: 1px solid rgba(0,0,0,0.3); color: #0c0c0d; width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+  .cc-more svg { width: 16px; height: 16px; }
+  .cc-finish { padding-top: 30px; }
+  .cc-cross { width: 44px; height: 44px; display: block; margin: 0 auto; }
+  .cc-finish-title { font-family: var(--font-serif); font-weight: 500; font-size: 48px; line-height: 1.05; margin-top: 8px; }
+  .cc-finish-plan { font-size: 16px; font-weight: 800; margin-top: 6px; }
+  .cc-link { background: none; border: 0; font-size: 14px; font-weight: 700; color: #55555c; padding: 14px; cursor: pointer; font-family: inherit; }
+
+  #plansTabs { display: flex; gap: 8px; overflow-x: auto; padding: 0 0 14px; scrollbar-width: none; }
+  #plansTabs::-webkit-scrollbar { display: none; }
+  #plansTabs button { flex: none; background: #e7e3d8; color: #3a3a40; border: 0; border-radius: 22px; padding: 11px 18px; font-family: var(--font-display); font-size: 14px; font-weight: 800; cursor: pointer; }
+  #plansTabs button.active { background: #0c0c0d; color: #fff; }
+  #plansMine[hidden], #plansDone[hidden], #plansFind[hidden] { display: none; }
+  .cc-row { display: flex; gap: 14px; align-items: center; background: #fff; box-shadow: 0 1px 0 rgba(0,0,0,0.06); border-radius: 20px; padding: 12px; margin-bottom: 10px; cursor: pointer; }
+  .cc-row:active { background: #ececec; }
+  .cc-thumb { width: 64px; height: 64px; border-radius: 14px; object-fit: cover; flex: none; }
+  .cc-row-main { min-width: 0; flex: 1; }
+  .cc-row-title { color: #0c0c0d; font-size: 16px; font-weight: 800; line-height: 1.2; }
+  .cc-row-sub { color: #55555c; font-size: 13px; margin-top: 3px; }
+  .cc-row .cc-bar { background: #e4e4e6; margin-top: 8px; }
+  .cc-mini { background: #0c0c0d; color: #fff; border: 0; border-radius: 16px; padding: 7px 14px; font-size: 13px; font-weight: 800; margin-top: 8px; cursor: pointer; font-family: inherit; }
+  .cc-empty { color: #55555c; font-size: 14px; line-height: 1.45; padding: 18px 4px; }
+  .cc-empty .cc-mini { display: block; margin-top: 12px; }
 </style>
 </head>
 <body>
@@ -2501,6 +2573,11 @@
           </div>
         </div>
         <div class="today-soap-dots" id="todaySoapDots" aria-label="Verse of the Day cards"></div>
+      </div>
+
+      <div id="todayContinue" hidden>
+        <div class="cc-track" id="ccTrack"></div>
+        <div class="cc-dots" id="ccDots" aria-hidden="true"></div>
       </div>
 
       <div class="verse-alert-modal-overlay" id="verseOfDayModalOverlay">
@@ -2658,6 +2735,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line class="verse-alert-bell-slash" x1="3" y1="3" x2="21" y2="21"/></svg>
           </button>
         </div>
+        <div class="plan-sync-row" id="planSubRow" style="margin-top:6px;"></div>
         <div class="plan-day-refs" id="planDayRefs"></div>
         <!-- Hidden for now, not removed -- Play Day (text-to-speech) is
              paused until a better audio voice is available, and Mark Day
@@ -2743,6 +2821,14 @@
     <!-- PLANS -->
     <section class="screen" id="screen-plans">
       <div class="stack" style="margin-top:18px;">
+        <div id="plansTabs" role="tablist">
+          <button type="button" data-ptab="mine">My Plans</button>
+          <button type="button" data-ptab="find" class="active">Find Plans</button>
+          <button type="button" data-ptab="done">Completed</button>
+        </div>
+        <div id="plansMine" hidden></div>
+        <div id="plansDone" hidden></div>
+        <div id="plansFind">
         <div class="plans-lbl">Memorize</div>
         <div class="mv-home" id="memoryVerseHomeCard"></div>
         <div class="plans-card">
@@ -2779,6 +2865,7 @@
         </button>
       </div>
           <a class="plans-view-all" href="https://www.bible.com/organizations/f072ad1e-f59c-49b0-8310-b33f874a2d54" target="_blank" rel="noopener">For more Bible reading plans, click here →</a>
+        </div>
         </div>
       </div>
     </section>
@@ -3230,6 +3317,7 @@
   }
   async function saveDevoPlanProgress(planKey) {
     await dSafeSet('devoPlan_' + planKey, devoPlanProgressCache[planKey]);
+    if (typeof ccRefreshAll === 'function') ccRefreshAll();
   }
 
   // Fetches one plan's full day-by-day content (all 52 days) from
@@ -3354,7 +3442,10 @@
           <svg class="plan-checklist-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
         </div>
       </div>
+      <div class="plan-sync-row" id="devoSubRow" style="margin-top:18px;"></div>
     `;
+    window.__ccDevoKey = planKey;
+    ccRenderDevoSubRow(planKey, progress);
 
     document.getElementById('devoPlanBackLink').addEventListener('click', renderDevoPlanGrid);
     if (day > 1) document.getElementById('devoPlanPrevDay').addEventListener('click', () => renderDevoPlanDay(planKey, day - 1));
@@ -3375,8 +3466,10 @@
     const arr = progress[kind];
     const idx = arr.indexOf(day);
     if (idx === -1) arr.push(day); else arr.splice(idx, 1);
+    const r = ccDevoAfterToggle(progress, day, idx === -1, todayISODate(), ccNowISO());
     await saveDevoPlanProgress(planKey);
     renderDevoPlanDay(planKey, day);
+    if (r.justFinished) ccFinishSoon(planKey);
   }
 
   async function renderDevoContent(planKey, day) {
@@ -11471,6 +11564,7 @@ async function renderDiscipleshipApp() {
   let planSegmentDone = {};
   let planStartMode = 'calendar'; // 'calendar' (Jan 1 = Day 1) or 'custom' (their own start date)
   let planCustomStart = null; // ISO date string, e.g. '2026-08-21'
+  let planMeta = {}; // subscribed / stoppedAt / finishedAt / lastActiveAt (Continue cards)
   let planQueue = [];
   let planQueueIndex = 0;
   let planPlaying = false;
@@ -12127,17 +12221,24 @@ async function renderDiscipleshipApp() {
       planSegmentDone = saved.segmentDone || {};
       planStartMode = saved.mode || 'calendar';
       planCustomStart = saved.customStart || null;
+      planMeta = { subscribed: !!saved.subscribed, stoppedAt: saved.stoppedAt || null, finishedAt: saved.finishedAt || null, lastActiveAt: saved.lastActiveAt || null };
     }
     planDay = computePlanDay();
     updateSyncRow();
+    ccRender365SubRow();
   }
   async function savePlanProgress() {
     await dSafeSet('planProgress', {
       completedDays: planCompletedDays,
       segmentDone: planSegmentDone,
       mode: planStartMode,
-      customStart: planCustomStart
+      customStart: planCustomStart,
+      subscribed: !!planMeta.subscribed,
+      stoppedAt: planMeta.stoppedAt || null,
+      finishedAt: planMeta.finishedAt || null,
+      lastActiveAt: planMeta.lastActiveAt || null
     });
+    ccRefreshAll();
   }
 
   document.getElementById('planSyncToggleBtn').addEventListener('click', () => {
@@ -12243,6 +12344,8 @@ async function renderDiscipleshipApp() {
     const wasComplete = planCompletedDays.includes(planDay);
     if (allDone && !wasComplete) {
       planCompletedDays.push(planDay);
+      planMeta.lastActiveAt = ccNowISO();
+      if (planCompletedDays.length >= 365 && !planMeta.finishedAt) { planMeta.finishedAt = ccNowISO(); ccFinishSoon('365'); }
       if (planDay === 1) awardBadgeIfSignedIn('reading_plan_day1');
       if (planCompletedDays.length === 365) awardBadgeIfSignedIn('reading_plan_complete');
     }
@@ -12428,6 +12531,437 @@ async function renderDiscipleshipApp() {
   chapterSelect.value = 15; // John 15, matches today's devotional
   loadChapter();
 
+  // ---------- Continue cards (Home) + My Plans / Completed (Plans tab) ----------
+  // One small rule set shared by the 365-day plan and the six 52-day plans.
+  // A plan is "subscribed" only on purpose: the 365 plan needs a tap on
+  // Subscribe, a 52-day plan subscribes itself the first time something is
+  // checked off. Stop keeps all progress. Finished plans leave Home and move
+  // to the Completed tab. Everything lives in the same saved blobs the plans
+  // already use (no new tables), so no sign-in is needed.
+  const CC_COURSE_URL = 'https://followingjesus.com/course';
+  function ccPlanInfo(key) {
+    if (key === '365') return { kind: '365', title: '365 Days With Jesus', total: 365, thumb: '/assets/plan-365-days-with-jesus.jpg' };
+    const m = DEVOTIONAL_PLANS_MANIFEST[key];
+    return { kind: 'devo', title: m.title.replace(/^52 Bible Verses\s*/i, '52 Verses '), total: 52, thumb: '/assets/plan-square-' + key.replace(/_/g, '-') + '.jpg' };
+  }
+  function ccNowISO() { return new Date().toISOString(); }
+  function ccPlanDayFor(mode, customStart, todayIso) {
+    let diff;
+    if (mode === 'custom' && customStart) diff = daysBetween(customStart, todayIso) + 1;
+    else diff = daysBetween(todayIso.slice(0, 4) + '-01-01', todayIso) + 1;
+    return Math.min(Math.max(diff, 1), 365);
+  }
+  function ccStatus(b, doneCount, total) {
+    if (b && b.finishedAt) return 'finished';
+    if (total > 0 && doneCount >= total) return 'finished';
+    if (b && b.stoppedAt) return 'stopped';
+    if (b && b.subscribed) return 'active';
+    if (doneCount > 0) return 'started';
+    return 'none';
+  }
+  function ccDescribe(key, b, todayIso) {
+    const info = ccPlanInfo(key);
+    let day, doneCount, quiet, line;
+    if (key === '365') {
+      const completed = (b && b.completedDays) || [];
+      doneCount = completed.length;
+      day = ccPlanDayFor(b && b.mode, b && b.customStart, todayIso);
+      quiet = completed.includes(day);
+      line = ((typeof READING_PLAN !== 'undefined' && READING_PLAN[day - 1]) || []).map(refLabel).join(', ');
+    } else {
+      const dv = (b && b.devotional) || [], vs = (b && b.verse) || [];
+      doneCount = 0; day = 0;
+      for (let d = 1; d <= 52; d++) {
+        if (dv.includes(d) && vs.includes(d)) doneCount++;
+        else if (!day) day = d;
+      }
+      if (!day) day = 52;
+      quiet = !!(b && b.completedOn === todayIso);
+      line = 'Devotional and verse';
+    }
+    return {
+      key, kind: info.kind, title: info.title, thumb: info.thumb, total: info.total,
+      day, doneCount, pct: Math.min(1, doneCount / info.total), quiet, line,
+      status: ccStatus(b, doneCount, info.total),
+      lastActiveAt: (b && b.lastActiveAt) || '', finishedAt: (b && b.finishedAt) || null
+    };
+  }
+  // Runs after a check-off on a 52-day plan. Plain data in, plain data out.
+  function ccDevoAfterToggle(p, day, checkedOn, todayIso, nowIso) {
+    if (checkedOn) {
+      p.lastActiveAt = nowIso;
+      if (!p.subscribed && !p.stoppedAt && !p.finishedAt) p.subscribed = true;
+    }
+    const dayDone = p.devotional.includes(day) && p.verse.includes(day);
+    if (dayDone) p.completedOn = todayIso;
+    else if (!checkedOn && p.completedOn === todayIso) p.completedOn = null;
+    let all = true;
+    for (let d = 1; d <= 52; d++) { if (!(p.devotional.includes(d) && p.verse.includes(d))) { all = false; break; } }
+    let justFinished = false;
+    if (all && !p.finishedAt) { p.finishedAt = nowIso; justFinished = true; }
+    return { justFinished };
+  }
+  function ccByRecent(a, b) { return a.lastActiveAt < b.lastActiveAt ? 1 : a.lastActiveAt > b.lastActiveAt ? -1 : 0; }
+
+  async function ccLoadAll() {
+    const today = todayISODate();
+    const out = [];
+    out.push(ccDescribe('365', await dSafeGet('planProgress'), today));
+    for (const key of Object.keys(DEVOTIONAL_PLANS_MANIFEST)) {
+      const b = devoPlanProgressCache[key] || await dSafeGet('devoPlan_' + key);
+      out.push(ccDescribe(key, b, today));
+    }
+    return out;
+  }
+
+  // Read-merge-write: change only the meta fields, keep everything else.
+  async function ccPatchMeta(key, patch) {
+    if (key === '365') {
+      const b = (await dSafeGet('planProgress')) || { completedDays: [], segmentDone: {}, mode: 'calendar', customStart: null };
+      Object.assign(b, patch);
+      await dSafeSet('planProgress', b);
+      planMeta = Object.assign({}, planMeta, patch);
+    } else {
+      const p = await loadDevoPlanProgress(key);
+      Object.assign(p, patch);
+      await saveDevoPlanProgress(key);
+    }
+    ccRefreshAll();
+  }
+  function ccSubscribe(key) { return ccPatchMeta(key, { subscribed: true, stoppedAt: null, lastActiveAt: ccNowISO() }); }
+  function ccStop(key) { return ccPatchMeta(key, { subscribed: false, stoppedAt: ccNowISO() }); }
+  async function ccStartAgain(key) {
+    const now = ccNowISO();
+    if (key === '365') {
+      const today = todayISODate();
+      planCompletedDays = []; planSegmentDone = {}; planStartMode = 'custom'; planCustomStart = today;
+      planMeta = { subscribed: true, stoppedAt: null, finishedAt: null, lastActiveAt: now };
+      await savePlanProgress();
+      planDay = computePlanDay();
+      updateSyncRow();
+      if (bibleMode === 'plan') loadPlanDay();
+    } else {
+      devoPlanProgressCache[key] = { devotional: [], verse: [], subscribed: true, lastActiveAt: now };
+      await saveDevoPlanProgress(key);
+    }
+    ccRefreshAll();
+    ccOpenPlan(key);
+  }
+  function ccOpenPlan(key) {
+    if (key === '365') {
+      goToTab('screen-bible');
+      if (bibleMode === 'plan') { planDay = computePlanDay(); loadPlanDay(); }
+      else document.getElementById('modePlanBtn').click();
+    } else {
+      openDevoPlan(key);
+    }
+  }
+
+  // ----- small dialogs -----
+  function ccCloseOverlay(id) { const o = document.getElementById(id); if (o) o.remove(); }
+  function ccAsk(opts) {
+    ccCloseOverlay('ccSheet');
+    const o = document.createElement('div');
+    o.className = 'cc-overlay'; o.id = 'ccSheet';
+    o.innerHTML = `<div class="cc-dialog">${opts.thumb ? `<img class="cc-dialog-thumb" src="${opts.thumb}" alt="" />` : ''}
+      ${opts.planTitle ? `<div class="cc-dialog-plan">${escapeHtmlMain(opts.planTitle)}</div>` : ''}
+      <h3>${escapeHtmlMain(opts.title)}</h3><p>${escapeHtmlMain(opts.body)}</p>
+      ${opts.yes ? `<button type="button" class="cc-btn" id="ccAskYes">${escapeHtmlMain(opts.yes)}</button>` : ''}
+      <button type="button" class="cc-btn ghost" id="ccAskNo">${escapeHtmlMain(opts.no)}</button></div>`;
+    document.body.appendChild(o);
+    o.addEventListener('click', e => { if (e.target === o) ccCloseOverlay('ccSheet'); });
+    document.getElementById('ccAskNo').addEventListener('click', () => ccCloseOverlay('ccSheet'));
+    const yes = document.getElementById('ccAskYes');
+    if (yes) yes.addEventListener('click', () => { ccCloseOverlay('ccSheet'); opts.onYes(); });
+  }
+  function ccConfirmStop(key) {
+    const info = ccPlanInfo(key);
+    ccAsk({ thumb: info.thumb, planTitle: info.title, title: 'Stop this Plan?', body: 'It comes off your Home screen. Your progress is saved, and you can pick the plan back up anytime.', yes: 'Stop Plan', no: 'Cancel', onYes: () => ccStop(key) });
+  }
+  function ccConfirmAgain(key) {
+    const info = ccPlanInfo(key);
+    ccAsk({ thumb: info.thumb, planTitle: info.title, title: 'Start this plan again?', body: 'You begin again at Day 1 and it returns to your Home screen.', yes: 'Start Again', no: 'Cancel', onYes: () => ccStartAgain(key) });
+  }
+
+  // ----- Subscribe / Stop row inside each plan -----
+  function ccPlanBlurb(key) {
+    if (key === '365') return 'Read through the whole Bible in a year, right here in the app. Each day has a short set of passages to check off.';
+    const m = DEVOTIONAL_PLANS_MANIFEST[key];
+    return (m.subtitle || '') + ' Fifty-two days, each with a devotional and a verse.';
+  }
+  function ccStatusUi(status) {
+    if (status === 'finished') return { text: 'You finished this plan.', btn: 'Start again', act: 'again' };
+    if (status === 'stopped') return { text: 'This plan is stopped.', btn: 'Resume', act: 'sub' };
+    if (status === 'active') return { text: 'Showing on your Home screen.', btn: '', act: 'stop' };
+    return { text: 'Show this plan on your Home screen.', btn: 'Subscribe', act: 'sub' };
+  }
+  function ccFillSubRow(el, key, status) {
+    if (!el) return;
+    const r = ccStatusUi(status);
+    el.innerHTML = `<span class="plan-sync-label">${r.text}</span>${r.btn ? `<button type="button" class="plan-sync-btn" data-ccbtn="1">${r.btn}</button>` : ''}
+      <button type="button" class="cc-more" aria-label="Plan options" data-ccmore="1"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>`;
+    const pb = el.querySelector('[data-ccbtn]');
+    if (pb) pb.addEventListener('click', () => { if (r.act === 'sub') ccSubscribe(key); else ccConfirmAgain(key); });
+    el.querySelector('[data-ccmore]').addEventListener('click', () => ccOpenMenu(key, status));
+  }
+  // The three-dot menu: Share, Reminder, Plan Info, and the stop/subscribe action.
+  function ccOpenMenu(key, status) {
+    ccCloseOverlay('ccMenu');
+    const r = ccStatusUi(status);
+    const actLabel = status === 'active' ? 'Stop This Plan' : status === 'finished' ? 'Start again' : status === 'stopped' ? 'Resume' : 'Subscribe';
+    const ic = {
+      share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7.5 7.5L12 3l4.5 4.5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>',
+      bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+      info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9.5"/><line x1="12" y1="11" x2="12" y2="17"/><circle cx="12" cy="7.5" r="0.6" fill="currentColor"/></svg>',
+      stop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9.5"/><line x1="7.5" y1="12" x2="16.5" y2="12"/></svg>',
+      plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9.5"/><line x1="7.5" y1="12" x2="16.5" y2="12"/><line x1="12" y1="7.5" x2="12" y2="16.5"/></svg>'
+    };
+    const o = document.createElement('div');
+    o.className = 'cc-overlay cc-menu-wrap'; o.id = 'ccMenu';
+    o.innerHTML = `<div class="cc-menu">
+      <button type="button" data-m="share">${ic.share}<span>Share</span></button>
+      <button type="button" data-m="remind">${ic.bell}<span>Reminder settings</span></button>
+      <button type="button" data-m="info">${ic.info}<span>Plan Info</span></button>
+      <button type="button" data-m="act" class="${status === 'active' ? 'danger' : ''}">${status === 'active' ? ic.stop : ic.plus}<span>${actLabel}</span></button></div>`;
+    document.body.appendChild(o);
+    o.addEventListener('click', e => {
+      if (e.target === o) { ccCloseOverlay('ccMenu'); return; }
+      const b = e.target.closest('[data-m]'); if (!b) return;
+      ccCloseOverlay('ccMenu');
+      const info = ccPlanInfo(key);
+      if (b.dataset.m === 'share') {
+        const text = 'I\'m reading ' + info.title + ' on the Following Jesus app.';
+        if (navigator.share) navigator.share({ title: 'Following Jesus', text, url: location.origin }).catch(() => {});
+        else if (navigator.clipboard) navigator.clipboard.writeText(text + ' ' + location.origin).catch(() => {});
+      } else if (b.dataset.m === 'remind') {
+        const bell = document.getElementById(key === '365' ? 'readingReminderBellBtn' : 'devoReminderBellBtn');
+        if (bell) bell.click();
+      } else if (b.dataset.m === 'info') {
+        ccAsk({ thumb: info.thumb, planTitle: info.title, title: 'Plan Info', body: ccPlanBlurb(key), no: 'Close' });
+      } else if (status === 'active') ccConfirmStop(key);
+      else if (status === 'finished') ccConfirmAgain(key);
+      else ccSubscribe(key);
+    });
+  }
+  function ccRender365SubRow() {
+    ccFillSubRow(document.getElementById('planSubRow'), '365', ccStatus(planMeta, planCompletedDays.length, 365));
+  }
+  function ccRenderDevoSubRow(key, progress) {
+    let done = 0;
+    for (let d = 1; d <= 52; d++) if (progress.devotional.includes(d) && progress.verse.includes(d)) done++;
+    ccFillSubRow(document.getElementById('devoSubRow'), key, ccStatus(progress, done, 52));
+  }
+
+  // ----- Finished! celebration -----
+  function ccShowFinish(key) {
+    const info = ccPlanInfo(key);
+    ccCloseOverlay('ccFinish');
+    const o = document.createElement('div');
+    o.className = 'cc-overlay cc-finish-wrap'; o.id = 'ccFinish';
+    o.innerHTML = `<div class="cc-finish">
+        <svg class="cc-cross" viewBox="0 0 24 24" fill="none" stroke="#c89b3c" stroke-width="1.6"><line x1="12" y1="2" x2="12" y2="22"/><line x1="5" y1="8" x2="19" y2="8"/></svg>
+        <div class="cc-finish-title">Finished!</div>
+        <div class="cc-finish-plan">${escapeHtmlMain(info.title)}</div>
+        <p>You completed all ${info.total} days.</p>
+        <button type="button" class="cc-btn" id="ccFinShare">Share</button>
+        <button type="button" class="cc-btn ghost" id="ccFinAgain">Start again</button>
+        <button type="button" class="cc-link" id="ccFinClose">Close</button>
+      </div>`;
+    document.body.appendChild(o);
+    document.getElementById('ccFinClose').addEventListener('click', () => ccCloseOverlay('ccFinish'));
+    document.getElementById('ccFinAgain').addEventListener('click', () => { ccCloseOverlay('ccFinish'); ccStartAgain(key); });
+    document.getElementById('ccFinShare').addEventListener('click', (e) => ccShareFinish(key, e.currentTarget));
+    if (typeof triggerConfetti === 'function') { try { triggerConfetti(); } catch (e) {} }
+  }
+  function ccFinishSoon(key) { setTimeout(() => ccShowFinish(key), 450); ccRefreshAll(); }
+  async function ccDrawFinish(canvas, info) {
+    const W = 1080, H = 1920;
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    try { if (document.fonts && document.fonts.load) await Promise.all([document.fonts.load('500 40px Fraunces'), document.fonts.load('700 24px Archivo')]); } catch (e) {}
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#0c0c0d'); g.addColorStop(1, '#26262a');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#c89b3c'; ctx.lineWidth = 10; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(W / 2, 470); ctx.lineTo(W / 2, 700); ctx.moveTo(W / 2 - 70, 540); ctx.lineTo(W / 2 + 70, 540); ctx.stroke();
+    ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+    ctx.font = '500 170px Fraunces, Georgia, serif';
+    ctx.fillText('Finished!', W / 2, 920);
+    ctx.font = '500 66px Fraunces, Georgia, serif';
+    const words = info.title.split(' '); const lines = []; let cur = '';
+    words.forEach(w => { const t = cur ? cur + ' ' + w : w; if (ctx.measureText(t).width > W - 200 && cur) { lines.push(cur); cur = w; } else cur = t; });
+    if (cur) lines.push(cur);
+    lines.forEach((l, i) => ctx.fillText(l, W / 2, 1050 + i * 80));
+    ctx.fillStyle = '#c89b3c'; ctx.font = '700 40px Archivo, Arial, sans-serif';
+    ctx.fillText('All ' + info.total + ' days complete', W / 2, 1050 + lines.length * 80 + 50);
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '700 34px Archivo, Arial, sans-serif';
+    ctx.fillText('Following Jesus app', W / 2, 1600);
+  }
+  let ccShareBusy = false;
+  async function ccShareFinish(key, btn) {
+    if (ccShareBusy) return;
+    ccShareBusy = true; if (btn) btn.style.opacity = '0.5';
+    try {
+      const info = ccPlanInfo(key);
+      const canvas = document.createElement('canvas');
+      await ccDrawFinish(canvas, info);
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png', 0.95));
+      if (!blob) return;
+      const file = new File([blob], 'finished-' + key + '.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: 'Following Jesus', text: 'I finished ' + info.title + ' on the Following Jesus app!' }); return; }
+        catch (err) { if (err && err.name === 'AbortError') return; }
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = file.name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (err) { /* sharing is optional */ }
+    finally { ccShareBusy = false; if (btn) btn.style.opacity = ''; }
+  }
+
+  // ----- Home carousel -----
+  let ccRenderSeq = 0, ccCourseCache = null;
+  const CC_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>';
+  async function ccGetCourseCard() {
+    try {
+      if (typeof myId === 'undefined' || !myId || typeof supabaseClient === 'undefined' || !supabaseClient) return null;
+      if (ccCourseCache && ccCourseCache.id === myId && Date.now() - ccCourseCache.time < 300000) return ccCourseCache.value;
+      let value = null;
+      const done = await getMyCourseCompletions();
+      if (!done.length) {
+        const p = await getMyCourseProgress();
+        if (p && p.completedCount > 0 && p.pct < 100) value = { key: 'course', kind: 'course', title: p.title, pct: p.pct / 100, line: p.pct + '% complete' };
+      }
+      ccCourseCache = { id: myId, time: Date.now(), value };
+      return value;
+    } catch (e) { return null; }
+  }
+  function ccCardHtml(c) {
+    const esc = escapeHtmlMain;
+    const pct = Math.round(c.pct * 100);
+    if (c.kind === 'course') {
+      return `<a class="cc-card" href="${CC_COURSE_URL}" target="_blank" rel="noopener">
+        <div class="cc-label">Continue the course</div><div class="cc-title">${esc(c.title)}</div>
+        <div class="cc-sub">${esc(c.line)}</div><div class="cc-bar"><i style="width:${pct}%"></i></div>
+        <span class="cc-btn">Continue</span></a>`;
+    }
+    const dayTxt = 'Day ' + c.day + ' of ' + c.total;
+    if (c.quiet) {
+      return `<div class="cc-card cc-quiet" role="button" tabindex="0" data-cc-open="${c.key}">
+        <span class="cc-quiet-check">${CC_CHECK}</span>
+        <div class="cc-quiet-main"><div class="cc-quiet-title">${esc(c.title)}</div><div class="cc-quiet-sub">Done for today. ${dayTxt}.</div></div></div>`;
+    }
+    return `<div class="cc-card" role="button" tabindex="0" data-cc-open="${c.key}">
+      <div class="cc-label">${c.kind === '365' ? 'Continue reading' : 'Continue your plan'}</div>
+      <div class="cc-title">${esc(c.title)}</div>
+      <div class="cc-sub">${dayTxt}${c.line ? ': ' + esc(c.line) : ''}</div>
+      <div class="cc-bar"><i style="width:${pct}%"></i></div>
+      <button type="button" class="cc-btn">Continue</button></div>`;
+  }
+  function ccDraw(cards) {
+    const wrap = document.getElementById('todayContinue');
+    const track = document.getElementById('ccTrack');
+    const dots = document.getElementById('ccDots');
+    if (!wrap || !track) return;
+    wrap.hidden = !cards.length;
+    track.classList.toggle('cc-multi', cards.length > 1);
+    track.innerHTML = cards.map(ccCardHtml).join('');
+    dots.innerHTML = cards.length > 1 ? cards.map((_, i) => `<span class="${i === 0 ? 'active' : ''}"></span>`).join('') : '';
+  }
+  async function renderContinueCards() {
+    const seq = ++ccRenderSeq;
+    let all = [];
+    try { all = await ccLoadAll(); } catch (e) {}
+    if (seq !== ccRenderSeq) return;
+    const plans = all.filter(c => c.status === 'active').sort(ccByRecent);
+    ccDraw(plans);
+    const course = await ccGetCourseCard();
+    if (seq !== ccRenderSeq || !course) return;
+    ccDraw(plans.concat([course]));
+  }
+  (function ccWireHome() {
+    const track = document.getElementById('ccTrack');
+    if (!track) return;
+    track.addEventListener('click', e => {
+      const el = e.target.closest('[data-cc-open]');
+      if (el) ccOpenPlan(el.dataset.ccOpen);
+    });
+    track.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      const el = e.target.closest('[data-cc-open]');
+      if (el) ccOpenPlan(el.dataset.ccOpen);
+    });
+    track.addEventListener('scroll', () => {
+      const first = track.firstElementChild; if (!first) return;
+      const step = first.getBoundingClientRect().width + 12;
+      const i = Math.round(track.scrollLeft / step);
+      [...document.querySelectorAll('#ccDots span')].forEach((s, n) => s.classList.toggle('active', n === i));
+    }, { passive: true });
+  })();
+
+  // ----- Plans tab: My Plans / Find Plans / Completed -----
+  let ccPlansTab = 'find';
+  function ccShowPlansTab(tab) {
+    ccPlansTab = tab;
+    [['mine', 'plansMine'], ['find', 'plansFind'], ['done', 'plansDone']].forEach(([t, id]) => {
+      const el = document.getElementById(id); if (el) el.hidden = (t !== tab);
+    });
+    [...document.querySelectorAll('#plansTabs [data-ptab]')].forEach(b => b.classList.toggle('active', b.dataset.ptab === tab));
+  }
+  function ccRowHtml(c, completed) {
+    const esc = escapeHtmlMain;
+    let sub, tail = '';
+    if (completed) {
+      sub = c.finishedAt ? 'Finished ' + new Date(c.finishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Finished';
+      tail = `<button type="button" class="cc-mini" data-cc-again="${c.key}">Start again</button>`;
+    } else {
+      sub = 'Day ' + c.day + ' of ' + c.total + (c.status === 'started' ? ' · not on Home' : '');
+      tail = `<div class="cc-bar"><i style="width:${Math.round(c.pct * 100)}%"></i></div>`;
+    }
+    return `<div class="cc-row" role="button" tabindex="0" data-cc-open="${c.key}">
+      <img class="cc-thumb" src="${c.thumb}" alt="" />
+      <div class="cc-row-main"><div class="cc-row-title">${esc(c.title)}</div><div class="cc-row-sub">${esc(sub)}</div>${tail}</div></div>`;
+  }
+  async function renderPlansTabs(pickDefault) {
+    let all = [];
+    try { all = await ccLoadAll(); } catch (e) {}
+    const mine = all.filter(c => c.status === 'active' || c.status === 'started').sort(ccByRecent);
+    const done = all.filter(c => c.status === 'finished').sort((a, b) => (a.finishedAt || '') < (b.finishedAt || '') ? 1 : -1);
+    const mineEl = document.getElementById('plansMine'), doneEl = document.getElementById('plansDone');
+    if (!mineEl || !doneEl) return;
+    mineEl.innerHTML = mine.length ? mine.map(c => ccRowHtml(c, false)).join('')
+      : '<div class="cc-empty">No plans yet. Subscribe to a plan and it shows up here and on your Home screen.<button type="button" class="cc-mini" data-ptab-go="find">Find Plans</button></div>';
+    doneEl.innerHTML = done.length ? done.map(c => ccRowHtml(c, true)).join('')
+      : '<div class="cc-empty">Finished plans show up here.</div>';
+    if (pickDefault) ccShowPlansTab(mine.length ? 'mine' : 'find'); else ccShowPlansTab(ccPlansTab);
+  }
+  (function ccWirePlans() {
+    const root = document.getElementById('screen-plans');
+    if (!root) return;
+    root.addEventListener('click', e => {
+      const tab = e.target.closest('[data-ptab]'); if (tab) { ccShowPlansTab(tab.dataset.ptab); return; }
+      const go = e.target.closest('[data-ptab-go]'); if (go) { ccShowPlansTab(go.dataset.ptabGo); return; }
+      const again = e.target.closest('[data-cc-again]'); if (again) { e.stopPropagation(); ccConfirmAgain(again.dataset.ccAgain); return; }
+      const row = e.target.closest('.cc-row[data-cc-open]'); if (row) ccOpenPlan(row.dataset.ccOpen);
+    });
+  })();
+
+  let ccRefreshTimer = null;
+  function ccRefreshAll() {
+    clearTimeout(ccRefreshTimer);
+    ccRefreshTimer = setTimeout(() => {
+      renderContinueCards();
+      if (document.getElementById('screen-plans').classList.contains('active')) renderPlansTabs(false);
+      if (document.getElementById('planSubRow')) ccRender365SubRow();
+      if (document.getElementById('devoSubRow') && window.__ccDevoKey) loadDevoPlanProgress(window.__ccDevoKey).then(p => ccRenderDevoSubRow(window.__ccDevoKey, p));
+    }, 60);
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) ccRefreshAll(); });
+  window.addEventListener('pageshow', () => ccRefreshAll());
+  renderContinueCards();
+  setTimeout(renderContinueCards, 3000);   // picks up the course card once sign-in has finished
+
   // ---------- Tabs ----------
   const buttons = document.querySelectorAll('.tab-btn');
   const screens = document.querySelectorAll('.screen');
@@ -12476,6 +13010,8 @@ async function renderDiscipleshipApp() {
       showLogoHeader();
     }
     if ((screenId === 'screen-plans' || screenId === 'screen-today') && typeof renderMemoryVerseHomeCard === 'function') renderMemoryVerseHomeCard();
+    if (screenId === 'screen-today') renderContinueCards();
+    if (screenId === 'screen-plans') renderPlansTabs(true);
     panel.scrollTop = 0;
   }
 
