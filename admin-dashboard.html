@@ -5267,7 +5267,7 @@ async function renderBroadcastComposer(opts){
     const select = document.getElementById('broadcast-shopify-mode');
     const noteEl = document.getElementById('broadcast-shopify-note');
     block.style.display = 'block';
-    const { data: sumRows } = await supabaseClient.rpc('get_shopify_contacts_summary');
+    const { data: sumRows, error: sumError } = await supabaseClient.rpc('get_shopify_contacts_summary');
     const sum = (sumRows && sumRows[0]) || { total: 0, accepts_marketing: 0, last_updated: null };
     const hasList = Number(sum.total) > 0;
     const modes = ['none', 'subscribed'];
@@ -5287,7 +5287,9 @@ async function renderBroadcastComposer(opts){
     if(firstLoad) shopifyMode = hasList ? 'subscribed' : 'none';
     if(!hasList) shopifyMode = 'none';
     select.value = shopifyMode;
-    if(!hasList){
+    if(sumError){
+      noteEl.textContent = 'Could not read the stored Shopify list: ' + sumError.message + ' (If this mentions a missing function, run shopify-exclusion.sql in Supabase first.)';
+    } else if(!hasList){
       noteEl.textContent = 'No Shopify list is stored yet. Upload your Shopify Customers export below to turn this on.';
     } else {
       const when = new Date(sum.last_updated);
