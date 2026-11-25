@@ -5315,15 +5315,23 @@ async function renderBroadcastComposer(opts){
     const file = shopifyFileEl.files[0];
     const st = document.getElementById('broadcast-shopify-upload-status');
     if(!file) return;
-    const parsed = parseShopifyCustomersCsv(await file.text());
-    if(parsed.error){ st.textContent = parsed.error; shopifyFileEl.value = ''; return; }
-    if(!confirm(`Replace the stored Shopify list with ${parsed.rows.length.toLocaleString()} customers from this file (${parsed.rows.filter(r => r.accepts_marketing).length.toLocaleString()} accept email marketing)?`)){ shopifyFileEl.value = ''; return; }
-    st.textContent = 'Saving…';
-    const { data: saved, error } = await supabaseClient.rpc('replace_shopify_contacts', { p_rows: parsed.rows });
-    shopifyFileEl.value = '';
-    if(error){ st.textContent = 'Could not save: ' + error.message; return; }
-    st.textContent = `Saved ${Number(saved).toLocaleString()} Shopify customers.`;
-    await refreshShopifyBlock(true);
+    // No pop-up confirmation here: some browsers silently answer "cancel" to those, which
+    // looked like the upload doing nothing. Every step reports in the line below instead.
+    st.textContent = `Reading ${file.name}…`;
+    try {
+      const parsed = parseShopifyCustomersCsv(await file.text());
+      if(parsed.error){ st.textContent = parsed.error; shopifyFileEl.value = ''; return; }
+      const subscribedCount = parsed.rows.filter(r => r.accepts_marketing).length;
+      st.textContent = `Found ${parsed.rows.length.toLocaleString()} customers (${subscribedCount.toLocaleString()} accept email marketing). Saving…`;
+      const { data: saved, error } = await supabaseClient.rpc('replace_shopify_contacts', { p_rows: parsed.rows });
+      shopifyFileEl.value = '';
+      if(error){ st.textContent = 'Could not save: ' + error.message; return; }
+      st.textContent = `Saved ${Number(saved).toLocaleString()} Shopify customers (${subscribedCount.toLocaleString()} accept email marketing).`;
+      await refreshShopifyBlock(true);
+    } catch(e){
+      shopifyFileEl.value = '';
+      st.textContent = 'Something went wrong: ' + (e && e.message ? e.message : e);
+    }
   });
 
   // Show a real recipient count up front, scoped to this audience --
