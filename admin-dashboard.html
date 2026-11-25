@@ -5203,7 +5203,6 @@ async function renderBroadcastComposer(opts){
         <select class="field-input" id="broadcast-shopify-mode" style="margin-bottom:6px;">
           <option value="none">Send to everyone on this list</option>
           <option value="subscribed">Skip people Shopify will email</option>
-          <option value="all">Skip everyone who is a Shopify customer</option>
         </select>
         <p id="broadcast-shopify-note" style="font-size:12px;color:var(--ink-soft);margin:0 0 8px;line-height:1.5;"></p>
         <label style="font-size:12px;display:block;margin-bottom:4px;">Update the Shopify list (upload the Customers export CSV from Shopify):</label>
@@ -5261,7 +5260,7 @@ async function renderBroadcastComposer(opts){
   // Church Leaders only: the "skip people already in Shopify" dropdown. Three counts are
   // worked out up front so each choice shows exactly how many people it reaches.
   let shopifyMode = 'none';
-  let shopifyCounts = { none: null, subscribed: null, all: null };
+  let shopifyCounts = { none: null, subscribed: null };
   async function refreshShopifyBlock(firstLoad){
     const countEl = document.getElementById('broadcast-recipient-count');
     const block = document.getElementById('broadcast-shopify-block');
@@ -5271,15 +5270,14 @@ async function renderBroadcastComposer(opts){
     const { data: sumRows } = await supabaseClient.rpc('get_shopify_contacts_summary');
     const sum = (sumRows && sumRows[0]) || { total: 0, accepts_marketing: 0, last_updated: null };
     const hasList = Number(sum.total) > 0;
-    const modes = ['none', 'subscribed', 'all'];
+    const modes = ['none', 'subscribed'];
     const lists = await Promise.all(modes.map(m => m === 'none'
       ? fetchAllRpcRowsClient('get_subscriber_list_recipients', { p_audience: 'church_leader' })
       : (hasList ? fetchAllRpcRowsClient('get_subscriber_list_recipients_v2', { p_audience: 'church_leader', p_shopify_mode: m }) : Promise.resolve(null))));
     modes.forEach((m, i) => { shopifyCounts[m] = lists[i] ? lists[i].length : null; });
     const labels = {
       none: 'Send to everyone on this list',
-      subscribed: 'Skip people Shopify will email',
-      all: 'Skip everyone who is a Shopify customer'
+      subscribed: 'Skip people Shopify will email'
     };
     modes.forEach((m, i) => {
       const opt = select.options[i];
@@ -5295,15 +5293,14 @@ async function renderBroadcastComposer(opts){
       const when = new Date(sum.last_updated);
       const days = Math.floor((Date.now() - when.getTime()) / 86400000);
       const stale = days > 14 ? ` ⚠️ That is ${days} days old, so update it before sending.` : '';
-      noteEl.textContent = `Shopify list: ${Number(sum.total).toLocaleString()} customers (${Number(sum.accepts_marketing).toLocaleString()} accept email marketing), last updated ${when.toLocaleDateString()}.${stale} The middle choice avoids double emails. The last one also skips Shopify customers who opted out of Shopify emails.`;
+      noteEl.textContent = `Shopify list: ${Number(sum.total).toLocaleString()} customers (${Number(sum.accepts_marketing).toLocaleString()} accept email marketing), last updated ${when.toLocaleDateString()}.${stale} "Skip people Shopify will email" leaves out anyone who gets your Shopify emails, so nobody is emailed twice.`;
     }
     applyShopifyMode();
   }
   function applyShopifyMode(){
     const countEl = document.getElementById('broadcast-recipient-count');
     expectedRecipientCount = shopifyCounts[shopifyMode];
-    const what = shopifyMode === 'subscribed' ? ', skipping people Shopify will email'
-      : shopifyMode === 'all' ? ', skipping every Shopify customer' : '';
+    const what = shopifyMode === 'subscribed' ? ', skipping people Shopify will email' : '';
     if(countEl) countEl.textContent = `This will go to ${expectedRecipientCount === null ? '…' : expectedRecipientCount.toLocaleString()} people who haven't opted out${what}.`;
   }
   const shopifySelectEl = document.getElementById('broadcast-shopify-mode');
@@ -5461,7 +5458,7 @@ async function renderBroadcastComposer(opts){
     const sendBtn = document.getElementById('broadcast-send-btn');
     if(!subject || !message){ statusEl.textContent = 'Please fill in both the subject and message.'; return; }
     const countNote = expectedRecipientCount ? ` (${expectedRecipientCount} people)` : '';
-    const shopifyNote = shopifyMode === 'subscribed' ? ', skipping people Shopify will email' : shopifyMode === 'all' ? ', skipping every Shopify customer' : '';
+    const shopifyNote = shopifyMode === 'subscribed' ? ', skipping people Shopify will email' : '';
     if(!confirm(`Send this email to ${audienceLabel}${shopifyNote}${countNote}? This can't be undone once sent.`)) return;
 
     sendBtn.disabled = true;
