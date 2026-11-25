@@ -26,7 +26,7 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: 'Invalid request body' };
   }
 
-  const { jobId, token, subject, message, imageUrl, linkText, linkUrl, audience, subscriberAudience, expectedCount, churchId, courseId, callerRole } = body;
+  const { jobId, token, subject, message, imageUrl, linkText, linkUrl, audience, subscriberAudience, shopifyMode, expectedCount, churchId, courseId, callerRole } = body;
   if (!jobId || !token) {
     return { statusCode: 400, body: 'Missing jobId or token' };
   }
@@ -47,8 +47,16 @@ exports.handler = async (event) => {
       await safeUpdateJob(jobId, token, 0, 0, 0, 'failed', 'No email list was specified, so nothing was sent.');
       return { statusCode: 200, body: 'done (no list specified)' };
     }
-    rpcName = 'get_subscriber_list_recipients';
-    rpcParams = { p_audience: subscriberAudience };
+    // shopifyMode (optional): 'subscribed' skips people Shopify can email, 'all' skips every
+    // Shopify customer. Anything else (or missing) sends to the whole list as before.
+    const mode = (shopifyMode === 'subscribed' || shopifyMode === 'all') ? shopifyMode : 'none';
+    if (mode === 'none') {
+      rpcName = 'get_subscriber_list_recipients';
+      rpcParams = { p_audience: subscriberAudience };
+    } else {
+      rpcName = 'get_subscriber_list_recipients_v2';
+      rpcParams = { p_audience: subscriberAudience, p_shopify_mode: mode };
+    }
   } else {
     rpcName = 'get_broadcast_recipients';
     rpcParams = { p_church_id: churchId || null, p_course_id: courseId || null };
