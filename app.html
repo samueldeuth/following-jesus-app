@@ -2464,13 +2464,20 @@
     text-align: center; text-decoration: none; cursor: pointer;
   }
   .cc-btn.ghost { background: transparent; color: #0c0c0d; margin-top: 4px; }
-  /* Read for the day: shrinks to a calm dark row */
-  .cc-card.cc-quiet { background: #1d1d20; color: #fff; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
-  .cc-card.cc-quiet:active { background: #2a2a2f; }
-  .cc-quiet-check { width: 28px; height: 28px; border-radius: 50%; background: #c89b3c; color: #0c0c0d; display: flex; align-items: center; justify-content: center; flex: none; }
-  .cc-quiet-check svg { width: 15px; height: 15px; }
-  .cc-quiet-title { font-size: 15px; font-weight: 800; }
-  .cc-quiet-sub { font-size: 13px; color: #a8a8b0; margin-top: 2px; }
+  /* Not read yet: full plan cover on top */
+  .cc-card.cc-full { padding: 0; overflow: hidden; }
+  .cc-full-img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: #e4e4e6; }
+  .cc-full-body { padding: 16px 20px 20px; }
+  .cc-full-body .cc-bar { margin-top: 12px; }
+  /* Read for the day: simple row, image small on the right */
+  .cc-card.cc-quiet { display: flex; align-items: center; gap: 14px; padding: 16px 16px 16px 20px; }
+  .cc-quiet-main { flex: 1; min-width: 0; }
+  .cc-quiet-day { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #55555c; }
+  .cc-quiet-check { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid #8a6414; color: #8a6414; display: inline-flex; align-items: center; justify-content: center; }
+  .cc-quiet-check svg { width: 12px; height: 12px; }
+  .cc-quiet-title { font-size: 18px; font-weight: 800; line-height: 1.2; margin-top: 6px; }
+  .cc-quiet .cc-bar { margin-top: 12px; width: 60%; }
+  .cc-quiet-cover { width: 84px; height: 84px; border-radius: 14px; object-fit: cover; flex: none; }
   .cc-dots { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
   .cc-dots span { width: 6px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.3); }
   .cc-dots span.active { background: #c89b3c; width: 18px; }
@@ -2487,8 +2494,15 @@
   .cc-menu button:active { background: #efefef; }
   .cc-menu button svg { width: 24px; height: 24px; flex: none; }
   .cc-menu button.danger { color: #c0392b; }
+  #devoSubRow .plan-sync-label, #planSubRow .plan-sync-label { color: #55555c; font-size: 12px; }
+  #devoSubRow { justify-content: center; }
   .cc-more { background: transparent; border: 1px solid rgba(0,0,0,0.3); color: #0c0c0d; width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
   .cc-more svg { width: 16px; height: 16px; }
+  .cc-hero { position: relative; }
+  .cc-hero-365 { margin-bottom: 14px; }
+  .cc-hero-365 img { display: block; width: 100%; height: 150px; object-fit: cover; border-radius: 8px; }
+  .cc-more-hero { position: absolute; top: 10px; right: 10px; width: 38px; height: 38px; background: rgba(255,255,255,0.94); border: 0; color: #0c0c0d; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+  .cc-more-hero svg { width: 20px; height: 20px; }
   .cc-finish { padding-top: 30px; }
   .cc-cross { width: 44px; height: 44px; display: block; margin: 0 auto; }
   .cc-finish-title { font-family: var(--font-serif); font-weight: 500; font-size: 48px; line-height: 1.05; margin-top: 8px; }
@@ -2716,6 +2730,10 @@
       </div>
 
       <div id="planBar" class="plan-bar" style="display:none;">
+        <div class="cc-hero cc-hero-365">
+          <img src="/assets/plan-365-days-with-jesus.jpg" alt="365 Days With Jesus" />
+          <button type="button" class="cc-more cc-more-hero" aria-label="Plan options" data-ccmore-hero="365"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+        </div>
         <div class="plan-day-strip" id="planDayStrip"></div>
 
         <div class="plan-bar-top">
@@ -3416,7 +3434,10 @@
 
     body.innerHTML = `
       <a class="back-link" id="devoPlanBackLink">← All 52-Day Plans</a>
-      <img src="${plan.cover}" alt="${escapeHtmlMain(plan.title)}" style="display:block; width:100%; border-radius:8px; margin-top:12px;" />
+      <div class="cc-hero" style="margin-top:12px;">
+        <img src="${plan.cover}" alt="${escapeHtmlMain(plan.title)}" style="display:block; width:100%; border-radius:8px;" />
+        <button type="button" class="cc-more cc-more-hero" aria-label="Plan options" data-ccmore-hero="${planKey}">${CC_DOTS}</button>
+      </div>
       <div class="plan-day-strip" style="margin-top:16px;">${stripCards.join('')}</div>
       <div class="plan-bar-top" style="margin-top:16px;">
         <button type="button" id="devoPlanPrevDay" class="bible-navbtn" aria-label="Previous day" ${day <= 1 ? 'style="visibility:hidden;"' : ''}>
@@ -12538,11 +12559,12 @@ async function renderDiscipleshipApp() {
   // checked off. Stop keeps all progress. Finished plans leave Home and move
   // to the Completed tab. Everything lives in the same saved blobs the plans
   // already use (no new tables), so no sign-in is needed.
+  const CC_DOTS = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
   const CC_COURSE_URL = 'https://followingjesus.com/course';
   function ccPlanInfo(key) {
-    if (key === '365') return { kind: '365', title: '365 Days With Jesus', total: 365, thumb: '/assets/plan-365-days-with-jesus.jpg' };
+    if (key === '365') return { kind: '365', title: '365 Days With Jesus', total: 365, thumb: '/assets/plan-365-days-with-jesus.jpg', cover: '/assets/plan-365-days-with-jesus.jpg' };
     const m = DEVOTIONAL_PLANS_MANIFEST[key];
-    return { kind: 'devo', title: m.title.replace(/^52 Bible Verses\s*/i, '52 Verses '), total: 52, thumb: '/assets/plan-square-' + key.replace(/_/g, '-') + '.jpg' };
+    return { kind: 'devo', title: m.title.replace(/^52 Bible Verses\s*/i, '52 Verses '), total: 52, cover: m.cover, thumb: '/assets/plan-square-' + key.replace(/_/g, '-') + '.jpg' };
   }
   function ccNowISO() { return new Date().toISOString(); }
   function ccPlanDayFor(mode, customStart, todayIso) {
@@ -12580,7 +12602,7 @@ async function renderDiscipleshipApp() {
       line = 'Devotional and verse';
     }
     return {
-      key, kind: info.kind, title: info.title, thumb: info.thumb, total: info.total,
+      key, kind: info.kind, title: info.title, thumb: info.thumb, cover: info.cover, total: info.total,
       day, doneCount, pct: Math.min(1, doneCount / info.total), quiet, line,
       status: ccStatus(b, doneCount, info.total),
       lastActiveAt: (b && b.lastActiveAt) || '', finishedAt: (b && b.finishedAt) || null
@@ -12698,11 +12720,11 @@ async function renderDiscipleshipApp() {
   function ccFillSubRow(el, key, status) {
     if (!el) return;
     const r = ccStatusUi(status);
-    el.innerHTML = `<span class="plan-sync-label">${r.text}</span>${r.btn ? `<button type="button" class="plan-sync-btn" data-ccbtn="1">${r.btn}</button>` : ''}
-      <button type="button" class="cc-more" aria-label="Plan options" data-ccmore="1"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>`;
+    el.innerHTML = `<span class="plan-sync-label">${r.text}</span>${r.btn ? `<button type="button" class="plan-sync-btn" data-ccbtn="1">${r.btn}</button>` : ''}`;
     const pb = el.querySelector('[data-ccbtn]');
     if (pb) pb.addEventListener('click', () => { if (r.act === 'sub') ccSubscribe(key); else ccConfirmAgain(key); });
-    el.querySelector('[data-ccmore]').addEventListener('click', () => ccOpenMenu(key, status));
+    const hero = document.querySelector('[data-ccmore-hero="' + key + '"]');
+    if (hero) hero.onclick = () => ccOpenMenu(key, status);
   }
   // The three-dot menu: Share, Reminder, Plan Info, and the stop/subscribe action.
   function ccOpenMenu(key, status) {
@@ -12848,16 +12870,24 @@ async function renderDiscipleshipApp() {
     }
     const dayTxt = 'Day ' + c.day + ' of ' + c.total;
     if (c.quiet) {
+      // Read for the day: simple row, plan image small on the right
       return `<div class="cc-card cc-quiet" role="button" tabindex="0" data-cc-open="${c.key}">
-        <span class="cc-quiet-check">${CC_CHECK}</span>
-        <div class="cc-quiet-main"><div class="cc-quiet-title">${esc(c.title)}</div><div class="cc-quiet-sub">Done for today. ${dayTxt}.</div></div></div>`;
+        <div class="cc-quiet-main">
+          <div class="cc-quiet-day"><span class="cc-quiet-check">${CC_CHECK}</span>Day ${c.day}</div>
+          <div class="cc-quiet-title">${esc(c.title)}</div>
+          <div class="cc-bar"><i style="width:${pct}%"></i></div>
+        </div>
+        <img class="cc-quiet-cover" src="${c.thumb}" alt="" /></div>`;
     }
-    return `<div class="cc-card" role="button" tabindex="0" data-cc-open="${c.key}">
-      <div class="cc-label">${c.kind === '365' ? 'Continue reading' : 'Continue your plan'}</div>
-      <div class="cc-title">${esc(c.title)}</div>
-      <div class="cc-sub">${dayTxt}${c.line ? ': ' + esc(c.line) : ''}</div>
-      <div class="cc-bar"><i style="width:${pct}%"></i></div>
-      <button type="button" class="cc-btn">Continue</button></div>`;
+    // Not read yet: the plan's full cover image on top
+    return `<div class="cc-card cc-full" role="button" tabindex="0" data-cc-open="${c.key}">
+      <img class="cc-full-img" src="${c.cover}" alt="${esc(c.title)}" />
+      <div class="cc-full-body">
+        <div class="cc-label">${c.kind === '365' ? 'Continue reading' : 'Continue your plan'}</div>
+        <div class="cc-sub" style="margin-top:4px;">${dayTxt}${c.line ? ': ' + esc(c.line) : ''}</div>
+        <div class="cc-bar"><i style="width:${pct}%"></i></div>
+        <button type="button" class="cc-btn">Continue</button>
+      </div></div>`;
   }
   function ccDraw(cards) {
     const wrap = document.getElementById('todayContinue');
