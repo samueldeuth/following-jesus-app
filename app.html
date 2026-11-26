@@ -29,7 +29,7 @@
 <meta property="og:description" content="A free discipleship app — Bible reading, daily content, and discipleship groups to help you grow in following Jesus.">
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500..900&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
@@ -2527,104 +2527,6 @@
 </style>
 </head>
 <body>
-<!-- FJ launch intro (stacked): FJ big in the centre, F and J drop into place, letters slide out of them to spell FOLLOWING / JESUS centred. Edit timings in the T object. -->
-<style>
-#fjIntro{position:fixed;inset:0;z-index:2147483000;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden}
-#fjIntro[hidden]{display:none}
-#fjIntro .fji-line{display:flex;flex-direction:column;align-items:center;white-space:pre;font-family:'Archivo',system-ui,sans-serif;font-weight:600;color:#fff;letter-spacing:.07em;line-height:1.2;font-size:6vw}
-#fjIntro .fji-row{display:flex;white-space:pre}
-#fjIntro .fji-l:first-child{position:relative;z-index:2}
-#fjIntro .fji-l{display:inline-block;opacity:0;will-change:transform,opacity}
-#fjIntro .fji-logo{position:absolute;left:35.6vw;top:calc(50% - 10.97vw);width:28.8vw;height:21.9vw;display:block;will-change:transform,opacity}
-</style>
-<div id="fjIntro" aria-hidden="true" hidden><img class="fji-logo" id="fjiLogo" alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAggAAAGLCAAAAACHWzVUAAAP60lEQVR42u2de7RU1XnAv73PYy4XAUUwSFwaEiLGlihWa1ZQ0OiKoVWioQHjoyHL1NpcTOmKJm0XabGrXUlqJKVFY0KqcZl2WZUmJgTTaOURfIRYFSGiKIpeReShPK/MOWfv3T8uolFm7szcs4c5c3+/f3UN95z9O9/+9rdfatSdp++xkZOByt4Re2YuDrPC/L1ahiw+Y1Nnrj/Z09l5rloyxSkZyCTx/NmlcmH+3FL5R5emUe4/63TiZKBjChbDfHy5PXqzGvAiFOoNONmldP4/u1kfJlAsazvEQxAfrC3vtmB46cut5sVC72gEABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAG8EPr5WecK8wasNWjgSwSrihNpIj0YDTyJYPXepw9PM1WA53flwW8sFmKCFxGy8J7ZqS1I72DD5HXJEMGHCE62b1SOd0vXIJEqlYvzDnDWmwjOOd4udQRABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEQARABEAEAEQAT4HUIvv6rC0LTwQytraPmmiJBkWWs/doAJTRAhcKd+Zvvo1KrWDAdJEK97kpZvggjanXTX5tFiW7RfSHX49JeWKkfje+8alNWjrdIt+qpjsSdctpSmb0aOoJ1T0qqfnBNlnqflmyKCKNXSTx2UaXnqCL3dAyACIAIgAiACIAIgAiACIAIgAiACIAIgAiACIAIgAiACIAIgAiACIAIgAiACIAIgAiACIAIgAiACIAIgAiACIAIgAiACIAIgAiACIAIgAiACIAIgAiACIAIgAiACIAIgAiACACIAIgAiACIAIgAiACIAIgAiACIAIgAiACIAIgAiACIAIgAiACIAIgAi+EPR8ogg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"><div class="fji-line" id="fjiLine"></div></div>
-<script>
-(function(){
-  var box=document.getElementById('fjIntro');if(!box)return;
-  var ua=navigator.userAgent||'',force=/[?&]intro=1/.test(location.search);
-  var inApp=/median|gonative/i.test(ua);
-  var seen=false;try{seen=sessionStorage.getItem('fj_intro_done')==='1'}catch(e){}
-  if(!(inApp||force)||(seen&&!force)){box.remove();return}
-  try{sessionStorage.setItem('fj_intro_done','1')}catch(e){}
-  // Timings in ms - change these to retune the animation
-  var T={fadeIn:650,hold:500,move:900,stagger:75,letterDur:650,holdEnd:1000,fadeOut:400,heroScale:3.6,iconGap:.055};
-  var rows=['FOLLOWING','JESUS'],line=document.getElementById('fjiLine'),els=[];
-  rows.forEach(function(t){var r=document.createElement('div');r.className='fji-row';for(var i=0;i<t.length;i++){var s=document.createElement('span');s.className='fji-l';s.textContent=t[i];r.appendChild(s);els.push(s)}line.appendChild(r)});
-  box.hidden=false;
-  function done(){try{box.remove()}catch(e){}}
-  function run(){
-    var W=innerWidth,H=innerHeight;
-    var fs=parseFloat(getComputedStyle(line).fontSize);
-    line.style.fontSize=(fs*(W*.80)/line.firstChild.getBoundingClientRect().width)+'px';
-    var F=els[0],J=els[9],nF=9;
-    [F,J].forEach(function(e){var w=e.getBoundingClientRect().width;e.style.width=w+'px';e.style.textAlign='center'});
-    var fs2=parseFloat(getComputedStyle(line).fontSize),cv=document.createElement('canvas').getContext('2d');
-    cv.font='900 '+fs2+'px Archivo,system-ui,sans-serif';
-    var mF=cv.measureText('F'),mJ=cv.measureText('J');
-    var cap=mF.actualBoundingBoxAscent,inkF=mF.actualBoundingBoxLeft+mF.actualBoundingBoxRight,inkJ=mJ.actualBoundingBoxLeft+mJ.actualBoundingBoxRight;
-    var rf0=F.getBoundingClientRect(),pr=document.createElement('i');
-    pr.style.cssText='display:inline-block;width:0;height:0;vertical-align:baseline';F.appendChild(pr);
-    var baseY=pr.getBoundingClientRect().bottom;F.removeChild(pr);
-    var cy=(baseY-cap/2)-(rf0.top+rf0.height/2);
-    line.style.transform='translateY('+(-cy)+'px)';
-    var rf=F.getBoundingClientRect(),rj=J.getBoundingClientRect();
-    var S=Math.min(T.heroScale,(W*.62)/(rf.width+rj.width));
-    var fcx=rf.left+rf.width/2,fcy=rf.top+rf.height/2,jcx=rj.left+rj.width/2,jcy=rj.top+rj.height/2;
-    var gapInk=T.iconGap*cap,pairInk=inkF+gapInk+inkJ;
-    function pair(sc){var tot=pairInk*sc;return [W/2-tot/2+inkF*sc/2-fcx,W/2+tot/2-inkJ*sc/2-jcx]}
-    var logo=document.getElementById('fjiLogo'),imgW=W*.288,imgH=imgW*439/577,capImg=imgH*429/439;
-    var sL=(cap*S)/capImg;
-    var kS=Math.max(.6,Math.min(1.2,(imgW*sL)/(pairInk*S)));
-    var pk=pair(S*kS),pn=pair(S);
-    var fyS=H/2-fcy-cy*S,jyS=H/2-jcy-cy*S;
-    var t1=T.fadeIn+T.hold,t2=t1+T.move,D=t2;
-    var out='cubic-bezier(.22,.7,.2,1)',io='cubic-bezier(.65,0,.25,1)';
-    function tr(x,y,s,sx){return 'translate('+x+'px,'+y+'px) scale('+(sx||s)+','+s+')'}
-    var tc0=T.fadeIn*.55,tc1=T.fadeIn;
-    logo.animate([
-      {transform:'scale(1)',opacity:1,offset:0,easing:out},
-      {transform:'scale('+(1+(sL-1)*.9)+')',opacity:1,offset:tc0/D},
-      {transform:'scale('+sL+')',opacity:0,offset:tc1/D},
-      {transform:'scale('+sL+')',opacity:0,offset:1}
-    ],{duration:D,fill:'both'});
-    // F and J: hand over from the icon picture, hold big in the centre, then F goes to the top-left and J drops to the second line
-    F.animate([
-      {fontWeight:900,opacity:0,transform:tr(pk[0],fyS,S,S*kS),offset:0},
-      {fontWeight:900,opacity:0,transform:tr(pk[0],fyS,S,S*kS),offset:tc0/D},
-      {fontWeight:880,opacity:1,transform:tr(pk[0],fyS,S,S*kS),offset:tc1/D,easing:'linear'},
-      {fontWeight:740,opacity:1,transform:tr(pn[0],fyS,S),offset:t1/D,easing:io},
-      {fontWeight:600,opacity:1,transform:'none',offset:1}
-    ],{duration:D,fill:'both'});
-    J.animate([
-      {fontWeight:900,opacity:0,transform:tr(pk[1],jyS,S,S*kS),offset:0},
-      {fontWeight:900,opacity:0,transform:tr(pk[1],jyS,S,S*kS),offset:tc0/D},
-      {fontWeight:880,opacity:1,transform:tr(pk[1],jyS,S,S*kS),offset:tc1/D,easing:'linear'},
-      {fontWeight:740,opacity:1,transform:tr(pn[1],jyS,S),offset:t1/D,easing:io},
-      {fontWeight:600,opacity:1,transform:'none',offset:1}
-    ],{duration:D,fill:'both'});
-    // the other letters slide out from behind F (FOLLOWING) and J (JESUS), one after another
-    function slideOut(from,i0,i1){
-      var rb=from.getBoundingClientRect(),bx=rb.left+rb.width/2,n=0;
-      for(var i=i0;i<=i1;i++,n++){
-        var c=els[i].getBoundingClientRect(),dx=bx-(c.left+c.width/2);
-        els[i].animate([{opacity:0,transform:'translateX('+dx+'px)',offset:0},{opacity:1,transform:'translateX('+(dx*.55)+'px)',offset:.3},{opacity:1,transform:'none',offset:1}],{duration:T.letterDur,delay:t2-250+n*T.stagger,easing:out,fill:'both'});
-      }
-    }
-    slideOut(F,1,nF-1);
-    slideOut(J,nF+1,els.length-1);
-    var total=t2-250+7*T.stagger+T.letterDur+T.holdEnd;
-    setTimeout(function(){
-      var a=box.animate([{opacity:1},{opacity:0}],{duration:T.fadeOut,fill:'forwards'});
-      a.onfinish=done;
-    },total);
-    box.addEventListener('click',done);
-    setTimeout(done,total+T.fadeOut+1500);
-  }
-  (document.fonts&&document.fonts.load?Promise.all([document.fonts.load('900 40px Archivo','FJ'),document.fonts.load('600 40px Archivo','FOLLOWING JESUS')]):Promise.resolve()).then(function(){requestAnimationFrame(run)},function(){requestAnimationFrame(run)});
-})();
-</script>
-
-
 <div class="app">
 
   <header>
