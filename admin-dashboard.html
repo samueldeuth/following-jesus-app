@@ -7001,7 +7001,7 @@ async function renderCourseStudents(courseId, courseTitle){
     selectedEnrollmentIds.clear();
     renderCourseStudents(courseId, courseTitle);
   });
-  document.getElementById('student-mode-inactive-btn').addEventListener('click', () => {
+  document.getElementById('student-mode-inactive-btn')?.addEventListener('click', () => {
     studentViewMode = 'inactive';
     selectedEnrollmentIds.clear();
     renderCourseStudents(courseId, courseTitle);
