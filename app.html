@@ -2524,9 +2524,83 @@
   .cc-mini { background: #0c0c0d; color: #fff; border: 0; border-radius: 16px; padding: 7px 14px; font-size: 13px; font-weight: 800; margin-top: 8px; cursor: pointer; font-family: inherit; }
   .cc-empty { color: #55555c; font-size: 14px; line-height: 1.45; padding: 18px 4px; }
   .cc-empty .cc-mini { display: block; margin-top: 12px; }
+
+  /* ===== Launch animation: FJ splits apart and spells FOLLOWING JESUS (native app only) ===== */
+  #fjIntro { position: fixed; inset: 0; z-index: 2147483000; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; transition: opacity 0.3s ease; font-family: 'Archivo', 'Arial Black', sans-serif; font-weight: 900; }
+  #fjIntro[hidden] { display: none; }
+  #fjIntro .fji-block { opacity: 0; font-size: 11vw; line-height: 1; letter-spacing: -0.01em; text-align: left; }
+  #fjIntro.ready .fji-block { opacity: 1; }
+  #fjIntro .fji-line { display: block; white-space: nowrap; }
+  #fjIntro .fji-line + .fji-line { margin-top: 0.12em; }
+  #fjIntro .fji-f, #fjIntro .fji-j, #fjIntro .fji-rest { display: inline-block; }
+  #fjIntro .fji-rest { opacity: 0; }
+  #fjIntro .fji-ref { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 34vw; line-height: 1; letter-spacing: -0.02em; visibility: hidden; pointer-events: none; }
 </style>
 </head>
 <body>
+<div id="fjIntro" aria-hidden="true" hidden>
+  <div class="fji-block">
+    <span class="fji-line"><span class="fji-f">F</span><span class="fji-rest">OLLOWING</span></span>
+    <span class="fji-line"><span class="fji-j">J</span><span class="fji-rest">ESUS</span></span>
+  </div>
+  <div class="fji-ref"><span>F</span><span>J</span></div>
+</div>
+<script>
+// Plays once per app launch, only inside the native app (or with ?intro=1 for testing).
+// Never delays the app: it runs on top while the page loads underneath, ends by itself
+// in under 2 seconds, and a tap skips it.
+(function () {
+  var force = /[?&]intro=1/.test(location.search);
+  try {
+    if (!force) {
+      if (!/median|gonative/i.test(navigator.userAgent || '')) return;
+      if (sessionStorage.getItem('fj_intro_done')) return;
+      if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    }
+    sessionStorage.setItem('fj_intro_done', '1');
+  } catch (e) { if (!force) return; }
+  var el = document.getElementById('fjIntro');
+  if (!el || !el.animate) return;
+  el.hidden = false;
+  var done = false;
+  function finish() {
+    if (done) return; done = true;
+    el.style.opacity = '0';
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 320);
+  }
+  el.addEventListener('click', finish);
+  setTimeout(finish, 2600); // safety: never stays on screen
+  function run() {
+    if (done) return;
+    var f = el.querySelector('.fji-f'), j = el.querySelector('.fji-j');
+    var ref = el.querySelector('.fji-ref'), rf = ref.children[0], rj = ref.children[1];
+    var s = parseFloat(getComputedStyle(rf).fontSize) / parseFloat(getComputedStyle(f).fontSize);
+    function from(span, r) {
+      var a = span.getBoundingClientRect(), b = r.getBoundingClientRect();
+      return 'translate(' + (b.left - a.left) + 'px,' + (b.top - a.top) + 'px) scale(' + s + ')';
+    }
+    var tf = from(f, rf), tj = from(j, rj);
+    f.style.transformOrigin = j.style.transformOrigin = '0 0';
+    f.style.transform = tf; j.style.transform = tj;
+    el.classList.add('ready');
+    setTimeout(function () {
+      var o = { duration: 700, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' };
+      f.animate([{ transform: tf }, { transform: 'translate(0,0) scale(1)' }], o);
+      j.animate([{ transform: tj }, { transform: 'translate(0,0) scale(1)' }], o);
+      var rests = el.querySelectorAll('.fji-rest');
+      for (var i = 0; i < rests.length; i++) {
+        rests[i].animate([{ opacity: 0, transform: 'translateX(-10px)' }, { opacity: 1, transform: 'translateX(0)' }],
+          { duration: 450, delay: 350 + i * 90, easing: 'ease-out', fill: 'forwards' });
+      }
+    }, 420);
+    setTimeout(finish, 1900);
+  }
+  var started = false;
+  function go() { if (started) return; started = true; run(); }
+  try { document.fonts.load('900 40px Archivo').then(go, go); } catch (e) { go(); }
+  setTimeout(go, 500);
+})();
+</script>
 
 <div class="app">
 
