@@ -147,6 +147,21 @@
 .rp-footer{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;padding-top:4px;}
 .rp-verse{font-family:Newsreader,Georgia,serif;font-style:italic;font-size:14px;color:#55564F;max-width:440px;line-height:1.45;}
 .rp-brand{font-size:12px;color:#6B6C65;text-align:right;}
+.rp-sheet{display:none;flex-direction:column;gap:16px;}
+.rp-sheet.active{display:flex;}
+.rp-minihead{background:#0E0E0E;border-radius:16px;padding:18px 24px;display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;}
+.rp-minihead-name{font-family:Newsreader,Georgia,serif;font-size:22px;font-weight:500;color:#fff;}
+.rp-minihead-meta{font-size:12.5px;font-weight:600;color:#D4B25E;}
+.rp-pager{display:flex;justify-content:center;align-items:center;gap:16px;font-size:13px;color:#55564F;}
+.rp-modal{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:16px;}
+.rp-modal-card{background:#fff;border-radius:16px;padding:24px;width:100%;max-width:380px;max-height:86vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px;font-family:Inter,system-ui,sans-serif;color:#111;}
+.rp-modal-title{margin:0;font-family:Newsreader,Georgia,serif;font-size:26px;font-weight:500;}
+.rp-modal-sub{margin:0 0 4px;font-size:13px;color:#55564F;line-height:1.45;}
+.rp-modal-opts{display:flex;flex-direction:column;gap:8px;margin-bottom:6px;}
+.rp-opt{display:flex;justify-content:space-between;align-items:baseline;gap:12px;text-align:left;border:1.5px solid #DAD8CF;background:#fff;border-radius:12px;padding:13px 16px;font-size:15px;font-weight:600;color:#111;cursor:pointer;font-family:inherit;}
+.rp-opt small{font-size:12px;font-weight:400;color:#6B6C65;}
+.rp-opt:hover:not(:disabled){border-color:#111;}
+.rp-opt:disabled{opacity:.45;cursor:default;}
 @media (max-width:620px){
   .rp-header h1{font-size:30px;}
   .rp-stat{padding:18px 14px;}
@@ -158,12 +173,21 @@
   .rp-row .rp-stage{display:none;}
   .rp-footer{flex-direction:column;align-items:flex-start;}
 }
+@page{margin:0.5in;}
 @media print{
   body > header, body > main{display:none !important;}
   .report-toolbar{display:none !important;}
   #report-overlay{position:static;overflow:visible;background:#fff;}
   .report-page{margin:0 auto;padding:0;}
   .rp-card{border:1px solid #D6D4CB;break-inside:avoid;}
+  .rp-sheet{display:flex !important;break-after:page;page-break-after:always;}
+  .rp-sheet.rp-last{break-after:auto;page-break-after:auto;}
+  .rp-pager{display:none !important;}
+  .rp-minihead{background:#fff;border:1.5px solid #111;}
+  .rp-minihead-name{color:#111;} .rp-minihead-meta{color:#8A6A1F;}
+  .rp-card{padding:16px 20px;} .rp-stat{padding:14px 20px;} .rp-stat-num{font-size:42px;}
+  .rp-row{padding:6px 0;} .rp-dist{margin-top:10px;}
+  .rp-header{padding:22px 26px 20px;}
   .rp-header{background:#fff;border:1.5px solid #111;}
   .rp-header h1{color:#111;}
   .rp-header .rp-eyebrow{color:#8A6A1F;}
@@ -369,11 +393,49 @@ function buildDonutSegments(segments, radius = 70){
     });
 }
 
-function renderStudentReport(rows){
-  const church = myChurch, showAggregateSections = false, capStudentListTo10 = false;
-  let courseTitle = 'Following Jesus Course';
+// Asks which time range the report should cover before building it. Range =
+// the year a student ENROLLED (enrolled_at), so "2025" means everyone who
+// started in 2025 and where they are now.
+function chooseReportRange(rows, onPick){
+  const byYear = {};
+  rows.forEach(r => {
+    const y = r.enrolled_at ? new Date(r.enrolled_at).getFullYear() : null;
+    if(y && !isNaN(y)) byYear[y] = (byYear[y] || 0) + 1;
+  });
+  const years = Object.keys(byYear).map(Number).sort((a, b) => b - a);
+  if(!years.length){ onPick(rows, 'All time'); return; }
+  const thisYear = new Date().getFullYear();
+  const opts = [{ label: 'All time', sub: `${rows.length} student${rows.length === 1 ? '' : 's'}`, year: null }]
+    .concat(years.map(y => ({ label: String(y), sub: `${byYear[y]} student${byYear[y] === 1 ? '' : 's'}${y === thisYear ? ' · this year' : ''}`, year: y })));
+  if(!byYear[thisYear]) opts.splice(1, 0, { label: String(thisYear), sub: 'this year · no students yet', year: thisYear, disabled: true });
+  const modal = document.createElement('div');
+  modal.className = 'rp-modal';
+  modal.innerHTML = `
+    <div class="rp-modal-card" role="dialog" aria-label="Choose report range">
+      <div class="rp-label">Progress Report</div>
+      <h3 class="rp-modal-title">Which students?</h3>
+      <p class="rp-modal-sub">Choose a time range. A year includes everyone who started in that year.</p>
+      <div class="rp-modal-opts">
+        ${opts.map((o, i) => `<button type="button" class="rp-opt" data-i="${i}" ${o.disabled ? 'disabled' : ''}><span>${o.label}</span><small>${o.sub}</small></button>`).join('')}
+      </div>
+      <button type="button" class="mini-btn rp-modal-cancel">Cancel</button>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if(e.target === modal) modal.remove(); });
+  modal.querySelector('.rp-modal-cancel').addEventListener('click', () => modal.remove());
+  modal.querySelectorAll('.rp-opt').forEach(btn => btn.addEventListener('click', () => {
+    const o = opts[Number(btn.dataset.i)];
+    modal.remove();
+    const picked = o.year === null ? rows : rows.filter(r => r.enrolled_at && new Date(r.enrolled_at).getFullYear() === o.year);
+    onPick(picked, o.label);
+  }));
+}
+
+function renderStudentReport(rows, church, courseTitle, showAggregateSections, capStudentListTo10, rangeLabel){
+  courseTitle = courseTitle || 'Following Jesus';
+  rangeLabel = rangeLabel || 'All time';
   const stats = computeReportStats(rows);
-  const churchName = church ? church.name : 'Following Jesus';
+  const churchName = church ? church.name : courseTitle;
   const radius = 60;
   // Black / gold / grey palette -- the church accent color is no longer used
   // in the report (deliberate: consistent look, prints cleanly).
@@ -418,7 +480,7 @@ function renderStudentReport(rows){
     </div>` : `
     <div class="rp-card">
       <div class="rp-label">Where everyone is</div>
-      <p class="rp-empty">No enrollment data yet.</p>
+      <p class="rp-empty">No students in this time range.</p>
     </div>`;
 
   const pctOf = r => r.total_items ? Math.round((r.items_completed / r.total_items) * 100) : 0;
@@ -450,14 +512,36 @@ function renderStudentReport(rows){
   const rowsForList = capStudentListTo10 ? sortedRows.slice(0, 10) : sortedRows;
   const capped = capStudentListTo10 && sortedRows.length > 10;
   const studentsLabel = capped ? 'Top 10 students' : 'Student progress';
-  const studentsNote = capped ? `Top 10 of ${sortedRows.length}` : `${sortedRows.length} ${sortedRows.length === 1 ? 'student' : 'students'}`;
-  const studentRowsHtml = rowsForList.length
-    ? rowsForList.map((r, i) => rowHtml(r, i, false)).join('')
-    : '<p class="rp-empty">No students enrolled yet.</p>';
+  const totalLabel = capped ? `Top 10 of ${sortedRows.length}` : `${sortedRows.length} ${sortedRows.length === 1 ? 'student' : 'students'}`;
 
-  // Only built for the aggregate ("All Students") report.
-  let topCoursesHtml = '';
-  let topStudentsHtml = '';
+  // ---- Build the pages. Page 1 = header + totals + chart + first rows;
+  // later pages = the remaining people (15 per page). Online the pager shows
+  // one page at a time; printing/PDF puts each page on its own sheet.
+  const FIRST_PAGE_ROWS = 10, LATER_PAGE_ROWS = 15;
+  const dateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  const rangeText = rangeLabel === 'All time' ? 'All time' : rangeLabel;
+  const headerHtml = `
+      <div class="rp-header">
+        <div class="rp-eyebrow">Progress Report &middot; ${escapeHtmlReport(rangeText)} &middot; ${dateStr}</div>
+        <h1>${escapeHtmlReport(churchName)}</h1>
+        ${church ? `<div class="rp-course">${escapeHtmlReport(courseTitle)}</div>` : ''}
+      </div>`;
+  const statsHtml = `
+      <div class="rp-card rp-stats">
+        <div class="rp-stat"><div class="rp-stat-num">${stats.totalStudents}</div><div class="rp-stat-label">Students enrolled</div></div>
+        <div class="rp-stat"><div class="rp-stat-num">${stats.completedCount}</div><div class="rp-stat-label">Finished the course</div></div>
+        <div class="rp-stat"><div class="rp-stat-num">${stats.avgPct}<span class="rp-pct">%</span></div><div class="rp-stat-label">Average progress</div></div>
+      </div>`;
+  const tableCard = (label, note, slice, startIndex, showChurch) => `
+      <div class="rp-card">
+        <div class="rp-table-head"><div class="rp-label">${label}</div><div class="rp-table-note">${note}</div></div>
+        ${tableHead}
+        ${slice.map((r, i) => rowHtml(r, startIndex + i, showChurch)).join('')}
+      </div>`;
+
+  const pages = [];
+  let page1 = headerHtml + statsHtml + distCardHtml;
+
   if(showAggregateSections){
     const countsByCourse = {};
     rows.forEach(r => {
@@ -466,7 +550,7 @@ function renderStudentReport(rows){
     });
     const topCourses = Object.entries(countsByCourse).sort((a,b) => b[1] - a[1]).slice(0, 10);
     const maxCourseCount = topCourses.length ? topCourses[0][1] : 1;
-    topCoursesHtml = topCourses.length ? `
+    if(topCourses.length) page1 += `
       <div class="rp-card">
         <div class="rp-table-head"><div class="rp-label">Top courses by enrollment</div><div class="rp-table-note">Top ${topCourses.length}</div></div>
         ${topCourses.map(([title, count], i) => `
@@ -477,16 +561,36 @@ function renderStudentReport(rows){
             <span class="rp-stage"></span>
             <span class="rp-pct">${count}</span>
           </div>`).join('')}
-      </div>` : '';
-
+      </div>`;
+    pages.push(page1);
     const topStudents = sortedRows.slice(0, 10);
-    topStudentsHtml = topStudents.length ? `
-      <div class="rp-card">
-        <div class="rp-table-head"><div class="rp-label">Top students by progress</div><div class="rp-table-note">Top ${topStudents.length}</div></div>
-        ${tableHead}
-        ${topStudents.map((r, i) => rowHtml(r, i, true)).join('')}
-      </div>` : '';
+    if(topStudents.length) pages.push(tableCard('Top students by progress', `Top ${topStudents.length}`, topStudents, 0, true));
+  } else if(!rowsForList.length){
+    pages.push(page1 + `<div class="rp-card"><div class="rp-label">${studentsLabel}</div><p class="rp-empty">No students enrolled${rangeLabel === 'All time' ? ' yet' : ' in this time range'}.</p></div>`);
+  } else {
+    pages.push(page1 + tableCard(studentsLabel, totalLabel, rowsForList.slice(0, FIRST_PAGE_ROWS), 0, false));
+    for(let i = FIRST_PAGE_ROWS; i < rowsForList.length; i += LATER_PAGE_ROWS){
+      pages.push('@@MINIHEAD@@' + tableCard(studentsLabel + ' (continued)', totalLabel, rowsForList.slice(i, i + LATER_PAGE_ROWS), i, false));
+    }
   }
+
+  const footerHtml = `
+      <div class="rp-footer">
+        <div class="rp-verse">&ldquo;He who began a good work in you will carry it on to completion.&rdquo; Philippians 1:6</div>
+        <div class="rp-brand">Following Jesus</div>
+      </div>`;
+  const total = pages.length;
+  const sheetsHtml = pages.map((p, i) => {
+    const mini = `
+      <div class="rp-minihead"><div class="rp-minihead-name">${escapeHtmlReport(churchName)}</div><div class="rp-minihead-meta">Progress Report &middot; ${escapeHtmlReport(rangeText)} &middot; Page ${i + 1} of ${total}</div></div>`;
+    return `<div class="rp-sheet${i === 0 ? ' active' : ''}${i === total - 1 ? ' rp-last' : ''}" data-page="${i}">${p.replace('@@MINIHEAD@@', mini)}${i === total - 1 ? footerHtml : ''}</div>`;
+  }).join('');
+  const pagerHtml = total > 1 ? `
+      <div class="rp-pager">
+        <button type="button" class="mini-btn" id="rp-prev" disabled>&larr; Previous</button>
+        <span id="rp-pager-label">Page 1 of ${total}</span>
+        <button type="button" class="mini-btn" id="rp-next">Next &rarr;</button>
+      </div>` : '';
 
   const overlay = document.createElement('div');
   overlay.id = 'report-overlay';
@@ -499,42 +603,30 @@ function renderStudentReport(rows){
       </div>
     </div>
     <div class="report-page">
-      <div class="rp-header">
-        <div class="rp-eyebrow">Progress Report &middot; ${new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-        <h1>${escapeHtmlReport(churchName)}</h1>
-        ${church ? `<div class="rp-course">${escapeHtmlReport(courseTitle)}</div>` : ''}
-      </div>
-
-      <div class="rp-card rp-stats">
-        <div class="rp-stat"><div class="rp-stat-num">${stats.totalStudents}</div><div class="rp-stat-label">Students enrolled</div></div>
-        <div class="rp-stat"><div class="rp-stat-num">${stats.completedCount}</div><div class="rp-stat-label">Finished the course</div></div>
-        <div class="rp-stat"><div class="rp-stat-num">${stats.avgPct}<span class="rp-pct">%</span></div><div class="rp-stat-label">Average progress</div></div>
-      </div>
-
-      ${distCardHtml}
-
-      ${topCoursesHtml}
-      ${topStudentsHtml}
-
-      <div class="rp-card">
-        <div class="rp-table-head"><div class="rp-label">${studentsLabel}</div><div class="rp-table-note">${studentsNote}</div></div>
-        ${rowsForList.length ? tableHead : ''}
-        ${studentRowsHtml}
-      </div>
-
-      <div class="rp-footer">
-        <div class="rp-verse">&ldquo;He who began a good work in you will carry it on to completion.&rdquo; Philippians 1:6</div>
-        <div class="rp-brand">Following Jesus</div>
-      </div>
+      ${sheetsHtml}
+      ${pagerHtml}
     </div>
   `;
   document.body.appendChild(overlay);
+
+  let cur = 0;
+  const showPage = n => {
+    cur = Math.max(0, Math.min(total - 1, n));
+    overlay.querySelectorAll('.rp-sheet').forEach((el, i) => el.classList.toggle('active', i === cur));
+    const lbl = document.getElementById('rp-pager-label'); if(lbl) lbl.textContent = `Page ${cur + 1} of ${total}`;
+    const pv = document.getElementById('rp-prev'); if(pv) pv.disabled = cur === 0;
+    const nx = document.getElementById('rp-next'); if(nx) nx.disabled = cur === total - 1;
+    overlay.scrollTop = 0;
+  };
+  document.getElementById('rp-prev')?.addEventListener('click', () => showPage(cur - 1));
+  document.getElementById('rp-next')?.addEventListener('click', () => showPage(cur + 1));
 
   document.getElementById('report-close-btn').addEventListener('click', () => overlay.remove());
   document.getElementById('report-pdf-btn').addEventListener('click', () => window.print());
   document.getElementById('report-csv-btn').addEventListener('click', () => {
     const nameSlug = churchName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    exportStudentsCSV(rows, `${nameSlug}-students-${new Date().toISOString().slice(0,10)}.csv`);
+    const rangeSlug = rangeLabel === 'All time' ? '' : '-' + rangeLabel;
+    exportStudentsCSV(rows, `${nameSlug}-students${rangeSlug}-${new Date().toISOString().slice(0,10)}.csv`);
   });
 }
 
@@ -1256,7 +1348,7 @@ async function renderDashboard(rows, pendingStudents = allPendingStudents){
   });
 
   const viewReportBtn = document.getElementById('view-report-btn');
-  if(viewReportBtn) viewReportBtn.addEventListener('click', () => renderStudentReport(rows));
+  if(viewReportBtn) viewReportBtn.addEventListener('click', () => chooseReportRange(rows, (picked, label) => renderStudentReport(picked, myChurch, 'Following Jesus Course', false, false, label)));
 
   const churchSendEmailBtn = document.getElementById('church-send-email-btn');
   if(churchSendEmailBtn) churchSendEmailBtn.addEventListener('click', renderBroadcastComposer);
