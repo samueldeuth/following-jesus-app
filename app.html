@@ -2544,7 +2544,7 @@
   if(!(inApp||force)||(seen&&!force)){box.remove();return}
   try{sessionStorage.setItem('fj_intro_done','1')}catch(e){}
   // Timings in ms - change these to retune the animation
-  var T={fadeIn:650,hold:500,shrink:700,slide1:1200,pause:120,slide2:850,holdEnd:900,fadeOut:400,heroScale:3.6,fromIcon:true,iconFJ:.3};  // fromIcon: start visible at the splash icon's size (iconFJ = width of the FJ in the icon as a share of screen width); false = fade in from nothing
+  var T={fadeIn:650,hold:500,shrink:700,slide1:1200,pause:120,slide2:850,holdEnd:900,fadeOut:400,heroScale:3.6,fromIcon:true,iconCap:.212,iconW:.288,iconGap:.055};  // fromIcon: start visible at the splash icon's size (iconFJ = width of the FJ in the icon as a share of screen width); false = fade in from nothing
   var text='FOLLOWING JESUS',line=document.getElementById('fjiLine'),els=[];
   for(var i=0;i<text.length;i++){var s=document.createElement('span');s.className='fji-l';s.textContent=text[i];line.appendChild(s);els.push(s)}
   box.hidden=false;
@@ -2555,24 +2555,34 @@
     line.style.fontSize=(fs*(W*.88)/line.getBoundingClientRect().width)+'px';
     var F=els[0],J=els[10],last=els[14];
     [F,J].forEach(function(e){var w=e.getBoundingClientRect().width;e.style.width=w+'px';e.style.textAlign='center'}); // heavier weight must not push the line around
+    // measure the real glyphs (heavy weight, like the icon) so the start matches the splash icon exactly
+    var fs2=parseFloat(getComputedStyle(line).fontSize),cv=document.createElement('canvas').getContext('2d');
+    cv.font='900 '+fs2+'px Archivo,system-ui,sans-serif';
+    var mF=cv.measureText('F'),mJ=cv.measureText('J');
+    var cap=mF.actualBoundingBoxAscent,inkF=mF.actualBoundingBoxLeft+mF.actualBoundingBoxRight,inkJ=mJ.actualBoundingBoxLeft+mJ.actualBoundingBoxRight;
+    var asc=mF.fontBoundingBoxAscent,desc=mF.fontBoundingBoxDescent;
+    var cy=((fs2-(asc+desc))/2+asc-cap/2)-fs2/2; // how far below the box centre the capital letters' centre sits
+    line.style.transform='translateY('+(-cy)+'px)'; // centre the capitals (not the line box) on screen
     var rf=F.getBoundingClientRect(),rj=J.getBoundingClientRect(),rl=last.getBoundingClientRect();
     var S=Math.min(T.heroScale,(W*.62)/(rf.width+rj.width)); // keep the big FJ fully on screen
     var fcx=rf.left+rf.width/2,fcy=rf.top+rf.height/2,jcx=rj.left+rj.width/2,jcy=rj.top+rj.height/2;
-    // FJ together in the centre, like the icon
-    var fx=W/2-rf.width*S/2-fcx,fy=H/2-fcy;
-    var jx=W/2+rj.width*S/2-jcx,jy=H/2-jcy;
-    // starting size/position: where the splash icon's FJ sits, so the animation grows out of it
-    var s0=T.fromIcon?(T.iconFJ*W)/(rf.width+rj.width):S*.3,a0=T.fromIcon?1:0;
-    var fx0=W/2-rf.width*s0/2-fcx,jx0=W/2+rj.width*s0/2-jcx;
+    // FJ side by side like the icon: ink gap between the letters = T.iconGap x cap height
+    var gapInk=T.iconGap*cap;
+    function pair(sc){var tot=(inkF+gapInk+inkJ)*sc;return [W/2-tot/2+inkF*sc/2-fcx,W/2+tot/2-inkJ*sc/2-jcx]}
+    var pS=pair(S),fx=pS[0],jx=pS[1],fy=cy*(1-S),jy=fy;
+    // starting size/position: the splash icon's FJ (height and width as shares of the screen), so the animation grows out of it
+    var s0=T.fromIcon?(T.iconCap*W)/cap:S*.3,a0=T.fromIcon?1:0;
+    var k0=T.fromIcon?Math.max(.7,Math.min(1.15,(T.iconW*W)/((inkF+gapInk+inkJ)*s0))):1; // squeeze sideways a touch so the width matches the icon too
+    var p0=pair(s0*k0),fx0=p0[0],jx0=p0[1],fy0=cy*(1-s0);
     // J overshoots to the end of the line, then slides back to its place
     var ox=(rl.left+rl.width/2)-jcx;
     // F's starting spot for the slide: right next to J, at the end of FOLLOWING
     var fjoin=(rj.left-rf.width/2-rf.width*.08)-fcx;
     var t1=T.fadeIn+T.hold,t1b=t1+T.shrink,t2=t1b+T.slide1,t3=t2+T.pause,D=t3+T.slide2;
     var out='cubic-bezier(.22,.7,.2,1)',io='cubic-bezier(.65,0,.25,1)';
-    function tr(x,y,s){return 'translate('+x+'px,'+y+'px) scale('+s+')'}
+    function tr(x,y,s,sx){return 'translate('+x+'px,'+y+'px) scale('+(sx||s)+','+s+')'}
     F.animate([
-      {fontWeight:900,opacity:a0,transform:tr(fx0,fy,s0),offset:0,easing:out},
+      {fontWeight:900,opacity:a0,transform:tr(fx0,fy0,s0,s0*k0),offset:0,easing:out},
       {fontWeight:820,opacity:1,transform:tr(fx,fy,S),offset:T.fadeIn/D},
       {fontWeight:740,opacity:1,transform:tr(fx,fy,S),offset:t1/D,easing:io},
       {fontWeight:600,opacity:1,transform:tr(fjoin,0,1),offset:t1b/D,easing:io},
@@ -2580,7 +2590,7 @@
       {fontWeight:600,opacity:1,transform:'none',offset:1}
     ],{duration:D,fill:'both'});
     J.animate([
-      {fontWeight:900,opacity:a0,transform:tr(jx0,jy,s0),offset:0,easing:out},
+      {fontWeight:900,opacity:a0,transform:tr(jx0,fy0,s0,s0*k0),offset:0,easing:out},
       {fontWeight:820,opacity:1,transform:tr(jx,jy,S),offset:T.fadeIn/D},
       {fontWeight:740,opacity:1,transform:tr(jx,jy,S),offset:t1/D,easing:io},
       {fontWeight:600,opacity:1,transform:'none',offset:t1b/D,easing:io},
