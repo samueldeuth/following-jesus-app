@@ -1053,10 +1053,10 @@
   #fsPop .fs-val { min-width: 48px; text-align: center; font-size: 15px; font-weight: 700; color: #e9d6a6; }
   #bsSheet { position: fixed; inset: 0; z-index: 1100; background: #f4f3ef; display: none; flex-direction: column; }
   #bsSheet.show { display: flex; }
-  #bsSheet .bs-head { background: #050505; color: #fff; padding: calc(14px + env(safe-area-inset-top, 0px)) 12px 14px 16px; display: flex; align-items: center; justify-content: space-between; }
+  #bsSheet .bs-head { background: #050505; color: #fff; padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px; display: flex; align-items: center; }
   #bsSheet .bs-title { font-size: 15px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
-  #bsSheet .bs-bar { background: #050505; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); }
-  #bsSheet .bs-input { display: block; width: 100%; box-sizing: border-box; background: #1f1f1f; border: 0; border-radius: 10px; color: #fff; font: inherit; font-size: 16px; padding: 11px 12px; outline: none; }
+  #bsSheet .bs-bar { background: #050505; padding: 10px 8px 10px 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 4px; }
+  #bsSheet .bs-input { display: block; flex: 1; min-width: 0; box-sizing: border-box; background: #1f1f1f; border: 0; border-radius: 10px; color: #fff; font: inherit; font-size: 16px; padding: 11px 12px; outline: none; }
   #bsSheet .bs-input::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
   #bsSheet .bs-input::placeholder { color: rgba(255,255,255,0.45); }
   #bsSheet .bs-close { background: transparent; border: 0; color: #fff; font-size: 22px; line-height: 1; cursor: pointer; padding: 4px 8px; }
@@ -12000,7 +12000,7 @@ async function renderDiscipleshipApp() {
     return bsLoading;
   }
   const bsSheet = document.createElement('div'); bsSheet.id = 'bsSheet';
-  bsSheet.innerHTML = '<div class="bs-head"><span class="bs-title">Search the Bible</span><button type="button" class="bs-close" id="bsClose" aria-label="Close search">✕</button></div><div class="bs-list" id="bsList"></div><div class="bs-bar"><input type="search" id="bsInput" class="bs-input" placeholder="Search a word or a verse, like John 3:16" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" /></div>';
+  bsSheet.innerHTML = '<div class="bs-head"><span class="bs-title">Search the Bible</span></div><div class="bs-list" id="bsList"></div><div class="bs-bar"><input type="search" id="bsInput" class="bs-input" placeholder="Search a word or a verse, like John 3:16" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" /><button type="button" class="bs-close" id="bsClose" aria-label="Close search">✕</button></div>';
   document.body.appendChild(bsSheet);
   const bsInput = document.getElementById('bsInput'), bsList = document.getElementById('bsList');
   const bsEsc = t => escVs(t);
