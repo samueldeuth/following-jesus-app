@@ -1037,6 +1037,24 @@
   .bible-text .vs.hl { background: rgba(200,155,60,0.34); }
   .bible-text .vs.sel { background: rgba(10,10,10,0.12); box-shadow: 0 2px 0 var(--black); }
   .bible-text .vs.hl.sel { background: rgba(200,155,60,0.5); }
+  .bible-mode-btn.sv-open { flex: 0 0 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+  .bible-mode-btn.sv-open svg { width: 18px; height: 18px; }
+  #svToast { position: fixed; left: 16px; right: 16px; z-index: 950; background: #0a0a0a; color: #fff; border-radius: 12px; padding: 12px 14px; font-size: 14px; display: none; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+  #svToast.show { display: flex; }
+  #svToast button { background: none; border: 0; color: #e9d6a6; font: inherit; font-weight: 600; cursor: pointer; padding: 0; }
+  #svSheet { position: fixed; inset: 0; z-index: 1100; background: #f4f3ef; display: none; flex-direction: column; }
+  #svSheet.show { display: flex; }
+  #svSheet .sv-head { background: #050505; color: #fff; padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px; display: flex; align-items: center; justify-content: space-between; }
+  #svSheet .sv-title { font-size: 15px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+  #svSheet .sv-close { background: transparent; border: 0; color: #fff; font-size: 22px; line-height: 1; cursor: pointer; padding: 4px 8px; }
+  #svSheet .sv-list { flex: 1; overflow-y: auto; padding: 16px 16px calc(24px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 12px; -webkit-overflow-scrolling: touch; }
+  #svSheet .sv-item { background: #fff; border-radius: 12px; padding: 16px; }
+  #svSheet .sv-ref { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #8a6a1f; margin: 0 0 6px; }
+  #svSheet .sv-text { font-family: var(--font-serif); font-size: 17px; line-height: 1.6; color: #0a0a0a; margin: 0 0 12px; }
+  #svSheet .sv-act { display: flex; gap: 16px; }
+  #svSheet .sv-act button { background: none; border: 0; padding: 0; font: inherit; font-size: 13.5px; font-weight: 600; color: #0a0a0a; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  #svSheet .sv-act button.sv-rm { color: #8c8a80; font-weight: 500; }
+  #svSheet .sv-empty { text-align: center; color: #5b5b57; font-size: 15px; line-height: 1.6; padding: 56px 24px; }
   .vs-hint { font-size: 12px; color: var(--ink-soft); margin: -6px 0 12px; }
   #vsBar { position: fixed; left: 10px; right: 10px; bottom: 72px; z-index: 900; background: #0a0a0a; color: #fff; border-radius: 14px; padding: 10px 12px; box-shadow: 0 8px 28px rgba(0,0,0,0.35); display: none; }
   #vsBar.show { display: block; }
@@ -1044,6 +1062,7 @@
   #vsBar .vs-row { display: flex; gap: 8px; align-items: center; }
   #vsBar button { flex: 1; background: #1f1f1f; color: #fff; border: 0; border-radius: 10px; padding: 11px 6px; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
   #vsBar button.vs-primary { background: #c89b3c; color: #16120a; }
+  #vsBar button { padding-left: 2px; padding-right: 2px; font-size: 13px; }
   #vsBar button.vs-x { flex: 0 0 42px; background: transparent; font-size: 18px; color: rgba(255,255,255,0.7); }
 
   .bible-mode-toggle {
@@ -2741,6 +2760,7 @@
         <button type="button" class="bible-mode-btn" id="modeMemorizeBtn" data-track="Memory Verse: Bible tab button">Memorize</button>
         <button type="button" class="bible-mode-btn" id="modePlansTabBtn">Plans</button>
         <button type="button" class="bible-mode-btn" id="modePlanBtn" hidden style="display:none">365-Day Plan</button>
+        <button type="button" class="bible-mode-btn sv-open" id="svOpenBtn" data-track="Bible: Saved verses" aria-label="Saved verses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg></button>
       </div>
 
       <div id="planBar" class="plan-bar" style="display:none;">
@@ -11637,6 +11657,7 @@ async function renderDiscipleshipApp() {
   vsBar.id = 'vsBar';
   vsBar.innerHTML = '<div class="vs-ref" id="vsRef"></div><div class="vs-row">' +
     '<button type="button" class="vs-primary" id="vsHl" data-track="Bible: Highlight verse">Highlight</button>' +
+    '<button type="button" id="vsSave" data-track="Bible: Save verse">Save</button>' +
     '<button type="button" id="vsShare" data-track="Bible: Share verse">Share</button>' +
     '<button type="button" id="vsCopy" data-track="Bible: Copy verse">Copy</button>' +
     '<button type="button" class="vs-x" id="vsX" aria-label="Clear selection">✕</button></div>';
@@ -11670,8 +11691,12 @@ async function renderDiscipleshipApp() {
     document.getElementById('vsRef').textContent = vsRefLabel();
     const allHl = vsSel.every(el => hlMap[vsKey(el)]);
     const hb = document.getElementById('vsHl');
-    hb.textContent = allHl ? 'Remove highlight' : 'Highlight';
+    hb.textContent = allHl ? 'Unhighlight' : 'Highlight';
     hb.dataset.track = allHl ? 'Bible: Remove highlight' : 'Bible: Highlight verse';
+    const sb = document.getElementById('vsSave'), runs = vsRuns();
+    const allSv = runs.length && runs.every(r => svHas(r));
+    sb.textContent = allSv ? 'Saved' : 'Save';
+    sb.dataset.track = allSv ? 'Bible: Unsave verse' : 'Bible: Save verse';
     vsBar.classList.add('show');
   }
   function vsClear() {
@@ -11714,6 +11739,161 @@ async function renderDiscipleshipApp() {
   new MutationObserver(() => { if (!document.getElementById('screen-bible').classList.contains('active')) vsClear(); })
     .observe(document.getElementById('screen-bible'), { attributes: true, attributeFilter: ['class'] });
   hlLoad();
+
+  // ---------- Saved verses (bookmarks) ----------
+  // Save a verse or run of verses from the tap bar; the bookmark button in the
+  // Bible header opens the list. Same storage pattern as highlights: kept on
+  // the device at once, synced to the signed-in account (saved_verses table).
+  const SV_KEY = 'savedVerses', SV_USER_KEY = 'savedVersesUser';
+  let svList = [], svLoaded = null;
+  const svKey = r => r.b + '.' + r.c + '.' + r.s + '-' + r.e;
+  const svHas = r => svList.some(x => svKey(x) === svKey(r));
+  function svLoad() {
+    if (!svLoaded) svLoaded = (async () => { svList = (await dSafeGet(SV_KEY)) || []; svSync(); })();
+    return svLoaded;
+  }
+  async function svSync() {
+    const s = await hlSession(); if (!s) return;
+    try {
+      let rows = [], from = 0;
+      for (;;) {
+        const { data, error } = await supabaseClient.from('saved_verses').select('book,chapter,verse_start,verse_end,created_at').order('created_at', { ascending: false }).range(from, from + 999);
+        if (error) return;
+        rows = rows.concat(data || []);
+        if (!data || data.length < 1000) break;
+        from += 1000;
+      }
+      const server = rows.map(r => ({ b: r.book, c: r.chapter, s: r.verse_start, e: r.verse_end, t: r.created_at }));
+      const syncedUser = await dSafeGet(SV_USER_KEY);
+      if (syncedUser === s.user.id) {
+        svList = server;                          // synced before: the account is the source of truth
+      } else {
+        const have = new Set(server.map(svKey));
+        const toPush = svList.filter(x => !have.has(svKey(x)));
+        for (let i = 0; i < toPush.length; i += 500) {
+          const recs = toPush.slice(i, i + 500).map(x => ({ book: x.b, chapter: x.c, verse_start: x.s, verse_end: x.e }));
+          const { error } = await supabaseClient.from('saved_verses').upsert(recs, { onConflict: 'user_id,book,chapter,verse_start,verse_end', ignoreDuplicates: true });
+          if (error) return;
+        }
+        const seen = new Set(), merged = [];
+        svList.concat(server).forEach(x => { if (!seen.has(svKey(x))) { seen.add(svKey(x)); merged.push(x); } });
+        svList = merged.sort((a, b) => String(b.t).localeCompare(String(a.t)));
+        await dSafeSet(SV_USER_KEY, s.user.id);
+      }
+      await dSafeSet(SV_KEY, svList);
+      if (svSheet.classList.contains('show')) svRenderList();
+    } catch (e) { /* offline: device copy still works */ }
+  }
+  async function svWrite(runs, on) {
+    runs.forEach(r => {
+      if (on) { if (!svHas(r)) svList.unshift({ b: r.b, c: r.c, s: r.s, e: r.e, t: new Date().toISOString() }); }
+      else svList = svList.filter(x => svKey(x) !== svKey(r));
+    });
+    await dSafeSet(SV_KEY, svList);
+    const s = await hlSession(); if (!s) return;
+    try {
+      if (on) {
+        const recs = runs.map(r => ({ book: r.b, chapter: r.c, verse_start: r.s, verse_end: r.e }));
+        const { error } = await supabaseClient.from('saved_verses').upsert(recs, { onConflict: 'user_id,book,chapter,verse_start,verse_end', ignoreDuplicates: true });
+        if (error) throw error;
+      } else {
+        for (const r of runs) {
+          const { error } = await supabaseClient.from('saved_verses').delete().match({ book: r.b, chapter: r.c, verse_start: r.s, verse_end: r.e });
+          if (error) throw error;
+        }
+      }
+    } catch (e) { await dSafeSet(SV_USER_KEY, null); }   // couldn't reach the account: merge instead of overwrite next sync
+  }
+  // The selection as saved-verse runs: one per chapter and consecutive stretch.
+  function vsRuns() {
+    const out = [];
+    vsSorted().forEach(el => {
+      const b = el.dataset.b, c = +el.dataset.c, v = +el.dataset.v;
+      const last = out[out.length - 1];
+      if (last && last.b === b && last.c === c && v === last.e + 1) last.e = v; else out.push({ b, c, s: v, e: v });
+    });
+    return out;
+  }
+  const svRefLabel = r => bookName(r.b) + ' ' + r.c + ':' + (r.s === r.e ? r.s : r.s + '-' + r.e);
+
+  const svToast = document.createElement('div'); svToast.id = 'svToast';
+  document.body.appendChild(svToast);
+  let svToastTimer = null;
+  function svShowToast(msg, withView) {
+    const tb = document.querySelector('nav.tabbar');
+    svToast.style.bottom = ((tb ? tb.offsetHeight : 64) + 10) + 'px';
+    svToast.innerHTML = '<span></span>' + (withView ? '<button type="button" id="svToastView" data-track="Bible: Saved verses">View</button>' : '');
+    svToast.firstChild.textContent = msg;
+    svToast.classList.add('show');
+    const v = document.getElementById('svToastView'); if (v) v.addEventListener('click', () => { svToast.classList.remove('show'); svOpenSheet(); });
+    clearTimeout(svToastTimer); svToastTimer = setTimeout(() => svToast.classList.remove('show'), 2600);
+  }
+
+  const svSheet = document.createElement('div'); svSheet.id = 'svSheet';
+  svSheet.innerHTML = '<div class="sv-head"><span class="sv-title">Saved verses</span><button type="button" class="sv-close" id="svClose" aria-label="Close">✕</button></div><div class="sv-list" id="svListBody"></div>';
+  document.body.appendChild(svSheet);
+  const svTextCache = {};
+  async function svVerseText(r) {
+    const k = svKey(r) + '|' + translationSelect.value;
+    if (!svTextCache[k]) {
+      svTextCache[k] = window.fjBible.get(r.b + ' ' + r.c + ':' + r.s + (r.e > r.s ? '-' + r.e : ''), translationSelect.value)
+        .then(d => (d.verses || []).map(v => v.text.trim()).join(' '))
+        .catch(e => { delete svTextCache[k]; throw e; });
+    }
+    return svTextCache[k];
+  }
+  function svRenderList() {
+    const body = document.getElementById('svListBody');
+    if (!svList.length) {
+      body.innerHTML = '<div class="sv-empty">No saved verses yet.<br>Tap a verse in the Bible, then tap Save.</div>';
+      return;
+    }
+    body.innerHTML = svList.map((r, i) => `<div class="sv-item" data-i="${i}"><div class="sv-ref">${escVs(svRefLabel(r))}</div><p class="sv-text" id="svTxt${i}">Loading…</p><div class="sv-act"><button type="button" class="sv-go" data-track="Bible: Open saved verse">Open in Bible</button><button type="button" class="sv-rm" data-track="Bible: Remove saved verse">Remove</button></div></div>`).join('');
+    svList.forEach((r, i) => {
+      svVerseText(r).then(t => { const el = document.getElementById('svTxt' + i); if (el) el.textContent = t; })
+        .catch(() => { const el = document.getElementById('svTxt' + i); if (el) el.textContent = 'Couldn’t load this verse right now.'; });
+    });
+  }
+  async function svOpenSheet() {
+    await svLoad();
+    svRenderList();
+    svSheet.classList.add('show');
+    svSync();
+  }
+  function svCloseSheet() { svSheet.classList.remove('show'); }
+  document.getElementById('svClose').addEventListener('click', svCloseSheet);
+  document.getElementById('svOpenBtn').addEventListener('click', svOpenSheet);
+  document.getElementById('svListBody').addEventListener('click', async e => {
+    const item = e.target.closest('.sv-item'); if (!item) return;
+    const r = svList[+item.dataset.i]; if (!r) return;
+    if (e.target.closest('.sv-rm')) { await svWrite([r], false); svRenderList(); return; }
+    if (e.target.closest('.sv-go')) {
+      svCloseSheet();
+      if (bibleMode !== 'browse') modeBrowseBtn.click();
+      bookSelect.value = r.b; populateChapters(); chapterSelect.value = String(r.c);
+      await loadChapter();
+      vsClear();
+      for (let v = r.s; v <= r.e; v++) {
+        const el = reader.querySelector('.vs[data-b="' + r.b + '"][data-c="' + r.c + '"][data-v="' + v + '"]');
+        if (el) { el.classList.add('sel'); vsSel.push(el); }
+      }
+      if (vsSel[0]) vsSel[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
+      vsRender();
+    }
+  });
+  document.getElementById('vsSave').addEventListener('click', async () => {
+    const runs = vsRuns(); if (!runs.length) return;
+    const allSv = runs.every(svHas);
+    const label = runs.map(svRefLabel).join(', ');
+    vsClear();
+    await svLoad();
+    await svWrite(runs, !allSv);
+    svShowToast(allSv ? 'Removed ' + label : 'Saved ' + label, !allSv);
+  });
+  // Leaving the Bible tab also closes the saved list.
+  new MutationObserver(() => { if (!document.getElementById('screen-bible').classList.contains('active')) { svCloseSheet(); svToast.classList.remove('show'); } })
+    .observe(document.getElementById('screen-bible'), { attributes: true, attributeFilter: ['class'] });
+  svLoad();
 
   bookSelect.addEventListener('change', () => { populateChapters(); loadChapter(); });
   chapterSelect.addEventListener('change', loadChapter);
