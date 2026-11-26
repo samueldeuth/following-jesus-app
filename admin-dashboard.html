@@ -2730,6 +2730,7 @@ async function fetchDisciplesMade(limit){
     const finished = !!(enr && enr.total_items > 0 && enr.items_completed >= enr.total_items);
     return {
       studentId: d.student_id,
+      courseId: enr ? enr.course_id : null,
       name: d.student_name || 'Unnamed',
       email: d.student_email || '',
       date: d.issued_at,
@@ -2746,23 +2747,88 @@ function disciplesGroupText(d){
   return d.group ? `${d.group}${d.leader ? ' (' + d.leader + ')' : ''}` : `${d.leader}'s group`;
 }
 
+// Shared by the App page card and the full list: date-range filter.
+const DISCIPLE_RANGES = [['today','Today'],['7d','Last 7 days'],['30d','Last 30 days'],['mtd','This month'],['ytd','This year'],['all','All time']];
+function disciplesRangeStart(key){
+  const now = new Date();
+  const sod = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if(key === 'today') return sod;
+  if(key === '7d') return new Date(sod.getTime() - 6 * 86400000);
+  if(key === '30d') return new Date(sod.getTime() - 29 * 86400000);
+  if(key === 'mtd') return new Date(now.getFullYear(), now.getMonth(), 1);
+  if(key === 'ytd') return new Date(now.getFullYear(), 0, 1);
+  return null;
+}
+function filterDisciples(list, key){
+  const start = disciplesRangeStart(key);
+  return start ? list.filter(d => d.date && new Date(d.date) >= start) : list;
+}
+function disciplesRangeChipsHtml(active, attr){
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">${DISCIPLE_RANGES.map(([k, l]) =>
+    `<button type="button" class="mini-btn" ${attr}="${k}" ${k === active ? 'style="background:var(--ink);color:#fff;border-color:var(--ink);"' : ''}>${l}</button>`).join('')}</div>`;
+}
+function disciplesTableHtml(rows, linkAttr){
+  return `<div class="table-scroll"><table>
+    <thead><tr><th>Date</th><th>Name</th><th>How</th><th>Church</th><th>FJ group (leader)</th></tr></thead>
+    <tbody>${rows.map(d => `
+      <tr>
+        <td style="white-space:nowrap;">${d.date ? new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
+        <td class="student-name">${d.courseId ? `<a href="#" ${linkAttr}="${d.studentId}" data-course="${d.courseId}">${escapeHtmlReport(d.name)}</a>` : escapeHtmlReport(d.name)}${d.email ? `<div style="font-size:11.5px;color:var(--ink-soft);font-weight:400;">${escapeHtmlReport(d.email)}</div>` : ''}</td>
+        <td>${escapeHtmlReport(d.how)}</td>
+        <td>${d.church ? escapeHtmlReport(d.church) : '—'}</td>
+        <td>${disciplesGroupText(d) ? escapeHtmlReport(disciplesGroupText(d)) : '—'}</td>
+      </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+const recentDisciplesState = { list: null, range: 'all', page: 0, open: true };
 async function loadRecentDisciples(){
-  const el = document.getElementById('app-recent-disciples');
-  if(!el) return;
+  const body = document.getElementById('rd-body');
+  if(!body) return;
+  document.getElementById('rd-toggle')?.addEventListener('click', () => {
+    recentDisciplesState.open = !recentDisciplesState.open;
+    paintRecentDisciples();
+  });
   try {
-    const list = (await fetchDisciplesMade(8));
-    if(!document.getElementById('app-recent-disciples')) return;
-    el.innerHTML = list.length ? list.map(d => `
-      <div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);">
-        <div style="min-width:0;">
-          <div style="color:var(--ink);font-weight:600;">${escapeHtmlReport(d.name)}</div>
-          <div style="font-size:12px;">${escapeHtmlReport(d.how)}${d.church ? ' &middot; ' + escapeHtmlReport(d.church) : ''}${disciplesGroupText(d) ? ' &middot; ' + escapeHtmlReport(disciplesGroupText(d)) : ''}</div>
-        </div>
-        <div style="font-size:12px;white-space:nowrap;">${d.date ? new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}</div>
-      </div>`).join('') : 'No disciples made yet.';
+    recentDisciplesState.list = await fetchDisciplesMade(1000);
+    recentDisciplesState.page = 0;
+    paintRecentDisciples();
   } catch(e){
-    el.textContent = 'Could not load the list yet. (Has disciples-made-list.sql been run?)';
+    body.textContent = 'Could not load the list yet. (Has disciples-made-list.sql been run?)';
   }
+}
+function paintRecentDisciples(){
+  const body = document.getElementById('rd-body');
+  if(!body) return;
+  const st = recentDisciplesState;
+  const toggle = document.getElementById('rd-toggle');
+  if(toggle) toggle.setAttribute('aria-expanded', String(st.open));
+  const chev = document.getElementById('rd-chev');
+  if(chev) chev.style.transform = st.open ? '' : 'rotate(-90deg)';
+  body.style.display = st.open ? '' : 'none';
+  if(!st.open || !st.list) return;
+
+  const PAGE = 5;
+  const filtered = filterDisciples(st.list, st.range);
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE));
+  st.page = Math.min(st.page, pages - 1);
+  const slice = filtered.slice(st.page * PAGE, st.page * PAGE + PAGE);
+  const from = filtered.length ? st.page * PAGE + 1 : 0;
+
+  body.innerHTML = `
+    ${disciplesRangeChipsHtml(st.range, 'data-rd-range')}
+    ${filtered.length ? disciplesTableHtml(slice, 'data-rd-student') : '<p style="font-size:13px;color:var(--ink-soft);margin:4px 0;">No disciples made in this range.</p>'}
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px;font-size:12.5px;color:var(--ink-soft);">
+      <span>${filtered.length ? `${from}&ndash;${from + slice.length - 1} of ${filtered.length}` : '0 disciples'}</span>
+      <span style="display:flex;gap:8px;">
+        <button type="button" class="mini-btn" id="rd-prev" ${st.page === 0 ? 'disabled' : ''}>&larr; Newer</button>
+        <button type="button" class="mini-btn" id="rd-next" ${st.page >= pages - 1 ? 'disabled' : ''}>Older &rarr;</button>
+      </span>
+    </div>`;
+  body.querySelectorAll('[data-rd-range]').forEach(b => b.addEventListener('click', () => { st.range = b.dataset.rdRange; st.page = 0; paintRecentDisciples(); }));
+  document.getElementById('rd-prev')?.addEventListener('click', () => { st.page--; paintRecentDisciples(); });
+  document.getElementById('rd-next')?.addEventListener('click', () => { st.page++; paintRecentDisciples(); });
+  body.querySelectorAll('[data-rd-student]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); renderStudentDetail(a.dataset.rdStudent, a.dataset.course); }));
 }
 
 async function renderDisciplesMade(){
@@ -2775,25 +2841,21 @@ async function renderDisciplesMade(){
     content.innerHTML += `<p style="color:var(--ink-soft);">Could not load the list. (Has disciples-made-list.sql been run?)</p>`;
     return;
   }
-  const rowsHtml = list.map(d => `
-    <tr>
-      <td style="white-space:nowrap;">${d.date ? new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
-      <td class="student-name">${escapeHtmlReport(d.name)}${d.email ? `<div style="font-size:11.5px;color:var(--ink-soft);font-weight:400;">${escapeHtmlReport(d.email)}</div>` : ''}</td>
-      <td>${escapeHtmlReport(d.how)}</td>
-      <td>${d.church ? escapeHtmlReport(d.church) : '—'}</td>
-      <td>${disciplesGroupText(d) ? escapeHtmlReport(disciplesGroupText(d)) : '—'}</td>
-    </tr>`).join('');
-  content.innerHTML = `
-    <div class="back-link" id="back-to-app-page">&larr; Back to App</div>
-    <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 8px;">Disciples Made</h2>
-    <p style="color:var(--ink-soft);font-size:13px;margin:0 0 14px;">Everyone with a Following Jesus course certificate in the app, newest first. "Marked complete in app" means they tapped complete in their discipleship dashboard instead of finishing every lesson. Completions brought over from the old platform are counted in the total but aren't listed here.</p>
-    <div class="table-scroll">
-      <table>
-        <thead><tr><th>Date</th><th>Name</th><th>How</th><th>Church</th><th>FJ group (leader)</th></tr></thead>
-        <tbody>${rowsHtml || '<tr><td colspan="5" style="color:var(--ink-soft);">No disciples made yet.</td></tr>'}</tbody>
-      </table>
-    </div>`;
-  document.getElementById('back-to-app-page').addEventListener('click', renderPushNotifications);
+  let range = 'all';
+  const paint = () => {
+    const filtered = filterDisciples(list, range);
+    content.innerHTML = `
+      <div class="back-link" id="back-to-app-page">&larr; Back to App</div>
+      <h2 style="font-family:'Space Grotesk',sans-serif;margin:0 0 8px;">Disciples Made</h2>
+      <p style="color:var(--ink-soft);font-size:13px;margin:0 0 14px;">Everyone with a Following Jesus course certificate in the app, newest first. "Marked complete in app" means they tapped complete in their discipleship dashboard instead of finishing every lesson. Completions brought over from the old platform are counted in the total but aren't listed here.</p>
+      ${disciplesRangeChipsHtml(range, 'data-dm-range')}
+      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 10px;">${filtered.length} disciple${filtered.length === 1 ? '' : 's'}</p>
+      ${filtered.length ? disciplesTableHtml(filtered, 'data-dm-student') : '<p style="color:var(--ink-soft);">No disciples made in this range.</p>'}`;
+    document.getElementById('back-to-app-page').addEventListener('click', renderPushNotifications);
+    content.querySelectorAll('[data-dm-range]').forEach(b => b.addEventListener('click', () => { range = b.dataset.dmRange; paint(); }));
+    content.querySelectorAll('[data-dm-student]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); renderStudentDetail(a.dataset.dmStudent, a.dataset.course); }));
+  };
+  paint();
 }
 
 async function renderDiscipleMakers(){
@@ -3506,12 +3568,14 @@ function renderPushNotifications(){
       </div>
     </div>
 
-    <div class="card" style="margin-bottom:24px;max-width:680px;">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:10px;">
-        <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0;">Latest disciples made</h3>
+    <div class="card" id="app-recent-disciples-card" style="margin-bottom:24px;max-width:680px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+        <button type="button" id="rd-toggle" aria-expanded="true" aria-controls="rd-body" style="background:none;border:none;padding:0;display:flex;align-items:center;gap:8px;cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;color:var(--ink);">
+          <span id="rd-chev" aria-hidden="true" style="display:inline-block;transition:transform .15s;">&#9662;</span>New disciples made
+        </button>
         <a href="#" id="app-recent-disciples-all" style="font-size:12.5px;">See all</a>
       </div>
-      <div id="app-recent-disciples" style="font-size:13px;color:var(--ink-soft);">Loading…</div>
+      <div id="rd-body" style="margin-top:12px;"><span style="font-size:13px;color:var(--ink-soft);">Loading…</span></div>
     </div>
 
     <div class="card" style="margin-bottom:24px;max-width:680px;">
