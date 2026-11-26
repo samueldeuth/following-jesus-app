@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Refer Your Pastor | Following Jesus</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Poppins:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--black:#0a0a0a;--white:#fff;--ember:#c89b3c;--ember-d:#8a6a1f;--grey-bg:#f3f3f1;--line:#e2e2de;--ink-soft:#5b5b57;--display:'Archivo',system-ui,sans-serif;--body:'Poppins',system-ui,sans-serif;--gutter:clamp(18px,4vw,48px)}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--body);font-weight:300;color:var(--black);background:#fff;-webkit-font-smoothing:antialiased;line-height:1.6;font-size:16px}
+img{max-width:100%;display:block}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--ember);outline-offset:3px}
+.wrap{max-width:1000px;margin:0 auto;padding:0 var(--gutter)}
+.btn{display:inline-block;font-family:var(--display);font-weight:700;font-size:15px;text-decoration:none;padding:13px 22px;border-radius:4px;border:2px solid transparent;cursor:pointer;background:var(--black);color:#fff;transition:transform .15s ease,background .15s ease,color .15s ease}
+.btn:hover{background:#2a2a2a}
+.btn:active{transform:scale(.97)}
+.btn.line{background:transparent;border-color:var(--black);color:var(--black)}
+.btn.line:hover{background:var(--black);color:#fff}
+.btn[disabled]{opacity:.6;cursor:default}
+
+/* Header (matches followingjesus.com) */
+.site-header{background:#fff;border-bottom:1px solid var(--line)}
+.site-header .wrap{display:flex;align-items:center;height:64px}
+.logo{background:var(--black);color:#fff;font-family:var(--display);font-weight:700;letter-spacing:.14em;font-size:12.5px;padding:9px 14px;text-decoration:none;text-transform:uppercase;white-space:nowrap}
+
+.hero{padding:56px 0 20px;text-align:center}
+.hero h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,5vw,52px);line-height:1.08;letter-spacing:-.01em;margin:0 auto 16px;max-width:15em}
+.hero p{color:var(--ink-soft);max-width:34em;margin:0 auto;font-size:clamp(16px,1.6vw,18px)}
+h2{font-family:var(--display);font-weight:800;font-size:clamp(24px,3vw,32px);line-height:1.15;letter-spacing:-.01em;margin:0 0 8px}
+.lead{color:var(--ink-soft);margin:0 0 24px}
+section.block{padding:40px 0}
+section.grey{background:var(--grey-bg)}
+
+.books{display:grid;gap:16px}
+.book{display:flex;gap:18px;background:#fff;border:1px solid var(--line);border-radius:4px;padding:16px}
+.book img{width:110px;height:auto;align-self:flex-start;border:1px solid var(--line)}
+.bi h3{margin:0;font-family:var(--display);font-weight:700;font-size:1.1rem;line-height:1.25}
+.by{color:var(--ember-d);font-size:.85rem;font-weight:500;margin:2px 0 8px}
+.bi p{margin:0 0 12px;color:var(--ink-soft);font-size:.95rem}
+
+/* Refer a pastor */
+.refer{display:grid;gap:28px}
+.refer-copy p{color:var(--ink-soft);margin:0 0 10px}
+form.refer-form{background:#fff;border:1px solid var(--line);border-radius:4px;padding:22px;display:grid;gap:14px}
+.f2{display:grid;gap:14px}
+label{display:block;font-weight:500;font-size:.9rem;margin-bottom:4px}
+label small{font-weight:300;color:var(--ink-soft)}
+input,textarea{width:100%;font:inherit;font-size:16px;color:var(--black);background:#fff;border:1.5px solid #cfcfca;border-radius:4px;padding:11px 12px}
+input:focus,textarea:focus{outline:none;border-color:var(--black);box-shadow:0 0 0 3px rgba(200,155,60,.35)}
+textarea{min-height:84px;resize:vertical}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.msg{font-size:.95rem;margin:0}
+.msg.err{color:#a11d1d}
+.thanks{background:#fff;border:1px solid var(--line);border-radius:4px;padding:28px;text-align:left}
+.thanks h3{font-family:var(--display);font-weight:800;font-size:1.4rem;margin:0 0 6px}
+.thanks p{margin:0;color:var(--ink-soft)}
+
+.next{display:grid;gap:16px}
+.panel{background:var(--grey-bg);border-radius:4px;padding:22px}
+.pv{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;border-radius:4px;margin:0 0 16px}
+.panel h3{margin:0 0 6px;font-family:var(--display);font-weight:700;font-size:1.2rem}
+.panel p{margin:0 0 14px;color:var(--ink-soft);font-size:.97rem}
+.row{display:flex;flex-wrap:wrap;gap:10px}
+
+footer{background:var(--black);color:#fff;padding:32px 0;margin-top:40px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:center;justify-content:space-between}
+footer .logo{font-size:11px;padding:7px 11px;border:1px solid #333}
+footer p{margin:0;color:rgba(255,255,255,.78);font-size:.92rem}
+footer a{color:var(--ember)}
+
+@media(min-width:720px){
+  .books{grid-template-columns:1fr 1fr}
+  .book{flex-direction:column}
+  .book img{width:100%;max-width:200px}
+  .refer{grid-template-columns:1fr 1.2fr;align-items:start}
+  .f2{grid-template-columns:1fr 1fr}
+  .next{grid-template-columns:1fr 1fr}
+}
+
+.page{padding:48px 0 24px}
+.card{max-width:640px;margin:0 auto}
+.gift{display:flex;gap:12px;align-items:center;background:var(--grey-bg);border-radius:4px;padding:14px 16px;margin:22px 0 0;font-size:.95rem;color:var(--ink-soft)}
+.gift b{color:var(--black);font-weight:500}
+.step{font-family:var(--display);font-weight:700;font-size:1rem;margin:6px 0 -4px}
+</style>
+</head>
+<body>
+<header class="site-header"><div class="wrap"><a class="logo" href="https://followingjesus.com/">Following Jesus</a></div></header>
+<main>
+<section class="hero"><div class="wrap">
+<h1>Who is the pastor who comes to mind?</h1>
+<p>Tell us who to reach out to. Samuel will write to them personally, and you will get four free books as our thank-you.</p>
+</div></section>
+
+<section class="page"><div class="wrap"><div class="card">
+<form class="refer-form" id="referForm" novalidate>
+<p class="step">The pastor</p>
+<div class="f2">
+<div><label for="pName">Pastor's name</label><input id="pName" name="pastorName" autocomplete="off" required maxlength="120"></div>
+<div><label for="pChurch">Church <small>(optional)</small></label><input id="pChurch" name="church" autocomplete="off" maxlength="160"></div>
+</div>
+<div><label for="pEmail">Pastor's email</label><input id="pEmail" name="pastorEmail" type="email" inputmode="email" autocomplete="off" required maxlength="200"></div>
+<p class="step">You</p>
+<div class="f2">
+<div><label for="yName">Your name</label><input id="yName" name="referrerName" autocomplete="name" required maxlength="120"></div>
+<div><label for="yEmail">Your email</label><input id="yEmail" name="referrerEmail" type="email" inputmode="email" autocomplete="email" required maxlength="200"></div>
+</div>
+<div><label for="note">Anything we should know? <small>(optional)</small></label><textarea id="note" name="note" maxlength="1000"></textarea></div>
+<input type="hidden" name="source" value="refer-page">
+<div class="hp" aria-hidden="true"><label for="website">Leave this field empty</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
+<p class="msg err" id="referErr" role="alert" hidden></p>
+<div><button class="btn" type="submit" id="referBtn">Send and get my free books</button></div>
+</form>
+<p class="lead" style="margin:16px 0 0;font-size:.9rem">It is never an automated email. Samuel reaches out personally, and we only use these details to say hello.</p>
+</div></div></section>
+</main>
+
+<footer><div class="wrap">
+<span class="logo">Following Jesus</span>
+<p>Questions? Email <a href="mailto:info@followingjesusbook.com">info@followingjesusbook.com</a>.</p>
+</div></footer>
+
+<script>
+(function(){
+  var EMAIL=/^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+  var form=document.getElementById('referForm'),err=document.getElementById('referErr'),btn=document.getElementById('referBtn');
+  function showErr(t){err.textContent=t;err.hidden=false;}
+  form.addEventListener('submit',function(e){
+    e.preventDefault();err.hidden=true;
+    var d={};new FormData(form).forEach(function(v,k){d[k]=String(v).trim();});
+    if(!d.pastorName){showErr("Please add the pastor's name.");return;}
+    if(!EMAIL.test(d.pastorEmail||'')){showErr("Please add a valid email for the pastor.");return;}
+    if(!d.referrerName){showErr("Please add your name.");return;}
+    if(!EMAIL.test(d.referrerEmail||'')){showErr("Please add a valid email for you.");return;}
+    btn.disabled=true;btn.textContent='Sending…';
+    fetch('/.netlify/functions/submit-pastor-referral',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)})
+    .then(function(res){if(!res.ok)throw new Error('bad status');window.location.href='/referral-gift.html';})
+    .catch(function(){btn.disabled=false;btn.textContent='Send and get my free books';showErr("Something went wrong and it didn't send. Please try again, or email info@followingjesusbook.com.");});
+  });
+})();
+</script>
+</body>
+</html>
