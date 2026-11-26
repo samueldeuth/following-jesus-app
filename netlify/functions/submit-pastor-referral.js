@@ -1,7 +1,7 @@
 // netlify/functions/submit-pastor-referral.js
 //
 // Public endpoint behind the "Know another pastor?" form on
-// referral-gift.html. It does NOT email the referred pastor -- it emails
+// referral-gift.html and refer-your-pastor.html. It does NOT email the referred pastor -- it emails
 // Samuel (info@followingjesusbook.com) so he can reach out personally.
 //
 // Needs the existing RESEND_API_KEY Netlify environment variable (already
@@ -30,8 +30,10 @@ exports.handler = async (event) => {
   const referrerName = clean(p.referrerName, 120);
   const referrerEmail = clean(p.referrerEmail, 200);
   const note = cleanMultiline(p.note, 1000);
+  const source = p.source === 'refer-page' ? 'refer-your-pastor page' : 'thank-you page';
 
   if (!pastorName || !EMAIL_RE.test(pastorEmail)) return { statusCode: 400, body: 'Pastor name and a valid email are required.' };
+  if (p.source === 'refer-page' && (!referrerName || !EMAIL_RE.test(referrerEmail))) return { statusCode: 400, body: 'Your name and a valid email are required.' };
   if (referrerEmail && !EMAIL_RE.test(referrerEmail)) return { statusCode: 400, body: 'Invalid referrer email.' };
 
   const apiKey = process.env.RESEND_API_KEY;
@@ -41,7 +43,7 @@ exports.handler = async (event) => {
     ? `<tr><td style="padding:4px 14px 4px 0;color:#666;vertical-align:top;">${label}</td><td style="padding:4px 0;">${escapeHtml(value)}</td></tr>` : '';
   const html = `
     <div style="font-family:-apple-system,sans-serif;max-width:520px;padding:8px;">
-      <p><strong>New pastor referral</strong> from the thank-you page.</p>
+      <p><strong>New pastor referral</strong> from the ${escapeHtml(source)}.</p>
       <table style="border-collapse:collapse;font-size:15px;">
         ${row('Pastor', pastorName)}
         ${row('Pastor email', pastorEmail)}
