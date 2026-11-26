@@ -999,6 +999,8 @@
     appearance: none;
     -webkit-appearance: none;
   }
+  .bible-select-search { flex: none; width: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-left: 1px solid rgba(10,10,10,0.1); cursor: pointer; }
+  .bible-select-search svg { width: 18px; height: 18px; }
   .bible-select-chapter { flex: none; width: 52px; border-left: 1px solid rgba(255,255,255,0.1); }
   .bible-select-translation { flex: none; width: 58px; border-right: 1px solid rgba(255,255,255,0.1); }
 
@@ -1042,6 +1044,29 @@
   .bible-text .vs:not([class*="hl-"]).sel { background: rgba(10,10,10,0.12); }
   .bible-mode-btn.sv-open { flex: 0 0 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
   .bible-mode-btn.sv-open svg { width: 18px; height: 18px; }
+  .fs-aa { font-family: var(--font-serif); font-weight: 700; font-size: 18px; line-height: 1; } .fs-aa small { font-size: 13px; }
+  #fsPop { position: fixed; z-index: 1050; background: #0a0a0a; color: #fff; border-radius: 14px; padding: 10px; display: none; align-items: center; gap: 10px; box-shadow: 0 10px 28px rgba(0,0,0,0.3); }
+  #fsPop.show { display: flex; }
+  #fsPop button { width: 44px; height: 44px; border-radius: 10px; border: 0; background: #1f1f1f; color: #fff; font-family: var(--font-serif); font-weight: 700; cursor: pointer; padding: 0; }
+  #fsPop button:disabled { opacity: 0.3; }
+  #fsPop #fsDown { font-size: 15px; } #fsPop #fsUp { font-size: 24px; }
+  #fsPop .fs-val { min-width: 48px; text-align: center; font-size: 15px; font-weight: 700; color: #e9d6a6; }
+  #bsSheet { position: fixed; inset: 0; z-index: 1100; background: #f4f3ef; display: none; flex-direction: column; }
+  #bsSheet.show { display: flex; }
+  #bsSheet .bs-head { background: #050505; padding: calc(12px + env(safe-area-inset-top, 0px)) 12px 12px 16px; display: flex; align-items: center; gap: 8px; }
+  #bsSheet .bs-input { flex: 1; min-width: 0; background: #1f1f1f; border: 0; border-radius: 10px; color: #fff; font: inherit; font-size: 16px; padding: 11px 12px; outline: none; }
+  #bsSheet .bs-input::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
+  #bsSheet .bs-input::placeholder { color: rgba(255,255,255,0.45); }
+  #bsSheet .bs-close { background: transparent; border: 0; color: #fff; font-size: 22px; line-height: 1; cursor: pointer; padding: 4px 8px; }
+  #bsSheet .bs-list { flex: 1; overflow-y: auto; padding: 12px 16px calc(24px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 10px; -webkit-overflow-scrolling: touch; }
+  #bsSheet .bs-note { color: #5b5b57; font-size: 14px; line-height: 1.5; padding: 4px 2px; }
+  #bsSheet .bs-empty { text-align: center; color: #5b5b57; font-size: 15px; line-height: 1.6; padding: 48px 24px; }
+  #bsSheet .bs-item { display: block; width: 100%; text-align: left; background: #fff; border: 0; border-radius: 12px; padding: 14px 16px; cursor: pointer; font: inherit; color: #0a0a0a; }
+  #bsSheet .bs-ref { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #8a6a1f; margin: 0 0 5px; }
+  #bsSheet .bs-text { font-family: var(--font-serif); font-size: 16px; line-height: 1.55; margin: 0; }
+  #bsSheet .bs-go { background: #0a0a0a; color: #fff; }
+  #bsSheet .bs-go .bs-ref { color: #e9d6a6; margin: 0; font-size: 14px; }
+  #bsSheet mark { background: rgba(200,155,60,0.38); color: inherit; border-radius: 2px; padding: 0 1px; }
   #svToast { position: fixed; left: 16px; right: 16px; z-index: 950; background: #0a0a0a; color: #fff; border-radius: 12px; padding: 12px 14px; font-size: 14px; display: none; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
   #svToast.show { display: flex; }
   #svToast button { background: none; border: 0; color: #e9d6a6; font: inherit; font-weight: 600; cursor: pointer; padding: 0; }
@@ -1215,11 +1240,6 @@
   .plan-segment-body { flex: 1; min-width: 0; }
   .plan-segment-body .bible-chapter-title { margin-top: 0 !important; }
 
-  .fs-ctl { margin-left: auto; display: flex; gap: 6px; }
-  .fs-btn { width: 40px; height: 34px; border-radius: 10px; border: 1px solid rgba(10,10,10,0.12); background: rgba(10,10,10,0.05); color: rgba(10,10,10,0.7); font-family: var(--font-serif); font-weight: 700; line-height: 1; cursor: pointer; padding: 0; }
-  .fs-btn.fs-sm { font-size: 14px; } .fs-btn.fs-lg { font-size: 22px; }
-  .fs-btn:disabled { opacity: 0.3; }
-  #browseToolbar { margin: 10px 20px 0; }
   .bible-toolbar {
     display: flex;
     align-items: center;
@@ -2440,6 +2460,11 @@
 #screen-bible .plan-segment-check { border-color: rgba(10,10,10,0.25); }
 
 #screen-bible .bible-bottombar { background: var(--white); border-top-color: rgba(10,10,10,0.1); }
+/* Prev/next chapter float over the reading area (like YouVersion) so the bottom bar has room for search. */
+#screen-bible .bible-bottombar .bible-navbtn { position: absolute; bottom: calc(100% + 14px); width: 46px; height: 46px; background: #fff; border: 1px solid rgba(10,10,10,0.1); color: #0a0a0a; box-shadow: 0 4px 14px rgba(0,0,0,0.18); z-index: 5; }
+#screen-bible .bible-bottombar .bible-navbtn svg { width: 20px; height: 20px; }
+#screen-bible .bible-bottombar #prevChapter { left: 14px; }
+#screen-bible .bible-bottombar #nextChapter { right: 14px; }
 #screen-bible .bible-navbtn { background: rgba(10,10,10,0.05); border-color: rgba(10,10,10,0.12); color: rgba(10,10,10,0.6); }
 #screen-bible .bible-bottombar-picker { background: rgba(10,10,10,0.05); border-color: rgba(10,10,10,0.12); }
 #screen-bible .bible-select-inline { color: var(--black); }
@@ -2780,6 +2805,7 @@
         <button type="button" class="bible-mode-btn" id="modeMemorizeBtn" data-track="Memory Verse: Bible tab button">Memorize</button>
         <button type="button" class="bible-mode-btn" id="modePlansTabBtn">Plans</button>
         <button type="button" class="bible-mode-btn" id="modePlanBtn" hidden style="display:none">365-Day Plan</button>
+        <button type="button" class="bible-mode-btn sv-open" id="fsOpenBtn" data-track="Bible: Text size" aria-label="Text size"><span class="fs-aa">A<small>a</small></span></button>
         <button type="button" class="bible-mode-btn sv-open" id="svOpenBtn" data-track="Bible: Saved verses" aria-label="Saved verses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg></button>
       </div>
 
@@ -2845,8 +2871,11 @@
         </div>
       </div>
 
+      <div id="bibleReader" class="bible-reader" style="margin-top:18px;">
+        <div class="bible-loading">Loading John 15…</div>
+      </div>
+
       <div class="bible-toolbar" id="browseToolbar">
-        <div class="fs-ctl" role="group" aria-label="Text size"><button type="button" id="fsDown" class="fs-btn fs-sm" aria-label="Smaller text" data-track="Bible: Text size">A</button><button type="button" id="fsUp" class="fs-btn fs-lg" aria-label="Larger text" data-track="Bible: Text size">A</button></div>
         <!-- Hidden for now, not removed -- paused until a smoother
              text-to-speech voice is available (currently just the
              device's own robotic system voice). Same reasoning as the
@@ -2856,10 +2885,6 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
           <span id="listenBtnLabel">Listen</span>
         </button>
-      </div>
-
-      <div id="bibleReader" class="bible-reader" style="margin-top:8px;">
-        <div class="bible-loading">Loading John 15…</div>
       </div>
 
       <div class="bible-translation-note">Public domain translation &middot; <a href="https://www.bible.com/organizations/f072ad1e-f59c-49b0-8310-b33f874a2d54" target="_blank" rel="noopener">Prefer NIV/ESV? Open in YouVersion →</a></div>
@@ -2884,6 +2909,7 @@
           </select>
           <select id="bookSelect" class="bible-select-inline"></select>
           <select id="chapterSelect" class="bible-select-inline bible-select-chapter"></select>
+          <button type="button" id="bsOpenBtn" class="bible-select-inline bible-select-search" aria-label="Search the Bible" data-track="Bible: Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button>
         </div>
         <button id="nextChapter" class="bible-navbtn" aria-label="Next chapter">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 18l6-6-6-6"/></svg>
@@ -11962,6 +11988,90 @@ async function renderDiscipleshipApp() {
     .observe(document.getElementById('screen-bible'), { attributes: true, attributeFilter: ['class'] });
   svLoad();
 
+  // ---------- Search ----------
+  // Looks up a passage ("John 3:16") or searches the words of the BSB. The
+  // BSB text index (about 1.2 MB compressed) loads the first time someone searches.
+  let bsIndex = null, bsLoading = null;
+  function bsLoad() {
+    if (!bsLoading) bsLoading = fetch('/assets/bible/bsb-search.json').then(r => { if (!r.ok) throw new Error('index'); return r.json(); })
+      .then(j => { bsIndex = j; return j; }).catch(e => { bsLoading = null; throw e; });
+    return bsLoading;
+  }
+  const bsSheet = document.createElement('div'); bsSheet.id = 'bsSheet';
+  bsSheet.innerHTML = '<div class="bs-head"><input type="search" id="bsInput" class="bs-input" placeholder="Search a word or a verse, like John 3:16" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" /><button type="button" class="bs-close" id="bsClose" aria-label="Close search">✕</button></div><div class="bs-list" id="bsList"></div>';
+  document.body.appendChild(bsSheet);
+  const bsInput = document.getElementById('bsInput'), bsList = document.getElementById('bsList');
+  const bsEsc = t => escVs(t);
+  const bsRegexEsc = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  function bsOpen() {
+    bsSheet.classList.add('show');
+    bsRender();
+    setTimeout(() => bsInput.focus(), 60);
+  }
+  function bsClose() { bsSheet.classList.remove('show'); bsInput.blur(); }
+  document.getElementById('bsOpenBtn').addEventListener('click', bsOpen);
+  document.getElementById('bsClose').addEventListener('click', bsClose);
+  new MutationObserver(() => { if (!document.getElementById('screen-bible').classList.contains('active')) bsClose(); })
+    .observe(document.getElementById('screen-bible'), { attributes: true, attributeFilter: ['class'] });
+  let bsTimer = null, bsSeq = 0;
+  bsInput.addEventListener('input', () => { clearTimeout(bsTimer); bsTimer = setTimeout(bsRender, 220); });
+  bsInput.addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(bsTimer); bsRender(); bsInput.blur(); } });
+  function bsSearchWords(q) {
+    const words = q.toLowerCase().replace(/[^a-z0-9'\s]/g, ' ').split(/\s+/).filter(Boolean);
+    const phrase = words.join(' ');
+    const res = words.map(w => new RegExp('\\b' + bsRegexEsc(w) + '\\b', 'i'));   // whole words only
+    const hits = [];
+    BOOKS.forEach((b, bi) => {
+      const chs = bsIndex[bi] || [];
+      for (let c = 0; c < chs.length; c++) {
+        const vs = chs[c];
+        for (let v = 0; v < vs.length; v++) {
+          const low = vs[v].toLowerCase();
+          let ok = true;
+          for (const w of words) if (low.indexOf(w) < 0) { ok = false; break; }   // quick reject
+          if (ok) for (const r of res) if (!r.test(vs[v])) { ok = false; break; }
+          if (ok) hits.push({ b: b[0], c: c + 1, v: v + 1, t: vs[v], exact: words.length > 1 && low.indexOf(phrase) >= 0 });
+        }
+      }
+    });
+    hits.sort((a, b) => (b.exact - a.exact));   // whole-phrase matches first, then Bible order
+    return { hits, words };
+  }
+  async function bsRender() {
+    const q = bsInput.value.trim(), seq = ++bsSeq;
+    if (!q) { bsList.innerHTML = '<div class="bs-empty">Search for a word or phrase,<br>or type a passage like <b>Romans 8:28</b>.</div>'; return; }
+    let html = '';
+    const ref = window.fjBible.parseRef(q);
+    if (ref && BOOKS.some(b => b[0] === ref.id)) {
+      const label = bookName(ref.id) + ' ' + ref.c1 + (ref.v1 ? ':' + ref.v1 + (ref.v2 && ref.v2 !== ref.v1 && ref.c2 === ref.c1 ? '-' + ref.v2 : '') : '');
+      html += '<button type="button" class="bs-item bs-go" data-b="' + ref.id + '" data-c="' + ref.c1 + '" data-s="' + (ref.v1 || '') + '" data-e="' + ((ref.c2 === ref.c1 && ref.v2) || ref.v1 || '') + '" data-track="Bible: Search go to passage"><div class="bs-ref">Go to ' + bsEsc(label) + '</div></button>';
+    }
+    if (q.replace(/[^A-Za-z0-9]/g, '').length < 3) { bsList.innerHTML = html + (html ? '' : '<div class="bs-note">Keep typing…</div>'); return; }
+    if (!bsIndex) {
+      bsList.innerHTML = html + '<div class="bs-note">Loading the Bible for search…</div>';
+      try { await bsLoad(); } catch (e) { if (seq === bsSeq) bsList.innerHTML = html + '<div class="bs-note">Couldn’t load search right now. Check your connection and try again.</div>'; return; }
+      if (seq !== bsSeq) return;
+    }
+    const { hits, words } = bsSearchWords(q);
+    if (!words.length) { bsList.innerHTML = html; return; }
+    const shown = hits.slice(0, 80);
+    const re = new RegExp('\\b(' + words.map(bsRegexEsc).join('|') + ')\\b', 'gi');
+    html += '<div class="bs-note">' + (hits.length ? hits.length + (hits.length === 1 ? ' verse' : ' verses') + ' in the BSB' + (hits.length > shown.length ? ' · showing the first ' + shown.length : '') : 'No verses found for “' + bsEsc(q) + '”.') + '</div>';
+    html += shown.map(h => '<button type="button" class="bs-item" data-b="' + h.b + '" data-c="' + h.c + '" data-s="' + h.v + '" data-e="' + h.v + '" data-track="Bible: Search result"><div class="bs-ref">' + bsEsc(bookName(h.b) + ' ' + h.c + ':' + h.v) + '</div><p class="bs-text">' + bsEsc(h.t).replace(re, '<mark>$1</mark>') + '</p></button>').join('');
+    bsList.innerHTML = html;
+  }
+  bsList.addEventListener('click', e => {
+    const it = e.target.closest('.bs-item'); if (!it) return;
+    const r = { b: it.dataset.b, c: +it.dataset.c, s: +it.dataset.s || 0, e: +it.dataset.e || 0 };
+    bsClose();
+    if (!r.s) {   // whole chapter
+      if (bibleMode !== 'browse') modeBrowseBtn.click();
+      bookSelect.value = r.b; populateChapters(); chapterSelect.value = String(r.c); loadChapter();
+      return;
+    }
+    svOpenInBible(r);
+  });
+
   // ---------- Text size (A / A) ----------
   const FS_STEPS = [15, 16, 17, 18, 19, 20, 22, 24], FS_KEY = 'bibleFontSize', FS_DEFAULT = 19;
   let fsSize = FS_DEFAULT;
@@ -11970,6 +12080,7 @@ async function renderDiscipleshipApp() {
     const d = document.getElementById('fsDown'), u = document.getElementById('fsUp');
     if (d) d.disabled = fsSize <= FS_STEPS[0];
     if (u) u.disabled = fsSize >= FS_STEPS[FS_STEPS.length - 1];
+    const v = document.getElementById('fsVal'); if (v) v.textContent = fsSize;
   }
   async function fsStep(dir) {
     const i = Math.max(0, FS_STEPS.indexOf(fsSize));
@@ -11977,8 +12088,22 @@ async function renderDiscipleshipApp() {
     fsApply();
     await dSafeSet(FS_KEY, fsSize);
   }
+  const fsPop = document.createElement('div'); fsPop.id = 'fsPop';
+  fsPop.innerHTML = '<button type="button" id="fsDown" aria-label="Smaller text">A</button><span class="fs-val" id="fsVal"></span><button type="button" id="fsUp" aria-label="Larger text">A</button>';
+  document.body.appendChild(fsPop);
   document.getElementById('fsDown').addEventListener('click', () => fsStep(-1));
   document.getElementById('fsUp').addEventListener('click', () => fsStep(1));
+  const fsBtn = document.getElementById('fsOpenBtn');
+  fsBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (fsPop.classList.contains('show')) { fsPop.classList.remove('show'); return; }
+    const r = fsBtn.getBoundingClientRect();
+    fsPop.style.top = (r.bottom + 8) + 'px'; fsPop.style.right = Math.max(12, innerWidth - r.right) + 'px';
+    fsPop.classList.add('show');
+  });
+  document.addEventListener('click', e => { if (!fsPop.contains(e.target)) fsPop.classList.remove('show'); });
+  new MutationObserver(() => { if (!document.getElementById('screen-bible').classList.contains('active')) fsPop.classList.remove('show'); })
+    .observe(document.getElementById('screen-bible'), { attributes: true, attributeFilter: ['class'] });
   fsApply();
   (async () => { const v = await dSafeGet(FS_KEY); if (FS_STEPS.indexOf(v) >= 0) { fsSize = v; fsApply(); } })();
 
