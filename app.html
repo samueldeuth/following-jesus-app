@@ -1034,9 +1034,12 @@
   }
   .bible-error { font-size: 13px; color: var(--ink-soft); }
   .bible-text .vs { cursor: pointer; -webkit-tap-highlight-color: transparent; box-decoration-break: clone; -webkit-box-decoration-break: clone; border-radius: 3px; }
-  .bible-text .vs.hl { background: rgba(200,155,60,0.34); }
-  .bible-text .vs.sel { background: rgba(10,10,10,0.12); box-shadow: 0 2px 0 var(--black); }
-  .bible-text .vs.hl.sel { background: rgba(200,155,60,0.5); }
+  .bible-text .vs.hl-gold { background: rgba(200,155,60,0.36); }
+  .bible-text .vs.hl-green { background: rgba(110,200,140,0.38); }
+  .bible-text .vs.hl-blue { background: rgba(90,170,232,0.34); }
+  .bible-text .vs.hl-pink { background: rgba(236,130,180,0.34); }
+  .bible-text .vs.sel { box-shadow: 0 2px 0 var(--black); }
+  .bible-text .vs:not([class*="hl-"]).sel { background: rgba(10,10,10,0.12); }
   .bible-mode-btn.sv-open { flex: 0 0 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
   .bible-mode-btn.sv-open svg { width: 18px; height: 18px; }
   #svToast { position: fixed; left: 16px; right: 16px; z-index: 950; background: #0a0a0a; color: #fff; border-radius: 12px; padding: 12px 14px; font-size: 14px; display: none; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
@@ -1060,10 +1063,17 @@
   #vsBar.show { display: block; }
   #vsBar .vs-ref { font-size: 13px; font-weight: 600; margin: 0 0 8px 2px; color: #e9d6a6; }
   #vsBar .vs-row { display: flex; gap: 8px; align-items: center; }
-  #vsBar button { flex: 1; background: #1f1f1f; color: #fff; border: 0; border-radius: 10px; padding: 11px 6px; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
-  #vsBar button.vs-primary { background: #c89b3c; color: #16120a; }
-  #vsBar button { padding-left: 2px; padding-right: 2px; font-size: 13px; }
-  #vsBar button.vs-x { flex: 0 0 42px; background: transparent; font-size: 18px; color: rgba(255,255,255,0.7); }
+  #vsBar .vs-row { justify-content: space-between; }
+  #vsBar .vs-dots, #vsBar .vs-icons { display: flex; align-items: center; gap: 8px; }
+  #vsBar .vs-dot { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; padding: 0; cursor: pointer; flex: none; box-shadow: inset 0 0 0 2px #0a0a0a; position: relative; }
+  #vsBar .vs-dot[data-color="gold"] { background: #c89b3c; } #vsBar .vs-dot[data-color="green"] { background: #6fcf8f; }
+  #vsBar .vs-dot[data-color="blue"] { background: #5aaee8; } #vsBar .vs-dot[data-color="pink"] { background: #ec82b4; }
+  #vsBar .vs-dot.on { border-color: #fff; }
+  #vsBar .vs-dot.on::after { content: ''; position: absolute; left: 10px; top: 5px; width: 6px; height: 11px; border: solid #0a0a0a; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); }
+  #vsBar .vs-ic { width: 40px; height: 40px; flex: none; background: #1f1f1f; color: #fff; border: 0; border-radius: 10px; padding: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+  #vsBar .vs-ic svg { width: 20px; height: 20px; }
+  #vsBar .vs-ic.on svg { fill: #e9d6a6; stroke: #e9d6a6; }
+  #vsBar .vs-ic.vs-x { background: transparent; color: rgba(255,255,255,0.7); width: 34px; }
 
   .bible-mode-toggle {
     display: flex;
@@ -11573,6 +11583,9 @@ async function renderDiscipleshipApp() {
   const HL_KEY = 'bibleHighlights', HL_USER_KEY = 'bibleHighlightsUser', HL_HINT_KEY = 'bibleHlHintSeen';
   let hlMap = {}, hlLoaded = null, hlHintSeen = false;
   const hlK = (b, c, v) => b + '.' + c + '.' + v;
+  const HL_COLORS = ['gold', 'green', 'blue', 'pink'];
+  // hlMap values are color names; older saves stored just `true`, which means gold.
+  const hlColorOf = k => { const v = hlMap[k]; return v ? (v === true ? 'gold' : v) : null; };
   const escVs = t => String(t).replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
   function verseSpan(b, c, v) {
     return `<span class="vs" data-b="${b}" data-c="${c}" data-v="${v.verse}"><sup>${v.verse}</sup>${v.text.trim()} </span>`;
@@ -11585,6 +11598,7 @@ async function renderDiscipleshipApp() {
   function hlLoad() {
     if (!hlLoaded) hlLoaded = (async () => {
       hlMap = (await dSafeGet(HL_KEY)) || {};
+      Object.keys(hlMap).forEach(k => { if (hlMap[k] === true) hlMap[k] = 'gold'; });
       hlHintSeen = !!(await dSafeGet(HL_HINT_KEY));
       hlPaint();
       hlSync();
@@ -11596,13 +11610,13 @@ async function renderDiscipleshipApp() {
     try {
       let rows = [], from = 0;
       for (;;) {
-        const { data, error } = await supabaseClient.from('bible_highlights').select('book,chapter,verse').range(from, from + 999);
+        const { data, error } = await supabaseClient.from('bible_highlights').select('book,chapter,verse,color').range(from, from + 999);
         if (error) return;
         rows = rows.concat(data || []);
         if (!data || data.length < 1000) break;
         from += 1000;
       }
-      const server = {}; rows.forEach(r => { server[hlK(r.book, r.chapter, r.verse)] = true; });
+      const server = {}; rows.forEach(r => { server[hlK(r.book, r.chapter, r.verse)] = r.color || 'gold'; });
       const syncedUser = await dSafeGet(HL_USER_KEY);
       if (syncedUser === s.user.id) {
         hlMap = server;                       // this account has synced before: the account is the source of truth
@@ -11611,7 +11625,7 @@ async function renderDiscipleshipApp() {
         // while signed out, and upload it so it is saved to the account.
         const toPush = Object.keys(hlMap).filter(k => !server[k]);
         for (let i = 0; i < toPush.length; i += 500) {
-          const recs = toPush.slice(i, i + 500).map(k => { const [b, c, v] = k.split('.'); return { book: b, chapter: +c, verse: +v }; });
+          const recs = toPush.slice(i, i + 500).map(k => { const [b, c, v] = k.split('.'); return { book: b, chapter: +c, verse: +v, color: hlColorOf(k) }; });
           const { error } = await supabaseClient.from('bible_highlights').upsert(recs, { onConflict: 'user_id,book,chapter,verse', ignoreDuplicates: true });
           if (error) return;
         }
@@ -11622,26 +11636,31 @@ async function renderDiscipleshipApp() {
       hlPaint();
     } catch (e) { /* offline: device copy still works, next load syncs */ }
   }
-  async function hlWrite(keys, on) {
-    keys.forEach(k => { if (on) hlMap[k] = true; else delete hlMap[k]; });
+  // color = a color name to highlight with, or null to remove the highlight.
+  async function hlWrite(keys, color) {
+    const changed = keys.filter(k => hlColorOf(k) && hlColorOf(k) !== color);
+    keys.forEach(k => { if (color) hlMap[k] = color; else delete hlMap[k]; });
     hlPaint();
     await dSafeSet(HL_KEY, hlMap);
     const s = await hlSession(); if (!s) return;
+    const split = k => { const [b, c, v] = k.split('.'); return { book: b, chapter: +c, verse: +v }; };
     try {
-      const recs = keys.map(k => { const [b, c, v] = k.split('.'); return { book: b, chapter: +c, verse: +v }; });
-      if (on) {
+      for (const k of changed) {   // a color change is delete + insert
+        const { error } = await supabaseClient.from('bible_highlights').delete().match(split(k));
+        if (error) throw error;
+      }
+      if (color) {
+        const recs = keys.map(k => Object.assign(split(k), { color }));
         const { error } = await supabaseClient.from('bible_highlights').upsert(recs, { onConflict: 'user_id,book,chapter,verse', ignoreDuplicates: true });
         if (error) throw error;
-      } else {
-        for (const r of recs) {
-          const { error } = await supabaseClient.from('bible_highlights').delete().match({ book: r.book, chapter: r.chapter, verse: r.verse });
-          if (error) throw error;
-        }
       }
-    } catch (e) { await dSafeSet(HL_USER_KEY, null); }   // couldn't reach the account: merge instead of overwrite next sync
+    } catch (e) { await dSafeSet(HL_USER_KEY, null); }
   }
   function hlPaint() {
-    reader.querySelectorAll('.vs').forEach(el => el.classList.toggle('hl', !!hlMap[hlK(el.dataset.b, el.dataset.c, el.dataset.v)]));
+    reader.querySelectorAll('.vs').forEach(el => {
+      const col = hlColorOf(hlK(el.dataset.b, el.dataset.c, el.dataset.v));
+      HL_COLORS.forEach(c => el.classList.toggle('hl-' + c, col === c));
+    });
   }
   async function hlAfterRender() {
     await hlLoad();
@@ -11655,12 +11674,20 @@ async function renderDiscipleshipApp() {
   let vsSel = [];
   const vsBar = document.createElement('div');
   vsBar.id = 'vsBar';
+  const VS_IC = {
+    save: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>',
+    share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7.5 7.5L12 3l4.5 4.5"/><path d="M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>',
+    x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>'
+  };
   vsBar.innerHTML = '<div class="vs-ref" id="vsRef"></div><div class="vs-row">' +
-    '<button type="button" class="vs-primary" id="vsHl" data-track="Bible: Highlight verse">Highlight</button>' +
-    '<button type="button" id="vsSave" data-track="Bible: Save verse">Save</button>' +
-    '<button type="button" id="vsShare" data-track="Bible: Share verse">Share</button>' +
-    '<button type="button" id="vsCopy" data-track="Bible: Copy verse">Copy</button>' +
-    '<button type="button" class="vs-x" id="vsX" aria-label="Clear selection">✕</button></div>';
+    '<div class="vs-dots">' + HL_COLORS.map(c => '<button type="button" class="vs-dot" data-color="' + c + '" aria-label="Highlight ' + c + '" data-track="Bible: Highlight verse"></button>').join('') + '</div>' +
+    '<div class="vs-icons">' +
+    '<button type="button" class="vs-ic" id="vsSave" aria-label="Save verse" data-track="Bible: Save verse">' + VS_IC.save + '</button>' +
+    '<button type="button" class="vs-ic" id="vsShare" aria-label="Share verse" data-track="Bible: Share verse">' + VS_IC.share + '</button>' +
+    '<button type="button" class="vs-ic" id="vsCopy" aria-label="Copy verse" data-track="Bible: Copy verse">' + VS_IC.copy + '</button>' +
+    '<button type="button" class="vs-ic vs-x" id="vsX" aria-label="Clear selection">' + VS_IC.x + '</button></div></div>';
   document.body.appendChild(vsBar);
 
   function vsKey(el) { return hlK(el.dataset.b, el.dataset.c, el.dataset.v); }
@@ -11689,13 +11716,17 @@ async function renderDiscipleshipApp() {
     const tb = document.querySelector('nav.tabbar');
     vsBar.style.bottom = ((tb ? tb.offsetHeight : 64) + 8) + 'px';
     document.getElementById('vsRef').textContent = vsRefLabel();
-    const allHl = vsSel.every(el => hlMap[vsKey(el)]);
-    const hb = document.getElementById('vsHl');
-    hb.textContent = allHl ? 'Unhighlight' : 'Highlight';
-    hb.dataset.track = allHl ? 'Bible: Remove highlight' : 'Bible: Highlight verse';
+    const cols = vsSel.map(el => hlColorOf(vsKey(el)));
+    const same = cols.every(c => c && c === cols[0]) ? cols[0] : null;
+    vsBar.querySelectorAll('.vs-dot').forEach(d => {
+      const on = d.dataset.color === same;
+      d.classList.toggle('on', on);
+      d.dataset.track = on ? 'Bible: Remove highlight' : 'Bible: Highlight verse';
+    });
     const sb = document.getElementById('vsSave'), runs = vsRuns();
     const allSv = runs.length && runs.every(r => svHas(r));
-    sb.textContent = allSv ? 'Saved' : 'Save';
+    sb.classList.toggle('on', !!allSv);
+    sb.setAttribute('aria-label', allSv ? 'Remove saved verse' : 'Save verse');
     sb.dataset.track = allSv ? 'Bible: Unsave verse' : 'Bible: Save verse';
     vsBar.classList.add('show');
   }
@@ -11714,26 +11745,25 @@ async function renderDiscipleshipApp() {
     vsRender();
   });
   document.getElementById('vsX').addEventListener('click', vsClear);
-  document.getElementById('vsHl').addEventListener('click', async () => {
+  vsBar.querySelectorAll('.vs-dot').forEach(d => d.addEventListener('click', async () => {
     if (!vsSel.length) return;
+    const color = d.dataset.color;
     const keys = vsSel.map(vsKey);
-    const allHl = vsSel.every(el => hlMap[vsKey(el)]);
+    const allSame = keys.every(k => hlColorOf(k) === color);   // tapping the active color again removes it
     vsClear();
-    await hlWrite(keys, !allHl);
-  });
-  document.getElementById('vsCopy').addEventListener('click', async e => {
-    if (!vsSel.length) return;
-    const btn = e.currentTarget, text = vsShareText();
-    try { await navigator.clipboard.writeText(text); btn.textContent = 'Copied'; } catch (err) { btn.textContent = 'Couldn’t copy'; }
-    setTimeout(() => { btn.textContent = 'Copy'; }, 1400);
-  });
+    await hlWrite(keys, allSame ? null : color);
+  }));
+  async function vsFlash(btn, base) {
+    let ok = true; try { await navigator.clipboard.writeText(vsShareText()); } catch (err) { ok = false; }
+    btn.innerHTML = ok ? VS_IC.check : VS_IC.x; btn.setAttribute('aria-label', ok ? 'Copied' : 'Could not copy');
+    setTimeout(() => { btn.innerHTML = VS_IC[base]; btn.setAttribute('aria-label', base === 'copy' ? 'Copy verse' : 'Share verse'); }, 1400);
+  }
+  document.getElementById('vsCopy').addEventListener('click', e => { if (vsSel.length) vsFlash(e.currentTarget, 'copy'); });
   document.getElementById('vsShare').addEventListener('click', async e => {
     if (!vsSel.length) return;
     const text = vsShareText();
     if (navigator.share) { try { await navigator.share({ title: 'Following Jesus', text }); } catch (err) {} return; }
-    const btn = e.currentTarget;
-    try { await navigator.clipboard.writeText(text); btn.textContent = 'Copied'; } catch (err) { btn.textContent = 'Couldn’t copy'; }
-    setTimeout(() => { btn.textContent = 'Share'; }, 1400);
+    vsFlash(e.currentTarget, 'share');
   });
   // Leaving the Bible tab drops the selection and hides the bar.
   new MutationObserver(() => { if (!document.getElementById('screen-bible').classList.contains('active')) vsClear(); })
