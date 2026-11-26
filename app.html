@@ -1053,8 +1053,10 @@
   #fsPop .fs-val { min-width: 48px; text-align: center; font-size: 15px; font-weight: 700; color: #e9d6a6; }
   #bsSheet { position: fixed; inset: 0; z-index: 1100; background: #f4f3ef; display: none; flex-direction: column; }
   #bsSheet.show { display: flex; }
-  #bsSheet .bs-head { background: #050505; padding: calc(12px + env(safe-area-inset-top, 0px)) 12px 12px 16px; display: flex; align-items: center; gap: 8px; }
-  #bsSheet .bs-input { flex: 1; min-width: 0; background: #1f1f1f; border: 0; border-radius: 10px; color: #fff; font: inherit; font-size: 16px; padding: 11px 12px; outline: none; }
+  #bsSheet .bs-head { background: #050505; color: #fff; padding: calc(14px + env(safe-area-inset-top, 0px)) 12px 14px 16px; display: flex; align-items: center; justify-content: space-between; }
+  #bsSheet .bs-title { font-size: 15px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+  #bsSheet .bs-bar { background: #050505; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); }
+  #bsSheet .bs-input { display: block; width: 100%; box-sizing: border-box; background: #1f1f1f; border: 0; border-radius: 10px; color: #fff; font: inherit; font-size: 16px; padding: 11px 12px; outline: none; }
   #bsSheet .bs-input::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
   #bsSheet .bs-input::placeholder { color: rgba(255,255,255,0.45); }
   #bsSheet .bs-close { background: transparent; border: 0; color: #fff; font-size: 22px; line-height: 1; cursor: pointer; padding: 4px 8px; }
@@ -11998,17 +12000,24 @@ async function renderDiscipleshipApp() {
     return bsLoading;
   }
   const bsSheet = document.createElement('div'); bsSheet.id = 'bsSheet';
-  bsSheet.innerHTML = '<div class="bs-head"><input type="search" id="bsInput" class="bs-input" placeholder="Search a word or a verse, like John 3:16" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" /><button type="button" class="bs-close" id="bsClose" aria-label="Close search">✕</button></div><div class="bs-list" id="bsList"></div>';
+  bsSheet.innerHTML = '<div class="bs-head"><span class="bs-title">Search the Bible</span><button type="button" class="bs-close" id="bsClose" aria-label="Close search">✕</button></div><div class="bs-list" id="bsList"></div><div class="bs-bar"><input type="search" id="bsInput" class="bs-input" placeholder="Search a word or a verse, like John 3:16" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" /></div>';
   document.body.appendChild(bsSheet);
   const bsInput = document.getElementById('bsInput'), bsList = document.getElementById('bsList');
   const bsEsc = t => escVs(t);
   const bsRegexEsc = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   function bsOpen() {
     bsSheet.classList.add('show');
+    bsFit();
     bsRender();
     setTimeout(() => bsInput.focus(), 60);
   }
   function bsClose() { bsSheet.classList.remove('show'); bsInput.blur(); }
+  // Keep the sheet (and the search field at its bottom) inside the visible area when the keyboard is up.
+  function bsFit() {
+    const vv = window.visualViewport; if (!vv) return;
+    bsSheet.style.bottom = 'auto'; bsSheet.style.top = vv.offsetTop + 'px'; bsSheet.style.height = vv.height + 'px';
+  }
+  if (window.visualViewport) { visualViewport.addEventListener('resize', bsFit); visualViewport.addEventListener('scroll', bsFit); }
   document.getElementById('bsOpenBtn').addEventListener('click', bsOpen);
   document.getElementById('bsClose').addEventListener('click', bsClose);
   new MutationObserver(() => { if (!document.getElementById('screen-bible').classList.contains('active')) bsClose(); })
@@ -12049,7 +12058,7 @@ async function renderDiscipleshipApp() {
     if (q.replace(/[^A-Za-z0-9]/g, '').length < 3) { bsList.innerHTML = html + (html ? '' : '<div class="bs-note">Keep typing…</div>'); return; }
     if (!bsIndex) {
       bsList.innerHTML = html + '<div class="bs-note">Loading the Bible for search…</div>';
-      try { await bsLoad(); } catch (e) { if (seq === bsSeq) bsList.innerHTML = html + '<div class="bs-note">Couldn’t load search right now. Check your connection and try again.</div>'; return; }
+      try { await bsLoad(); } catch (e) { if (seq === bsSeq) bsList.innerHTML = html + '<div class="bs-note">Couldn’t load the search data right now. Check your connection and try again.</div>'; return; }
       if (seq !== bsSeq) return;
     }
     const { hits, words } = bsSearchWords(q);
