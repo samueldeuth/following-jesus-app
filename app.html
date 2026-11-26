@@ -1033,6 +1033,18 @@
     margin-right: 3px;
   }
   .bible-error { font-size: 13px; color: var(--ink-soft); }
+  .bible-text .vs { cursor: pointer; -webkit-tap-highlight-color: transparent; box-decoration-break: clone; -webkit-box-decoration-break: clone; border-radius: 3px; }
+  .bible-text .vs.hl { background: rgba(200,155,60,0.34); }
+  .bible-text .vs.sel { background: rgba(10,10,10,0.12); box-shadow: 0 2px 0 var(--black); }
+  .bible-text .vs.hl.sel { background: rgba(200,155,60,0.5); }
+  .vs-hint { font-size: 12px; color: var(--ink-soft); margin: -6px 0 12px; }
+  #vsBar { position: fixed; left: 10px; right: 10px; bottom: 72px; z-index: 900; background: #0a0a0a; color: #fff; border-radius: 14px; padding: 10px 12px; box-shadow: 0 8px 28px rgba(0,0,0,0.35); display: none; }
+  #vsBar.show { display: block; }
+  #vsBar .vs-ref { font-size: 13px; font-weight: 600; margin: 0 0 8px 2px; color: #e9d6a6; }
+  #vsBar .vs-row { display: flex; gap: 8px; align-items: center; }
+  #vsBar button { flex: 1; background: #1f1f1f; color: #fff; border: 0; border-radius: 10px; padding: 11px 6px; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+  #vsBar button.vs-primary { background: #c89b3c; color: #16120a; }
+  #vsBar button.vs-x { flex: 0 0 42px; background: transparent; font-size: 18px; color: rgba(255,255,255,0.7); }
 
   .bible-mode-toggle {
     display: flex;
@@ -8028,7 +8040,7 @@ const fjTap = (function(){
     if (label.indexOf(' \u00B7 ') > 0) label = label.split(' \u00B7 ')[0];   // "Plan name \u00B7 Read right here..." -> "Plan name"
     if (/[A-Za-z]{2}/.test(label) && label === label.toUpperCase()) label = titleCase(label); // CSS capitals -> normal case
     label = label.replace(/\bFj\b/g, 'FJ');
-    if (/^Memory Verse: /.test(label)) return label;   // own names, not "Plan: ..."
+    if (/^(Memory Verse|Bible): /.test(label)) return label;   // own names, not "Plan: ..."
     if (label === '\u2715' || label === '\u2716' || label === '\u00D7') label = 'Close';
     if (el.classList && el.classList.contains('tab-btn')) return 'Tab: ' + label;
     // The same destination can be reached from the top banners and the "More" grid; name them apart.
@@ -11517,12 +11529,14 @@ async function renderDiscipleshipApp() {
     const book = BOOKS.find(b => b[0] === bookSelect.value);
     const chapter = chapterSelect.value;
     const translation = translationSelect.value;
+    vsClear();
     reader.innerHTML = `<div class="bible-loading">Loading ${book[1]} ${chapter}…</div>`;
     try {
       const data = await window.fjBible.get(`${book[0]} ${chapter}`, translation);
       if (!data.verses) throw new Error('No verses');
-      const versesHtml = data.verses.map(v => `<sup>${v.verse}</sup>${v.text.trim()} `).join('');
+      const versesHtml = data.verses.map(v => verseSpan(book[0], v.chapter || chapter, v)).join('');
       reader.innerHTML = `<div class="bible-chapter-title">${book[1]} ${chapter}</div><div class="bible-text">${versesHtml}</div>`;
+      hlAfterRender();
       currentChapterText = data.verses.map(v => v.text.trim()).join(' ');
       currentChapterLabel = `${book[1]} ${chapter}`;
     } catch (e) {
@@ -11530,6 +11544,176 @@ async function renderDiscipleshipApp() {
       currentChapterText = '';
     }
   }
+
+  // ---------- Verse tap: highlight / share / copy ----------
+  // Tap a verse to select it (tap more to add), then Highlight, Share or Copy.
+  // Highlights are keyed by book+chapter+verse (not translation), kept on this
+  // device right away, and synced to the signed-in account (bible_highlights
+  // table) so they follow the person to any device.
+  const HL_KEY = 'bibleHighlights', HL_USER_KEY = 'bibleHighlightsUser', HL_HINT_KEY = 'bibleHlHintSeen';
+  let hlMap = {}, hlLoaded = null, hlHintSeen = false;
+  const hlK = (b, c, v) => b + '.' + c + '.' + v;
+  const escVs = t => String(t).replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
+  function verseSpan(b, c, v) {
+    return `<span class="vs" data-b="${b}" data-c="${c}" data-v="${v.verse}"><sup>${v.verse}</sup>${v.text.trim()} </span>`;
+  }
+  async function hlSession() {
+    if (!supabaseConfigured || typeof supabaseClient === 'undefined' || !supabaseClient) return null;
+    try { const { data: { session } } = await supabaseClient.auth.getSession(); return session && session.user ? session : null; }
+    catch (e) { return null; }
+  }
+  function hlLoad() {
+    if (!hlLoaded) hlLoaded = (async () => {
+      hlMap = (await dSafeGet(HL_KEY)) || {};
+      hlHintSeen = !!(await dSafeGet(HL_HINT_KEY));
+      hlPaint();
+      hlSync();
+    })();
+    return hlLoaded;
+  }
+  async function hlSync() {
+    const s = await hlSession(); if (!s) return;
+    try {
+      let rows = [], from = 0;
+      for (;;) {
+        const { data, error } = await supabaseClient.from('bible_highlights').select('book,chapter,verse').range(from, from + 999);
+        if (error) return;
+        rows = rows.concat(data || []);
+        if (!data || data.length < 1000) break;
+        from += 1000;
+      }
+      const server = {}; rows.forEach(r => { server[hlK(r.book, r.chapter, r.verse)] = true; });
+      const syncedUser = await dSafeGet(HL_USER_KEY);
+      if (syncedUser === s.user.id) {
+        hlMap = server;                       // this account has synced before: the account is the source of truth
+      } else {
+        // First time this device meets this account: keep what was highlighted
+        // while signed out, and upload it so it is saved to the account.
+        const toPush = Object.keys(hlMap).filter(k => !server[k]);
+        for (let i = 0; i < toPush.length; i += 500) {
+          const recs = toPush.slice(i, i + 500).map(k => { const [b, c, v] = k.split('.'); return { book: b, chapter: +c, verse: +v }; });
+          const { error } = await supabaseClient.from('bible_highlights').upsert(recs, { onConflict: 'user_id,book,chapter,verse', ignoreDuplicates: true });
+          if (error) return;
+        }
+        hlMap = Object.assign({}, server, hlMap);
+        await dSafeSet(HL_USER_KEY, s.user.id);
+      }
+      await dSafeSet(HL_KEY, hlMap);
+      hlPaint();
+    } catch (e) { /* offline: device copy still works, next load syncs */ }
+  }
+  async function hlWrite(keys, on) {
+    keys.forEach(k => { if (on) hlMap[k] = true; else delete hlMap[k]; });
+    hlPaint();
+    await dSafeSet(HL_KEY, hlMap);
+    const s = await hlSession(); if (!s) return;
+    try {
+      const recs = keys.map(k => { const [b, c, v] = k.split('.'); return { book: b, chapter: +c, verse: +v }; });
+      if (on) {
+        const { error } = await supabaseClient.from('bible_highlights').upsert(recs, { onConflict: 'user_id,book,chapter,verse', ignoreDuplicates: true });
+        if (error) throw error;
+      } else {
+        for (const r of recs) {
+          const { error } = await supabaseClient.from('bible_highlights').delete().match({ book: r.book, chapter: r.chapter, verse: r.verse });
+          if (error) throw error;
+        }
+      }
+    } catch (e) { await dSafeSet(HL_USER_KEY, null); }   // couldn't reach the account: merge instead of overwrite next sync
+  }
+  function hlPaint() {
+    reader.querySelectorAll('.vs').forEach(el => el.classList.toggle('hl', !!hlMap[hlK(el.dataset.b, el.dataset.c, el.dataset.v)]));
+  }
+  async function hlAfterRender() {
+    await hlLoad();
+    hlPaint();
+    if (!hlHintSeen && !reader.querySelector('.vs-hint')) {
+      const t = reader.querySelector('.bible-chapter-title');
+      if (t) t.insertAdjacentHTML('afterend', '<div class="vs-hint">Tap a verse to highlight or share it.</div>');
+    }
+  }
+
+  let vsSel = [];
+  const vsBar = document.createElement('div');
+  vsBar.id = 'vsBar';
+  vsBar.innerHTML = '<div class="vs-ref" id="vsRef"></div><div class="vs-row">' +
+    '<button type="button" class="vs-primary" id="vsHl" data-track="Bible: Highlight verse">Highlight</button>' +
+    '<button type="button" id="vsShare" data-track="Bible: Share verse">Share</button>' +
+    '<button type="button" id="vsCopy" data-track="Bible: Copy verse">Copy</button>' +
+    '<button type="button" class="vs-x" id="vsX" aria-label="Clear selection">✕</button></div>';
+  document.body.appendChild(vsBar);
+
+  function vsKey(el) { return hlK(el.dataset.b, el.dataset.c, el.dataset.v); }
+  function vsText(el) { const c = el.cloneNode(true); const sup = c.querySelector('sup'); if (sup) sup.remove(); return c.textContent.replace(/\s+/g, ' ').trim(); }
+  function vsSorted() { return vsSel.slice().sort((a, b) => (+a.dataset.c - +b.dataset.c) || (+a.dataset.v - +b.dataset.v)); }
+  function vsRefLabel() {
+    const items = vsSorted(); if (!items.length) return '';
+    const name = bookName(items[0].dataset.b);
+    const byCh = [];
+    items.forEach(el => {
+      const c = +el.dataset.c, v = +el.dataset.v;
+      let g = byCh[byCh.length - 1];
+      if (!g || g.c !== c) { g = { c, runs: [] }; byCh.push(g); }
+      const last = g.runs[g.runs.length - 1];
+      if (last && v === last[1] + 1) last[1] = v; else g.runs.push([v, v]);
+    });
+    return name + ' ' + byCh.map(g => g.c + ':' + g.runs.map(r => r[0] === r[1] ? r[0] : r[0] + '-' + r[1]).join(', ')).join('; ');
+  }
+  function vsTrLabel() { const v = (translationSelect.value || 'bsb').toLowerCase(); return ({ bsb: 'BSB', web: 'WEB', webbe: 'WEB', kjv: 'KJV' })[v] || v.toUpperCase(); }
+  function vsShareText() {
+    return '“' + vsSorted().map(vsText).join(' ') + '”\n— ' + vsRefLabel() + ' (' + vsTrLabel() + ')\n\nRead the Bible free in the Following Jesus app: https://followingjesus.com/app';
+  }
+  function vsRender() {
+    const on = document.getElementById('screen-bible').classList.contains('active');
+    if (!vsSel.length || !on) { vsBar.classList.remove('show'); return; }
+    const tb = document.querySelector('nav.tabbar');
+    vsBar.style.bottom = ((tb ? tb.offsetHeight : 64) + 8) + 'px';
+    document.getElementById('vsRef').textContent = vsRefLabel();
+    const allHl = vsSel.every(el => hlMap[vsKey(el)]);
+    const hb = document.getElementById('vsHl');
+    hb.textContent = allHl ? 'Remove highlight' : 'Highlight';
+    hb.dataset.track = allHl ? 'Bible: Remove highlight' : 'Bible: Highlight verse';
+    vsBar.classList.add('show');
+  }
+  function vsClear() {
+    vsSel.forEach(el => el.classList.remove('sel'));
+    vsSel = [];
+    vsRender();
+  }
+  reader.addEventListener('click', e => {
+    const el = e.target.closest('.vs'); if (!el) return;
+    if (window.getSelection && String(window.getSelection()).length > 0) return;   // person is selecting text
+    if (vsSel.length && vsSel[0].dataset.b !== el.dataset.b) vsClear();
+    const i = vsSel.indexOf(el);
+    if (i >= 0) { vsSel.splice(i, 1); el.classList.remove('sel'); } else { vsSel.push(el); el.classList.add('sel'); }
+    if (!hlHintSeen) { hlHintSeen = true; dSafeSet(HL_HINT_KEY, true); const h = reader.querySelector('.vs-hint'); if (h) h.remove(); }
+    vsRender();
+  });
+  document.getElementById('vsX').addEventListener('click', vsClear);
+  document.getElementById('vsHl').addEventListener('click', async () => {
+    if (!vsSel.length) return;
+    const keys = vsSel.map(vsKey);
+    const allHl = vsSel.every(el => hlMap[vsKey(el)]);
+    vsClear();
+    await hlWrite(keys, !allHl);
+  });
+  document.getElementById('vsCopy').addEventListener('click', async e => {
+    if (!vsSel.length) return;
+    const btn = e.currentTarget, text = vsShareText();
+    try { await navigator.clipboard.writeText(text); btn.textContent = 'Copied'; } catch (err) { btn.textContent = 'Couldn’t copy'; }
+    setTimeout(() => { btn.textContent = 'Copy'; }, 1400);
+  });
+  document.getElementById('vsShare').addEventListener('click', async e => {
+    if (!vsSel.length) return;
+    const text = vsShareText();
+    if (navigator.share) { try { await navigator.share({ title: 'Following Jesus', text }); } catch (err) {} return; }
+    const btn = e.currentTarget;
+    try { await navigator.clipboard.writeText(text); btn.textContent = 'Copied'; } catch (err) { btn.textContent = 'Couldn’t copy'; }
+    setTimeout(() => { btn.textContent = 'Share'; }, 1400);
+  });
+  // Leaving the Bible tab drops the selection and hides the bar.
+  new MutationObserver(() => { if (!document.getElementById('screen-bible').classList.contains('active')) vsClear(); })
+    .observe(document.getElementById('screen-bible'), { attributes: true, attributeFilter: ['class'] });
+  hlLoad();
 
   bookSelect.addEventListener('change', () => { populateChapters(); loadChapter(); });
   chapterSelect.addEventListener('change', loadChapter);
@@ -12445,11 +12629,13 @@ async function renderDiscipleshipApp() {
     renderDayChecklist(refs, segDone);
     updateDayCompleteUI();
 
+    vsClear();
     reader.innerHTML = `<div class="bible-loading">Loading Day ${planDay}…</div>`;
     try {
       const chunks = await Promise.all(refs.map(async ref => {
         const data = await window.fjBible.get(ref, translationSelect.value);
-        return { label: refLabel(ref), verses: data.verses || [] };
+        const pr = window.fjBible.parseRef(ref);
+        return { label: refLabel(ref), bid: pr ? pr.id : ref.split(' ')[0], c1: pr ? pr.c1 : 1, verses: data.verses || [] };
       }));
       reader.innerHTML = chunks.map((c, i) => `
         <div class="plan-segment" id="planSeg${i}">
@@ -12458,13 +12644,14 @@ async function renderDiscipleshipApp() {
           </button>
           <div class="plan-segment-body">
             <div class="bible-chapter-title">${c.label}</div>
-            <div class="bible-text">${c.verses.map(v => `<sup>${v.verse}</sup>${v.text.trim()} `).join('')}</div>
+            <div class="bible-text">${c.verses.map(v => verseSpan(c.bid, v.chapter || c.c1, v)).join('')}</div>
           </div>
         </div>
       `).join('');
       [...reader.querySelectorAll('.plan-segment-check')].forEach(btn => {
         btn.addEventListener('click', () => toggleSegment(parseInt(btn.dataset.index, 10)));
       });
+      hlAfterRender();
     } catch (e) {
       reader.innerHTML = `<div class="bible-error">Couldn't load today's reading right now.</div>`;
     }

@@ -2781,7 +2781,7 @@ function disciplesTableHtml(rows, linkAttr){
   </table></div>`;
 }
 
-const recentDisciplesState = { list: null, range: 'all', page: 0, open: true };
+const recentDisciplesState = { list: null, range: 'all', page: 0, open: false };   // collapsed by default
 async function loadRecentDisciples(){
   const body = document.getElementById('rd-body');
   if(!body) return;
@@ -3570,12 +3570,12 @@ function renderPushNotifications(){
 
     <div class="card" id="app-recent-disciples-card" style="margin-bottom:24px;max-width:680px;">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-        <button type="button" id="rd-toggle" aria-expanded="true" aria-controls="rd-body" style="background:none;border:none;padding:0;display:flex;align-items:center;gap:8px;cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;color:var(--ink);">
-          <span id="rd-chev" aria-hidden="true" style="display:inline-block;transition:transform .15s;">&#9662;</span>New disciples made
+        <button type="button" id="rd-toggle" aria-expanded="false" aria-controls="rd-body" style="background:none;border:none;padding:0;display:flex;align-items:center;gap:8px;cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;color:var(--ink);">
+          <span id="rd-chev" aria-hidden="true" style="display:inline-block;transition:transform .15s;transform:rotate(-90deg);">&#9662;</span>New disciples made
         </button>
         <a href="#" id="app-recent-disciples-all" style="font-size:12.5px;">See all</a>
       </div>
-      <div id="rd-body" style="margin-top:12px;"><span style="font-size:13px;color:var(--ink-soft);">Loading…</span></div>
+      <div id="rd-body" style="margin-top:12px;display:none;"><span style="font-size:13px;color:var(--ink-soft);">Loading…</span></div>
     </div>
 
     <div class="card" style="margin-bottom:24px;max-width:680px;">
