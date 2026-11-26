@@ -2327,6 +2327,7 @@
 #devoPlanModal .mv-row .mv-btn { flex:1; }
 #devoPlanModal .mv-link { background:none; border:none; color: rgba(10,10,10,0.55); font-size:13px; text-decoration:underline; cursor:pointer; padding:4px 0; }
 #devoPlanModal .mv-setline { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:12px; font-size:14px; font-weight:600; color: var(--black); }
+#devoPlanModal .mv-homerow { display:flex; align-items:center; gap:10px; font-size:12px; color:#55555c; margin-top:4px; }
 #devoPlanModal .mv-count { font-size:13px; color: rgba(10,10,10,0.55); margin-top:2px; }
 #devoPlanModal .mv-badge { display:inline-block; font-size:11px; font-weight:600; background: rgba(10,10,10,0.08); border-radius:999px; padding:2px 8px; vertical-align:middle; margin-left:6px; }
 #devoPlanModal .mv-verse { font-size:19px; line-height:1.7; }
@@ -3562,7 +3563,8 @@
     mvState = (saved && saved.plan && DEVOTIONAL_PLANS_MANIFEST[saved.plan]) ? {
       plan: saved.plan,
       day: Math.min(Math.max(parseInt(saved.day, 10) || 1, 1), 52),
-      memorized: Array.isArray(saved.memorized) ? saved.memorized : []
+      memorized: Array.isArray(saved.memorized) ? saved.memorized : [],
+      stopped: !!saved.stopped   // true = taken off the Home screen (progress is kept)
     } : null;
     return mvState;
   }
@@ -3572,6 +3574,20 @@
     if (mvState) await dSafeSet(MV_KEY + '_' + mvState.plan, { day: mvState.day, memorized: mvState.memorized });
     if (typeof ccRefreshAll === 'function') ccRefreshAll();   // keep the Home Memory Verse card current
   }
+
+  async function mvSetStopped(flag) {
+    const st = await mvLoad();
+    if (!st) return;
+    st.stopped = !!flag;
+    await mvSave();
+    renderMemoryVerseHomeCard();
+    if (document.getElementById('mvHomeRow')) renderMemoryVerse();
+  }
+  function mvConfirmStop() {
+    if (typeof ccAsk !== 'function') { mvSetStopped(true); return; }
+    ccAsk({ planTitle: 'Memory Verse', title: 'Stop Memory Verse?', body: 'It comes off your Home screen. Your progress is saved, and you can pick it back up anytime from Memorize.', yes: 'Stop Memory Verse', no: 'Cancel', onYes: () => mvSetStopped(true) });
+  }
+  window.mvConfirmStop = mvConfirmStop;
 
   function mvCleanRef(ref) { return String(ref || '').replace(/\s*(NIV|ESV|MSG)\s*$/i, ''); }
 
@@ -3631,7 +3647,7 @@
     let cta = 'Start';
     if (st) {
       const m = DEVOTIONAL_PLANS_MANIFEST[st.plan];
-      sub = `${st.memorized.length} of 52 memorized · ${m.title.replace(/^52 Bible Verses\s*/i, '52 Verses ')}`;
+      sub = `${st.stopped ? 'Stopped · ' : ''}${st.memorized.length} of 52 memorized · ${m.title.replace(/^52 Bible Verses\s*/i, '52 Verses ')}`;
       cta = 'Practice';
     }
     el.innerHTML = `
@@ -3691,7 +3707,7 @@
     body.querySelectorAll('.mv-pick').forEach(b => b.addEventListener('click', async () => {
       const key = b.dataset.plan;
       const prev = await dSafeGet(MV_KEY + '_' + key);
-      mvState = { plan: key, day: (prev && prev.day) || 1, memorized: (prev && prev.memorized) || [] };
+      mvState = { plan: key, day: (prev && prev.day) || 1, memorized: (prev && prev.memorized) || [], stopped: false };
       if (mvState.memorized.includes(mvState.day)) mvState.day = mvNextDay(mvState.day, mvState.memorized) || mvState.day;
       await mvSave();
       renderMemoryVerse();
@@ -3733,6 +3749,12 @@
         </span>
       </div>
       <div class="mv-count">${st.memorized.length} of 52 memorized</div>
+      <div class="mv-homerow" id="mvHomeRow">
+        <span>${st.stopped ? 'Memory Verse is stopped.' : 'Showing on your Home screen.'}</span>
+        ${st.stopped
+          ? '<button type="button" class="mv-link" id="mvResume" data-track="Memory Verse: Resume">Resume</button>'
+          : '<button type="button" class="mv-link" id="mvStop" data-track="Memory Verse: Stop">Stop</button>'}
+      </div>
       <div class="plan-bar-top" style="margin-top:12px;">
         <button type="button" id="mvPrev" data-track="Memory Verse: Previous verse" class="bible-navbtn" aria-label="Previous verse" ${day <= 1 ? 'style="visibility:hidden;"' : ''}>
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M15 18l-6-6 6-6"/></svg>
@@ -3752,6 +3774,8 @@
     `;
     document.getElementById('mvBack').addEventListener('click', mvLeave);
     document.getElementById('mvChangeSet').addEventListener('click', renderMemoryVersePicker);
+    const mvStopBtn = document.getElementById('mvStop'); if (mvStopBtn) mvStopBtn.addEventListener('click', mvConfirmStop);
+    const mvResumeBtn = document.getElementById('mvResume'); if (mvResumeBtn) mvResumeBtn.addEventListener('click', () => mvSetStopped(false));
     updateDevoReminderBell('memory_verse');
     document.getElementById('devoReminderBellBtn').addEventListener('click', () => openDevoReminderModal('memory_verse'));
     if (day > 1) document.getElementById('mvPrev').addEventListener('click', async () => { st.day = day - 1; await mvSave(); renderMemoryVerse(); });
@@ -12691,6 +12715,22 @@ async function renderDiscipleshipApp() {
     ccRefreshAll();
     ccOpenPlan(key);
   }
+  // Three-dot on the Home Memory Verse card: Open / Stop.
+  function mvOpenCardMenu() {
+    ccCloseOverlay('ccMenu');
+    const o = document.createElement('div');
+    o.className = 'cc-overlay cc-menu-wrap'; o.id = 'ccMenu';
+    o.innerHTML = `<div class="cc-menu">
+      <button type="button" data-m="open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span>Practice</span></button>
+      <button type="button" data-m="stop" class="danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9.5"/><line x1="7.5" y1="12" x2="16.5" y2="12"/></svg><span>Stop Memory Verse</span></button></div>`;
+    document.body.appendChild(o);
+    o.addEventListener('click', e => {
+      if (e.target === o) { ccCloseOverlay('ccMenu'); return; }
+      const b = e.target.closest('[data-m]'); if (!b) return;
+      ccCloseOverlay('ccMenu');
+      if (b.dataset.m === 'open') openMemoryVerse(); else mvConfirmStop();
+    });
+  }
   function ccOpenPlan(key) {
     if (key === 'mv') { openMemoryVerse(); return; }
     if (key === '365') {
@@ -12885,7 +12925,7 @@ async function renderDiscipleshipApp() {
   async function ccGetMemoryCard() {
     try {
       const st = await mvLoad();
-      if (!st) return null;
+      if (!st || st.stopped) return null;
       const day = st.memorized.includes(st.day) ? mvNextDay(st.day, st.memorized) : st.day;
       if (!day) return null;   // all 52 memorized: nothing left to continue
       const plan = await loadDevoPlanFull(st.plan);
@@ -12900,8 +12940,9 @@ async function renderDiscipleshipApp() {
     const esc = escapeHtmlMain;
     const pct = Math.round(c.pct * 100);
     if (c.kind === 'mv') {
-      return `<div class="cc-card" role="button" tabindex="0" data-cc-open="mv" data-track="Memory Verse: Today card">
-        <div class="cc-label">Memory Verse</div><div class="cc-title">${esc(c.title)}</div>
+      return `<div class="cc-card" role="button" tabindex="0" data-cc-open="mv" data-track="Memory Verse: Today card" style="position:relative;">
+        <button type="button" class="cc-more" data-cc-mvstop="1" data-track="Memory Verse: Stop menu" aria-label="Stop Memory Verse" style="position:absolute;top:14px;right:14px;"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+        <div class="cc-label">Memory Verse</div><div class="cc-title" style="padding-right:40px;">${esc(c.title)}</div>
         <div class="cc-sub">${esc(c.line)}</div><div class="cc-bar"><i style="width:${pct}%"></i></div>
         <span class="cc-btn">Practice</span></div>`;
     }
@@ -12960,6 +13001,7 @@ async function renderDiscipleshipApp() {
     const track = document.getElementById('ccTrack');
     if (!track) return;
     track.addEventListener('click', e => {
+      if (e.target.closest('[data-cc-mvstop]')) { e.stopPropagation(); mvOpenCardMenu(); return; }
       const el = e.target.closest('[data-cc-open]');
       if (el) ccOpenPlan(el.dataset.ccOpen);
     });
