@@ -11692,7 +11692,12 @@ async function renderDiscipleshipApp() {
     const translation = 'bsb';
 
     try {
-      const data = await window.fjBible.get(`${id} ${chapter}:${verse}`, translation);
+      // Fetch the WHOLE reference ("PSA 121:1-2" = both verses), not just its first verse,
+      // so the card always shows every verse the label says it does. If a range can't be
+      // read for some reason, fall back to the first verse rather than showing nothing.
+      let data;
+      try { data = await window.fjBible.get(`${id} ${chapterVersePart}`, translation); }
+      catch (rangeErr) { data = await window.fjBible.get(`${id} ${chapter}:${verse}`, translation); }
       const text = (data.text || '').trim().replace(/\s+/g, ' ');
       if (!text) throw new Error('empty verse text');
       textEl.textContent = `"${text}"`;
