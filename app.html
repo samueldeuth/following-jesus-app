@@ -2724,8 +2724,10 @@
     <!-- BIBLE -->
     <section class="screen" id="screen-bible">
       <div class="bible-mode-toggle">
-        <button type="button" class="bible-mode-btn active" id="modeBrowseBtn">Browse</button>
-        <button type="button" class="bible-mode-btn" id="modePlanBtn">365-Day Plan</button>
+        <button type="button" class="bible-mode-btn active" id="modeBrowseBtn">Read</button>
+        <button type="button" class="bible-mode-btn" id="modeMemorizeBtn" data-track="Memory Verse: Bible tab button">Memorize</button>
+        <button type="button" class="bible-mode-btn" id="modePlansTabBtn">Plans</button>
+        <button type="button" class="bible-mode-btn" id="modePlanBtn" hidden style="display:none">365-Day Plan</button>
       </div>
 
       <div id="planBar" class="plan-bar" style="display:none;">
@@ -2838,6 +2840,8 @@
     <!-- PLANS -->
     <section class="screen" id="screen-plans">
       <div class="stack" style="margin-top:18px;">
+        <div class="plans-lbl">Memorize</div>
+        <div class="mv-home" id="memoryVerseHomeCard" style="margin-bottom:16px;"></div>
         <div id="plansTabs" role="tablist">
           <button type="button" data-ptab="mine">My Plans</button>
           <button type="button" data-ptab="find" class="active">Find Plans</button>
@@ -2846,8 +2850,6 @@
         <div id="plansMine" hidden></div>
         <div id="plansDone" hidden></div>
         <div id="plansFind">
-        <div class="plans-lbl">Memorize</div>
-        <div class="mv-home" id="memoryVerseHomeCard"></div>
         <div class="plans-card">
         <div class="plan-cover-grid">
         <div class="plans-lbl" style="grid-column: span 2;">Read the Bible</div>
@@ -3568,6 +3570,7 @@
     await dSafeSet(MV_KEY, mvState);
     // also keep each set's own place, so switching sets never loses progress
     if (mvState) await dSafeSet(MV_KEY + '_' + mvState.plan, { day: mvState.day, memorized: mvState.memorized });
+    if (typeof ccRefreshAll === 'function') ccRefreshAll();   // keep the Home Memory Verse card current
   }
 
   function mvCleanRef(ref) { return String(ref || '').replace(/\s*(NIV|ESV|MSG)\s*$/i, ''); }
@@ -11570,6 +11573,15 @@ async function renderDiscipleshipApp() {
   // ---------- 365-Day Plan mode ----------
   const modeBrowseBtn = document.getElementById('modeBrowseBtn');
   const modePlanBtn = document.getElementById('modePlanBtn');
+  const modeMemorizeBtn = document.getElementById('modeMemorizeBtn');
+  const modePlansTabBtn = document.getElementById('modePlansTabBtn');
+  // Visible header is Read | Memorize | Plans. The 365-Day reading mode still
+  // runs underneath (modePlanBtn is kept hidden for the Plans tab / Home card to click);
+  // while it is on, the Plans pill shows as selected.
+  function syncBibleModeBtns() {
+    modeBrowseBtn.classList.toggle('active', bibleMode === 'browse');
+    modePlansTabBtn.classList.toggle('active', bibleMode === 'plan');
+  }
   const planBar = document.getElementById('planBar');
   const browseToolbar = document.getElementById('browseToolbar');
   const browseBottombar = document.getElementById('browseBottombar');
@@ -12437,6 +12449,7 @@ async function renderDiscipleshipApp() {
   modeBrowseBtn.addEventListener('click', () => {
     if (bibleMode === 'browse') return;
     bibleMode = 'browse';
+    syncBibleModeBtns();
     modeBrowseBtn.classList.add('active');
     modePlanBtn.classList.remove('active');
     planBar.style.display = 'none';
@@ -12448,6 +12461,7 @@ async function renderDiscipleshipApp() {
   modePlanBtn.addEventListener('click', async () => {
     if (bibleMode === 'plan') return;
     bibleMode = 'plan';
+    syncBibleModeBtns();
     modePlanBtn.classList.add('active');
     modeBrowseBtn.classList.remove('active');
     planBar.style.display = 'block';
@@ -12457,6 +12471,10 @@ async function renderDiscipleshipApp() {
     await loadPlanProgress();
     loadPlanDay();
   });
+
+  modeBrowseBtn.addEventListener('click', syncBibleModeBtns);
+  modeMemorizeBtn.addEventListener('click', () => { openMemoryVerse(); });
+  modePlansTabBtn.addEventListener('click', () => { goToTab('screen-plans'); });
 
   document.getElementById('planPrevDay').addEventListener('click', () => {
     if (planDay <= 1) return;
@@ -12674,6 +12692,7 @@ async function renderDiscipleshipApp() {
     ccOpenPlan(key);
   }
   function ccOpenPlan(key) {
+    if (key === 'mv') { openMemoryVerse(); return; }
     if (key === '365') {
       goToTab('screen-bible');
       if (bibleMode === 'plan') { planDay = computePlanDay(); loadPlanDay(); }
@@ -12863,9 +12882,29 @@ async function renderDiscipleshipApp() {
       return value;
     } catch (e) { return null; }
   }
+  async function ccGetMemoryCard() {
+    try {
+      const st = await mvLoad();
+      if (!st) return null;
+      const day = st.memorized.includes(st.day) ? mvNextDay(st.day, st.memorized) : st.day;
+      if (!day) return null;   // all 52 memorized: nothing left to continue
+      const plan = await loadDevoPlanFull(st.plan);
+      const e = plan.days[day - 1];
+      if (!e) return null;
+      const set = DEVOTIONAL_PLANS_MANIFEST[st.plan].title.replace(/^52 Bible Verses\s*/i, '52 Verses ');
+      return { key: 'mv', kind: 'mv', title: mvCleanRef(e.reference), pct: st.memorized.length / 52,
+        line: st.memorized.length + ' of 52 memorized \u00B7 ' + set };
+    } catch (err) { return null; }
+  }
   function ccCardHtml(c) {
     const esc = escapeHtmlMain;
     const pct = Math.round(c.pct * 100);
+    if (c.kind === 'mv') {
+      return `<div class="cc-card" role="button" tabindex="0" data-cc-open="mv" data-track="Memory Verse: Today card">
+        <div class="cc-label">Memory Verse</div><div class="cc-title">${esc(c.title)}</div>
+        <div class="cc-sub">${esc(c.line)}</div><div class="cc-bar"><i style="width:${pct}%"></i></div>
+        <span class="cc-btn">Practice</span></div>`;
+    }
     if (c.kind === 'course') {
       return `<a class="cc-card" href="${CC_COURSE_URL}" target="_blank" rel="noopener">
         <div class="cc-label">Continue the course</div><div class="cc-title">${esc(c.title)}</div>
@@ -12909,10 +12948,13 @@ async function renderDiscipleshipApp() {
     try { all = await ccLoadAll(); } catch (e) {}
     if (seq !== ccRenderSeq) return;
     const plans = all.filter(c => c.status === 'active').sort(ccByRecent);
-    ccDraw(plans);
+    const mv = await ccGetMemoryCard();
+    if (seq !== ccRenderSeq) return;
+    const base = mv ? plans.concat([mv]) : plans;
+    ccDraw(base);
     const course = await ccGetCourseCard();
     if (seq !== ccRenderSeq || !course) return;
-    ccDraw(plans.concat([course]));
+    ccDraw(base.concat([course]));
   }
   (function ccWireHome() {
     const track = document.getElementById('ccTrack');
