@@ -5,79 +5,192 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Thank You | Free Books from Following Jesus</title>
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#0a0a0a">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Poppins:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0a0a0a;--card:#161616;--line:#2a2a2a;--text:#f3f1ec;--mute:#a9a69e;--gold:#d9b25f;--gold-d:#b8923f}
+:root{--black:#0a0a0a;--white:#fff;--ember:#c89b3c;--ember-d:#8a6a1f;--grey-bg:#f3f3f1;--line:#e2e2de;--ink-soft:#5b5b57;--display:'Archivo',system-ui,sans-serif;--body:'Poppins',system-ui,sans-serif;--gutter:clamp(18px,4vw,48px)}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
-.wrap{max-width:880px;margin:0 auto;padding:0 20px}
-header{padding:22px 0;border-bottom:1px solid var(--line)}
-header a{color:var(--text);text-decoration:none;font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:.9rem}
-.hero{padding:48px 0 28px;text-align:center}
-.hero h1{font:700 clamp(2rem,6vw,3rem)/1.15 Georgia,"Times New Roman",serif;margin:0 0 14px}
-.hero p{color:var(--mute);max-width:620px;margin:0 auto 22px;font-size:1.08rem}
-.btn{display:inline-block;background:var(--gold);color:#16120a;font-weight:700;text-decoration:none;padding:12px 22px;border-radius:999px;font-size:.98rem;border:0;cursor:pointer}
-.btn:hover{background:var(--gold-d)}
-.btn.ghost{background:transparent;color:var(--text);border:1px solid #444}
-.btn.ghost:hover{border-color:var(--gold);color:var(--gold)}
-.sub{display:block;color:var(--mute);font-size:.85rem;margin-top:10px}
-h2{font:700 1.6rem/1.2 Georgia,serif;margin:44px 0 8px}
-.lead{color:var(--mute);margin:0 0 20px}
+body{margin:0;font-family:var(--body);font-weight:300;color:var(--black);background:#fff;-webkit-font-smoothing:antialiased;line-height:1.6;font-size:16px}
+img{max-width:100%;display:block}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--ember);outline-offset:3px}
+.wrap{max-width:1000px;margin:0 auto;padding:0 var(--gutter)}
+.btn{display:inline-block;font-family:var(--display);font-weight:700;font-size:15px;text-decoration:none;padding:13px 22px;border-radius:4px;border:2px solid transparent;cursor:pointer;background:var(--black);color:#fff;transition:transform .15s ease,background .15s ease,color .15s ease}
+.btn:hover{background:#2a2a2a}
+.btn:active{transform:scale(.97)}
+.btn.line{background:transparent;border-color:var(--black);color:var(--black)}
+.btn.line:hover{background:var(--black);color:#fff}
+.btn[disabled]{opacity:.6;cursor:default}
+
+/* Header (matches followingjesus.com) */
+.site-header{background:#fff;border-bottom:1px solid var(--line)}
+.site-header .wrap{display:flex;align-items:center;height:64px}
+.logo{background:var(--black);color:#fff;font-family:var(--display);font-weight:700;letter-spacing:.14em;font-size:12.5px;padding:9px 14px;text-decoration:none;text-transform:uppercase;white-space:nowrap}
+
+.hero{padding:56px 0 20px;text-align:center}
+.hero h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,5vw,52px);line-height:1.08;letter-spacing:-.01em;margin:0 auto 16px;max-width:15em}
+.hero p{color:var(--ink-soft);max-width:34em;margin:0 auto;font-size:clamp(16px,1.6vw,18px)}
+h2{font-family:var(--display);font-weight:800;font-size:clamp(24px,3vw,32px);line-height:1.15;letter-spacing:-.01em;margin:0 0 8px}
+.lead{color:var(--ink-soft);margin:0 0 24px}
+section.block{padding:40px 0}
+section.grey{background:var(--grey-bg)}
+
 .books{display:grid;gap:16px}
-.book{display:flex;gap:18px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
-.book img{width:110px;height:auto;align-self:flex-start;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.5)}
-.bi h3{margin:0;font-size:1.15rem;line-height:1.25}
-.by{color:var(--gold);font-size:.85rem;margin:2px 0 8px}
-.bi p{margin:0 0 12px;color:var(--mute);font-size:.95rem}
-.next{display:grid;gap:16px;grid-template-columns:1fr}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px}
-.panel h3{margin:0 0 6px;font-size:1.2rem}
-.panel p{margin:0 0 14px;color:var(--mute);font-size:.97rem}
+.book{display:flex;gap:18px;background:#fff;border:1px solid var(--line);border-radius:4px;padding:16px}
+.book img{width:110px;height:auto;align-self:flex-start;border:1px solid var(--line)}
+.bi h3{margin:0;font-family:var(--display);font-weight:700;font-size:1.1rem;line-height:1.25}
+.by{color:var(--ember-d);font-size:.85rem;font-weight:500;margin:2px 0 8px}
+.bi p{margin:0 0 12px;color:var(--ink-soft);font-size:.95rem}
+
+/* Refer a pastor */
+.refer{display:grid;gap:28px}
+.refer-copy p{color:var(--ink-soft);margin:0 0 10px}
+form.refer-form{background:#fff;border:1px solid var(--line);border-radius:4px;padding:22px;display:grid;gap:14px}
+.f2{display:grid;gap:14px}
+label{display:block;font-weight:500;font-size:.9rem;margin-bottom:4px}
+label small{font-weight:300;color:var(--ink-soft)}
+input,textarea{width:100%;font:inherit;font-size:16px;color:var(--black);background:#fff;border:1.5px solid #cfcfca;border-radius:4px;padding:11px 12px}
+input:focus,textarea:focus{outline:none;border-color:var(--black);box-shadow:0 0 0 3px rgba(200,155,60,.35)}
+textarea{min-height:84px;resize:vertical}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.msg{font-size:.95rem;margin:0}
+.msg.err{color:#a11d1d}
+.thanks{background:#fff;border:1px solid var(--line);border-radius:4px;padding:28px;text-align:left}
+.thanks h3{font-family:var(--display);font-weight:800;font-size:1.4rem;margin:0 0 6px}
+.thanks p{margin:0;color:var(--ink-soft)}
+
+.next{display:grid;gap:16px}
+.panel{background:var(--grey-bg);border-radius:4px;padding:22px}
+.pv{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;border-radius:4px;margin:0 0 16px}
+.panel h3{margin:0 0 6px;font-family:var(--display);font-weight:700;font-size:1.2rem}
+.panel p{margin:0 0 14px;color:var(--ink-soft);font-size:.97rem}
 .row{display:flex;flex-wrap:wrap;gap:10px}
-.note{text-align:center;color:var(--mute);font-size:.92rem;margin:44px 0 0;padding:26px 0 40px;border-top:1px solid var(--line)}
-.note a{color:var(--gold)}
-@media(min-width:720px){.books{grid-template-columns:1fr 1fr}.book{flex-direction:column}.book img{width:100%;max-width:200px}.next{grid-template-columns:1fr 1fr}}
+
+footer{background:var(--black);color:#fff;padding:32px 0;margin-top:40px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:center;justify-content:space-between}
+footer .logo{font-size:11px;padding:7px 11px;border:1px solid #333}
+footer p{margin:0;color:rgba(255,255,255,.78);font-size:.92rem}
+footer a{color:var(--ember)}
+
+@media(min-width:720px){
+  .books{grid-template-columns:1fr 1fr}
+  .book{flex-direction:column}
+  .book img{width:100%;max-width:200px}
+  .refer{grid-template-columns:1fr 1.2fr;align-items:start}
+  .f2{grid-template-columns:1fr 1fr}
+  .next{grid-template-columns:1fr 1fr}
+}
 </style>
 </head>
 <body>
-<header><div class="wrap"><a href="https://followingjesus.com/">Following Jesus</a></div></header>
-<main class="wrap">
-<section class="hero">
+<header class="site-header"><div class="wrap"><a class="logo" href="https://followingjesus.com/">Following Jesus</a></div></header>
+<main>
+<section class="hero"><div class="wrap">
 <h1>Thank you for connecting us with your pastor.</h1>
-<p>As our gift to you, download any or all of these four books free. Share them with your family, your small group, or your church.</p>
-<a class="btn" href="/downloads/Following-Jesus-Free-Books-Bundle.pdf" download>Download all four books (one PDF)</a>
-<span class="sub">Or choose individual books below.</span>
-</section>
+<p>As our gift to you, download all four of these books free. Share them with your family, your small group, or your church.</p>
+</div></section>
 
+<section class="block"><div class="wrap">
 <h2>Your free books</h2>
 <p class="lead">Each one is a PDF. Save it to your phone or computer to read any time.</p>
 <div class="books">
-<article class="book"><img src="/downloads/covers/12-Marriage-Safeguards.jpg" alt="Cover of 12 Marriage Safeguards" width="220" height="340" loading="lazy"><div class="bi"><h3>12 Marriage Safeguards</h3><div class="by">Samuel &amp; Katie Deuth</div><p>Twelve safeguards that build a healthy, passionate, and lasting marriage. Includes the Biblical Dating Guide.</p><a class="btn" href="/downloads/12-Marriage-Safeguards.pdf" download>Download PDF</a></div></article>
-<article class="book"><img src="/downloads/covers/The-Power-To-Create-Wealth.jpg" alt="Cover of The Power to Create Wealth" width="220" height="340" loading="lazy"><div class="bi"><h3>The Power to Create Wealth</h3><div class="by">Samuel Deuth</div><p>31 biblical principles on prosperity, generosity, contentment, and creating wealth.</p><a class="btn" href="/downloads/The-Power-To-Create-Wealth.pdf" download>Download PDF</a></div></article>
-<article class="book"><img src="/downloads/covers/The-Process-of-Promotion.jpg" alt="Cover of The Process of Promotion" width="220" height="340" loading="lazy"><div class="bi"><h3>The Process of Promotion</h3><div class="by">Samuel Deuth</div><p>Nine ways God uses obscurity to prepare you for your purpose.</p><a class="btn" href="/downloads/The-Process-of-Promotion.pdf" download>Download PDF</a></div></article>
-<article class="book"><img src="/downloads/covers/7-Biblical-Principles-on-Parenting.jpg" alt="Cover of 7 Biblical Principles on Parenting" width="220" height="340" loading="lazy"><div class="bi"><h3>7 Biblical Principles on Parenting</h3><div class="by">Samuel Deuth</div><p>What the Bible says about raising Godly children who are healthy, happy, and successful.</p><a class="btn" href="/downloads/7-Biblical-Principles-on-Parenting.pdf" download>Download PDF</a></div></article>
+<article class="book"><img src="/downloads/covers/12-Marriage-Safeguards.jpg" alt="Cover of 12 Marriage Safeguards" width="620" height="992" loading="lazy"><div class="bi"><h3>12 Marriage Safeguards</h3><div class="by">Samuel &amp; Katie Deuth</div><p>Twelve safeguards that build a healthy, passionate, and lasting marriage. Includes the Biblical Dating Guide.</p><a class="btn" href="/downloads/12-Marriage-Safeguards.pdf" download>Download PDF (4.3 MB)</a></div></article>
+<article class="book"><img src="/downloads/covers/The-Power-To-Create-Wealth.jpg" alt="Cover of The Power to Create Wealth" width="620" height="992" loading="lazy"><div class="bi"><h3>The Power to Create Wealth</h3><div class="by">Samuel Deuth</div><p>31 biblical principles on prosperity, generosity, contentment, and creating wealth.</p><a class="btn" href="/downloads/The-Power-To-Create-Wealth.pdf" download>Download PDF (2.3 MB)</a></div></article>
+<article class="book"><img src="/downloads/covers/The-Process-of-Promotion.jpg" alt="Cover of The Process of Promotion" width="620" height="992" loading="lazy"><div class="bi"><h3>The Process of Promotion</h3><div class="by">Samuel Deuth</div><p>Nine ways God uses obscurity to prepare you for your purpose.</p><a class="btn" href="/downloads/The-Process-of-Promotion.pdf" download>Download PDF (2.0 MB)</a></div></article>
+<article class="book"><img src="/downloads/covers/7-Biblical-Principles-on-Parenting.jpg" alt="Cover of 7 Biblical Principles on Parenting" width="620" height="992" loading="lazy"><div class="bi"><h3>7 Biblical Principles on Parenting</h3><div class="by">Samuel Deuth</div><p>What the Bible says about raising Godly children who are healthy, happy, and successful.</p><a class="btn" href="/downloads/7-Biblical-Principles-on-Parenting.pdf" download>Download PDF (2.4 MB)</a></div></article>
 </div>
+</div></section>
 
-<h2>Keep growing with Following Jesus</h2>
+<section class="block grey" id="refer"><div class="wrap refer">
+<div class="refer-copy">
+<h2>Know another pastor?</h2>
+<p>Most of the churches we serve found us through a pastor who told them about it. If another pastor or church comes to mind, tell us who.</p>
+<p>Samuel will reach out personally. It is never an automated email, and we only use these details to say hello.</p>
+</div>
+<div id="referWrap">
+<form class="refer-form" id="referForm" novalidate>
+<div class="f2">
+<div><label for="pName">Pastor's name</label><input id="pName" name="pastorName" autocomplete="off" required maxlength="120"></div>
+<div><label for="pChurch">Church <small>(optional)</small></label><input id="pChurch" name="church" autocomplete="off" maxlength="160"></div>
+</div>
+<div><label for="pEmail">Pastor's email</label><input id="pEmail" name="pastorEmail" type="email" inputmode="email" autocomplete="off" required maxlength="200"></div>
+<div class="f2">
+<div><label for="yName">Your name <small>(optional)</small></label><input id="yName" name="referrerName" autocomplete="name" maxlength="120"></div>
+<div><label for="yEmail">Your email <small>(optional)</small></label><input id="yEmail" name="referrerEmail" type="email" inputmode="email" autocomplete="email" maxlength="200"></div>
+</div>
+<div><label for="note">Anything we should know? <small>(optional)</small></label><textarea id="note" name="note" maxlength="1000"></textarea></div>
+<div class="hp" aria-hidden="true"><label for="website">Leave this field empty</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
+<p class="msg err" id="referErr" role="alert" hidden></p>
+<div><button class="btn" type="submit" id="referBtn">Send to Samuel</button></div>
+</form>
+</div>
+</div></section>
+
+<section class="block"><div class="wrap">
+<h2>Keep growing your faith</h2>
 <p class="lead">Two more things we would love for you to have.</p>
 <div class="next">
 <div class="panel">
+<img class="pv" src="/assets/share-your-faith-banner.jpg" alt="Friends talking together, from the Following Jesus app" width="1100" height="500" loading="lazy">
 <h3>Get the Following Jesus app</h3>
 <p>Daily Bible reading, devotions, and tools to help you follow Jesus. Free on your phone.</p>
 <div class="row">
 <a class="btn" href="https://apps.apple.com/app/id1460179217">App Store</a>
 <a class="btn" href="https://play.google.com/store/apps/details?id=com.customchurchapps.appazzfb19a">Google Play</a>
-<a class="btn ghost" href="https://followingjesus.com/app">Open in browser</a>
+<a class="btn line" href="https://followingjesus.com/app">Open in browser</a>
 </div>
 </div>
 <div class="panel">
+<img class="pv" src="/assets/free-course-banner.jpg" alt="Samuel teaching in the free Following Jesus course" width="700" height="393" loading="lazy">
 <h3>Start the Following Jesus course</h3>
 <p>A free online course to help you take your next steps in following Jesus, at your own pace.</p>
 <div class="row"><a class="btn" href="https://followingjesus.com/course">Start the free course</a></div>
 </div>
 </div>
-
-<p class="note">Questions? Email <a href="mailto:info@followingjesusbook.com">info@followingjesusbook.com</a>.<br>Leading a church? <a href="https://followingjesusbook.com/">See resources for your church</a>.</p>
+</div></section>
 </main>
+
+<footer><div class="wrap">
+<span class="logo">Following Jesus</span>
+<p>Questions? Email <a href="mailto:info@followingjesusbook.com">info@followingjesusbook.com</a>. Leading a church? <a href="https://followingjesusbook.com/">See resources for your church</a>.</p>
+</div></footer>
+
+<script>
+(function(){
+  var form = document.getElementById('referForm');
+  var err = document.getElementById('referErr');
+  var btn = document.getElementById('referBtn');
+  function showErr(t){ err.textContent = t; err.hidden = false; }
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    err.hidden = true;
+    var d = {};
+    new FormData(form).forEach(function(v, k){ d[k] = String(v).trim(); });
+    if(!d.pastorName){ showErr("Please add the pastor's name."); return; }
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.pastorEmail || '')){ showErr("Please add a valid email for the pastor."); return; }
+    if(d.referrerEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.referrerEmail)){ showErr("Your email doesn't look right. You can also leave it blank."); return; }
+    btn.disabled = true; btn.textContent = 'Sending…';
+    fetch('/.netlify/functions/submit-pastor-referral', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(d)
+    }).then(function(res){
+      if(!res.ok) throw new Error('bad status');
+      document.getElementById('referWrap').innerHTML =
+        '<div class="thanks"><h3>Thank you.</h3><p>We got it. Samuel will reach out to ' +
+        d.pastorName.replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }) +
+        ' personally.</p></div>';
+    }).catch(function(){
+      btn.disabled = false; btn.textContent = 'Send to Samuel';
+      showErr("Something went wrong and it didn't send. Please try again, or email info@followingjesusbook.com.");
+    });
+  });
+})();
+</script>
 </body>
 </html>
