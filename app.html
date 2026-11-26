@@ -2142,6 +2142,11 @@
 #discipleModal .prof2 .prof-chev { flex:none; width:20px; height:20px; color:#9a988f; }
 #discipleModal .prof2 .prof-lbl { margin:26px 4px 10px; font-size:12px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:#8a6414; }
 #discipleModal .prof2 .prof-lbl .course-chevron { color:#8a6414; }
+#discipleModal .prof2 .prof-sv { cursor:pointer; align-items:flex-start; }
+#discipleModal .prof2 .prof-sv .prof-t { font-size:14px; color:#8a6414; }
+#discipleModal .prof2 .prof-sv .prof-s { font-family:var(--font-serif); font-size:15px; color:var(--black); line-height:1.45; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+#discipleModal .prof2 .prof-sv-more .prof-t { font-size:14px; color:var(--black); }
+#discipleModal .prof2 .prof-sv-empty { cursor:default; }
 #discipleModal .prof2 .prof-hero { display:flex; align-items:center; gap:14px; width:100%; margin:12px 0 0; padding:20px; border:0; border-radius:20px; background:#0c0c0d; color:#fff; font-family:inherit; text-align:left; cursor:pointer; box-sizing:border-box; }
 #discipleModal .prof2 .prof-hero-tx { flex:1; display:block; }
 #discipleModal .prof2 .prof-hero-k { display:block; font-size:12px; font-weight:700; color:#c89b3c; }
@@ -2401,7 +2406,7 @@
    directly on the screen's own background, not inside .bible-reader
    (already its own light card, bumped to pure white for the same
    contrast reason as .plans-card above). */
-#screen-bible .bible-reader { background: var(--white); }
+#screen-bible .bible-reader { background: var(--white); margin-left: 0; margin-right: 0; border-radius: 0; padding-left: 14px; padding-right: 14px; }
 
 #screen-bible .bible-mode-toggle { background: rgba(10,10,10,0.06); }
 #screen-bible .bible-mode-btn { color: rgba(10,10,10,0.55); }
@@ -4888,6 +4893,9 @@
       <!-- Spiritual Gifts results, filled in by fillProfileGifts() after render -->
       <div id="profileGiftsSlot"></div>
 
+      <!-- Saved verses, filled in by fillProfileSaved() after render -->
+      <div id="profileSavedSlot"></div>
+
       <div class="prof-lbl">Notifications</div>
       <div class="prof-grp">
         <button type="button" class="prof-row prof-sw-row notif-toggle ${chatNotifsEnabled ? 'on' : ''}" id="chatNotifToggle">
@@ -4938,6 +4946,7 @@
     `;
     document.getElementById('goToDiscipleshipBtn').onclick = () => { topView = 'hub'; renderDiscipleStep(); };
     fillProfileGifts(account);
+    if (typeof fillProfileSaved === 'function') fillProfileSaved();
     document.getElementById('profEditBtn').onclick = () => renderProfileSettings(true);
     document.getElementById('chatNotifToggle').onclick = async () => {
       const btn = document.getElementById('chatNotifToggle');
@@ -11891,25 +11900,47 @@ async function renderDiscipleshipApp() {
     svSync();
   }
   function svCloseSheet() { svSheet.classList.remove('show'); }
+  async function svOpenInBible(r) {
+    svCloseSheet();
+    if (bibleMode !== 'browse') modeBrowseBtn.click();
+    bookSelect.value = r.b; populateChapters(); chapterSelect.value = String(r.c);
+    await loadChapter();
+    vsClear();
+    for (let v = r.s; v <= r.e; v++) {
+      const el = reader.querySelector('.vs[data-b="' + r.b + '"][data-c="' + r.c + '"][data-v="' + v + '"]');
+      if (el) { el.classList.add('sel'); vsSel.push(el); }
+    }
+    if (vsSel[0]) vsSel[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
+    vsRender();
+  }
+  // Profile > Saved verses: the latest few, tap one to open it in the Bible.
+  async function fillProfileSaved() {
+    const slot = document.getElementById('profileSavedSlot'); if (!slot) return;
+    const draw = () => {
+      const sl = document.getElementById('profileSavedSlot'); if (!sl) return;
+      const n = svList.length, shown = svList.slice(0, 3);
+      const rows = n ? shown.map((r, i) => '<button type="button" class="prof-row prof-sv" data-i="' + i + '" data-track="Profile: Open saved verse"><span class="prof-tx"><span class="prof-t">' + escVs(svRefLabel(r)) + '</span><span class="prof-s" id="profSv' + i + '">Loading…</span></span></button>').join('') +
+          (n > 3 ? '<button type="button" class="prof-row prof-sv prof-sv-more" data-all="1" data-track="Profile: See all saved verses"><span class="prof-tx"><span class="prof-t">See all ' + n + ' saved verses</span></span></button>' : '')
+        : '<div class="prof-row prof-sv-empty"><span class="prof-tx"><span class="prof-s" style="font-family:inherit;font-size:13px;color:#6d6b66">Tap a verse in the Bible, then the bookmark, to keep it here.</span></span></div>';
+      sl.innerHTML = '<div class="prof-lbl">Saved verses' + (n ? ' — ' + n : '') + '</div><div class="prof-grp">' + rows + '</div>';
+      shown.forEach((r, i) => svVerseText(r).then(t => { const el = document.getElementById('profSv' + i); if (el) el.textContent = t; })
+        .catch(() => { const el = document.getElementById('profSv' + i); if (el) el.textContent = 'Couldn’t load this verse right now.'; }));
+      sl.querySelectorAll('.prof-sv').forEach(btn => btn.addEventListener('click', () => {
+        if (btn.dataset.all) { goToTab('screen-bible'); svOpenSheet(); return; }
+        const r = svList[+btn.dataset.i]; if (!r) return;
+        goToTab('screen-bible'); svOpenInBible(r);
+      }));
+    };
+    await svLoad(); draw();
+    await svSync(); draw();
+  }
   document.getElementById('svClose').addEventListener('click', svCloseSheet);
   document.getElementById('svOpenBtn').addEventListener('click', svOpenSheet);
   document.getElementById('svListBody').addEventListener('click', async e => {
     const item = e.target.closest('.sv-item'); if (!item) return;
     const r = svList[+item.dataset.i]; if (!r) return;
     if (e.target.closest('.sv-rm')) { await svWrite([r], false); svRenderList(); return; }
-    if (e.target.closest('.sv-go')) {
-      svCloseSheet();
-      if (bibleMode !== 'browse') modeBrowseBtn.click();
-      bookSelect.value = r.b; populateChapters(); chapterSelect.value = String(r.c);
-      await loadChapter();
-      vsClear();
-      for (let v = r.s; v <= r.e; v++) {
-        const el = reader.querySelector('.vs[data-b="' + r.b + '"][data-c="' + r.c + '"][data-v="' + v + '"]');
-        if (el) { el.classList.add('sel'); vsSel.push(el); }
-      }
-      if (vsSel[0]) vsSel[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
-      vsRender();
-    }
+    if (e.target.closest('.sv-go')) svOpenInBible(r);
   });
   document.getElementById('vsSave').addEventListener('click', async () => {
     const runs = vsRuns(); if (!runs.length) return;
