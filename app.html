@@ -2277,6 +2277,11 @@
 #videosModal .vm-hero .vm-sub { color: rgba(255,255,255,0.8); margin: 0; }
 #videosModal .vm-title { font-family: var(--font-serif, Georgia, serif); font-size: 26px; font-weight: 700; color: var(--black); margin: 6px 22px 4px; }
 #videosModal .vm-sub { font-size: 14px; line-height: 1.5; color: rgba(10,10,10,0.6); margin: 0 22px 14px; }
+#videosModal .vm-search { position: relative; margin: 0 22px 12px; }
+#videosModal .vm-search input { width: 100%; box-sizing: border-box; border: 1px solid rgba(10,10,10,0.18); background: #fff; color: var(--black); border-radius: 999px; padding: 11px 40px 11px 16px; font: inherit; font-size: 16px; -webkit-appearance: none; appearance: none; }
+#videosModal .vm-search input::-webkit-search-cancel-button { display: none; }
+#videosModal .vm-search input:focus { outline: none; border-color: var(--black); }
+#videosModal .vm-search button { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border: 0; border-radius: 50%; background: rgba(10,10,10,0.08); color: var(--black); font-size: 15px; line-height: 1; cursor: pointer; }
 #videosModal .vm-chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 22px 14px; scrollbar-width: none; }
 #videosModal .vm-chips::-webkit-scrollbar { display: none; }
 #videosModal .vm-chip { flex: none; border: 1px solid rgba(10,10,10,0.15); background: #fff; color: var(--black); border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
@@ -11072,7 +11077,7 @@ async function renderDiscipleshipApp() {
   // Netlify function. The list of churches lives in that function.
   const videosModal = document.getElementById('videosModal');
   const videosBody = document.getElementById('videosBody');
-  let vmData = null, vmChurch = 'all', vmPlayingId = null;
+  let vmData = null, vmChurch = 'all', vmPlayingId = null, vmQuery = '';
   async function vmLoad() {
     if (vmData) return vmData;
     const r = await fetch('/.netlify/functions/video-messages');
@@ -11115,8 +11120,10 @@ async function renderDiscipleshipApp() {
   function vmRenderList() {
     const el = document.getElementById('vmList'); if (!el || !vmData) return;
     const names = {}; (vmData.churches || []).forEach(c => { names[c.id] = c.name; });
-    const vids = vmData.videos.filter(v => vmChurch === 'all' || v.church === vmChurch);
-    if (!vids.length) { el.innerHTML = '<div class="vm-note">No messages to show yet.</div>'; return; }
+    const words = vmQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    const vids = vmData.videos.filter(v => (vmChurch === 'all' || v.church === vmChurch) &&
+      (!words.length || (function () { const hay = (v.title + ' ' + (names[v.church] || '') + ' ' + (v.d || '')).toLowerCase(); return words.every(w => hay.indexOf(w) !== -1); })()));
+    if (!vids.length) { el.innerHTML = '<div class="vm-note">' + (words.length ? 'No messages match “' + escapeHtmlMain(vmQuery.trim()) + '”. Try a preacher’s name or a topic, or pick All.' : 'No messages to show yet.') + '</div>'; return; }
     el.innerHTML = vids.map(v => '<button type="button" class="vm-card' + (v.id === vmPlayingId ? ' playing' : '') + '" data-id="' + escapeHtmlMain(v.id) + '" data-track="Videos: Play video">' +
       '<div class="vm-thumb" style="background-image:url(\'https://i.ytimg.com/vi/' + encodeURIComponent(v.id) + '/mqdefault.jpg\')"></div>' +
       '<div class="vm-meta"><p class="vm-vtitle">' + escapeHtmlMain(v.title) + '</p><div class="vm-by">' + escapeHtmlMain(names[v.church] || '') + ' <span>· ' + vmAgo(v.published) + '</span></div></div></button>').join('');
@@ -11133,11 +11140,15 @@ async function renderDiscipleshipApp() {
     vmRenderChips(); vmRenderList();
   }
   function openVideos(skipHistoryPush) {
-    vmPlayingId = null;
+    vmPlayingId = null; vmQuery = '';
     videosBody.innerHTML = '<div class="article-back-row"><a class="back-link" id="vmBack">← Home</a></div><div class="vm-wrap">' +
-      '<div class="vm-hero"><div class="vm-title">Video Messages</div><p class="vm-sub">Recent preaching from churches we trust. Pick a church to filter.</p></div>' +
-      '<div class="vm-player" id="vmPlayer" hidden></div><div class="vm-chips" id="vmChips"></div><div class="vm-list" id="vmList"></div></div>';
+      '<div class="vm-hero"><div class="vm-title">Video Messages</div><p class="vm-sub">Recent preaching from churches we trust. Search by preacher or topic, or pick a church.</p></div>' +
+      '<div class="vm-player" id="vmPlayer" hidden></div><div class="vm-search"><input type="search" id="vmSearch" placeholder="Search preacher or topic" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"><button type="button" id="vmSearchClear" hidden aria-label="Clear search">✕</button></div><div class="vm-chips" id="vmChips"></div><div class="vm-list" id="vmList"></div></div>';
     document.getElementById('vmBack').addEventListener('click', () => goToTab('screen-today'));
+    const vmIn = document.getElementById('vmSearch'), vmClr = document.getElementById('vmSearchClear');
+    vmIn.addEventListener('input', () => { vmQuery = vmIn.value; vmClr.hidden = !vmQuery; vmRenderList(); });
+    vmIn.addEventListener('keydown', e => { if (e.key === 'Enter') vmIn.blur(); });
+    vmClr.addEventListener('click', () => { vmIn.value = ''; vmQuery = ''; vmClr.hidden = true; vmRenderList(); vmIn.focus(); });
     document.getElementById('vmChips').addEventListener('click', e => {
       const b = e.target.closest('.vm-chip'); if (!b) return;
       vmChurch = b.dataset.c; vmRenderChips(); vmRenderList();
