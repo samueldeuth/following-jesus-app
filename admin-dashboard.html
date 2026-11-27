@@ -8136,6 +8136,14 @@ init();
 <style>
 .fj-sec-head, .fj-sec-bar { background: #111 !important; color: #fff !important; padding: 10px 14px !important; border-radius: 8px; margin: 0 0 10px !important; }
 .fj-sec-head:not(.fj-sec-open) { margin-bottom: 0 !important; }
+/* Every section bar is the same width and the bars stack with an even gap */
+.card:has(> .fj-sec-head), .card:has(.fj-sec-bar) { max-width: 680px !important; width: 100%; box-sizing: border-box; margin-bottom: 10px !important; }
+details.gifts-sec > summary { background:#111 !important; color:#fff !important; padding:10px 14px !important; border-radius:8px; margin:0 0 10px !important; font-size:16px !important; max-width:680px; box-sizing:border-box; }
+details.gifts-sec > summary span { color:rgba(255,255,255,.7) !important; }
+details.gifts-sec:not([open]) > summary { margin-bottom:10px !important; }
+h3.fj-sec-head { max-width: 680px; width: 100%; box-sizing: border-box; }
+h3.fj-sec-head:not(.fj-sec-open) { margin-bottom: 10px !important; }
+.fj-sec-head, .fj-sec-bar { box-sizing: border-box; }
 .fj-sec-bar #rd-toggle { color: #fff !important; }
 .fj-sec-bar #rd-toggle[aria-expanded="false"] { }
 .fj-sec-head .info-icon-btn, .fj-sec-bar .info-icon-btn { border-color: rgba(255,255,255,.65); color: #fff; }
@@ -8217,7 +8225,7 @@ init();
     content.querySelectorAll('h3').forEach(function(h){
       if (h.closest('.card') || h.closest('.summary-card') || h.closest('table') || seen.has(h)) return;
       if (!h.parentElement) return;
-      out.push({ kind:'h3', head: h, container: h.parentElement });
+      out.push({ kind:'h3', head: h, container: h.parentElement, group: /^Push Notifications/.test(titleOf(h)) });
     });
     return out;
   }
@@ -8226,7 +8234,7 @@ init();
     while (n) {
       if (sec.kind === 'h3') {
         if (isHeading(n)) break;
-        if (n.classList.contains('card')) { var hh = n.querySelector(':scope > h3, :scope > h4, :scope > div > h3'); if (hh) break; }
+        if (n.classList.contains('card')) { var hh = n.querySelector(':scope > h3, :scope > h4, :scope > div > h3'); if (hh && !(sec.group && !/^App Taps/.test(titleOf(hh)))) break; }
         if (n.classList.contains('back-link')) break;
       }
       body.push(n); n = n.nextElementSibling;
