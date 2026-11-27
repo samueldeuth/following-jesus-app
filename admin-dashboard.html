@@ -8133,5 +8133,157 @@ async function renderStudentGiftsPanel(studentId){
 
 init();
 </script>
+<style>
+.fj-sec-head { cursor: pointer; user-select: none; -webkit-user-select: none; display: flex; align-items: center; gap: 8px; }
+.fj-sec-chev { display: inline-block; transition: transform .15s; font-size: 13px; color: var(--ink-soft); flex: 0 0 auto; }
+.fj-sec-head:not(.fj-sec-open) .fj-sec-chev { transform: rotate(-90deg); }
+.fj-sec-hidden { display: none !important; }
+.fj-sec-pin { margin-left: auto; flex: 0 0 auto; border: 1px solid var(--line); background: var(--bg-soft); color: var(--ink-soft); border-radius: 999px; padding: 3px 10px; font-size: 11.5px; font-weight: 500; font-family: inherit; cursor: pointer; line-height: 1.4; }
+.fj-sec-pin.on { background: #fff6dc; border-color: #d9b44a; color: #7a5b00; }
+@media print { .fj-sec-pin, .fj-sec-chev { display: none !important; } .fj-sec-hidden { display: block !important; } }
+</style>
+<script>
+// Collapsible sections on every admin page. Click a section's title to open or close it now.
+// The pill on the right sets whether that section STARTS open or closed next time. Saved in this browser.
+(function(){
+  var STORE = 'fj_admin_section_defaults';
+  var defaults = {}; try { defaults = JSON.parse(localStorage.getItem(STORE) || '{}') || {}; } catch(e) {}
+  var session = {}, sessionPage = null;
+  var live = [], pins = [], remoteTimer = null, remoteReady = false;
+  function saveLocal(){ try { localStorage.setItem(STORE, JSON.stringify(defaults)); } catch(e) {} }
+  // Also saved to the signed-in admin's account (table admin_ui_prefs) so phone and laptop match.
+  function save(){ saveLocal(); if (remoteReady) { clearTimeout(remoteTimer); remoteTimer = setTimeout(pushRemote, 600); } }
+  async function pushRemote(){
+    try {
+      var sb = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null); if (!sb) return;
+      var u = (await sb.auth.getUser()).data.user; if (!u) return;
+      var cur = await sb.from('admin_ui_prefs').select('prefs').eq('user_id', u.id).maybeSingle();
+      var merged = Object.assign({}, (cur.data && cur.data.prefs) || {}, defaults);   // read-merge-write
+      await sb.from('admin_ui_prefs').upsert({ user_id: u.id, prefs: merged, updated_at: new Date().toISOString() });
+    } catch(e) {}
+  }
+  async function pullRemote(tries){
+    try {
+      var sb = typeof supabaseClient !== 'undefined' ? supabaseClient : null;
+      var u = sb ? (await sb.auth.getUser()).data.user : null;
+      if (!u) { if (tries < 15) setTimeout(function(){ pullRemote(tries + 1); }, 1000); return; }
+      var r = await sb.from('admin_ui_prefs').select('prefs').eq('user_id', u.id).maybeSingle();
+      if (r.error) return;                                   // table not created yet: stay local-only
+      var remote = (r.data && r.data.prefs) || {};
+      var hadLocalOnly = Object.keys(defaults).some(function(k){ return !(k in remote); });
+      defaults = Object.assign({}, defaults, remote);        // account wins on conflicts, local-only keys kept
+      saveLocal(); remoteReady = true;
+      if (hadLocalOnly) pushRemote();
+      pins.forEach(function(p){ if (p.btn.isConnected) pinLabel(p.btn, defaults[p.key] === 'open'); });
+      live.forEach(function(l){ if (l.sec.head.isConnected && !session[l.key]) { l.sec.head.classList.toggle('fj-sec-open', defaults[l.key] === 'open'); l.sec.body = bodyOf(l.sec); setState(l.sec, defaults[l.key] === 'open'); } });
+      var tg = document.getElementById('rd-toggle');
+      if (tg && defaults[sessionPage + '|New disciples made'] === 'open' && tg.getAttribute('aria-expanded') !== 'true') tg.click();
+    } catch(e) {}
+  }
+  function titleOf(h){
+    var c = h.cloneNode(true);
+    c.querySelectorAll('button,.fj-sec-pin,.fj-sec-chev,svg').forEach(function(n){ n.remove(); });
+    return (c.textContent || '').replace(/\s+/g,' ').trim();
+  }
+  function isHeading(n){ return n && n.nodeType === 1 && /^H[2-4]$/.test(n.tagName); }
+  function pageKey(content){ var h = content.querySelector('h2'); return h ? (h.textContent || '').replace(/\s+/g,' ').trim().slice(0,60) : ''; }
+
+  function collectSections(content){
+    var out = [], seen = new Set();
+    // 1) cards that have a heading
+    content.querySelectorAll('.card').forEach(function(card){
+      if (card.parentElement.closest('.card')) return;
+      if (card.id === 'app-recent-disciples-card') { out.push({ kind:'rd', card: card }); return; }
+      var h = null;
+      for (var i = 0; i < card.children.length && !h; i++) {
+        var ch = card.children[i];
+        if (/^H3|^H4/.test(ch.tagName)) h = ch;
+        else if (ch.tagName === 'DIV' && ch.firstElementChild && /^H[34]$/.test(ch.firstElementChild.tagName) && ch.children.length <= 2) h = ch.firstElementChild;
+      }
+      if (!h || h.parentElement !== card) return;
+      out.push({ kind:'card', head: h, container: card });
+      seen.add(h);
+    });
+    // 2) stand-alone h3 headings (not inside a card) group the siblings that follow
+    content.querySelectorAll('h3').forEach(function(h){
+      if (h.closest('.card') || h.closest('.summary-card') || h.closest('table') || seen.has(h)) return;
+      if (!h.parentElement) return;
+      out.push({ kind:'h3', head: h, container: h.parentElement });
+    });
+    return out;
+  }
+  function bodyOf(sec){
+    var body = [], n = sec.head.nextElementSibling;
+    while (n) {
+      if (sec.kind === 'h3') {
+        if (isHeading(n)) break;
+        if (n.classList.contains('card')) { var hh = n.querySelector(':scope > h3, :scope > h4, :scope > div > h3'); if (hh) break; }
+        if (n.classList.contains('back-link')) break;
+      }
+      body.push(n); n = n.nextElementSibling;
+    }
+    return body;
+  }
+  function setState(sec, open, key){
+    sec.open = open;
+    sec.body.forEach(function(n){ n.classList.toggle('fj-sec-hidden', !open); });
+    sec.head.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  function pinLabel(btn, on){ btn.classList.toggle('on', on); btn.textContent = on ? 'Starts open' : 'Starts closed'; btn.title = on ? 'This section starts open. Tap to make it start closed.' : 'This section starts closed. Tap to make it start open.'; }
+
+  function enhance(){
+    var content = document.getElementById('content'); if (!content) return;
+    var pk = pageKey(content);
+    if (pk !== sessionPage) { session = {}; sessionPage = pk; }
+    var secs = collectSections(content);
+    if (secs.length < 2) return;
+    secs.forEach(function(sec){
+      if (sec.kind === 'rd') {
+        var card = sec.card, tog = card.querySelector('#rd-toggle'); if (!tog) return;
+        var key = pk + '|New disciples made';
+        var head = tog.parentElement;
+        if (!head.querySelector('.fj-sec-pin')) {
+          var p = document.createElement('button'); p.type = 'button'; p.className = 'fj-sec-pin';
+          pinLabel(p, defaults[key] === 'open'); pins.push({ btn: p, key: key });
+          p.addEventListener('click', function(e){ e.stopPropagation(); var on = defaults[key] !== 'open'; defaults[key] = on ? 'open' : 'closed'; save(); pinLabel(p, on); });
+          head.appendChild(p);
+        }
+        if (!card.dataset.fjAuto) { card.dataset.fjAuto = '1'; if (defaults[key] === 'open' && tog.getAttribute('aria-expanded') !== 'true') tog.click(); }
+        return;
+      }
+      var title = titleOf(sec.head); if (!title) return;
+      var key2 = pk + '|' + title;
+      sec.body = bodyOf(sec);
+      if (!sec.head.classList.contains('fj-sec-head')) {
+        sec.head.classList.add('fj-sec-head');
+        sec.head.setAttribute('role', 'button'); sec.head.setAttribute('tabindex', '0');
+        var chev = document.createElement('span'); chev.className = 'fj-sec-chev'; chev.setAttribute('aria-hidden', 'true'); chev.innerHTML = '&#9662;';
+        sec.head.insertBefore(chev, sec.head.firstChild);
+        var pin = document.createElement('button'); pin.type = 'button'; pin.className = 'fj-sec-pin';
+        pinLabel(pin, defaults[key2] === 'open'); pins.push({ btn: pin, key: key2 });
+        pin.addEventListener('click', function(e){ e.stopPropagation(); var on = defaults[key2] !== 'open'; defaults[key2] = on ? 'open' : 'closed'; save(); pinLabel(pin, on); });
+        sec.head.appendChild(pin);
+        var toggle = function(){ var cur = sec.head.classList.contains('fj-sec-open'); sec.head.classList.toggle('fj-sec-open', !cur); session[key2] = !cur ? 'open' : 'closed'; sec.body = bodyOf(sec); setState(sec, !cur, key2); };
+        sec.head.addEventListener('click', function(e){ if (e.target.closest('button') && !e.target.closest('.fj-sec-chev')) return; if (e.target.closest('a,input,select,textarea')) return; toggle(); });
+        sec.head.addEventListener('keydown', function(e){ if ((e.key === 'Enter' || e.key === ' ') && e.target === sec.head) { e.preventDefault(); toggle(); } });
+        var startOpen = session[key2] ? session[key2] === 'open' : defaults[key2] === 'open';
+        sec.head.classList.toggle('fj-sec-open', startOpen);
+        live = live.filter(function(l){ return l.sec.head.isConnected; }); pins = pins.filter(function(x){ return x.btn.isConnected; }); live.push({ sec: sec, key: key2 });
+      }
+      // re-apply (new sibling content may have been added since)
+      var open = sec.head.classList.contains('fj-sec-open');
+      setState(sec, open, key2);
+    });
+  }
+  var t = null;
+  function schedule(){ clearTimeout(t); t = setTimeout(enhance, 60); }
+  function start(){
+    var content = document.getElementById('content'); if (!content) return;
+    new MutationObserver(schedule).observe(content, { childList: true, subtree: true });
+    enhance(); pullRemote(0);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+</script>
 </body>
 </html>
