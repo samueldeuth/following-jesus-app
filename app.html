@@ -1235,7 +1235,7 @@
   .plan-checklist-chevron { width: 16px; height: 16px; color: rgba(255,255,255,0.35); flex-shrink: 0; }
 
   .plan-segment {
-    display: flex; align-items: flex-start; gap: 12px; margin-top: 26px; scroll-margin-top: 90px;
+    display: flex; align-items: flex-start; gap: 12px; margin-top: 26px; scroll-margin-top: 16px;
   }
   .plan-segment-check {
     flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
@@ -2524,6 +2524,31 @@
 #screen-bible .voice-picker-label { color: rgba(10,10,10,0.4); }
 
 
+
+/* ---------- Reading-plan floating bar (365-day plan + 52-day plans) ---------- */
+.bible-bottombar .pf-arrow { position: absolute; bottom: calc(100% + 14px); width: 46px; height: 46px; background: #fff; border: 1px solid rgba(10,10,10,0.1); color: #0a0a0a; box-shadow: 0 4px 14px rgba(0,0,0,0.18); z-index: 5; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+.bible-bottombar .pf-arrow svg { width: 20px; height: 20px; }
+.bible-bottombar .pf-prev { left: 14px; }
+.bible-bottombar .pf-next { right: 14px; }
+.bible-bottombar .pf-arrow[disabled] { opacity: 0.3; pointer-events: none; }
+.pf-pill { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(10,10,10,0.05); border: 1px solid rgba(10,10,10,0.12); color: var(--black); border-radius: 12px; padding: 12px 14px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.pf-pill svg { width: 16px; height: 16px; flex: 0 0 auto; }
+#devoPlanModal .bible-bottombar { background: var(--white); border-top-color: rgba(10,10,10,0.1); bottom: -26px; margin: 24px -22px -26px; }
+.plan-sheet-overlay { position: fixed; inset: 0; z-index: 2600; background: rgba(0,0,0,0.45); display: none; align-items: flex-end; justify-content: center; }
+.plan-sheet-overlay.open { display: flex; }
+.plan-sheet { background: #fff; color: var(--black); width: 100%; max-width: 560px; max-height: 82%; overflow-y: auto; border-radius: 18px 18px 0 0; padding: 10px 18px calc(18px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 30px rgba(0,0,0,0.25); }
+.plan-sheet-grab { width: 40px; height: 4px; border-radius: 4px; background: rgba(10,10,10,0.18); margin: 2px auto 12px; }
+.plan-sheet .plan-bar-top { margin-top: 0; }
+.plan-sheet .plan-day-label { color: var(--black); }
+.plan-sheet .plan-day-of { color: rgba(10,10,10,0.4); }
+.plan-sheet .plan-checklist-row { border-bottom-color: rgba(10,10,10,0.1); }
+.plan-sheet .plan-checklist-check { border-color: rgba(10,10,10,0.25); }
+.plan-sheet .plan-checklist-label { color: var(--black); }
+.plan-sheet .plan-checklist-row.done .plan-checklist-label { color: rgba(10,10,10,0.4); }
+.plan-sheet .plan-checklist-chevron { color: rgba(10,10,10,0.3); }
+.plan-sheet .bible-navbtn { background: rgba(10,10,10,0.05); border-color: rgba(10,10,10,0.12); color: rgba(10,10,10,0.6); }
+.plan-sheet-close { display: block; width: 100%; margin-top: 14px; background: var(--black); color: #fff; border: 0; border-radius: 12px; padding: 13px; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+
 /* ---------- Plans + Jesus pages: same look as Today / Profile ---------- */
 .plans-lbl { margin:26px 4px 10px; font-size:12px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:#8a6414; font-family:var(--font-display); }
 #screen-plans .stack > .plans-lbl:first-child { margin-top:2px; }
@@ -2974,6 +2999,31 @@
         <button id="nextChapter" class="bible-navbtn" aria-label="Next chapter">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 18l6-6-6-6"/></svg>
         </button>
+      </div>
+
+      <div class="bible-bottombar" id="planBottombar" style="display:none;">
+        <button type="button" id="planSegPrev" class="bible-navbtn pf-arrow pf-prev" aria-label="Previous reading" data-track="Plan: previous reading">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button type="button" id="planFloatBtn" class="pf-pill" aria-haspopup="dialog" data-track="Plan: open day checklist">
+          <span id="planFloatLabel">Today's reading</span>
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none"><path d="M6 15l6-6 6 6"/></svg>
+        </button>
+        <button type="button" id="planSegNext" class="bible-navbtn pf-arrow pf-next" aria-label="Next reading" data-track="Plan: next reading">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+      <div class="plan-sheet-overlay" id="planSheetOverlay">
+        <div class="plan-sheet" role="dialog" aria-label="Today's reading">
+          <div class="plan-sheet-grab"></div>
+          <div class="plan-bar-top">
+            <button type="button" id="planSheetPrevDay" class="bible-navbtn" aria-label="Previous day"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M15 18l-6-6 6-6"/></svg></button>
+            <div class="plan-day-label">Day <span id="planSheetDay">1</span> <span class="plan-day-of">of 365</span></div>
+            <button type="button" id="planSheetNextDay" class="bible-navbtn" aria-label="Next day"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 18l6-6-6-6"/></svg></button>
+          </div>
+          <div id="planSheetRefs" style="margin-top:8px;"></div>
+          <button type="button" class="plan-sheet-close" id="planSheetClose">Back to reading</button>
+        </div>
       </div>
     </section>
 
@@ -3639,6 +3689,22 @@
     if (r.justFinished) ccFinishSoon(planKey);
   }
 
+
+  // Floating bar for the two readings in a 52-day plan day (Devotional <-> Verse). The center
+  // button goes back up to that day's checklist.
+  function devoFloatBar(day, pos) {
+    return `<div class="bible-bottombar" id="devoFloatBar">
+      <button type="button" class="bible-navbtn pf-arrow pf-prev" id="devoFloatPrev" aria-label="Previous reading" ${pos === 1 ? 'disabled' : ''}><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button type="button" class="pf-pill" id="devoFloatDay"><span>Day ${day} \u00b7 ${pos} of 2</span><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none"><path d="M6 15l6-6 6 6"/></svg></button>
+      <button type="button" class="bible-navbtn pf-arrow pf-next" id="devoFloatNext" aria-label="Next reading" ${pos === 2 ? 'disabled' : ''}><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 18l6-6-6-6"/></svg></button>
+    </div>`;
+  }
+  function wireDevoFloat(planKey, day, pos) {
+    document.getElementById('devoFloatDay').addEventListener('click', () => renderDevoPlanDay(planKey, day));
+    document.getElementById('devoFloatPrev').addEventListener('click', () => { if (pos === 2) renderDevoContent(planKey, day); });
+    document.getElementById('devoFloatNext').addEventListener('click', () => { if (pos === 1) renderDevoVerse(planKey, day); });
+  }
+
   async function renderDevoContent(planKey, day) {
     const plan = await loadDevoPlanFull(planKey);
     const entry = plan.days[day - 1];
@@ -3652,8 +3718,11 @@
         <div class="jesus-kicker" style="display:block; margin-top:22px;">CONFESSION</div>
         <p class="bible-text" style="white-space:pre-wrap; margin-top:8px; font-style:italic;">${escapeHtmlMain(entry.confession)}</p>
       </div>
+      ${devoFloatBar(day, 1)}
     `;
     document.getElementById('devoContentBack').addEventListener('click', () => renderDevoPlanDay(planKey, day));
+    wireDevoFloat(planKey, day, 1);
+    body.scrollTop = 0;
   }
 
   // Verse text is fetched live from bible-api.com's public-domain WEB
@@ -3673,8 +3742,11 @@
         <p class="bible-text" id="devoVerseText">Loading verse…</p>
         <div class="bible-translation-note">Berean Standard Bible &middot; public domain</div>
       </div>
+      ${devoFloatBar(day, 2)}
     `;
     document.getElementById('devoVerseBack').addEventListener('click', () => renderDevoPlanDay(planKey, day));
+    wireDevoFloat(planKey, day, 2);
+    body.scrollTop = 0;
     try {
       const cleanRef = entry.reference.replace(/\s*(NIV|ESV|MSG)\s*$/i, '');
       const data = await window.fjBible.get(cleanRef, 'bsb');
@@ -12353,6 +12425,8 @@ async function renderDiscipleshipApp() {
   const browseBottombar = document.getElementById('browseBottombar');
   const planDayNum = document.getElementById('planDayNum');
   const planDayRefs = document.getElementById('planDayRefs');
+  const planSheetRefs = document.getElementById('planSheetRefs');
+  const planBottombar = document.getElementById('planBottombar');
   const planPlayBtn = document.getElementById('planPlayBtn');
   const planPlayLabel = document.getElementById('planPlayLabel');
   const planMarkDone = document.getElementById('planMarkDone');
@@ -13059,7 +13133,7 @@ async function renderDiscipleshipApp() {
   });
 
   function renderDayChecklist(refs, segDone) {
-    planDayRefs.innerHTML = refs.map((ref, i) => `
+    const html = refs.map((ref, i) => `
       <div class="plan-checklist-row ${segDone[i] ? 'done' : ''}" data-index="${i}">
         <button type="button" class="plan-checklist-check" data-index="${i}" aria-label="Mark ${refLabel(ref)} as read">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>
@@ -13070,22 +13144,65 @@ async function renderDiscipleshipApp() {
         </button>
       </div>
     `).join('');
-    // Tapping the circle marks that one passage read/unread (same
-    // toggleSegment the reader's own inline checkmarks already used) --
-    // tapping the label instead just jumps down to that passage, so
-    // both the "check it off from the list" and "go read it" gestures
-    // people expect from a reading-plan checklist both work here.
-    [...planDayRefs.querySelectorAll('.plan-checklist-check')].forEach(btn => {
-      btn.addEventListener('click', () => toggleSegment(parseInt(btn.dataset.index, 10)));
-    });
-    [...planDayRefs.querySelectorAll('.plan-checklist-label-btn')].forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt(btn.dataset.index, 10);
-        const seg = document.getElementById('planSeg' + idx);
-        if (seg) seg.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // The same checklist lives at the top of the plan AND in the floating pull-up sheet.
+    // Tapping the circle marks that one passage read/unread (toggleSegment); tapping the
+    // label jumps to that passage (and closes the sheet if that's where it was tapped).
+    [planDayRefs, planSheetRefs].forEach(box => {
+      box.innerHTML = html;
+      [...box.querySelectorAll('.plan-checklist-check')].forEach(btn => {
+        btn.addEventListener('click', () => toggleSegment(parseInt(btn.dataset.index, 10)));
+      });
+      [...box.querySelectorAll('.plan-checklist-label-btn')].forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.dataset.index, 10);
+          closePlanSheet();
+          planGoToSeg(idx);
+        });
       });
     });
+    document.getElementById('planSheetDay').textContent = planDay;
+    updatePlanFloat();
   }
+
+  // ---- Floating bar: step through today's passages, and pull up the checklist without scrolling ----
+  function planSegEls() { return [...reader.querySelectorAll('.plan-segment')]; }
+  function planCurSeg() {
+    const line = window.innerHeight * 0.4;
+    let cur = -1;
+    planSegEls().forEach((el, i) => { if (el.getBoundingClientRect().top <= line) cur = i; });
+    return cur;
+  }
+  function planGoToSeg(i) {
+    const el = document.getElementById('planSeg' + i);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function updatePlanFloat() {
+    if (bibleMode !== 'plan' || !planBottombar) return;
+    const n = planSegEls().length, cur = planCurSeg();
+    document.getElementById('planFloatLabel').textContent = n ? ('Day ' + planDay + ' \u00b7 ' + (cur < 0 ? 'Overview' : (cur + 1) + ' of ' + n)) : ('Day ' + planDay);
+    document.getElementById('planSegPrev').disabled = cur < 0;
+    document.getElementById('planSegNext').disabled = !n || cur >= n - 1;
+  }
+  function openPlanSheet() { document.getElementById('planSheetDay').textContent = planDay; document.getElementById('planSheetOverlay').classList.add('open'); }
+  function closePlanSheet() { document.getElementById('planSheetOverlay').classList.remove('open'); }
+  document.getElementById('planSegPrev').addEventListener('click', () => {
+    const cur = planCurSeg();
+    if (cur > 0) planGoToSeg(cur - 1); else if (cur === 0) planBar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  document.getElementById('planSegNext').addEventListener('click', () => {
+    const cur = planCurSeg(), n = planSegEls().length;
+    if (cur < n - 1) planGoToSeg(cur + 1);
+  });
+  document.getElementById('planFloatBtn').addEventListener('click', openPlanSheet);
+  document.getElementById('planSheetClose').addEventListener('click', closePlanSheet);
+  document.getElementById('planSheetOverlay').addEventListener('click', e => { if (e.target.id === 'planSheetOverlay') closePlanSheet(); });
+  document.getElementById('planSheetPrevDay').addEventListener('click', () => document.getElementById('planPrevDay').click());
+  document.getElementById('planSheetNextDay').addEventListener('click', () => document.getElementById('planNextDay').click());
+  let planFloatRaf = 0;
+  document.addEventListener('scroll', () => {
+    if (planFloatRaf || bibleMode !== 'plan') return;
+    planFloatRaf = requestAnimationFrame(() => { planFloatRaf = 0; updatePlanFloat(); });
+  }, true);
 
   // 5-day strip (2 before, currently-viewed, 2 after) -- tapping any
   // card jumps straight to that day. The small "today" date highlight
@@ -13167,8 +13284,7 @@ async function renderDiscipleshipApp() {
   function toggleSegment(index) {
     const segDone = planSegmentDone[planDay];
     segDone[index] = !segDone[index];
-    const row = planDayRefs.querySelector(`.plan-checklist-row[data-index="${index}"]`);
-    if (row) row.classList.toggle('done', segDone[index]);
+    [planDayRefs, planSheetRefs].forEach(box => { const row = box.querySelector(`.plan-checklist-row[data-index="${index}"]`); if (row) row.classList.toggle('done', segDone[index]); });
     const btn = reader.querySelector(`.plan-segment-check[data-index="${index}"]`);
     if (btn) btn.classList.toggle('done', segDone[index]);
     updateDayCompleteUI();
@@ -13210,6 +13326,7 @@ async function renderDiscipleshipApp() {
         btn.addEventListener('click', () => toggleSegment(parseInt(btn.dataset.index, 10)));
       });
       hlAfterRender();
+      updatePlanFloat();
     } catch (e) {
       reader.innerHTML = `<div class="bible-error">Couldn't load today's reading right now.</div>`;
     }
@@ -13222,6 +13339,7 @@ async function renderDiscipleshipApp() {
     modeBrowseBtn.classList.add('active');
     modePlanBtn.classList.remove('active');
     planBar.style.display = 'none';
+    planBottombar.style.display = 'none';
     browseToolbar.style.display = 'flex';
     browseBottombar.style.display = 'flex';
     stopPlanPlayback();
@@ -13234,6 +13352,7 @@ async function renderDiscipleshipApp() {
     modePlanBtn.classList.add('active');
     modeBrowseBtn.classList.remove('active');
     planBar.style.display = 'block';
+    planBottombar.style.display = 'flex';
     browseToolbar.style.display = 'none';
     browseBottombar.style.display = 'none';
     stopListening();
@@ -13262,7 +13381,7 @@ async function renderDiscipleshipApp() {
     const allDone = segDone.length > 0 && segDone.every(Boolean);
     const newState = !allDone;
     for (let i = 0; i < segDone.length; i++) segDone[i] = newState;
-    [...planDayRefs.querySelectorAll('.plan-checklist-row')].forEach(row => row.classList.toggle('done', newState));
+    [...planDayRefs.querySelectorAll('.plan-checklist-row'), ...planSheetRefs.querySelectorAll('.plan-checklist-row')].forEach(row => row.classList.toggle('done', newState));
     [...reader.querySelectorAll('.plan-segment-check')].forEach(btn => btn.classList.toggle('done', newState));
     updateDayCompleteUI();
     savePlanProgress();
