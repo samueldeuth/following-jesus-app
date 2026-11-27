@@ -1,8 +1,12 @@
 // netlify/functions/video-messages.js
 //
-// Feeds the app's "Video Messages" page. For each church in CHURCHES below it
-// reads that channel's public YouTube feed (no API key, no new secrets) and
-// returns one merged, newest-first list the app can filter by church.
+// Feeds the app's "Video Messages" page. For each church it reads the channel's recent uploads
+// and returns one merged, newest-first list the app can filter by church.
+//
+// With the Netlify environment variable YOUTUBE_API_KEY set, it uses YouTube's official API:
+// it can look back WINDOW_DAYS and it drops every video shorter than MIN_SECONDS (full-length
+// messages only). Without the key it falls back to the public feed (about the last 15 uploads,
+// no length filter) so the page never goes empty.
 //
 // The church list lives in the Supabase table `video_churches` (managed from the
 // admin dashboard, App page > Video Churches). The FALLBACK list below is used
@@ -38,7 +42,9 @@ async function loadChurchList() {
   } catch (e) { return FALLBACK; }
 }
 
-const PER_CHURCH = 12;                 // newest videos kept per church
+const PER_CHURCH = 20;                 // newest videos kept per church
+const WINDOW_DAYS = 30;               // how far back the page reaches
+const MIN_SECONDS = 15 * 60;          // anything shorter than this (clips, shorts, promos) is left out
 const TIMEOUT_MS = 7000;
 // Hidden from every church: shorts, music, and church promos/announcements (we want preaching only).
 // To hide another kind of title, add a word to this list.
@@ -139,28 +145,92 @@ function parseFeed(xml) {
   return { author: decode(author), entries };
 }
 
-async function loadChurch(c, isHidden) {
+
+// ---- YouTube Data API (needs the YOUTUBE_API_KEY environment variable) ----
+const API = 'https://www.googleapis.com/youtube/v3/';
+const durCache = {};                   // videoId -> seconds (kept while the function stays warm)
+function parseDuration(iso) {          // "PT1H2M3S" -> seconds; live/upcoming ("P0D") -> 0
+  const m = String(iso || '').match(/^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!m) return 0;
+  return (+m[1] || 0) * 86400 + (+m[2] || 0) * 3600 + (+m[3] || 0) * 60 + (+m[4] || 0);
+}
+async function apiJson(path, key) {
+  const r = await get1(API + path + (path.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(key));
+  return JSON.parse(r);
+}
+async function fetchDurations(ids, key) {
+  const need = ids.filter(id => !(id in durCache));
+  for (let i = 0; i < need.length; i += 50) {
+    const batch = need.slice(i, i + 50);
+    const j = await apiJson('videos?part=contentDetails&id=' + batch.join(','), key);
+    batch.forEach(id => { durCache[id] = null; });
+    (j.items || []).forEach(it => { durCache[it.id] = parseDuration(it.contentDetails && it.contentDetails.duration); });
+  }
+}
+
+const withinWindow = iso => (Date.now() - new Date(iso).getTime()) <= WINDOW_DAYS * 86400000;
+
+// Candidates for one church, before the length filter.
+async function loadChurch(c, isHidden, key) {
   try {
     const channelId = await resolveChannelId(c);
-    const { author, entries } = parseFeed(await get('https://www.youtube.com/feeds/videos.xml?channel_id=' + channelId));
-    if (c.expect && !c.expect.test(author)) return { church: c, ok: false, why: 'channel name did not match (' + author + ')', videos: [] };
-    const videos = dedupe(entries.filter(v => !isHidden(v.title) && !(c.exclude && c.exclude.test(v.title)))).slice(0, PER_CHURCH)
+    let author = '', entries = [], mode = 'rss', apiFailed = '';
+    if (key) {
+      try {
+        const j = await apiJson('playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=UU' + channelId.slice(2), key);
+        entries = (j.items || []).map(it => ({
+          id: it.contentDetails && it.contentDetails.videoId,
+          title: it.snippet && it.snippet.title || '',
+          published: (it.contentDetails && it.contentDetails.videoPublishedAt) || (it.snippet && it.snippet.publishedAt),
+          desc: String(it.snippet && it.snippet.description || '').replace(/https?:\/\/\S+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300)
+        })).filter(v => v.id && v.title && v.published);
+        author = (j.items && j.items[0] && j.items[0].snippet && j.items[0].snippet.channelTitle) || '';
+        mode = 'api';
+      } catch (e) { mode = 'rss'; apiFailed = String(e && e.message || e); }
+    }
+    if (mode === 'rss') {
+      // Public feed; the "UULF" playlist feed = long-form uploads only (no Shorts)
+      let xml;
+      try { xml = await get('https://www.youtube.com/feeds/videos.xml?playlist_id=UULF' + channelId.slice(2)); }
+      catch (e) { xml = await get('https://www.youtube.com/feeds/videos.xml?channel_id=' + channelId); }
+      const f = parseFeed(xml); author = f.author; entries = f.entries;
+    }
+    if (c.expect && author && !c.expect.test(author)) return { church: c, ok: false, why: 'channel name did not match (' + author + ')', videos: [] };
+    const videos = entries
+      .filter(v => withinWindow(v.published) && !isHidden(v.title) && !(c.exclude && c.exclude.test(v.title)))
       .map(v => ({ id: v.id, title: v.title, church: c.id, published: v.published, d: v.desc }));
-    return { church: c, ok: true, videos };
+    return { church: c, ok: true, mode, apiFailed, videos };
   } catch (e) {
     return { church: c, ok: false, why: String(e && e.message || e), videos: [] };
   }
 }
 
-exports.makeFilter = makeFilter; exports.FALLBACK = FALLBACK; exports.SKIP_TITLE = SKIP_TITLE; exports.dedupe = dedupe; exports.parseFeed = parseFeed;
+exports.makeFilter = makeFilter; exports.FALLBACK = FALLBACK; exports.SKIP_TITLE = SKIP_TITLE; exports.dedupe = dedupe; exports.parseDuration = parseDuration; exports.parseFeed = parseFeed;
 
 exports.handler = async () => {
   const CHURCHES = await loadChurchList();
   const isHidden = await loadFilter();
-  const results = await Promise.all(CHURCHES.map(c => loadChurch(c, isHidden)));
+  const key = process.env.YOUTUBE_API_KEY || '';
+  const results = await Promise.all(CHURCHES.map(c => loadChurch(c, isHidden, key)));
+  const problems = results.filter(r => !r.ok).map(r => r.church.name + ': ' + r.why);
+  results.filter(r => r.ok && r.apiFailed).forEach(r => problems.push(r.church.name + ': YouTube API failed (' + r.apiFailed + '), no length filter applied'));
+
+  // Full-length only: look up each API-sourced video's length and drop the short ones.
+  const apiIds = results.filter(r => r.ok && r.mode === 'api').flatMap(r => r.videos.map(v => v.id));
+  let lengthsKnown = true;
+  if (apiIds.length) {
+    try { await fetchDurations(apiIds, key); }
+    catch (e) { lengthsKnown = false; problems.push('Could not check video lengths: ' + String(e && e.message || e)); }
+  }
+  results.forEach(r => {
+    if (!r.ok) return;
+    if (r.mode === 'api' && lengthsKnown) r.videos = r.videos.filter(v => (durCache[v.id] || 0) >= MIN_SECONDS);
+    r.videos = dedupe(r.videos.sort((a, b) => (a.published < b.published ? 1 : -1))).slice(0, PER_CHURCH);
+  });
+  if (!key) problems.push('YOUTUBE_API_KEY is not set: showing the last ~15 uploads per church with no length filter.');
+
   const churches = results.filter(r => r.ok && r.videos.length).map(r => ({ id: r.church.id, name: r.church.name }));
   const videos = results.flatMap(r => r.videos).sort((a, b) => (a.published < b.published ? 1 : -1));
-  const problems = results.filter(r => !r.ok).map(r => r.church.name + ': ' + r.why);
   return {
     statusCode: 200,
     headers: {
