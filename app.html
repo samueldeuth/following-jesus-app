@@ -2261,6 +2261,33 @@
    also need no change; a photo (or the dark fallback gradient designed
    to look intentional either way) doesn't depend on the page background. */
 #articleModal { background: var(--paper); }
+#videosModal { background: var(--paper); }
+#videosModal .back-link { color: rgba(10,10,10,0.5); }
+#videosModal .vm-wrap { padding: 0 0 28px; }
+#videosModal .vm-title { font-family: var(--font-serif, Georgia, serif); font-size: 26px; font-weight: 700; color: var(--black); margin: 6px 22px 4px; }
+#videosModal .vm-sub { font-size: 14px; line-height: 1.5; color: rgba(10,10,10,0.6); margin: 0 22px 14px; }
+#videosModal .vm-chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 22px 14px; scrollbar-width: none; }
+#videosModal .vm-chips::-webkit-scrollbar { display: none; }
+#videosModal .vm-chip { flex: none; border: 1px solid rgba(10,10,10,0.15); background: #fff; color: var(--black); border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+#videosModal .vm-chip.on { background: var(--black); color: #fff; border-color: var(--black); }
+#videosModal .vm-player { margin: 0 0 16px; background: #0a0a0a; }
+#videosModal .vm-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; }
+#videosModal .vm-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+#videosModal .vm-now { padding: 12px 22px 14px; color: #fff; }
+#videosModal .vm-now-title { font-size: 15px; font-weight: 600; line-height: 1.4; margin: 0 0 8px; }
+#videosModal .vm-now-act { display: flex; gap: 18px; font-size: 13px; }
+#videosModal .vm-now-act a, #videosModal .vm-now-act button { color: #e9d6a6; background: none; border: 0; padding: 0; font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+#videosModal .vm-list { display: flex; flex-direction: column; gap: 14px; padding: 0 22px; }
+#videosModal .vm-card { display: block; width: 100%; text-align: left; background: #fff; border: 0; border-radius: 14px; padding: 0; overflow: hidden; cursor: pointer; font: inherit; color: var(--black); }
+#videosModal .vm-card.playing { box-shadow: 0 0 0 2px var(--ember); }
+#videosModal .vm-thumb { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #1b1b1b center / cover no-repeat; }
+#videosModal .vm-thumb::after { content: ''; position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(0,0,0,0.55) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='white' d='M9.5 7.5v9l7.5-4.5z'/></svg>") center / 26px no-repeat; }
+#videosModal .vm-meta { padding: 12px 14px 14px; }
+#videosModal .vm-vtitle { font-size: 15.5px; font-weight: 600; line-height: 1.35; margin: 0 0 5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#videosModal .vm-by { font-size: 13px; color: #8a6414; font-weight: 600; }
+#videosModal .vm-by span { color: rgba(10,10,10,0.5); font-weight: 500; }
+#videosModal .vm-note { color: rgba(10,10,10,0.6); font-size: 14px; line-height: 1.5; padding: 18px 22px; text-align: center; }
+#videosModal .vm-note button { margin-top: 10px; background: var(--black); color: #fff; border: 0; border-radius: 10px; padding: 10px 18px; font: inherit; font-weight: 600; cursor: pointer; }
 #articleModal .back-link { color: rgba(10,10,10,0.5); }
 #articleModal .article-h1 { color: var(--black); }
 #articleModal .article-date { color: rgba(10,10,10,0.4); }
@@ -2768,6 +2795,13 @@
             <span class="grid-item-title">Find a Church</span>
           </span>
         </button>
+        <button type="button" class="grid-item" id="videoMessagesBtn" data-track="Home: Video Messages">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor" stroke="none"/></svg>
+          <span class="grid-item-text">
+            <span class="grid-item-label">Watch &amp; Be Fed</span>
+            <span class="grid-item-title">Video Messages</span>
+          </span>
+        </button>
         <button type="button" class="grid-item" onclick="goToTab('screen-blog')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 19V6a2 2 0 012-2h9l5 5v10a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M14 4v5h5"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="16.5" x2="13" y2="16.5"/></svg>
           <span class="grid-item-text">
@@ -3102,6 +3136,11 @@
 
     <div class="article-modal" id="articleModal">
       <div class="article-modal-body" id="articleModalBody"></div>
+    </div>
+
+    <!-- VIDEO MESSAGES: sermons from several churches' YouTube channels, filtered by church -->
+    <div class="article-modal" id="videosModal">
+      <div class="article-modal-body" id="videosBody"></div>
     </div>
 
   </div>
@@ -8082,7 +8121,7 @@ const fjTap = (function(){
   const POPUP_NAMES = {
     shareChooserOverlay: 'Share', verseOfDayModalOverlay: 'Verse alert', findChurchModalOverlay: 'Find a Church', readingReminderModalOverlay: 'Reading reminder',
     devoReminderModalOverlay: 'Devo reminder', discipleModal: 'Disciple', gospelModal: 'Share The Word', goodNewsModal: 'Good News',
-    featureTipOverlay: 'Feature tip', devoPlanModal: 'Plan', articleModal: 'Blog article', embedModal: 'Player', modalPortal: 'Popup'
+    featureTipOverlay: 'Feature tip', devoPlanModal: 'Plan', articleModal: 'Blog article', videosModal: 'Video Messages', embedModal: 'Player', modalPortal: 'Popup'
   };
   function titleCase(t){ return t.toLowerCase().replace(/(^|[\s(-])([a-z])/g, (m, a, b) => a + b.toUpperCase()); }
 
@@ -8113,7 +8152,7 @@ const fjTap = (function(){
     if (label.indexOf(' \u00B7 ') > 0) label = label.split(' \u00B7 ')[0];   // "Plan name \u00B7 Read right here..." -> "Plan name"
     if (/[A-Za-z]{2}/.test(label) && label === label.toUpperCase()) label = titleCase(label); // CSS capitals -> normal case
     label = label.replace(/\bFj\b/g, 'FJ');
-    if (/^(Memory Verse|Bible): /.test(label)) return label;   // own names, not "Plan: ..."
+    if (/^(Memory Verse|Bible|Videos): /.test(label)) return label;   // own names, not "Plan: ..."
     if (label === '\u2715' || label === '\u2716' || label === '\u00D7') label = 'Close';
     if (el.classList && el.classList.contains('tab-btn')) return 'Tab: ' + label;
     // The same destination can be reached from the top banners and the "More" grid; name them apart.
@@ -11009,6 +11048,93 @@ async function renderDiscipleshipApp() {
     if (!skipHistoryPush) pushUrlHash(`article/${id}`);
   }
 
+  // ---------- Video Messages ----------
+  // Sermons from a few churches' YouTube channels, merged by the video-messages
+  // Netlify function. The list of churches lives in that function.
+  const videosModal = document.getElementById('videosModal');
+  const videosBody = document.getElementById('videosBody');
+  let vmData = null, vmChurch = 'all', vmPlayingId = null;
+  async function vmLoad() {
+    if (vmData) return vmData;
+    const r = await fetch('/.netlify/functions/video-messages');
+    if (!r.ok) throw new Error('feed');
+    const j = await r.json();
+    if (!j || !Array.isArray(j.videos)) throw new Error('feed');
+    return (vmData = j);
+  }
+  function vmAgo(iso) {
+    const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+    if (!(d >= 0)) return '';
+    if (d === 0) return 'Today';
+    if (d === 1) return 'Yesterday';
+    if (d < 7) return d + ' days ago';
+    if (d < 30) { const w = Math.floor(d / 7); return w + (w === 1 ? ' week ago' : ' weeks ago'); }
+    if (d < 365) { const m = Math.floor(d / 30); return m + (m === 1 ? ' month ago' : ' months ago'); }
+    return new Date(iso).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  }
+  function vmPlay(id) {
+    const v = (vmData && vmData.videos || []).find(x => x.id === id); if (!v) return;
+    vmPlayingId = id;
+    const holder = document.getElementById('vmPlayer');
+    holder.innerHTML = '<div class="vm-frame"><iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + '?autoplay=1&playsinline=1&rel=0" title="' + escapeHtmlMain(v.title) + '" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>' +
+      '<div class="vm-now"><p class="vm-now-title">' + escapeHtmlMain(v.title) + '</p><div class="vm-now-act"><a href="https://www.youtube.com/watch?v=' + encodeURIComponent(id) + '" target="_blank" rel="noopener" data-track="Videos: Open in YouTube">Open in YouTube</a><button type="button" id="vmStop" data-track="Videos: Close player">Close</button></div></div>';
+    holder.hidden = false;
+    document.getElementById('vmStop').addEventListener('click', vmStop);
+    videosBody.scrollTop = 0;
+    vmRenderList();
+  }
+  function vmStop() {
+    vmPlayingId = null;
+    const holder = document.getElementById('vmPlayer'); holder.innerHTML = ''; holder.hidden = true;
+    vmRenderList();
+  }
+  function vmRenderChips() {
+    const el = document.getElementById('vmChips'); if (!el || !vmData) return;
+    const list = [{ id: 'all', name: 'All' }].concat(vmData.churches || []);
+    el.innerHTML = list.map(c => '<button type="button" class="vm-chip' + (c.id === vmChurch ? ' on' : '') + '" data-c="' + escapeHtmlMain(c.id) + '" data-track="Videos: ' + escapeHtmlMain(c.name) + '">' + escapeHtmlMain(c.name) + '</button>').join('');
+  }
+  function vmRenderList() {
+    const el = document.getElementById('vmList'); if (!el || !vmData) return;
+    const names = {}; (vmData.churches || []).forEach(c => { names[c.id] = c.name; });
+    const vids = vmData.videos.filter(v => vmChurch === 'all' || v.church === vmChurch);
+    if (!vids.length) { el.innerHTML = '<div class="vm-note">No messages to show yet.</div>'; return; }
+    el.innerHTML = vids.map(v => '<button type="button" class="vm-card' + (v.id === vmPlayingId ? ' playing' : '') + '" data-id="' + escapeHtmlMain(v.id) + '" data-track="Videos: Play video">' +
+      '<div class="vm-thumb" style="background-image:url(\'https://i.ytimg.com/vi/' + encodeURIComponent(v.id) + '/mqdefault.jpg\')"></div>' +
+      '<div class="vm-meta"><p class="vm-vtitle">' + escapeHtmlMain(v.title) + '</p><div class="vm-by">' + escapeHtmlMain(names[v.church] || '') + ' <span>· ' + vmAgo(v.published) + '</span></div></div></button>').join('');
+  }
+  async function vmRender() {
+    const status = document.getElementById('vmList');
+    status.innerHTML = '<div class="vm-note">Loading messages…</div>';
+    try { await vmLoad(); }
+    catch (e) {
+      status.innerHTML = '<div class="vm-note">Couldn’t load messages right now. Check your connection and try again.<br><button type="button" id="vmRetry">Try again</button></div>';
+      document.getElementById('vmRetry').addEventListener('click', vmRender);
+      return;
+    }
+    vmRenderChips(); vmRenderList();
+  }
+  function openVideos(skipHistoryPush) {
+    vmPlayingId = null;
+    videosBody.innerHTML = '<div class="article-back-row"><a class="back-link" id="vmBack">← Home</a></div><div class="vm-wrap">' +
+      '<div class="vm-title">Video Messages</div><p class="vm-sub">Recent preaching from churches we trust. Pick a church to filter.</p>' +
+      '<div class="vm-player" id="vmPlayer" hidden></div><div class="vm-chips" id="vmChips"></div><div class="vm-list" id="vmList"></div></div>';
+    document.getElementById('vmBack').addEventListener('click', () => goToTab('screen-today'));
+    document.getElementById('vmChips').addEventListener('click', e => {
+      const b = e.target.closest('.vm-chip'); if (!b) return;
+      vmChurch = b.dataset.c; vmRenderChips(); vmRenderList();
+    });
+    document.getElementById('vmList').addEventListener('click', e => {
+      const c = e.target.closest('.vm-card'); if (c) vmPlay(c.dataset.id);
+    });
+    hideMainScreens();
+    showPageHeader('Video Messages');
+    videosModal.classList.add('open');
+    videosBody.scrollTop = 0;
+    if (!skipHistoryPush) pushUrlHash('videos');
+    vmRender();
+  }
+  document.getElementById('videoMessagesBtn').addEventListener('click', () => openVideos());
+
   // ---------- Randomized blog banner (from live feed once loaded) ----------
   function setupBlogBanner() {
     if (BLOG_POSTS.length === 0) return;
@@ -13737,6 +13863,8 @@ async function renderDiscipleshipApp() {
     document.getElementById('goodNewsModal').classList.remove('open');
     document.getElementById('devoPlanModal').classList.remove('open');
     document.getElementById('articleModal').classList.remove('open');
+    document.getElementById('videosModal').classList.remove('open');
+    const vmP = document.getElementById('vmPlayer'); if (vmP) vmP.innerHTML = '';   // stop any playing video
     const frame = document.getElementById('embedFrame');
     if (frame && frame.src) {
       frame.src = '';
@@ -13866,6 +13994,7 @@ async function renderDiscipleshipApp() {
       openArticle(articleId, true);
       return;
     }
+    if (hash === 'videos') { openVideos(true); return; }
     if (hash === 'player') {
       // Only the one Worship Playlist embed exists today, so this is
       // safe to hardcode — if a second embed is ever added elsewhere,
