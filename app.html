@@ -2270,6 +2270,11 @@
 #videosModal { background: var(--paper); }
 #videosModal .back-link { color: rgba(10,10,10,0.5); }
 #videosModal .vm-wrap { padding: 0 0 28px; }
+#videosModal .vm-hero { position: relative; margin: 0 0 14px; padding: 84px 22px 18px; background: #111 url('/assets/video-messages-banner.jpg') center top / cover no-repeat; }
+#videosModal .vm-hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 55%, rgba(0,0,0,0.15) 100%); }
+#videosModal .vm-hero > * { position: relative; }
+#videosModal .vm-hero .vm-title { color: #fff; margin: 0 0 4px; }
+#videosModal .vm-hero .vm-sub { color: rgba(255,255,255,0.8); margin: 0; }
 #videosModal .vm-title { font-family: var(--font-serif, Georgia, serif); font-size: 26px; font-weight: 700; color: var(--black); margin: 6px 22px 4px; }
 #videosModal .vm-sub { font-size: 14px; line-height: 1.5; color: rgba(10,10,10,0.6); margin: 0 22px 14px; }
 #videosModal .vm-chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 22px 14px; scrollbar-width: none; }
@@ -2662,8 +2667,7 @@
             <div class="mv-banner-count" id="memoryVerseBannerCount">Hide God's Word in your heart</div>
             <div class="mv-banner-verse" id="memoryVerseBannerVerse"></div>
           </button>
-          <button type="button" class="banner-slide banner-photo" id="videoBannerSlide" data-track="Video Messages banner" style="background-color:#111;overflow:hidden;">
-            <div class="vb-grid" id="vbGrid" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          <button type="button" class="banner-slide banner-photo" id="videoBannerSlide" data-track="Video Messages banner" style="background-color:#111;background-image:url('/assets/video-messages-banner.jpg');overflow:hidden;">
             <div class="vb-shade"></div>
             <div class="vb-text">
               <div class="banner-eyebrow">Watch &amp; Be Fed</div>
@@ -11131,7 +11135,7 @@ async function renderDiscipleshipApp() {
   function openVideos(skipHistoryPush) {
     vmPlayingId = null;
     videosBody.innerHTML = '<div class="article-back-row"><a class="back-link" id="vmBack">← Home</a></div><div class="vm-wrap">' +
-      '<div class="vm-title">Video Messages</div><p class="vm-sub">Recent preaching from churches we trust. Pick a church to filter.</p>' +
+      '<div class="vm-hero"><div class="vm-title">Video Messages</div><p class="vm-sub">Recent preaching from churches we trust. Pick a church to filter.</p></div>' +
       '<div class="vm-player" id="vmPlayer" hidden></div><div class="vm-chips" id="vmChips"></div><div class="vm-list" id="vmList"></div></div>';
     document.getElementById('vmBack').addEventListener('click', () => goToTab('screen-today'));
     document.getElementById('vmChips').addEventListener('click', e => {
@@ -11150,24 +11154,6 @@ async function renderDiscipleshipApp() {
   }
   document.getElementById('videoMessagesBtn').addEventListener('click', () => openVideos());
   document.getElementById('videoBannerSlide').addEventListener('click', () => openVideos());
-  // The Today banner shows the newest message from up to four different churches
-  // (Awaken first), so it always looks current. If the feed can't load, the
-  // slide just stays a dark card with its text.
-  (async () => {
-    try {
-      const d = await vmLoad();
-      const seen = {}, pick = [];
-      const byAwakenFirst = d.videos.slice().sort((a, b) => (b.church === 'awaken') - (a.church === 'awaken') || (a.published < b.published ? 1 : -1));
-      byAwakenFirst.forEach(v => { if (pick.length < 4 && !seen[v.church]) { seen[v.church] = 1; pick.push(v); } });
-      d.videos.forEach(v => { if (pick.length < 4 && pick.indexOf(v) < 0) pick.push(v); });
-      const tiles = document.querySelectorAll('#vbGrid i');
-      pick.slice(0, 4).forEach((v, i) => {
-        const img = new Image();
-        img.onload = () => { tiles[i].style.backgroundImage = "url('" + img.src + "')"; tiles[i].classList.add('in'); };
-        img.src = 'https://i.ytimg.com/vi/' + encodeURIComponent(v.id) + '/mqdefault.jpg';
-      });
-    } catch (e) { /* keep the plain card */ }
-  })();
 
   // ---------- Randomized blog banner (from live feed once loaded) ----------
   function setupBlogBanner() {
