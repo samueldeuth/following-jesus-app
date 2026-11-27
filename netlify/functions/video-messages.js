@@ -13,7 +13,7 @@
 const CHURCHES = [
   { id: 'awaken',      name: 'Awaken Church',     handle: 'awaken.church',   expect: /awaken/i },
   { id: 'elevation',  name: 'Elevation Church',  handle: 'elevationchurch', expect: /elevation/i },
-  { id: 'lifechurch', name: 'Life.Church',       handle: 'lifechurch',      expect: /life\.?\s?church/i },
+  { id: 'lifechurch', name: 'Life.Church',       handle: 'life.church',     expect: /life\.?\s?church/i },
   { id: 'jentezen',   name: 'Jentezen Franklin', handle: 'jentezenfranklinmedia', expect: /jentezen/i },
   { id: 'pringle',    name: 'Phil Pringle',      handle: 'philpringle',     expect: /pringle/i },
   { id: 'freechapel', name: 'Free Chapel',       handle: 'freechapel',      expect: /free chapel/i }
