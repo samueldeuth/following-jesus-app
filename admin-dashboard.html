@@ -8134,6 +8134,15 @@ async function renderStudentGiftsPanel(studentId){
 init();
 </script>
 <style>
+.fj-sec-head, .fj-sec-bar { background: #111 !important; color: #fff !important; padding: 10px 14px !important; border-radius: 8px; margin: 0 0 10px !important; }
+.fj-sec-head:not(.fj-sec-open) { margin-bottom: 0 !important; }
+.fj-sec-bar #rd-toggle { color: #fff !important; }
+.fj-sec-bar #rd-toggle[aria-expanded="false"] { }
+.fj-sec-head .info-icon-btn, .fj-sec-bar .info-icon-btn { border-color: rgba(255,255,255,.65); color: #fff; }
+.fj-sec-head .info-icon-btn:hover, .fj-sec-head .info-icon-btn.open { background: #fff; color: #111; }
+.fj-sec-head .fj-sec-chev, .fj-sec-bar .fj-sec-chev { color: #fff; }
+.fj-sec-head .fj-sec-pin, .fj-sec-bar .fj-sec-pin { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.32); color: #e4e4e4; }
+.fj-sec-head .fj-sec-pin.on, .fj-sec-bar .fj-sec-pin.on { background: #d9b44a; border-color: #d9b44a; color: #111; }
 .fj-sec-head { cursor: pointer; user-select: none; -webkit-user-select: none; display: flex; align-items: center; gap: 8px; }
 .fj-sec-chev { display: inline-block; transition: transform .15s; font-size: 13px; color: var(--ink-soft); flex: 0 0 auto; }
 .fj-sec-head:not(.fj-sec-open) .fj-sec-chev { transform: rotate(-90deg); }
@@ -8235,13 +8244,14 @@ init();
     var content = document.getElementById('content'); if (!content) return;
     var pk = pageKey(content);
     if (pk !== sessionPage) { session = {}; sessionPage = pk; }
+    if (content.querySelector('#dashboard-body')) return;   // Overview page: no toggles
     var secs = collectSections(content);
     if (secs.length < 2) return;
     secs.forEach(function(sec){
       if (sec.kind === 'rd') {
         var card = sec.card, tog = card.querySelector('#rd-toggle'); if (!tog) return;
         var key = pk + '|New disciples made';
-        var head = tog.parentElement;
+        var head = tog.parentElement; head.classList.add('fj-sec-bar'); head.style.display = 'flex';
         if (!head.querySelector('.fj-sec-pin')) {
           var p = document.createElement('button'); p.type = 'button'; p.className = 'fj-sec-pin';
           pinLabel(p, defaults[key] === 'open'); pins.push({ btn: p, key: key });
