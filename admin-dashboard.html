@@ -3593,6 +3593,17 @@ function renderPushNotifications(){
       <div id="app-taps-body"><span style="font-size:13px;color:var(--ink-soft);">Loading…</span></div>
     </div>
 
+    <div class="card" id="vc-card" style="margin-bottom:24px;max-width:680px;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;margin:0 0 4px;">Video Churches</h3>
+      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;">The channels behind the app's Video Messages page. Changes show up within about an hour.</p>
+      <div id="vc-list"><span style="font-size:13px;color:var(--ink-soft);">Loading…</span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+        <input type="text" id="vc-link" placeholder="Paste a YouTube channel link (youtube.com/@name)" style="flex:1;min-width:220px;padding:8px 10px;border:1px solid var(--border,#ddd);border-radius:6px;font-size:14px;">
+        <button type="button" class="mini-btn gold" id="vc-add">Add</button>
+      </div>
+      <div id="vc-msg" style="font-size:13px;margin-top:8px;"></div>
+    </div>
+
     <h3 style="font-family:'Space Grotesk',sans-serif;font-size:19px;margin:0 0 4px;display:flex;align-items:center;gap:6px;">Push Notifications
       <button type="button" class="info-icon-btn" data-info="Reaches everyone who has opened the Following Jesus app on their phone -- not people who've only ever used a course. Good for announcing new features, blog posts, or reading plans, or nudging people to turn on Verse of the Day or try Share the Gospel.">i</button>
     </h3>
@@ -3702,6 +3713,7 @@ function renderPushNotifications(){
   supabaseClient.rpc('get_global_disciple_count').then(({ data, error }) => { const el = document.getElementById('app-disciples-made-num'); if(el) el.textContent = error ? '—' : (Number(data) || 0).toLocaleString(); }).catch(() => {});
   loadAppDownloadStats();
   loadAppTaps();
+  initVideoChurches();
 
   const pushDestinationSelect = document.getElementById('push-destination-select');
   if(pushDestinationSelect) pushDestinationSelect.addEventListener('change', () => {
@@ -4149,6 +4161,70 @@ let appTapsRangeKey = '30d';
 let appTapsScreen = 'all';
 let appTapsPage = 0;
 const APP_TAPS_PAGE_SIZE = 15;
+
+// ---- Video Churches (App page): list behind the app's Video Messages page ----
+async function initVideoChurches(){
+  const listEl = document.getElementById('vc-list'), msg = document.getElementById('vc-msg');
+  const linkEl = document.getElementById('vc-link'), addBtn = document.getElementById('vc-add');
+  if(!listEl) return;
+  const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const say = (t, bad) => { msg.style.color = bad ? '#b00020' : 'var(--ink-soft)'; msg.textContent = t; };
+  let rows = [];
+  async function load(){
+    const { data, error } = await supabaseClient.from('video_churches').select('*').order('sort_order').order('created_at');
+    if(error){ listEl.innerHTML = '<span style="font-size:13px;color:#b00020;">Could not load: ' + esc(error.message) + ' (has the video-churches SQL been run?)</span>'; return; }
+    rows = data || [];
+    listEl.innerHTML = rows.length ? rows.map((r, i) => `
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--border,#eee);${r.active ? '' : 'opacity:.5;'}">
+        <div style="flex:1;min-width:0;"><strong>${esc(r.name)}</strong><div style="font-size:12px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;">${esc(r.channel_id)}${r.active ? '' : ' · hidden'}</div></div>
+        <button type="button" class="mini-btn" data-vc-up="${esc(r.id)}" ${i === 0 ? 'disabled' : ''} title="Move up">&uarr;</button>
+        <button type="button" class="mini-btn" data-vc-down="${esc(r.id)}" ${i === rows.length - 1 ? 'disabled' : ''} title="Move down">&darr;</button>
+        <button type="button" class="mini-btn" data-vc-toggle="${esc(r.id)}">${r.active ? 'Hide' : 'Show'}</button>
+        <button type="button" class="mini-btn danger" data-vc-del="${esc(r.id)}" >Remove</button>
+      </div>`).join('') : '<span style="font-size:13px;color:var(--ink-soft);">No churches yet.</span>';
+  }
+  async function swap(a, b){
+    if(!a || !b) return;
+    // renumber the whole list so ties never matter
+    const order = rows.map(r => r.id);
+    const i = order.indexOf(a.id), j = order.indexOf(b.id);
+    order[i] = b.id; order[j] = a.id;
+    for(let k = 0; k < order.length; k++) await supabaseClient.from('video_churches').update({ sort_order: (k + 1) * 10 }).eq('id', order[k]);
+    await load();
+  }
+  listEl.onclick = async (e) => {
+    const t = e.target.closest('button'); if(!t) return;
+    const find = id => rows.find(r => r.id === id);
+    if(t.dataset.vcUp){ const i = rows.findIndex(r => r.id === t.dataset.vcUp); await swap(rows[i], rows[i - 1]); }
+    else if(t.dataset.vcDown){ const i = rows.findIndex(r => r.id === t.dataset.vcDown); await swap(rows[i], rows[i + 1]); }
+    else if(t.dataset.vcToggle){ const r = find(t.dataset.vcToggle); await supabaseClient.from('video_churches').update({ active: !r.active }).eq('id', r.id); await load(); }
+    else if(t.dataset.vcDel){ const r = find(t.dataset.vcDel); if(t.dataset.armed){ await supabaseClient.from('video_churches').delete().eq('id', r.id); await load(); } else { t.dataset.armed = '1'; t.textContent = 'Tap again to remove ' + r.name; } }
+  };
+  addBtn.onclick = async () => {
+    const link = linkEl.value.trim();
+    if(!link){ say('Paste a YouTube channel link first.', true); return; }
+    addBtn.disabled = true; say('Looking up the channel…');
+    try {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const res = await fetch('/.netlify/functions/admin-resolve-youtube-channel', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (session?.access_token || '') },
+        body: JSON.stringify({ link })
+      });
+      const out = await res.json();
+      if(!res.ok) throw new Error(out.error || res.statusText);
+      if(rows.some(r => r.channel_id === out.channelId)){ say(out.name + ' is already in the list.', true); return; }
+      let id = out.name.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24) || ('ch' + Date.now());
+      if(rows.some(r => r.id === id)) id += Date.now().toString(36).slice(-3);
+      const maxOrder = rows.reduce((m, r) => Math.max(m, r.sort_order || 0), 0);
+      const { error } = await supabaseClient.from('video_churches').insert({ id, name: out.name, channel_id: out.channelId, sort_order: maxOrder + 10 });
+      if(error) throw new Error(error.message);
+      linkEl.value = ''; say('Added ' + out.name + '.'); await load();
+    } catch(err){ say(err.message || String(err), true); }
+    finally { addBtn.disabled = false; }
+  };
+  load();
+}
+
 async function loadAppTaps(){
   const rangeEl = document.getElementById('app-taps-range');
   const bodyEl = document.getElementById('app-taps-body');
