@@ -45,7 +45,7 @@ const TIMEOUT_MS = 7000;
 const SKIP_TITLE = new RegExp([
   '#shorts?\\b', '\\bshorts?\\b', 'lyric video', 'official music video',
   '\\bchurch (news|updates?|announcements?)\\b', '\\b(announcements?|weekly update|news update)\\b',
-  '\\bconference\\b', '\\bpromo\\b', '\\btrailer\\b', 'save the date', '\\bregist(er|ration)\\b', '\\btickets?\\b', '\\bnow open\\b'
+  '(?<!good\\s)\\bnews\\b', 'what you need to know', '\\b(weekly|monthly|staff|campus|building) update\\b', '\\bconference\\b', '\\bpromo\\b', '\\btrailer\\b', 'save the date', '\\bregist(er|ration)\\b', '\\btickets?\\b', '\\bnow open\\b'
 ].join('|'), 'i');
 
 // Same title from the same church within 3 days = a re-upload; keep only the newest.
@@ -62,6 +62,35 @@ function dedupe(list) {                       // list is newest-first
 
 const idCache = {};                    // handle -> channel id (lives while the function stays warm)
 const UA = 'Mozilla/5.0 (compatible; FollowingJesusApp/1.0)';
+
+// Hidden-word list: managed in the admin dashboard (App > Video Churches > Hidden words), stored in the
+// `video_filter_words` table. mode 'hide' = hide titles containing it; mode 'keep' = a phrase that is
+// never treated as a hidden word (e.g. "good news" so "news" doesn't hide gospel sermons).
+// If the table can't be read, the built-in SKIP_TITLE list above is used.
+const escRe = w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const phraseRe = w => new RegExp('(?<![a-z0-9])' + escRe(w.trim()) + '(?![a-z0-9])', 'gi');
+function makeFilter(rows) {
+  const hide = rows.filter(r => r.mode === 'hide' && r.word && r.word.trim()).map(r => phraseRe(r.word));
+  const keep = rows.filter(r => r.mode === 'keep' && r.word && r.word.trim()).map(r => phraseRe(r.word));
+  return title => {
+    let t = String(title);
+    keep.forEach(k => { t = t.replace(k, ' '); });
+    return hide.some(h => { h.lastIndex = 0; return h.test(t); });
+  };
+}
+async function loadFilter() {
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 5000);
+    const r = await fetch(SUPABASE_URL + '/rest/v1/video_filter_words?select=word,mode',
+      { signal: ctl.signal, headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY } });
+    clearTimeout(t);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const rows = await r.json();
+    if (!Array.isArray(rows) || !rows.length) throw new Error('empty');
+    return makeFilter(rows);
+  } catch (e) { return title => SKIP_TITLE.test(title); }
+}
 
 async function get(url, tries = 2) {
   try { return await get1(url); }
@@ -110,12 +139,12 @@ function parseFeed(xml) {
   return { author: decode(author), entries };
 }
 
-async function loadChurch(c) {
+async function loadChurch(c, isHidden) {
   try {
     const channelId = await resolveChannelId(c);
     const { author, entries } = parseFeed(await get('https://www.youtube.com/feeds/videos.xml?channel_id=' + channelId));
     if (c.expect && !c.expect.test(author)) return { church: c, ok: false, why: 'channel name did not match (' + author + ')', videos: [] };
-    const videos = dedupe(entries.filter(v => !SKIP_TITLE.test(v.title) && !(c.exclude && c.exclude.test(v.title)))).slice(0, PER_CHURCH)
+    const videos = dedupe(entries.filter(v => !isHidden(v.title) && !(c.exclude && c.exclude.test(v.title)))).slice(0, PER_CHURCH)
       .map(v => ({ id: v.id, title: v.title, church: c.id, published: v.published, d: v.desc }));
     return { church: c, ok: true, videos };
   } catch (e) {
@@ -123,11 +152,12 @@ async function loadChurch(c) {
   }
 }
 
-exports.FALLBACK = FALLBACK; exports.SKIP_TITLE = SKIP_TITLE; exports.dedupe = dedupe; exports.parseFeed = parseFeed;
+exports.makeFilter = makeFilter; exports.FALLBACK = FALLBACK; exports.SKIP_TITLE = SKIP_TITLE; exports.dedupe = dedupe; exports.parseFeed = parseFeed;
 
 exports.handler = async () => {
   const CHURCHES = await loadChurchList();
-  const results = await Promise.all(CHURCHES.map(loadChurch));
+  const isHidden = await loadFilter();
+  const results = await Promise.all(CHURCHES.map(c => loadChurch(c, isHidden)));
   const churches = results.filter(r => r.ok && r.videos.length).map(r => ({ id: r.church.id, name: r.church.name }));
   const videos = results.flatMap(r => r.videos).sort((a, b) => (a.published < b.published ? 1 : -1));
   const problems = results.filter(r => !r.ok).map(r => r.church.name + ': ' + r.why);
