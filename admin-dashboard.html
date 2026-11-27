@@ -3602,6 +3602,23 @@ function renderPushNotifications(){
         <button type="button" class="mini-btn gold" id="vc-add">Add</button>
       </div>
       <div id="vc-msg" style="font-size:13px;margin-top:8px;"></div>
+      <div style="border-top:1px solid var(--border,#eee);margin-top:16px;padding-top:14px;">
+        <h4 style="font-family:'Space Grotesk',sans-serif;font-size:14px;margin:0 0 4px;">Hidden words</h4>
+        <p style="font-size:13px;color:var(--ink-soft);margin:0 0 10px;">Videos with any of these words in the title are left out (promos, news, shorts). Tap a word to remove it.</p>
+        <div id="vw-hide" style="display:flex;flex-wrap:wrap;gap:6px;"><span style="font-size:13px;color:var(--ink-soft);">Loading…</span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+          <input type="text" id="vw-input" placeholder="Add a word or phrase, e.g. giveaway" style="flex:1;min-width:200px;padding:8px 10px;border:1px solid var(--border,#ddd);border-radius:6px;font-size:14px;">
+          <button type="button" class="mini-btn gold" id="vw-add">Add</button>
+        </div>
+        <h4 style="font-family:'Space Grotesk',sans-serif;font-size:14px;margin:16px 0 4px;">Always allow</h4>
+        <p style="font-size:13px;color:var(--ink-soft);margin:0 0 10px;">Phrases that don't count as hidden words. For example, "good news" is allowed so "news" doesn't hide gospel messages.</p>
+        <div id="vw-keep" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+          <input type="text" id="vw-keep-input" placeholder="Add a phrase to allow" style="flex:1;min-width:200px;padding:8px 10px;border:1px solid var(--border,#ddd);border-radius:6px;font-size:14px;">
+          <button type="button" class="mini-btn" id="vw-keep-add">Add</button>
+        </div>
+        <div id="vw-msg" style="font-size:13px;margin-top:8px;"></div>
+      </div>
     </div>
 
     <h3 style="font-family:'Space Grotesk',sans-serif;font-size:19px;margin:0 0 4px;display:flex;align-items:center;gap:6px;">Push Notifications
@@ -3714,6 +3731,7 @@ function renderPushNotifications(){
   loadAppDownloadStats();
   loadAppTaps();
   initVideoChurches();
+  initVideoWords();
 
   const pushDestinationSelect = document.getElementById('push-destination-select');
   if(pushDestinationSelect) pushDestinationSelect.addEventListener('change', () => {
@@ -4222,6 +4240,46 @@ async function initVideoChurches(){
     } catch(err){ say(err.message || String(err), true); }
     finally { addBtn.disabled = false; }
   };
+  load();
+}
+
+
+// ---- Hidden words for Video Messages (App page > Video Churches card) ----
+async function initVideoWords(){
+  const hideEl = document.getElementById('vw-hide'), keepEl = document.getElementById('vw-keep'), msg = document.getElementById('vw-msg');
+  if(!hideEl) return;
+  const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const say = (t, bad) => { msg.style.color = bad ? '#b00020' : 'var(--ink-soft)'; msg.textContent = t; };
+  let rows = [];
+  const chip = r => `<button type="button" data-vw-del="${esc(r.word)}" title="Remove" style="border:1px solid var(--border,#ddd);background:var(--bg-soft,#f6f6f6);border-radius:999px;padding:4px 10px;font-size:13px;cursor:pointer;">${esc(r.word)} &times;</button>`;
+  async function load(){
+    const { data, error } = await supabaseClient.from('video_filter_words').select('*').order('word');
+    if(error){ hideEl.innerHTML = '<span style="font-size:13px;color:#b00020;">Could not load: ' + esc(error.message) + ' (has the video-filter-words SQL been run?)</span>'; return; }
+    rows = data || [];
+    const h = rows.filter(r => r.mode === 'hide'), k = rows.filter(r => r.mode === 'keep');
+    hideEl.innerHTML = h.length ? h.map(chip).join('') : '<span style="font-size:13px;color:var(--ink-soft);">No hidden words yet.</span>';
+    keepEl.innerHTML = k.length ? k.map(chip).join('') : '<span style="font-size:13px;color:var(--ink-soft);">None.</span>';
+  }
+  async function add(inputId, mode){
+    const el = document.getElementById(inputId);
+    const word = el.value.trim().toLowerCase();
+    if(!word){ say('Type a word or phrase first.', true); return; }
+    if(rows.some(r => r.word === word)){ say('"' + word + '" is already in a list.', true); return; }
+    const { error } = await supabaseClient.from('video_filter_words').insert({ word, mode });
+    if(error){ say(error.message, true); return; }
+    el.value = ''; say((mode === 'hide' ? 'Now hiding "' : 'Now allowing "') + word + '". Shows in the app within about an hour.'); await load();
+  }
+  const onDel = async (e) => {
+    const b = e.target.closest('[data-vw-del]'); if(!b) return;
+    const { error } = await supabaseClient.from('video_filter_words').delete().eq('word', b.dataset.vwDel);
+    if(error){ say(error.message, true); return; }
+    say('Removed "' + b.dataset.vwDel + '".'); await load();
+  };
+  hideEl.onclick = onDel; keepEl.onclick = onDel;
+  document.getElementById('vw-add').onclick = () => add('vw-input', 'hide');
+  document.getElementById('vw-keep-add').onclick = () => add('vw-keep-input', 'keep');
+  document.getElementById('vw-input').addEventListener('keydown', e => { if(e.key === 'Enter') add('vw-input', 'hide'); });
+  document.getElementById('vw-keep-input').addEventListener('keydown', e => { if(e.key === 'Enter') add('vw-keep-input', 'keep'); });
   load();
 }
 
