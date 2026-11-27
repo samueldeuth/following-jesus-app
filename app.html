@@ -181,6 +181,12 @@
     background: radial-gradient(circle at 85% 15%, rgba(255,255,255,0.18), transparent 55%);
   }
 
+  .vb-grid { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2px; background: #111; }
+  .vb-grid i { display: block; background: #1b1b1b center / cover no-repeat; opacity: 0; transition: opacity .5s ease; }
+  .vb-grid i.in { opacity: 1; }
+  .vb-shade { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.45) 55%, rgba(0,0,0,0.25) 100%); }
+  .vb-text { position: relative; z-index: 1; text-align: left; }
+  .vb-sub { margin-top: 6px; font-size: 13px; color: rgba(255,255,255,0.8); }
   .banner-music-icon { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; color: #fff; }
 
   .banner-eyebrow {
@@ -2655,6 +2661,15 @@
             <div class="banner-title">Memory Verse</div>
             <div class="mv-banner-count" id="memoryVerseBannerCount">Hide God's Word in your heart</div>
             <div class="mv-banner-verse" id="memoryVerseBannerVerse"></div>
+          </button>
+          <button type="button" class="banner-slide banner-photo" id="videoBannerSlide" data-track="Video Messages banner" style="background-color:#111;overflow:hidden;">
+            <div class="vb-grid" id="vbGrid" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+            <div class="vb-shade"></div>
+            <div class="vb-text">
+              <div class="banner-eyebrow">Watch &amp; Be Fed</div>
+              <div class="banner-title">Video Messages</div>
+              <div class="vb-sub">New preaching from pastors we trust</div>
+            </div>
           </button>
           <button type="button" class="banner-slide banner-photo" onclick="openEmbed('https://open.spotify.com/embed/playlist/4CJLU84OYEK5CCr02l45mF?utm_source=generator&theme=0','Top 50 Worship Songs','https://open.spotify.com/playlist/4CJLU84OYEK5CCr02l45mF')" style="background-image:linear-gradient(0deg, rgba(0,0,0,0.75), rgba(0,0,0,0.15)), url('/assets/worship-playlist-banner.jpg');">
             <svg class="banner-music-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 15c2.5-1.2 5.5-1.2 8 0M7.5 12c3-1.5 6-1.5 9 0M7 9c3.5-1.8 6.5-1.8 10 0"/></svg>
@@ -11134,6 +11149,25 @@ async function renderDiscipleshipApp() {
     vmRender();
   }
   document.getElementById('videoMessagesBtn').addEventListener('click', () => openVideos());
+  document.getElementById('videoBannerSlide').addEventListener('click', () => openVideos());
+  // The Today banner shows the newest message from up to four different churches
+  // (Awaken first), so it always looks current. If the feed can't load, the
+  // slide just stays a dark card with its text.
+  (async () => {
+    try {
+      const d = await vmLoad();
+      const seen = {}, pick = [];
+      const byAwakenFirst = d.videos.slice().sort((a, b) => (b.church === 'awaken') - (a.church === 'awaken') || (a.published < b.published ? 1 : -1));
+      byAwakenFirst.forEach(v => { if (pick.length < 4 && !seen[v.church]) { seen[v.church] = 1; pick.push(v); } });
+      d.videos.forEach(v => { if (pick.length < 4 && pick.indexOf(v) < 0) pick.push(v); });
+      const tiles = document.querySelectorAll('#vbGrid i');
+      pick.slice(0, 4).forEach((v, i) => {
+        const img = new Image();
+        img.onload = () => { tiles[i].style.backgroundImage = "url('" + img.src + "')"; tiles[i].classList.add('in'); };
+        img.src = 'https://i.ytimg.com/vi/' + encodeURIComponent(v.id) + '/mqdefault.jpg';
+      });
+    } catch (e) { /* keep the plain card */ }
+  })();
 
   // ---------- Randomized blog banner (from live feed once loaded) ----------
   function setupBlogBanner() {
