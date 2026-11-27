@@ -40,7 +40,25 @@ async function loadChurchList() {
 
 const PER_CHURCH = 12;                 // newest videos kept per church
 const TIMEOUT_MS = 7000;
-const SKIP_TITLE = /#shorts?\b|\bshorts?\b|lyric video|official music video/i;
+// Hidden from every church: shorts, music, and church promos/announcements (we want preaching only).
+// To hide another kind of title, add a word to this list.
+const SKIP_TITLE = new RegExp([
+  '#shorts?\\b', '\\bshorts?\\b', 'lyric video', 'official music video',
+  '\\bchurch (news|updates?|announcements?)\\b', '\\b(announcements?|weekly update|news update)\\b',
+  '\\bconference\\b', '\\bpromo\\b', '\\btrailer\\b', 'save the date', '\\bregist(er|ration)\\b', '\\btickets?\\b', '\\bnow open\\b'
+].join('|'), 'i');
+
+// Same title from the same church within 3 days = a re-upload; keep only the newest.
+const normTitle = t => String(t).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+function dedupe(list) {                       // list is newest-first
+  const out = [];
+  for (const v of list) {
+    const k = normTitle(v.title);
+    if (out.some(o => normTitle(o.title) === k && Math.abs(new Date(o.published) - new Date(v.published)) < 3 * 86400000)) continue;
+    out.push(v);
+  }
+  return out;
+}
 
 const idCache = {};                    // handle -> channel id (lives while the function stays warm)
 const UA = 'Mozilla/5.0 (compatible; FollowingJesusApp/1.0)';
@@ -66,8 +84,12 @@ async function resolveChannelId(c) {
   if (c.channelId) return c.channelId;
   if (idCache[c.handle]) return idCache[c.handle];
   const html = await get('https://www.youtube.com/@' + encodeURIComponent(c.handle));
-  const m = html.match(/"channelId":"(UC[\w-]{22})"/) || html.match(/itemprop="(?:channelId|identifier)" content="(UC[\w-]{22})"/) ||
-            html.match(/"externalId":"(UC[\w-]{22})"/) || html.match(/channel\/(UC[\w-]{22})/);
+  // The channel's own id is in the page's canonical / RSS link. The first "channelId" in the
+  // page source can belong to a related or featured channel, so it is only a last resort.
+  const m = html.match(/<link rel="canonical" href="https:\/\/www\.youtube\.com\/channel\/(UC[\w-]{22})"/) ||
+            html.match(/feeds\/videos\.xml\?channel_id=(UC[\w-]{22})/) ||
+            html.match(/<meta itemprop="(?:channelId|identifier)" content="(UC[\w-]{22})"/) ||
+            html.match(/"externalId":"(UC[\w-]{22})"/) || html.match(/"channelId":"(UC[\w-]{22})"/);
   if (!m) throw new Error('channel id not found');
   return (idCache[c.handle] = m[1]);
 }
@@ -93,7 +115,7 @@ async function loadChurch(c) {
     const channelId = await resolveChannelId(c);
     const { author, entries } = parseFeed(await get('https://www.youtube.com/feeds/videos.xml?channel_id=' + channelId));
     if (c.expect && !c.expect.test(author)) return { church: c, ok: false, why: 'channel name did not match (' + author + ')', videos: [] };
-    const videos = entries.filter(v => !SKIP_TITLE.test(v.title) && !(c.exclude && c.exclude.test(v.title))).slice(0, PER_CHURCH)
+    const videos = dedupe(entries.filter(v => !SKIP_TITLE.test(v.title) && !(c.exclude && c.exclude.test(v.title)))).slice(0, PER_CHURCH)
       .map(v => ({ id: v.id, title: v.title, church: c.id, published: v.published, d: v.desc }));
     return { church: c, ok: true, videos };
   } catch (e) {
@@ -101,7 +123,7 @@ async function loadChurch(c) {
   }
 }
 
-exports.FALLBACK = FALLBACK; exports.parseFeed = parseFeed;
+exports.FALLBACK = FALLBACK; exports.SKIP_TITLE = SKIP_TITLE; exports.dedupe = dedupe; exports.parseFeed = parseFeed;
 
 exports.handler = async () => {
   const CHURCHES = await loadChurchList();

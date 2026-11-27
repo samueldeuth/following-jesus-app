@@ -52,8 +52,12 @@ function parseInput(raw) {
 
 async function channelIdFromHandle(handle) {
   const html = await get('https://www.youtube.com/' + handle);
-  const m = html.match(/"channelId":"(UC[\w-]{22})"/) || html.match(/itemprop="(?:channelId|identifier)" content="(UC[\w-]{22})"/) ||
-            html.match(/"externalId":"(UC[\w-]{22})"/) || html.match(/channel\/(UC[\w-]{22})/);
+  // The channel's own id is in the page's canonical / RSS link. The first "channelId" in the
+  // page source can belong to a related or featured channel, so it is only a last resort.
+  const m = html.match(/<link rel="canonical" href="https:\/\/www\.youtube\.com\/channel\/(UC[\w-]{22})"/) ||
+            html.match(/feeds\/videos\.xml\?channel_id=(UC[\w-]{22})/) ||
+            html.match(/<meta itemprop="(?:channelId|identifier)" content="(UC[\w-]{22})"/) ||
+            html.match(/"externalId":"(UC[\w-]{22})"/) || html.match(/"channelId":"(UC[\w-]{22})"/);
   if (!m) throw new Error('no channel id on page');
   return m[1];
 }
