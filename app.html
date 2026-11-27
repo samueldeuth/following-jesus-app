@@ -2675,9 +2675,9 @@
           <button type="button" class="banner-slide banner-photo" id="videoBannerSlide" data-track="Video Messages banner" style="background-color:#111;background-image:url('/assets/video-messages-banner.jpg');overflow:hidden;">
             <div class="vb-shade"></div>
             <div class="vb-text">
-              <div class="banner-eyebrow">Watch &amp; Be Fed</div>
-              <div class="banner-title">Video Messages</div>
-              <div class="vb-sub">New preaching from pastors we trust</div>
+              <div class="banner-eyebrow">Watch &amp; Be Encouraged</div>
+              <div class="banner-title">Preaching &amp; Teaching</div>
+              <div class="vb-sub">New preaching messages from pastors and churches we trust</div>
             </div>
           </button>
           <button type="button" class="banner-slide banner-photo" onclick="openEmbed('https://open.spotify.com/embed/playlist/4CJLU84OYEK5CCr02l45mF?utm_source=generator&theme=0','Top 50 Worship Songs','https://open.spotify.com/playlist/4CJLU84OYEK5CCr02l45mF')" style="background-image:linear-gradient(0deg, rgba(0,0,0,0.75), rgba(0,0,0,0.15)), url('/assets/worship-playlist-banner.jpg');">
@@ -2822,8 +2822,8 @@
         <button type="button" class="grid-item" id="videoMessagesBtn" data-track="Home: Video Messages">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor" stroke="none"/></svg>
           <span class="grid-item-text">
-            <span class="grid-item-label">Watch &amp; Be Fed</span>
-            <span class="grid-item-title">Video Messages</span>
+            <span class="grid-item-label">Watch &amp; Be Encouraged</span>
+            <span class="grid-item-title">Preaching &amp; Teaching</span>
           </span>
         </button>
         <button type="button" class="grid-item" onclick="goToTab('screen-blog')">
@@ -2837,7 +2837,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M8 15c2.5-1.2 5.5-1.2 8 0M7.5 12c3-1.5 6-1.5 9 0M7 9c3.5-1.8 6.5-1.8 10 0"/></svg>
           <span class="grid-item-text">
             <span class="grid-item-label">Encounter God</span>
-            <span class="grid-item-title">Worship Music</span>
+            <span class="grid-item-title">Worship Playlist</span>
           </span>
         </button>
       </div>
@@ -8145,7 +8145,7 @@ const fjTap = (function(){
   const POPUP_NAMES = {
     shareChooserOverlay: 'Share', verseOfDayModalOverlay: 'Verse alert', findChurchModalOverlay: 'Find a Church', readingReminderModalOverlay: 'Reading reminder',
     devoReminderModalOverlay: 'Devo reminder', discipleModal: 'Disciple', gospelModal: 'Share The Word', goodNewsModal: 'Good News',
-    featureTipOverlay: 'Feature tip', devoPlanModal: 'Plan', articleModal: 'Blog article', videosModal: 'Video Messages', embedModal: 'Player', modalPortal: 'Popup'
+    featureTipOverlay: 'Feature tip', devoPlanModal: 'Plan', articleModal: 'Blog article', videosModal: 'Preaching & Teaching', embedModal: 'Player', modalPortal: 'Popup'
   };
   function titleCase(t){ return t.toLowerCase().replace(/(^|[\s(-])([a-z])/g, (m, a, b) => a + b.toUpperCase()); }
 
@@ -11142,7 +11142,7 @@ async function renderDiscipleshipApp() {
   function openVideos(skipHistoryPush) {
     vmPlayingId = null; vmQuery = '';
     videosBody.innerHTML = '<div class="article-back-row"><a class="back-link" id="vmBack">← Home</a></div><div class="vm-wrap">' +
-      '<div class="vm-hero"><div class="vm-title">Video Messages</div><p class="vm-sub">Recent preaching from churches we trust. Search by preacher or topic, or pick a church.</p></div>' +
+      '<div class="vm-hero"><div class="vm-title">Preaching &amp; Teaching</div><p class="vm-sub">Recent preaching from churches we trust. Search by preacher or topic, or pick a church.</p></div>' +
       '<div class="vm-player" id="vmPlayer" hidden></div><div class="vm-search"><input type="search" id="vmSearch" placeholder="Search preacher or topic" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"><button type="button" id="vmSearchClear" hidden aria-label="Clear search">✕</button></div><div class="vm-chips" id="vmChips"></div><div class="vm-list" id="vmList"></div></div>';
     document.getElementById('vmBack').addEventListener('click', () => goToTab('screen-today'));
     const vmIn = document.getElementById('vmSearch'), vmClr = document.getElementById('vmSearchClear');
@@ -11157,7 +11157,7 @@ async function renderDiscipleshipApp() {
       const c = e.target.closest('.vm-card'); if (c) vmPlay(c.dataset.id);
     });
     hideMainScreens();
-    showPageHeader('Video Messages');
+    showPageHeader('Preaching & Teaching');
     videosModal.classList.add('open');
     videosBody.scrollTop = 0;
     if (!skipHistoryPush) pushUrlHash('videos');
