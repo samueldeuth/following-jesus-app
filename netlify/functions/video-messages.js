@@ -44,7 +44,7 @@ async function loadChurchList() {
 
 const PER_CHURCH = 20;                 // newest videos kept per church
 const WINDOW_DAYS = 30;               // how far back the page reaches
-const MIN_SECONDS = 15 * 60;          // anything shorter than this (clips, shorts, promos) is left out
+const MIN_SECONDS = 12 * 60;          // anything shorter than this (clips, shorts, promos) is left out
 const TIMEOUT_MS = 7000;
 // Hidden from every church: shorts, music, and church promos/announcements (we want preaching only).
 // To hide another kind of title, add a word to this list.
