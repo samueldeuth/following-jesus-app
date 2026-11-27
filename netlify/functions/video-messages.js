@@ -4,20 +4,21 @@
 // reads that channel's public YouTube feed (no API key, no new secrets) and
 // returns one merged, newest-first list the app can filter by church.
 //
-// TO ADD A CHURCH: add one line to CHURCHES. Easiest is `handle` (the part after
-// the @ in youtube.com/@name). If you have a youtube.com/channel/UC... link,
-// put the UC... part in `channelId` instead -- that is the most reliable.
+// TO ADD A CHURCH: add one line to CHURCHES with its `channelId` (the UC... code;
+// I look these up for you). A `handle` (youtube.com/@name) also works but YouTube
+// sometimes refuses those lookups from a server, so channelId is the reliable way.
+// `exclude` (optional) hides videos whose title matches, e.g. worship clips.
 // `expect` is a safety net: if the channel found doesn't have that word in its
 // name, the church is skipped instead of showing the wrong channel's videos.
 
 const CHURCHES = [
-  { id: 'awaken',      name: 'Awaken Church',     handle: 'awaken.church',   expect: /awaken/i },
-  { id: 'elevation',  name: 'Elevation Church',  handle: 'elevationchurch', expect: /elevation/i },
-  { id: 'lifechurch', name: 'Life.Church',       handle: 'life.church',     expect: /life\.?\s?church/i },
-  { id: 'jentezen',   name: 'Jentezen Franklin', handle: 'jentezenfranklinmedia', expect: /jentezen/i },
-  { id: 'pringle',    name: 'Phil Pringle',      handle: 'philpringle',     expect: /pringle/i },
-  { id: 'pursuit',    name: 'Pursuit NW',        handle: 'pursuitnw',       expect: /pursuit/i },
-  { id: 'freechapel', name: 'Free Chapel',       handle: 'freechapel',      expect: /free chapel/i }
+  { id: 'awaken',     name: 'Awaken Church',     channelId: 'UCBYjJLwtiJm1gszCH3ISo3w', expect: /awaken/i },
+  { id: 'elevation',  name: 'Elevation Church',  channelId: 'UCSf-NCzjwcnXErUBW_qeFvA', expect: /elevation/i, exclude: /elevation worship|elevation nights|\bworship\b/i },
+  { id: 'lifechurch', name: 'Life.Church',       channelId: 'UCIIdiIO-Y20hRW9niR0CA8A', expect: /life\.?\s?church/i },
+  { id: 'jentezen',   name: 'Jentezen Franklin', channelId: 'UCI4WXGllxp6E4UgY7alQ_tA', expect: /jentezen/i },
+  { id: 'pringle',    name: 'Phil Pringle',      channelId: 'UCrnbsxwsvBCMGZwK1XI-xfw', expect: /pringle/i },
+  { id: 'pursuit',    name: 'Pursuit NW',        channelId: 'UCDhfk3sPpwjIedZ1Bya1VrQ', expect: /pursuit/i },
+  { id: 'freechapel', name: 'Free Chapel',       channelId: 'UCTPf84o895qPnPAkSbfm1Tw', expect: /free chapel/i }
 ];
 
 const PER_CHURCH = 12;                 // newest videos kept per church
@@ -27,7 +28,11 @@ const SKIP_TITLE = /#shorts?\b|\bshorts?\b|lyric video|official music video/i;
 const idCache = {};                    // handle -> channel id (lives while the function stays warm)
 const UA = 'Mozilla/5.0 (compatible; FollowingJesusApp/1.0)';
 
-async function get(url) {
+async function get(url, tries = 2) {
+  try { return await get1(url); }
+  catch (e) { if (tries > 1) { await new Promise(r => setTimeout(r, 400)); return get(url, tries - 1); } throw e; }
+}
+async function get1(url) {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), TIMEOUT_MS);
   try {
@@ -70,7 +75,7 @@ async function loadChurch(c) {
     const channelId = await resolveChannelId(c);
     const { author, entries } = parseFeed(await get('https://www.youtube.com/feeds/videos.xml?channel_id=' + channelId));
     if (c.expect && !c.expect.test(author)) return { church: c, ok: false, why: 'channel name did not match (' + author + ')', videos: [] };
-    const videos = entries.filter(v => !SKIP_TITLE.test(v.title)).slice(0, PER_CHURCH)
+    const videos = entries.filter(v => !SKIP_TITLE.test(v.title) && !(c.exclude && c.exclude.test(v.title))).slice(0, PER_CHURCH)
       .map(v => ({ id: v.id, title: v.title, church: c.id, published: v.published }));
     return { church: c, ok: true, videos };
   } catch (e) {
