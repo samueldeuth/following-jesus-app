@@ -16,6 +16,7 @@ const CHURCHES = [
   { id: 'lifechurch', name: 'Life.Church',       handle: 'life.church',     expect: /life\.?\s?church/i },
   { id: 'jentezen',   name: 'Jentezen Franklin', handle: 'jentezenfranklinmedia', expect: /jentezen/i },
   { id: 'pringle',    name: 'Phil Pringle',      handle: 'philpringle',     expect: /pringle/i },
+  { id: 'pursuit',    name: 'Pursuit NW',        handle: 'pursuitnw',       expect: /pursuit/i },
   { id: 'freechapel', name: 'Free Chapel',       handle: 'freechapel',      expect: /free chapel/i }
 ];
 
