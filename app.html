@@ -14590,6 +14590,14 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     if (r.error) throw r.error;
     return r.data;
   }
+  // Ask the server to send the other person a push (fire and forget; the app works the same if it fails).
+  async function notifyPush(type, userId) {
+    try {
+      var r = await sb().auth.getSession(); var tok = r && r.data && r.data.session && r.data.session.access_token;
+      if (!tok || !userId) return;
+      fetch('/.netlify/functions/notify-friend-request', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok }, body: JSON.stringify({ type: type, user: userId }) }).catch(function () {});
+    } catch (e) {}
+  }
   function errText(e) { return (e && e.message) ? e.message : 'Something went wrong. Please try again.'; }
 
   var IC = {
@@ -14796,7 +14804,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   }
   function reqRow(r) {
     return '<div class="fr-req">' + '<div class="fr-row">' + avatar(r.photo_url, r.full_name) + '<div class="fr-row-t"><div class="fr-name">' + esc(r.full_name) + '</div><div class="fr-meta">Wants to be friends</div></div></div>' +
-      '<div class="fr-reqbtns"><button type="button" class="fr-btn fr-btn-dark fr-sm" data-acc="' + esc(r.request_id) + '">Accept</button>' +
+      '<div class="fr-reqbtns"><button type="button" class="fr-btn fr-btn-dark fr-sm" data-acc="' + esc(r.request_id) + '" data-uid="' + esc(r.user_id) + '">Accept</button>' +
       '<button type="button" class="fr-btn fr-sm" data-dec="' + esc(r.request_id) + '">Decline</button></div></div>';
   }
   function wireReqButtons() {
@@ -14805,6 +14813,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         var accept = !!b.dataset.acc; b.disabled = true;
         try {
           await rpc('respond_friend_request', { p_request: b.dataset.acc || b.dataset.dec, p_accept: accept });
+          if (accept) notifyPush('accepted', b.dataset.uid);
           notice = accept ? 'Friend added.' : 'Request declined.';
           render(); refreshHome();
         } catch (e) { b.disabled = false; alert(errText(e)); }
@@ -14906,6 +14915,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
           b.disabled = true;
           try {
             var r = await rpc('send_friend_request', { p_user: b.dataset.add });
+            if (r === 'sent') notifyPush('request', b.dataset.add); else if (r === 'accepted') notifyPush('accepted', b.dataset.add);
             var st = document.createElement('span'); st.className = 'fr-state';
             st.textContent = r === 'accepted' || r === 'already_friends' ? 'Friends' : 'Requested';
             b.replaceWith(st);
@@ -15107,7 +15117,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         Object.keys(bySec).forEach(function (s) {
           var list = bySec[s].sort(function (a, b) { return a.t - b.t; });
           var sec = j.sections.find(function (x) { return x.n === +s; });
-          list.forEach(function (it, i) { order[it.k] = { file: sec.file, end: i < list.length - 1 ? list[i + 1].t : sec.dur - OUTRO }; });
+          list.forEach(function (it, i) { order[it.k] = { file: sec.file, first: i === 0, end: i < list.length - 1 ? list[i + 1].t : sec.dur - OUTRO }; });
         });
         return j;
       }).catch(function (e) { idxP = null; throw e; });
@@ -15149,15 +15159,16 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   }
 
   // Point the audio at the chapter currently shown; resume = keep position when it is the same file.
-  function target(k, autoplay) {
+  function target(k, autoplay, keepPos) {
     var info = order[k], ch = idx.chapters[k];
     if (!info || !ch) { stop(); return; }
     curKey = k; curVerses = ch.v; curEnd = info.end; lastVerse = -1;
-    var a = ensureAudio(), start = ch.v[0];
+    // Chapters in the middle of a file are timed by estimate, so begin a few seconds early (at the chapter announcement) rather than risk landing on verse 2.
+    var a = ensureAudio(), start = info.first ? ch.v[0] : Math.max(0, Math.min(ch.v[0], ch.t) - 3);
     var url = BASE + info.file;
     if (curFile !== info.file) {
       curFile = info.file; pendingSeek = start; a.src = url; a.load();
-    } else { a.currentTime = start; }
+    } else if (!keepPos) { a.currentTime = start; }
     applySpeed();
     if (autoplay) { var p = a.play(); if (p && p.catch) p.catch(function () { setPlayIcon(false); }); }
     meta();
@@ -15224,7 +15235,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     injectRow();
     loadIndex().then(function () {
       if (!isBSB()) return;
-      if (active) { if (key() !== curKey) target(key(), !audio.paused || advancing); markVerse(lastVerse); }
+      if (active) { if (key() !== curKey) target(key(), !audio.paused || advancing, advancing); markVerse(lastVerse); }
       player.hidden = !order[key()];
       if (credit) credit.hidden = player.hidden;
     }).catch(function () { player.hidden = true; if (credit) credit.hidden = true; });
