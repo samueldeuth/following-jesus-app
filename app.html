@@ -15189,8 +15189,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     var info = order[k], ch = idx.chapters[k];
     if (!info || !ch) { stop(); return; }
     curKey = k; curVerses = ch.v; curEnd = info.end; lastVerse = -1;
-    // Chapters in the middle of a file are timed by estimate, so begin a few seconds early (at the chapter announcement) rather than risk landing on verse 2.
-    var a = ensureAudio(), start = info.first ? ch.v[0] : Math.max(0, Math.min(ch.v[0], ch.t) - 3);
+    // Measured chapters begin just before the spoken announcement ("Romans, chapter 1"); chapters still timed by estimate (e:1) get a 3s cushion.
+    var a = ensureAudio(), start = ch.e ? Math.max(0, Math.min(ch.v[0], ch.t) - 3) : Math.max(0, ch.t - (info.first ? 0.3 : 0.6));
     var url = BASE + info.file;
     if (curFile !== info.file) {
       curFile = info.file; pendingSeek = start; a.src = url; a.load();
