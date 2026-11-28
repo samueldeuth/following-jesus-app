@@ -14947,7 +14947,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     } else {
       html += '<div class="fr-scan"><div class="fr-cam" id="frCam" hidden><video id="frVid" playsinline muted></video><div class="fr-reticle"></div></div>' +
         '<p class="fr-muted" id="frScanMsg">Point your camera at a friend\'s code.</p>' +
-        '<p class="fr-muted">You can also just open your phone\'s Camera app and scan their code. It opens the app and adds them.</p>' +
+        '<p class="fr-muted">Scanning here adds them inside the app.</p>' +
         '<div class="fr-search" style="margin-top:14px"><input id="frCode" type="text" placeholder="Or paste a friend link or code" autocomplete="off" autocapitalize="off" spellcheck="false"></div>' +
         '<button type="button" class="fr-btn fr-btn-dark fr-big" id="frCodeGo" style="margin-top:10px">Add friend</button></div>';
     }
@@ -14973,23 +14973,49 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     var m = /[?&]friend=([^&\s#]+)/.exec(v);
     return decodeURIComponent(m ? m[1] : v.trim());
   }
+  var jsqrP = null;
+  function loadJsQR() {
+    if (window.jsQR) return Promise.resolve(window.jsQR);
+    if (!jsqrP) jsqrP = new Promise(function (res, rej) {
+      var sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+      sc.onload = function () { window.jsQR ? res(window.jsQR) : rej(new Error('no decoder')); };
+      sc.onerror = function () { jsqrP = null; rej(new Error('no decoder')); };
+      document.head.appendChild(sc);
+    });
+    return jsqrP;
+  }
+  function scanMsg(t) { var m = $('frScanMsg'); if (m) m.textContent = t; }
   async function startCam() {
-    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.BarcodeDetector)) return;
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { scanMsg('Camera scanning is not available here. Paste a friend link below instead.'); return; }
     try {
-      var det = new BarcodeDetector({ formats: ['qr_code'] });
-      camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      var det = window.BarcodeDetector ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
+      var jsqr = det ? null : await loadJsQR();
+      camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
       var vid = $('frVid'), cam = $('frCam'); if (!vid) { stopCam(); return; }
+      vid.setAttribute('playsinline', ''); vid.muted = true;
       vid.srcObject = camStream; cam.hidden = false; await vid.play();
+      scanMsg('Point your camera at a friend\'s code.');
+      var cv = document.createElement('canvas'), ctx = cv.getContext('2d', { willReadFrequently: true }), busy = false;
       camTimer = setInterval(async function () {
+        if (busy || !vid.videoWidth) return; busy = true;
         try {
-          var codes = await det.detect(vid);
-          for (var i = 0; i < codes.length; i++) {
-            var v = codes[i].rawValue || '';
-            if (/[?&]friend=/.test(v)) { stopCam(); addByCode(parseCode(v)); return; }
+          var v = '';
+          if (det) { var codes = await det.detect(vid); if (codes.length) v = codes[0].rawValue || ''; }
+          else {
+            var w = Math.min(640, vid.videoWidth), h = Math.round(w * vid.videoHeight / vid.videoWidth);
+            cv.width = w; cv.height = h; ctx.drawImage(vid, 0, 0, w, h);
+            var q = jsqr(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
+            if (q) v = q.data || '';
           }
+          if (/[?&]friend=/.test(v)) { stopCam(); addByCode(parseCode(v)); return; }
         } catch (e) {}
-      }, 400);
-    } catch (e) { stopCam(); var c = $('frCam'); if (c) c.hidden = true; var m = $('frScanMsg'); if (m) m.textContent = 'Camera is not available here. Use your phone\'s Camera app to scan, or paste a link below.'; }
+        busy = false;
+      }, 250);
+    } catch (e) {
+      stopCam(); var c = $('frCam'); if (c) c.hidden = true;
+      var denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+      scanMsg(denied ? 'Camera access is off. Allow Camera for Following Jesus in your phone\'s Settings, or paste a friend link below.' : 'Couldn\'t start the camera. Paste a friend link below instead.');
+    }
   }
   async function addByCode(code) {
     try {
