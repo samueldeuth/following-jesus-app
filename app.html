@@ -2906,6 +2906,8 @@ html[data-fr-req]:not([data-fr-req="0"]) .fr-dot { display: block; }
         <div class="today-soap-dots" id="todaySoapDots" aria-label="Verse of the Day cards"></div>
       </div>
 
+      <div id="friendsHomeCard"></div>
+
       <div id="todayContinue" hidden>
         <div class="cc-track" id="ccTrack"></div>
         <div class="cc-dots" id="ccDots" aria-hidden="true"></div>
@@ -2991,7 +2993,6 @@ html[data-fr-req]:not([data-fr-req="0"]) .fr-dot { display: block; }
         </div>
       </div>
 
-      <div id="friendsHomeCard"></div>
 
       <div class="section-label" id="moreSectionLabel">More</div>
       <div class="icon-grid">
@@ -4049,7 +4050,7 @@ html[data-fr-req]:not([data-fr-req="0"]) .fr-dot { display: block; }
     if (st) {
       const m = DEVOTIONAL_PLANS_MANIFEST[st.plan];
       sub = `${st.stopped ? 'Stopped · ' : ''}${st.memorized.length} of 52 memorized · ${m.title.replace(/^52 Bible Verses\s*/i, '52 Verses ')}`;
-      cta = 'Practice';
+      cta = 'Memorize';
     }
     el.innerHTML = `
       <div class="mv-home-text">
@@ -5331,6 +5332,11 @@ html[data-fr-req]:not([data-fr-req="0"]) .fr-dot { display: block; }
           <svg class="prof-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 01-10 0c0-2 1-3 2-4 0 2 1 2.5 1.5 2.5C10 9 10.5 5.5 12 3z"/></svg>
           <div class="prof-tx"><div class="prof-t">${currentStreak} ${currentStreak === 1 ? 'day' : 'days'} streak</div></div>
         </div>
+        <button type="button" class="prof-row fr-has-dot" data-open-friends data-track="Profile: Friends"><i class="fr-dot fr-dot-row" aria-label="New friend request"></i>
+          <svg class="prof-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M16.5 14.2c2.7.2 4.5 2.2 4.5 5.3"/></svg>
+          <span class="prof-tx"><span class="prof-t">Friends</span><span class="prof-s">Add friends and see what they're reading</span></span>
+          <svg class="prof-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
       </div>
 
       <button type="button" class="prof-hero" id="goToDiscipleshipBtn">
@@ -5343,15 +5349,6 @@ html[data-fr-req]:not([data-fr-req="0"]) .fr-dot { display: block; }
 
       <!-- Saved verses, filled in by fillProfileSaved() after render -->
       <div id="profileSavedSlot"></div>
-
-      <div class="prof-lbl">Friends</div>
-      <div class="prof-grp">
-        <button type="button" class="prof-row fr-has-dot" data-open-friends data-track="Profile: Friends"><i class="fr-dot fr-dot-row" aria-label="New friend request"></i>
-          <svg class="prof-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M16.5 14.2c2.7.2 4.5 2.2 4.5 5.3"/></svg>
-          <span class="prof-tx"><span class="prof-t">Friends</span><span class="prof-s">Add friends and see what they're reading</span></span>
-          <svg class="prof-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
-        </button>
-      </div>
 
       <div class="prof-lbl">Notifications</div>
       <div class="prof-grp">
@@ -12130,6 +12127,7 @@ async function renderDiscipleshipApp() {
       hlAfterRender();
       currentChapterText = data.verses.map(v => v.text.trim()).join(' ');
       currentChapterLabel = `${book[1]} ${chapter}`;
+      try { localStorage.setItem('fj_bible_last', book[0] + '|' + chapter); } catch (e) {} // reopen here next time
     } catch (e) {
       reader.innerHTML = `<div class="bible-error">Couldn't load this chapter right now. <a href="https://www.bible.com/organizations/f072ad1e-f59c-49b0-8310-b33f874a2d54" target="_blank" rel="noopener">Read it on YouVersion instead →</a></div>`;
       currentChapterText = '';
@@ -13766,7 +13764,17 @@ async function renderDiscipleshipApp() {
   });
 
   populateChapters();
-  chapterSelect.value = 15; // John 15, matches today's devotional
+  // Reopen where the person last read; first-ever open defaults to John 15.
+  (function restoreLastChapter() {
+    let b = 'JHN', c = 15;
+    try {
+      const saved = (localStorage.getItem('fj_bible_last') || '').split('|');
+      const bk = BOOKS.find(x => x[0] === saved[0]);
+      const ch = parseInt(saved[1], 10);
+      if (bk && ch >= 1 && ch <= bk[2]) { b = bk[0]; c = ch; }
+    } catch (e) {}
+    bookSelect.value = b; populateChapters(); chapterSelect.value = String(c);
+  })();
   loadChapter();
 
   // ---------- Continue cards (Home) + My Plans / Completed (Plans tab) ----------
@@ -13892,7 +13900,7 @@ async function renderDiscipleshipApp() {
     const o = document.createElement('div');
     o.className = 'cc-overlay cc-menu-wrap'; o.id = 'ccMenu';
     o.innerHTML = `<div class="cc-menu">
-      <button type="button" data-m="open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span>Practice</span></button>
+      <button type="button" data-m="open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span>Memorize</span></button>
       <button type="button" data-m="stop" class="danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9.5"/><line x1="7.5" y1="12" x2="16.5" y2="12"/></svg><span>Stop Memory Verse</span></button></div>`;
     document.body.appendChild(o);
     o.addEventListener('click', e => {
@@ -14115,7 +14123,7 @@ async function renderDiscipleshipApp() {
         <button type="button" class="cc-more" data-cc-mvstop="1" data-track="Memory Verse: Stop menu" aria-label="Stop Memory Verse" style="position:absolute;top:14px;right:14px;"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
         <div class="cc-label">Memory Verse</div><div class="cc-title" style="padding-right:40px;">${esc(c.title)}</div>
         <div class="cc-sub">${esc(c.line)}</div><div class="cc-bar"><i style="width:${pct}%"></i></div>
-        <span class="cc-btn">Practice</span></div>`;
+        <span class="cc-btn">Memorize</span></div>`;
     }
     if (c.kind === 'course') {
       return `<a class="cc-card" href="${CC_COURSE_URL}" target="_blank" rel="noopener">
@@ -14795,9 +14803,10 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     var s = await session();
     if (!s) { root.removeAttribute('data-fr-req'); if (card) card.innerHTML = ''; return; }
     try {
-      var res = await Promise.all([rpc('list_friend_requests'), rpc('get_friend_feed', { p_limit: 3 })]);
+      var res = await Promise.all([rpc('list_friend_requests'), rpc('get_friend_feed', { p_limit: 12 })]);
       var inc = (res[0] || []).filter(function (r) { return r.direction === 'incoming'; });
-      var feed = (res[1] || []).filter(function (a) { return feedSummary(a); });
+      var FEED_WINDOW_MS = 48 * 3600 * 1000; // friend activity older than this drops off the Home card
+      var feed = (res[1] || []).filter(function (a) { return feedSummary(a) && (Date.now() - new Date(a.created_at).getTime()) <= FEED_WINDOW_MS; }).slice(0, 3);
       root.setAttribute('data-fr-req', String(inc.length));
       if (!card) return;
       if (!inc.length && !feed.length) { card.innerHTML = ''; return; }
