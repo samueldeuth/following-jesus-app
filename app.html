@@ -2703,6 +2703,39 @@
   .cc-empty { color: #55555c; font-size: 14px; line-height: 1.45; padding: 18px 4px; }
   .cc-empty .cc-mini { display: block; margin-top: 12px; }
 
+
+.fr-has-dot { position: relative; }
+.fr-dot { display: none; position: absolute; top: 8px; right: 10px; width: 11px; height: 11px; border-radius: 50%; background: #e5484d; box-shadow: 0 0 0 2px #fff; pointer-events: none; z-index: 3; }
+nav.tabbar .fr-dot { top: 6px; right: calc(50% - 22px); box-shadow: 0 0 0 2px #050505; }
+.fr-dot-row { top: 50%; right: 38px; margin-top: -5px; }
+html[data-fr-req]:not([data-fr-req="0"]) .fr-dot { display: block; }
+#friendsHomeCard:empty { display: none; }
+.fr-home { display: block; width: calc(100% - 40px); text-align: left; background: #1d1d1f; color: #fff; border: 0; border-radius: 18px; padding: 14px 16px; margin: 14px 20px 16px; font: inherit; cursor: pointer; }
+.fr-home-h { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 15px; margin-bottom: 10px; }
+.fr-home-h span { font-size: 13px; font-weight: 600; color: #c89b3c; }
+.fr-home-req { display: flex; align-items: center; gap: 8px; background: #000; color: #e9d6a6; border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.fr-home-req i { width: 9px; height: 9px; border-radius: 50%; background: #e5484d; flex: none; }
+.fr-home-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+.fr-home-row + .fr-home-row { border-top: 1px solid rgba(255,255,255,0.08); }
+.fr-home-row .fr-av { width: 34px; height: 34px; font-size: 14px; flex: none; position: relative; border-radius: 50%; background: #2c2c2e; color: #e9d6a6; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; font-weight: 700; }
+.fr-home-row .fr-av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.fr-home-t { flex: 1; min-width: 0; font-size: 14px; line-height: 1.3; color: rgba(255,255,255,0.8); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fr-home-t b { font-weight: 700; color: #fff; }
+.fr-home-ago { font-size: 12px; color: rgba(255,255,255,0.4); flex: none; }
+/* ---------- BSB audio ---------- */
+#screen-bible .aud-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin: 0 0 14px; }
+#screen-bible .aud-btn { display: inline-flex; align-items: center; gap: 8px; border: 0; background: #0a0a0a; color: #fff; border-radius: 999px; padding: 8px 16px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+#screen-bible .aud-btn[hidden], #screen-bible .aud-credit[hidden], .aud-player[hidden] { display: none; }
+#screen-bible .aud-btn svg { width: 15px; height: 15px; color: #c89b3c; }
+#screen-bible .aud-credit { font-size: 11px; line-height: 1.4; color: rgba(10,10,10,0.45); text-decoration: none; }
+.aud-player { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 14px); height: 46px; display: flex; align-items: center; gap: 2px; padding: 0 6px; background: #0a0a0a; border-radius: 999px; box-shadow: 0 6px 18px rgba(0,0,0,0.28); z-index: 5; }
+.aud-player button { position: relative; width: 38px; height: 38px; border: 0; background: none; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; padding: 0; }
+.aud-player button svg { width: 20px; height: 20px; }
+.aud-player button small { position: absolute; font-size: 8.5px; font-weight: 800; top: 50%; left: 50%; transform: translate(-50%, -42%); }
+.aud-player .aud-main { background: #c89b3c; color: #0a0a0a; width: 40px; height: 40px; margin: 0 2px; }
+.aud-player .aud-main svg { width: 20px; height: 20px; }
+.bible-text .vs.aud-on { background-image: linear-gradient(rgba(10,10,10,0.11), rgba(10,10,10,0.11)); border-radius: 3px; }
+
 /* ---------- Friends ---------- */
 #friendsModal { background: var(--paper); }
 #friendsModal .back-link { color: rgba(10,10,10,0.5); }
@@ -2957,6 +2990,8 @@
         </div>
       </div>
 
+      <div id="friendsHomeCard"></div>
+
       <div class="section-label" id="moreSectionLabel">More</div>
       <div class="icon-grid">
         <a class="grid-item" href="https://followingjesus.com/course" target="_blank" rel="noopener">
@@ -2980,7 +3015,7 @@
             <span class="grid-item-title">Preaching<br><span style="font-size:0.78em;font-weight:inherit">Teaching</span></span>
           </span>
         </button>
-        <button type="button" class="grid-item" data-open-friends data-track="Home: Friends">
+        <button type="button" class="grid-item fr-has-dot" data-open-friends data-track="Home: Friends"><i class="fr-dot" aria-label="New friend request"></i>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M16.5 14.2c2.7.2 4.5 2.2 4.5 5.3"/></svg>
           <span class="grid-item-text">
             <span class="grid-item-label">Walk Together</span>
@@ -3377,7 +3412,7 @@
       <svg viewBox="0 0 24 24" stroke-width="1.6"><line x1="12" y1="3" x2="12" y2="21"/><line x1="6" y1="9" x2="18" y2="9"/></svg>
       <span class="label">Jesus</span>
     </button>
-    <button type="button" class="tab-btn" id="profileTabBtn">
+    <button type="button" class="tab-btn fr-has-dot" id="profileTabBtn"><i class="fr-dot" aria-label="New friend request"></i>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="9.5" r="3"/><path d="M6 18.5c1.2-2.6 3.4-4 6-4s4.8 1.4 6 4"/></svg>
       <span class="label">Profile</span>
     </button>
@@ -5310,7 +5345,7 @@
 
       <div class="prof-lbl">Friends</div>
       <div class="prof-grp">
-        <button type="button" class="prof-row" data-open-friends data-track="Profile: Friends">
+        <button type="button" class="prof-row fr-has-dot" data-open-friends data-track="Profile: Friends"><i class="fr-dot fr-dot-row" aria-label="New friend request"></i>
           <svg class="prof-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M16.5 14.2c2.7.2 4.5 2.2 4.5 5.3"/></svg>
           <span class="prof-tx"><span class="prof-t">Friends</span><span class="prof-s">Add friends and see what they're reading</span></span>
           <svg class="prof-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
@@ -14263,7 +14298,7 @@ async function renderDiscipleshipApp() {
       showLogoHeader();
     }
     if ((screenId === 'screen-plans' || screenId === 'screen-today') && typeof renderMemoryVerseHomeCard === 'function') renderMemoryVerseHomeCard();
-    if (screenId === 'screen-today') renderContinueCards();
+    if (screenId === 'screen-today') { renderContinueCards(); if (window.fjFriendsRefresh) window.fjFriendsRefresh(); }
     if (screenId === 'screen-plans') renderPlansTabs(true);
     panel.scrollTop = 0;
   }
@@ -14728,6 +14763,36 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       '<div class="fr-feed-t"><div class="fr-feed-who">' + esc(a.full_name) + ' ' + verb + '</div><div class="fr-feed-ref">' + esc(title) + '</div></div>' +
       '<div class="fr-ago">' + ago(a.created_at) + '</div></div>' + text + '</div>';
   }
+  function feedSummary(a) {
+    var p = a.payload || {};
+    if (a.kind === 'highlight') return ['highlighted', refLabel(p.b, p.c, p.f, p.t)];
+    if (a.kind === 'memory_verse') return ['memorized', p.ref || 'a verse'];
+    if (a.kind === 'badge') return ['earned', (p.title || 'a') + ' badge'];
+    if (a.kind === 'course_complete') return ['finished', 'the course'];
+    if (a.kind === 'plan_started') return ['started', p.title || planTitle(a.plan_key)];
+    if (a.kind === 'plan_day') return ['finished day ' + (p.day || '') + ' of', p.title || planTitle(a.plan_key)];
+    return null;
+  }
+  async function refreshHome() {
+    var card = $('friendsHomeCard'), root = document.documentElement;
+    var s = await session();
+    if (!s) { root.removeAttribute('data-fr-req'); if (card) card.innerHTML = ''; return; }
+    try {
+      var res = await Promise.all([rpc('list_friend_requests'), rpc('get_friend_feed', { p_limit: 3 })]);
+      var inc = (res[0] || []).filter(function (r) { return r.direction === 'incoming'; });
+      var feed = (res[1] || []).filter(function (a) { return feedSummary(a); });
+      root.setAttribute('data-fr-req', String(inc.length));
+      if (!card) return;
+      if (!inc.length && !feed.length) { card.innerHTML = ''; return; }
+      var html = '<button type="button" class="fr-home" data-open-friends data-track="Home: Friends card"><div class="fr-home-h">From your friends<span>See all</span></div>';
+      if (inc.length) html += '<div class="fr-home-req"><i></i>' + esc(inc[0].full_name) + (inc.length > 1 ? ' and ' + (inc.length - 1) + ' more want' : ' wants') + ' to be friends</div>';
+      html += feed.map(function (a) {
+        var sm = feedSummary(a);
+        return '<div class="fr-home-row">' + avatar(a.photo_url, a.full_name) + '<div class="fr-home-t"><b>' + esc(a.full_name) + '</b> ' + esc(sm[0]) + ' ' + esc(sm[1]) + '</div><div class="fr-home-ago">' + ago(a.created_at) + '</div></div>';
+      }).join('');
+      card.innerHTML = html + '</button>';
+    } catch (e) { /* offline or not set up: leave as is */ }
+  }
   function reqRow(r) {
     return '<div class="fr-req">' + '<div class="fr-row">' + avatar(r.photo_url, r.full_name) + '<div class="fr-row-t"><div class="fr-name">' + esc(r.full_name) + '</div><div class="fr-meta">Wants to be friends</div></div></div>' +
       '<div class="fr-reqbtns"><button type="button" class="fr-btn fr-btn-dark fr-sm" data-acc="' + esc(r.request_id) + '">Accept</button>' +
@@ -14740,7 +14805,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         try {
           await rpc('respond_friend_request', { p_request: b.dataset.acc || b.dataset.dec, p_accept: accept });
           notice = accept ? 'Friend added.' : 'Request declined.';
-          render();
+          render(); refreshHome();
         } catch (e) { b.disabled = false; alert(errText(e)); }
       });
     });
@@ -15000,6 +15065,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 
   window.fjFriendsOpen = open;
   window.fjFriendsStop = stopCam;
+  window.fjFriendsRefresh = refreshHome;
   window.fjFriendPost = post;
   window.fjFriendsPlanShareRow = planShareRow;
   document.addEventListener('click', function (e) {
@@ -15007,6 +15073,174 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     if (t) { e.preventDefault(); open(); }
   });
   setTimeout(processPending, 400);
+  setTimeout(refreshHome, 1800);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshHome(); });
+})();
+
+</script>
+
+<script>
+/* ===== BSB audio Bible (LibriVox, Ron Altman, public domain): play a chapter, follow along verse by verse ===== */
+(function () {
+  'use strict';
+  var BASE = 'https://archive.org/download/bereanstandardbible_2607_librivox/';
+  var INDEX_URL = '/bsb-audio-index.json';
+  var OUTRO = 6.0, SPEEDS = [1, 1.25, 1.5, 0.85];
+  var idx = null, idxP = null, order = null;
+  var audio = null, active = false, curKey = '', curVerses = [], curEnd = 0, curFile = '', speedI = 0, pendingSeek = null, lastVerse = -1;
+  var btn, player, playBtn, spdBtn, credit;
+
+  function $(id) { return document.getElementById(id); }
+  function isBSB() { return translationSelect && translationSelect.value === 'bsb'; }
+  function key() {
+    var b = BOOKS.find(function (x) { return x[0] === bookSelect.value; });
+    return b ? b[1] + ' ' + chapterSelect.value : '';
+  }
+  function loadIndex() {
+    if (!idxP) idxP = fetch(INDEX_URL).then(function (r) { if (!r.ok) throw new Error('no index'); return r.json(); })
+      .then(function (j) {
+        idx = j; order = {};
+        // end of a chapter = start of the next chapter in the same file, or the end of the file minus the outro
+        var bySec = {};
+        Object.keys(j.chapters).forEach(function (k) { var c = j.chapters[k]; (bySec[c.s] = bySec[c.s] || []).push({ k: k, t: c.t }); });
+        Object.keys(bySec).forEach(function (s) {
+          var list = bySec[s].sort(function (a, b) { return a.t - b.t; });
+          var sec = j.sections.find(function (x) { return x.n === +s; });
+          list.forEach(function (it, i) { order[it.k] = { file: sec.file, end: i < list.length - 1 ? list[i + 1].t : sec.dur - OUTRO }; });
+        });
+        return j;
+      }).catch(function (e) { idxP = null; throw e; });
+    return idxP;
+  }
+
+  function build() {
+    if ($('audPlayer')) return;
+    $('browseBottombar').insertAdjacentHTML('beforeend',
+      '<div id="audPlayer" class="aud-player" hidden>' +
+      '<button type="button" id="audBack" aria-label="Back 15 seconds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><small>15</small></button>' +
+      '<button type="button" id="audPlay" class="aud-main" aria-label="Pause"></button>' +
+      '<button type="button" id="audFwd" aria-label="Forward 15 seconds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg><small>15</small></button>' +
+      '<button type="button" id="audSpeed" aria-label="Speed">1x</button>' +
+      '<button type="button" id="audClose" aria-label="Close audio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>');
+    player = $('audPlayer'); playBtn = $('audPlay'); spdBtn = $('audSpeed');
+    playBtn.addEventListener('click', toggle);
+    $('audBack').addEventListener('click', function () { seekBy(-15); });
+    $('audFwd').addEventListener('click', function () { seekBy(15); });
+    spdBtn.addEventListener('click', function () { speedI = (speedI + 1) % SPEEDS.length; applySpeed(); });
+    $('audClose').addEventListener('click', stop);
+  }
+  var ICON_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  var ICON_PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
+  function setPlayIcon(playing) { playBtn.innerHTML = playing ? ICON_PAUSE : ICON_PLAY; playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play'); }
+  function applySpeed() { if (audio) audio.playbackRate = SPEEDS[speedI]; spdBtn.textContent = SPEEDS[speedI] + 'x'; }
+
+  function ensureAudio() {
+    if (audio) return audio;
+    audio = new Audio(); audio.preload = 'auto';
+    audio.addEventListener('timeupdate', onTime);
+    audio.addEventListener('play', function () { setPlayIcon(true); });
+    audio.addEventListener('pause', function () { setPlayIcon(false); });
+    audio.addEventListener('ended', advance);
+    audio.addEventListener('error', function () { if (active) stop(); });
+    audio.addEventListener('loadedmetadata', function () { if (pendingSeek != null) { audio.currentTime = pendingSeek; pendingSeek = null; } });
+    return audio;
+  }
+
+  // Point the audio at the chapter currently shown; resume = keep position when it is the same file.
+  function target(k, autoplay) {
+    var info = order[k], ch = idx.chapters[k];
+    if (!info || !ch) { stop(); return; }
+    curKey = k; curVerses = ch.v; curEnd = info.end; lastVerse = -1;
+    var a = ensureAudio(), start = ch.v[0];
+    var url = BASE + info.file;
+    if (curFile !== info.file) {
+      curFile = info.file; pendingSeek = start; a.src = url; a.load();
+    } else { a.currentTime = start; }
+    applySpeed();
+    if (autoplay) { var p = a.play(); if (p && p.catch) p.catch(function () { setPlayIcon(false); }); }
+    meta();
+  }
+  async function start() {
+    try { await loadIndex(); } catch (e) { if (btn) btn.hidden = true; return; }
+    active = true; player.hidden = false; if (btn) btn.hidden = true;
+    target(key(), true);
+  }
+  function stop() {
+    active = false; if (audio) { audio.pause(); } player.hidden = true; curKey = ''; markVerse(-1);
+    if (btn) btn.hidden = !isBSB() || !idx;
+  }
+  function toggle() { if (!audio) return; if (audio.paused) { var p = audio.play(); if (p && p.catch) p.catch(function () {}); } else audio.pause(); }
+  function seekBy(s) { if (!audio) return; var t = audio.currentTime + s; audio.currentTime = Math.max(curVerses[0] || 0, Math.min(t, curEnd - 0.5)); }
+
+  function onTime() {
+    if (!active) return;
+    var t = audio.currentTime;
+    if (t >= curEnd - 0.1) { advance(); return; }
+    var i = -1; for (var n = 0; n < curVerses.length; n++) { if (curVerses[n] <= t + 0.05) i = n; else break; }
+    if (i !== lastVerse) { lastVerse = i; markVerse(i); }
+  }
+  var advancing = false;
+  function advance() {
+    if (!active || advancing) return;
+    advancing = true;
+    var nb = $('nextChapter');
+    var before = key();
+    if (nb) nb.click();           // loads the next chapter's text; the reader observer retargets the audio
+    setTimeout(function () { advancing = false; if (key() === before) stop(); }, 400);
+  }
+  function markVerse(i) {
+    reader.querySelectorAll('.vs.aud-on').forEach(function (e) { e.classList.remove('aud-on'); });
+    if (i < 0) return;
+    var el = reader.querySelector('.vs[data-v="' + (i + 1) + '"]');
+    if (el) {
+      el.classList.add('aud-on');
+      var r = el.getBoundingClientRect(), h = window.innerHeight;
+      if (r.top < 110 || r.bottom > h - 170) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }
+  function meta() {
+    try {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({ title: curKey, artist: 'Ron Altman (LibriVox)', album: 'Berean Standard Bible' });
+        navigator.mediaSession.setActionHandler('play', toggle); navigator.mediaSession.setActionHandler('pause', toggle);
+        navigator.mediaSession.setActionHandler('seekbackward', function () { seekBy(-15); });
+        navigator.mediaSession.setActionHandler('seekforward', function () { seekBy(15); });
+        navigator.mediaSession.setActionHandler('nexttrack', advance);
+      }
+    } catch (e) {}
+  }
+
+  // The reader re-renders on every chapter or translation change: keep the button and audio in step with it.
+  function injectRow() {
+    var old = reader.querySelector('.aud-row'); if (old) old.remove();
+    var t = reader.querySelector('.bible-chapter-title'); if (!t) { btn = credit = null; return; }
+    t.insertAdjacentHTML('afterend', '<div class="aud-row"><button type="button" id="audListenBtn" class="aud-btn" hidden data-track="Bible: Audio play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span>Listen</span></button>' +
+      '<a id="audCredit" class="aud-credit" href="https://librivox.org/berean-standard-bible/" target="_blank" rel="noopener" hidden>Audio: Ron Altman, read for LibriVox (public domain)</a></div>');
+    btn = $('audListenBtn'); credit = $('audCredit');
+    btn.addEventListener('click', start);
+  }
+  function onRender() {
+    if (!player) return;
+    var ok = isBSB();
+    if (!ok) { if (active) stop(); var o = reader.querySelector('.aud-row'); if (o) o.remove(); btn = credit = null; return; }
+    injectRow(); if (!btn) return;
+    credit.hidden = false; btn.hidden = true;
+    loadIndex().then(function () {
+      if (!isBSB()) return;
+      if (active) { if (key() !== curKey) target(key(), !audio.paused || advancing); }
+      else if (btn) btn.hidden = !order[key()];
+      if (active) markVerse(lastVerse);
+    }).catch(function () { if (btn) btn.hidden = true; if (credit) credit.hidden = true; });
+  }
+
+  function init() {
+    if (typeof reader === 'undefined' || typeof translationSelect === 'undefined' || !$('browseBottombar')) return;
+    build();
+    new MutationObserver(function () { clearTimeout(init.t); init.t = setTimeout(onRender, 60); }).observe(reader, { childList: true });
+    translationSelect.addEventListener('change', function () { setTimeout(onRender, 80); });
+    onRender();
+  }
+  init();
 })();
 
 </script>
