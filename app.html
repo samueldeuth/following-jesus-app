@@ -2723,17 +2723,18 @@ html[data-fr-req]:not([data-fr-req="0"]) .fr-dot { display: block; }
 .fr-home-t b { font-weight: 700; color: #fff; }
 .fr-home-ago { font-size: 12px; color: rgba(255,255,255,0.4); flex: none; }
 /* ---------- BSB audio ---------- */
-#screen-bible .aud-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin: 0 0 14px; }
-#screen-bible .aud-btn { display: inline-flex; align-items: center; gap: 8px; border: 0; background: #0a0a0a; color: #fff; border-radius: 999px; padding: 8px 16px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
-#screen-bible .aud-btn[hidden], #screen-bible .aud-credit[hidden], .aud-player[hidden] { display: none; }
-#screen-bible .aud-btn svg { width: 15px; height: 15px; color: #c89b3c; }
+#screen-bible .aud-row { margin: 0 0 12px; }
 #screen-bible .aud-credit { font-size: 11px; line-height: 1.4; color: rgba(10,10,10,0.45); text-decoration: none; }
-.aud-player { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 14px); height: 46px; display: flex; align-items: center; gap: 2px; padding: 0 6px; background: #0a0a0a; border-radius: 999px; box-shadow: 0 6px 18px rgba(0,0,0,0.28); z-index: 5; }
-.aud-player button { position: relative; width: 38px; height: 38px; border: 0; background: none; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; padding: 0; }
-.aud-player button svg { width: 20px; height: 20px; }
-.aud-player button small { position: absolute; font-size: 8.5px; font-weight: 800; top: 50%; left: 50%; transform: translate(-50%, -42%); }
-.aud-player .aud-main { background: #c89b3c; color: #0a0a0a; width: 40px; height: 40px; margin: 0 2px; }
-.aud-player .aud-main svg { width: 20px; height: 20px; }
+#screen-bible .aud-credit[hidden], .aud-player[hidden], .aud-player [hidden] { display: none; }
+.aud-player { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 14px); display: flex; align-items: center; justify-content: center; gap: 12px; z-index: 5; }
+.aud-player button { position: relative; border: 1px solid rgba(10,10,10,0.1); background: #fff; color: #0a0a0a; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 0; font: inherit; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
+.aud-player .aud-main { width: 64px; height: 64px; }
+.aud-player .aud-main svg { width: 28px; height: 28px; }
+.aud-player .aud-side { width: 44px; height: 44px; }
+.aud-player .aud-side svg { width: 22px; height: 22px; }
+.aud-player .aud-side small { position: absolute; font-size: 8.5px; font-weight: 800; top: 50%; left: 50%; transform: translate(-50%, -42%); }
+.aud-chips { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+.aud-player .aud-chips button { border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
 .bible-text .vs.aud-on { background-image: linear-gradient(rgba(10,10,10,0.11), rgba(10,10,10,0.11)); border-radius: 3px; }
 
 /* ---------- Friends ---------- */
@@ -15117,13 +15118,13 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     if ($('audPlayer')) return;
     $('browseBottombar').insertAdjacentHTML('beforeend',
       '<div id="audPlayer" class="aud-player" hidden>' +
-      '<button type="button" id="audBack" aria-label="Back 15 seconds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><small>15</small></button>' +
-      '<button type="button" id="audPlay" class="aud-main" aria-label="Pause"></button>' +
-      '<button type="button" id="audFwd" aria-label="Forward 15 seconds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg><small>15</small></button>' +
-      '<button type="button" id="audSpeed" aria-label="Speed">1x</button>' +
-      '<button type="button" id="audClose" aria-label="Close audio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>');
+      '<div class="aud-chips" id="audChips" hidden><button type="button" id="audSpeed" aria-label="Speed">1x</button><button type="button" id="audClose" aria-label="Close audio">Close</button></div>' +
+      '<button type="button" id="audBack" class="aud-side" aria-label="Back 15 seconds" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><small>15</small></button>' +
+      '<button type="button" id="audPlay" class="aud-main" aria-label="Listen to this chapter" data-track="Bible: Audio play"></button>' +
+      '<button type="button" id="audFwd" class="aud-side" aria-label="Forward 15 seconds" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg><small>15</small></button></div>');
     player = $('audPlayer'); playBtn = $('audPlay'); spdBtn = $('audSpeed');
-    playBtn.addEventListener('click', toggle);
+    setPlayIcon(false);
+    playBtn.addEventListener('click', function () { if (active) toggle(); else start(); });
     $('audBack').addEventListener('click', function () { seekBy(-15); });
     $('audFwd').addEventListener('click', function () { seekBy(15); });
     spdBtn.addEventListener('click', function () { speedI = (speedI + 1) % SPEEDS.length; applySpeed(); });
@@ -15131,7 +15132,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   }
   var ICON_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
   var ICON_PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
-  function setPlayIcon(playing) { playBtn.innerHTML = playing ? ICON_PAUSE : ICON_PLAY; playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play'); }
+  function setPlayIcon(playing) { playBtn.innerHTML = playing ? ICON_PAUSE : ICON_PLAY; playBtn.setAttribute('aria-label', playing ? 'Pause' : (active ? 'Play' : 'Listen to this chapter')); }
+  function setActiveUI(on) { ['audBack', 'audFwd', 'audChips'].forEach(function (id) { $(id).hidden = !on; }); }
   function applySpeed() { if (audio) audio.playbackRate = SPEEDS[speedI]; spdBtn.textContent = SPEEDS[speedI] + 'x'; }
 
   function ensureAudio() {
@@ -15161,13 +15163,12 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     meta();
   }
   async function start() {
-    try { await loadIndex(); } catch (e) { if (btn) btn.hidden = true; return; }
-    active = true; player.hidden = false; if (btn) btn.hidden = true;
+    try { await loadIndex(); } catch (e) { player.hidden = true; return; }
+    active = true; setActiveUI(true);
     target(key(), true);
   }
   function stop() {
-    active = false; if (audio) { audio.pause(); } player.hidden = true; curKey = ''; markVerse(-1);
-    if (btn) btn.hidden = !isBSB() || !idx;
+    active = false; if (audio) { audio.pause(); } setActiveUI(false); setPlayIcon(false); curKey = ''; markVerse(-1);
   }
   function toggle() { if (!audio) return; if (audio.paused) { var p = audio.play(); if (p && p.catch) p.catch(function () {}); } else audio.pause(); }
   function seekBy(s) { if (!audio) return; var t = audio.currentTime + s; audio.currentTime = Math.max(curVerses[0] || 0, Math.min(t, curEnd - 0.5)); }
@@ -15213,24 +15214,20 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   // The reader re-renders on every chapter or translation change: keep the button and audio in step with it.
   function injectRow() {
     var old = reader.querySelector('.aud-row'); if (old) old.remove();
-    var t = reader.querySelector('.bible-chapter-title'); if (!t) { btn = credit = null; return; }
-    t.insertAdjacentHTML('afterend', '<div class="aud-row"><button type="button" id="audListenBtn" class="aud-btn" hidden data-track="Bible: Audio play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span>Listen</span></button>' +
-      '<a id="audCredit" class="aud-credit" href="https://librivox.org/berean-standard-bible/" target="_blank" rel="noopener" hidden>Audio: Ron Altman, read for LibriVox (public domain)</a></div>');
-    btn = $('audListenBtn'); credit = $('audCredit');
-    btn.addEventListener('click', start);
+    var t = reader.querySelector('.bible-chapter-title'); if (!t) { credit = null; return; }
+    t.insertAdjacentHTML('afterend', '<div class="aud-row"><a id="audCredit" class="aud-credit" href="https://librivox.org/berean-standard-bible/" target="_blank" rel="noopener">Audio: Ron Altman, read for LibriVox (public domain)</a></div>');
+    credit = $('audCredit');
   }
   function onRender() {
     if (!player) return;
-    var ok = isBSB();
-    if (!ok) { if (active) stop(); var o = reader.querySelector('.aud-row'); if (o) o.remove(); btn = credit = null; return; }
-    injectRow(); if (!btn) return;
-    credit.hidden = false; btn.hidden = true;
+    if (!isBSB()) { if (active) stop(); var o = reader.querySelector('.aud-row'); if (o) o.remove(); credit = null; player.hidden = true; return; }
+    injectRow();
     loadIndex().then(function () {
       if (!isBSB()) return;
-      if (active) { if (key() !== curKey) target(key(), !audio.paused || advancing); }
-      else if (btn) btn.hidden = !order[key()];
-      if (active) markVerse(lastVerse);
-    }).catch(function () { if (btn) btn.hidden = true; if (credit) credit.hidden = true; });
+      if (active) { if (key() !== curKey) target(key(), !audio.paused || advancing); markVerse(lastVerse); }
+      player.hidden = !order[key()];
+      if (credit) credit.hidden = player.hidden;
+    }).catch(function () { player.hidden = true; if (credit) credit.hidden = true; });
   }
 
   function init() {
