@@ -2702,6 +2702,104 @@
   .cc-mini { background: #0c0c0d; color: #fff; border: 0; border-radius: 16px; padding: 7px 14px; font-size: 13px; font-weight: 800; margin-top: 8px; cursor: pointer; font-family: inherit; }
   .cc-empty { color: #55555c; font-size: 14px; line-height: 1.45; padding: 18px 4px; }
   .cc-empty .cc-mini { display: block; margin-top: 12px; }
+
+/* ---------- Friends ---------- */
+#friendsModal { background: var(--paper); }
+#friendsModal .back-link { color: rgba(10,10,10,0.5); }
+#friendsModal .fr-wrap { padding: 0 0 120px; color: var(--black); font-family: var(--font-body); }
+#friendsModal .fr-top { padding: 16px 22px 0; }
+#friendsModal .fr-hero { padding: 4px 22px 12px; }
+#friendsModal .fr-title { font-family: var(--font-serif, Georgia, serif); font-size: 28px; font-weight: 700; color: var(--black); line-height: 1.15; }
+#friendsModal .fr-sub { font-size: 14px; line-height: 1.5; color: rgba(10,10,10,0.6); margin: 6px 0 0; }
+#friendsModal .fr-muted { font-size: 13.5px; line-height: 1.5; color: rgba(10,10,10,0.55); margin: 0; }
+#friendsModal .fr-hint { padding: 0 22px 12px; }
+#friendsModal .fr-loading { padding: 40px 22px; text-align: center; color: rgba(10,10,10,0.5); font-size: 14px; }
+#friendsModal .fr-note { margin: 0 22px 14px; padding: 11px 14px; border-radius: 12px; background: #111; color: #e9d6a6; font-size: 14px; font-weight: 600; }
+#friendsModal .fr-pills { display: flex; gap: 10px; padding: 4px 22px 16px; }
+#friendsModal .fr-pill { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; border: 1.5px solid rgba(10,10,10,0.22); background: #fff; color: var(--black); border-radius: 999px; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+#friendsModal .fr-pill svg { width: 20px; height: 20px; flex: none; }
+#friendsModal .fr-card { margin: 0 22px 14px; background: #fff; border-radius: 18px; padding: 16px 16px; }
+#friendsModal .fr-card-h { font-weight: 700; font-size: 15px; margin: 0 0 10px; }
+#friendsModal .fr-feed { cursor: pointer; }
+#friendsModal .fr-feed-h { display: flex; align-items: center; gap: 12px; }
+#friendsModal .fr-feed-t { flex: 1; min-width: 0; }
+#friendsModal .fr-feed-who { font-size: 14px; color: rgba(10,10,10,0.7); line-height: 1.3; }
+#friendsModal .fr-feed-ref { font-weight: 700; font-size: 16px; line-height: 1.3; }
+#friendsModal .fr-ago { font-size: 12.5px; color: rgba(10,10,10,0.45); align-self: flex-start; }
+#friendsModal .fr-vtext { font-family: var(--font-serif, Georgia, serif); font-size: 17px; line-height: 1.5; margin: 12px 0 0; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+#friendsModal .fr-vtext:empty { display: none; }
+#friendsModal .fr-av { position: relative; flex: none; width: 46px; height: 46px; border-radius: 50%; background: #1a1a1a; color: #e9d6a6; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; font-weight: 700; font-size: 18px; }
+#friendsModal .fr-av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+#friendsModal .fr-av-lg { width: 84px; height: 84px; font-size: 32px; }
+#friendsModal .fr-av-xl { width: 96px; height: 96px; font-size: 38px; border: 4px solid var(--paper); box-shadow: 0 4px 14px rgba(0,0,0,0.18); position: relative; z-index: 2; margin-bottom: -48px; }
+#friendsModal .fr-person { text-align: center; padding: 6px 22px 18px; display: flex; flex-direction: column; align-items: center; }
+#friendsModal .fr-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; width: 100%; }
+#friendsModal .fr-row + .fr-row { border-top: 1px solid rgba(10,10,10,0.08); }
+#friendsModal .fr-rowbtn { background: none; border: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+#friendsModal .fr-req + .fr-req { border-top: 1px solid rgba(10,10,10,0.08); margin-top: 6px; padding-top: 6px; }
+#friendsModal .fr-reqbtns { display: flex; gap: 10px; padding: 0 0 8px 58px; }
+#friendsModal .fr-reqbtns .fr-btn { flex: 1; }
+#friendsModal .fr-row-t { flex: 1; min-width: 0; }
+#friendsModal .fr-name { font-weight: 600; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#friendsModal .fr-meta { font-size: 13px; color: rgba(10,10,10,0.5); }
+#friendsModal .fr-chev svg { width: 18px; height: 18px; color: rgba(10,10,10,0.35); }
+#friendsModal .fr-state { font-size: 13.5px; font-weight: 600; color: rgba(10,10,10,0.5); padding: 0 6px; }
+#friendsModal .fr-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; background: rgba(10,10,10,0.08); color: var(--black); border-radius: 999px; padding: 11px 20px; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+#friendsModal .fr-btn svg { width: 20px; height: 20px; }
+#friendsModal .fr-btn:disabled { opacity: 0.5; }
+#friendsModal .fr-sm { padding: 8px 15px; font-size: 14px; flex: none; }
+#friendsModal .fr-btn-dark { background: var(--black); color: #fff; }
+#friendsModal .fr-btn-gold { background: #c89b3c; color: #0c0c0d; }
+#friendsModal .fr-big { min-height: 52px; width: 100%; font-size: 16px; }
+#friendsModal .fr-empty { margin: 0 22px 14px; text-align: center; padding: 26px 18px; }
+#friendsModal .fr-empty p { font-size: 15px; line-height: 1.55; color: rgba(10,10,10,0.65); margin: 0 0 16px; }
+#friendsModal .fr-empty-ic svg { width: 40px; height: 40px; color: #c89b3c; margin-bottom: 8px; }
+#friendsModal .fr-link { display: flex; align-items: center; justify-content: center; gap: 8px; width: calc(100% - 44px); margin: 8px 22px 0; background: none; border: 0; color: rgba(10,10,10,0.6); font: inherit; font-size: 14px; font-weight: 600; padding: 12px; cursor: pointer; }
+#friendsModal .fr-link svg { width: 18px; height: 18px; }
+#friendsModal .fr-danger { color: #a33; }
+#friendsModal .fr-tabs { display: flex; gap: 8px; padding: 0 22px 14px; }
+#friendsModal .fr-tab { border: 0; background: rgba(10,10,10,0.08); color: var(--black); border-radius: 999px; padding: 10px 18px; font: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer; }
+#friendsModal .fr-tab.on { background: var(--black); color: #fff; }
+#friendsModal .fr-tabs-c { justify-content: center; }
+#friendsModal .fr-search { position: relative; margin: 0 22px 10px; display: flex; align-items: center; background: rgba(10,10,10,0.07); border-radius: 999px; padding: 0 16px; }
+#friendsModal .fr-search svg { width: 20px; height: 20px; color: rgba(10,10,10,0.5); flex: none; }
+#friendsModal .fr-search input { flex: 1; min-width: 0; border: 0; background: none; font: inherit; font-size: 16px; padding: 14px 10px; color: var(--black); outline: none; }
+#friendsModal .fr-search input::-webkit-search-cancel-button { display: none; }
+#friendsModal .fr-share-bar { position: sticky; bottom: 0; padding: 14px 22px calc(14px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(0deg, var(--paper) 70%, rgba(246,244,239,0)); margin-top: 18px; }
+#friendsModal .fr-two { display: flex; gap: 12px; }
+#friendsModal .fr-qrwrap { display: flex; flex-direction: column; align-items: center; padding: 12px 22px 0; }
+#friendsModal .fr-qrcard { width: 100%; max-width: 300px; background: #fff; border-radius: 24px; padding: 62px 26px 22px; box-shadow: 0 14px 40px rgba(0,0,0,0.12); text-align: center; }
+#friendsModal .fr-qr svg { width: 100%; height: auto; display: block; }
+#friendsModal .fr-qrname { font-size: 22px; font-weight: 800; margin-top: 16px; }
+#friendsModal .fr-qrnote { font-size: 14.5px; line-height: 1.5; color: rgba(10,10,10,0.65); text-align: center; margin: 16px 0 0; max-width: 280px; }
+#friendsModal .fr-scan { padding: 0 22px; }
+#friendsModal .fr-cam { position: relative; border-radius: 20px; overflow: hidden; background: #000; margin-bottom: 14px; aspect-ratio: 1; }
+#friendsModal .fr-cam video { width: 100%; height: 100%; object-fit: cover; display: block; }
+#friendsModal .fr-reticle { position: absolute; inset: 18%; border: 3px solid rgba(255,255,255,0.85); border-radius: 18px; }
+#friendsModal .fr-hl { padding: 10px 0; }
+#friendsModal .fr-hl + .fr-hl { border-top: 1px solid rgba(10,10,10,0.08); }
+#friendsModal .fr-hl .fr-vtext { font-size: 16px; margin-top: 6px; -webkit-line-clamp: 3; }
+#friendsModal .fr-badges { display: flex; flex-wrap: wrap; gap: 14px; }
+#friendsModal .fr-badge { width: 72px; text-align: center; font-size: 11.5px; line-height: 1.25; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+#friendsModal .fr-plan { padding: 8px 0; font-weight: 600; font-size: 15px; }
+#friendsModal .fr-sw-row { display: flex; align-items: center; gap: 12px; width: 100%; background: none; border: 0; padding: 12px 0; font: inherit; color: var(--black); text-align: left; cursor: pointer; }
+#friendsModal .fr-sw-row + .fr-sw-row { border-top: 1px solid rgba(10,10,10,0.08); }
+#friendsModal .fr-sw-t { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+#friendsModal .fr-sw-t b { font-size: 15.5px; font-weight: 600; }
+#friendsModal .fr-sw-t small { font-size: 12.5px; color: rgba(10,10,10,0.5); }
+#friendsModal .fr-sw { flex: none; width: 46px; height: 28px; border-radius: 999px; background: rgba(10,10,10,0.2); position: relative; transition: background .15s; }
+#friendsModal .fr-sw::after { content: ''; position: absolute; left: 3px; top: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .15s; }
+#friendsModal .fr-sw-row.on .fr-sw { background: var(--black); }
+#friendsModal .fr-sw-row.on .fr-sw::after { transform: translateX(18px); }
+.fr-planshare { margin-top: 14px; background: #fff; border-radius: 12px; padding: 2px 14px; }
+.fr-planshare .fr-sw-row { display: flex; align-items: center; gap: 12px; width: 100%; background: none; border: 0; padding: 12px 0; font: inherit; color: #0a0a0a; text-align: left; cursor: pointer; }
+.fr-planshare .fr-sw-t { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.fr-planshare .fr-sw-t b { font-size: 15px; font-weight: 600; }
+.fr-planshare .fr-sw-t small { font-size: 12.5px; color: rgba(10,10,10,0.5); }
+.fr-planshare .fr-sw { flex: none; width: 46px; height: 28px; border-radius: 999px; background: rgba(10,10,10,0.2); position: relative; }
+.fr-planshare .fr-sw::after { content: ''; position: absolute; left: 3px; top: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.fr-planshare .fr-sw-row.on .fr-sw { background: #0a0a0a; }
+.fr-planshare .fr-sw-row.on .fr-sw::after { transform: translateX(18px); }
 </style>
 </head>
 <body>
@@ -2880,6 +2978,13 @@
           <span class="grid-item-text">
             <span class="grid-item-label">Watch &amp; Grow</span>
             <span class="grid-item-title">Preaching<br><span style="font-size:0.78em;font-weight:inherit">Teaching</span></span>
+          </span>
+        </button>
+        <button type="button" class="grid-item" data-open-friends data-track="Home: Friends">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M16.5 14.2c2.7.2 4.5 2.2 4.5 5.3"/></svg>
+          <span class="grid-item-text">
+            <span class="grid-item-label">Walk Together</span>
+            <span class="grid-item-title">Friends</span>
           </span>
         </button>
         <button type="button" class="grid-item" onclick="goToTab('screen-blog')">
@@ -3246,6 +3351,11 @@
     <!-- VIDEO MESSAGES: sermons from several churches' YouTube channels, filtered by church -->
     <div class="article-modal" id="videosModal">
       <div class="article-modal-body" id="videosBody"></div>
+    </div>
+
+    <!-- FRIENDS: find friends, requests, activity feed, QR share -->
+    <div class="article-modal" id="friendsModal">
+      <div class="article-modal-body" id="friendsBody"></div>
     </div>
 
   </div>
@@ -3691,9 +3801,11 @@
         </div>
       </div>
       <div class="plan-sync-row" id="devoSubRow" style="margin-top:18px;"></div>
+      <div class="fr-planshare" id="devoFriendShare" hidden></div>
     `;
     window.__ccDevoKey = planKey;
     ccRenderDevoSubRow(planKey, progress);
+    if (window.fjFriendsPlanShareRow) { const fs = document.getElementById('devoFriendShare'); window.fjFriendsPlanShareRow(planKey, fs).then(() => { if (fs && fs.innerHTML) fs.hidden = false; }); }
 
     document.getElementById('devoPlanBackLink').addEventListener('click', renderDevoPlanGrid);
     if (day > 1) document.getElementById('devoPlanPrevDay').addEventListener('click', () => renderDevoPlanDay(planKey, day - 1));
@@ -3718,6 +3830,11 @@
     await saveDevoPlanProgress(planKey);
     renderDevoPlanDay(planKey, day);
     if (r.justFinished) ccFinishSoon(planKey);
+    if (idx === -1 && window.fjFriendPost) {
+      const t = (DEVOTIONAL_PLANS_MANIFEST[planKey] || {}).title || planKey;
+      if (progress.devotional.length + progress.verse.length === 1) window.fjFriendPost('plan_started', { title: t }, planKey);
+      if (progress.devotional.includes(day) && progress.verse.includes(day)) window.fjFriendPost('plan_day', { title: t, day }, planKey);
+    }
   }
 
 
@@ -4281,6 +4398,7 @@
     const finished = st.memorized.length >= 52;
     await mvSave();
     mvAwardBadges();   // first verse / 7 verses / finished set (signed-in only; never blocks)
+    if (window.fjFriendPost) window.fjFriendPost('memory_verse', { ref: mvCurRef, text: String(mvCurText || '').slice(0, 320) });
     const body = document.getElementById('devoPlanModalBody');
     const meta = DEVOTIONAL_PLANS_MANIFEST[st.plan];
     body.innerHTML = `
@@ -5189,6 +5307,15 @@
 
       <!-- Saved verses, filled in by fillProfileSaved() after render -->
       <div id="profileSavedSlot"></div>
+
+      <div class="prof-lbl">Friends</div>
+      <div class="prof-grp">
+        <button type="button" class="prof-row" data-open-friends data-track="Profile: Friends">
+          <svg class="prof-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M16.5 14.2c2.7.2 4.5 2.2 4.5 5.3"/></svg>
+          <span class="prof-tx"><span class="prof-t">Friends</span><span class="prof-s">Add friends and see what they're reading</span></span>
+          <svg class="prof-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
 
       <div class="prof-lbl">Notifications</div>
       <div class="prof-grp">
@@ -8687,6 +8814,7 @@ async function celebrateNewBadgesIfAny(userId) {
   for (const key of newKeys) {
     const badge = BADGE_CATALOG.find(b => b.key === key);
     if (!badge) continue; // catalog entry removed/renamed since this was earned -- skip rather than show a blank alert
+    if (window.fjFriendPost) { window.fjFriendPost('badge', { key: badge.key, title: badge.title }); if (badge.key === 'course_graduate') window.fjFriendPost('course_complete', {}); }
     triggerConfetti();
     await showAppAlert(badge.description, {
       icon: `<svg viewBox="-58 -58 116 116" width="60" height="60">${badge.svg}</svg>`,
@@ -12050,8 +12178,26 @@ async function renderDiscipleshipApp() {
         const recs = keys.map(k => Object.assign(split(k), { color }));
         const { error } = await supabaseClient.from('bible_highlights').upsert(recs, { onConflict: 'user_id,book,chapter,verse', ignoreDuplicates: true });
         if (error) throw error;
+        hlTellFriends(recs);
       }
     } catch (e) { await dSafeSet(HL_USER_KEY, null); }
+  }
+  // Tell friends about a fresh highlight (consecutive verses in one chapter become one post).
+  function hlTellFriends(recs) {
+    if (!window.fjFriendPost || !recs.length) return;
+    const by = {};
+    recs.forEach(r => { (by[r.book + '.' + r.chapter] = by[r.book + '.' + r.chapter] || { b: r.book, c: r.chapter, vs: [] }).vs.push(r.verse); });
+    const posts = [];
+    Object.keys(by).forEach(k => {
+      const g = by[k], vs = g.vs.slice().sort((x, y) => x - y);
+      let s = vs[0], e = s;
+      for (let i = 1; i <= vs.length; i++) {
+        if (i < vs.length && vs[i] === e + 1) { e = vs[i]; continue; }
+        posts.push({ b: g.b, c: g.c, f: s, t: e });
+        s = vs[i]; e = s;
+      }
+    });
+    posts.slice(0, 3).forEach(p => window.fjFriendPost('highlight', p));
   }
   function hlPaint() {
     reader.querySelectorAll('.vs').forEach(el => {
@@ -14139,6 +14285,8 @@ async function renderDiscipleshipApp() {
     document.getElementById('devoPlanModal').classList.remove('open');
     document.getElementById('articleModal').classList.remove('open');
     document.getElementById('videosModal').classList.remove('open');
+    document.getElementById('friendsModal').classList.remove('open');
+    if (window.fjFriendsStop) window.fjFriendsStop();
     const vmP = document.getElementById('vmPlayer'); if (vmP) vmP.innerHTML = '';   // stop any playing video
     const frame = document.getElementById('embedFrame');
     if (frame && frame.src) {
@@ -14270,6 +14418,7 @@ async function renderDiscipleshipApp() {
       return;
     }
     if (hash === 'videos') { openVideos(true); return; }
+    if (hash === 'friends') { if (window.fjFriendsOpen) window.fjFriendsOpen(true); return; }
     if (hash === 'player') {
       // Only the one Worship Playlist embed exists today, so this is
       // safe to hardcode — if a second embed is ever added elsewhere,
@@ -14378,6 +14527,489 @@ async function renderDiscipleshipApp() {
   });
 </script>
 
+
+<script>
+/* qrcode-generator 1.4.4 (MIT, Kazuhiko Arase) */
+var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],f={},c=function(t,r){o=function(t){for(var r=new Array(t),e=0;e<t;e+=1){r[e]=new Array(t);for(var n=0;n<t;n+=1)r[e][n]=null}return r}(i=4*e+17),l(0,0),l(i-7,0),l(0,i-7),s(),h(),d(t,r),e>=7&&v(t),null==a&&(a=p(e,n,u)),w(a,r)},l=function(t,r){for(var e=-1;e<=7;e+=1)if(!(t+e<=-1||i<=t+e))for(var n=-1;n<=7;n+=1)r+n<=-1||i<=r+n||(o[t+e][r+n]=0<=e&&e<=6&&(0==n||6==n)||0<=n&&n<=6&&(0==e||6==e)||2<=e&&e<=4&&2<=n&&n<=4)},h=function(){for(var t=8;t<i-8;t+=1)null==o[t][6]&&(o[t][6]=t%2==0);for(var r=8;r<i-8;r+=1)null==o[6][r]&&(o[6][r]=r%2==0)},s=function(){for(var t=B.getPatternPosition(e),r=0;r<t.length;r+=1)for(var n=0;n<t.length;n+=1){var i=t[r],a=t[n];if(null==o[i][a])for(var u=-2;u<=2;u+=1)for(var f=-2;f<=2;f+=1)o[i+u][a+f]=-2==u||2==u||-2==f||2==f||0==u&&0==f}},v=function(t){for(var r=B.getBCHTypeNumber(e),n=0;n<18;n+=1){var a=!t&&1==(r>>n&1);o[Math.floor(n/3)][n%3+i-8-3]=a}for(n=0;n<18;n+=1){a=!t&&1==(r>>n&1);o[n%3+i-8-3][Math.floor(n/3)]=a}},d=function(t,r){for(var e=n<<3|r,a=B.getBCHTypeInfo(e),u=0;u<15;u+=1){var f=!t&&1==(a>>u&1);u<6?o[u][8]=f:u<8?o[u+1][8]=f:o[i-15+u][8]=f}for(u=0;u<15;u+=1){f=!t&&1==(a>>u&1);u<8?o[8][i-u-1]=f:u<9?o[8][15-u-1+1]=f:o[8][15-u-1]=f}o[i-8][8]=!t},w=function(t,r){for(var e=-1,n=i-1,a=7,u=0,f=B.getMaskFunction(r),c=i-1;c>0;c-=2)for(6==c&&(c-=1);;){for(var g=0;g<2;g+=1)if(null==o[n][c-g]){var l=!1;u<t.length&&(l=1==(t[u]>>>a&1)),f(n,c-g)&&(l=!l),o[n][c-g]=l,-1==(a-=1)&&(u+=1,a=7)}if((n+=e)<0||i<=n){n-=e,e=-e;break}}},p=function(t,r,e){for(var n=A.getRSBlocks(t,r),o=b(),i=0;i<e.length;i+=1){var a=e[i];o.put(a.getMode(),4),o.put(a.getLength(),B.getLengthInBits(a.getMode(),t)),a.write(o)}var u=0;for(i=0;i<n.length;i+=1)u+=n[i].dataCount;if(o.getLengthInBits()>8*u)throw"code length overflow. ("+o.getLengthInBits()+">"+8*u+")";for(o.getLengthInBits()+4<=8*u&&o.put(0,4);o.getLengthInBits()%8!=0;)o.putBit(!1);for(;!(o.getLengthInBits()>=8*u||(o.put(236,8),o.getLengthInBits()>=8*u));)o.put(17,8);return function(t,r){for(var e=0,n=0,o=0,i=new Array(r.length),a=new Array(r.length),u=0;u<r.length;u+=1){var f=r[u].dataCount,c=r[u].totalCount-f;n=Math.max(n,f),o=Math.max(o,c),i[u]=new Array(f);for(var g=0;g<i[u].length;g+=1)i[u][g]=255&t.getBuffer()[g+e];e+=f;var l=B.getErrorCorrectPolynomial(c),h=k(i[u],l.getLength()-1).mod(l);for(a[u]=new Array(l.getLength()-1),g=0;g<a[u].length;g+=1){var s=g+h.getLength()-a[u].length;a[u][g]=s>=0?h.getAt(s):0}}var v=0;for(g=0;g<r.length;g+=1)v+=r[g].totalCount;var d=new Array(v),w=0;for(g=0;g<n;g+=1)for(u=0;u<r.length;u+=1)g<i[u].length&&(d[w]=i[u][g],w+=1);for(g=0;g<o;g+=1)for(u=0;u<r.length;u+=1)g<a[u].length&&(d[w]=a[u][g],w+=1);return d}(o,n)};f.addData=function(t,r){var e=null;switch(r=r||"Byte"){case"Numeric":e=M(t);break;case"Alphanumeric":e=x(t);break;case"Byte":e=m(t);break;case"Kanji":e=L(t);break;default:throw"mode:"+r}u.push(e),a=null},f.isDark=function(t,r){if(t<0||i<=t||r<0||i<=r)throw t+","+r;return o[t][r]},f.getModuleCount=function(){return i},f.make=function(){if(e<1){for(var t=1;t<40;t++){for(var r=A.getRSBlocks(t,n),o=b(),i=0;i<u.length;i++){var a=u[i];o.put(a.getMode(),4),o.put(a.getLength(),B.getLengthInBits(a.getMode(),t)),a.write(o)}var g=0;for(i=0;i<r.length;i++)g+=r[i].dataCount;if(o.getLengthInBits()<=8*g)break}e=t}c(!1,function(){for(var t=0,r=0,e=0;e<8;e+=1){c(!0,e);var n=B.getLostPoint(f);(0==e||t>n)&&(t=n,r=e)}return r}())},f.createTableTag=function(t,r){t=t||2;var e="";e+='<table style="',e+=" border-width: 0px; border-style: none;",e+=" border-collapse: collapse;",e+=" padding: 0px; margin: "+(r=void 0===r?4*t:r)+"px;",e+='">',e+="<tbody>";for(var n=0;n<f.getModuleCount();n+=1){e+="<tr>";for(var o=0;o<f.getModuleCount();o+=1)e+='<td style="',e+=" border-width: 0px; border-style: none;",e+=" border-collapse: collapse;",e+=" padding: 0px; margin: 0px;",e+=" width: "+t+"px;",e+=" height: "+t+"px;",e+=" background-color: ",e+=f.isDark(n,o)?"#000000":"#ffffff",e+=";",e+='"/>';e+="</tr>"}return e+="</tbody>",e+="</table>"},f.createSvgTag=function(t,r,e,n){var o={};"object"==typeof arguments[0]&&(t=(o=arguments[0]).cellSize,r=o.margin,e=o.alt,n=o.title),t=t||2,r=void 0===r?4*t:r,(e="string"==typeof e?{text:e}:e||{}).text=e.text||null,e.id=e.text?e.id||"qrcode-description":null,(n="string"==typeof n?{text:n}:n||{}).text=n.text||null,n.id=n.text?n.id||"qrcode-title":null;var i,a,u,c,g=f.getModuleCount()*t+2*r,l="";for(c="l"+t+",0 0,"+t+" -"+t+",0 0,-"+t+"z ",l+='<svg version="1.1" xmlns="http://www.w3.org/2000/svg"',l+=o.scalable?"":' width="'+g+'px" height="'+g+'px"',l+=' viewBox="0 0 '+g+" "+g+'" ',l+=' preserveAspectRatio="xMinYMin meet"',l+=n.text||e.text?' role="img" aria-labelledby="'+y([n.id,e.id].join(" ").trim())+'"':"",l+=">",l+=n.text?'<title id="'+y(n.id)+'">'+y(n.text)+"</title>":"",l+=e.text?'<description id="'+y(e.id)+'">'+y(e.text)+"</description>":"",l+='<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>',l+='<path d="',a=0;a<f.getModuleCount();a+=1)for(u=a*t+r,i=0;i<f.getModuleCount();i+=1)f.isDark(a,i)&&(l+="M"+(i*t+r)+","+u+c);return l+='" stroke="transparent" fill="black"/>',l+="</svg>"},f.createDataURL=function(t,r){t=t||2,r=void 0===r?4*t:r;var e=f.getModuleCount()*t+2*r,n=r,o=e-r;return I(e,e,function(r,e){if(n<=r&&r<o&&n<=e&&e<o){var i=Math.floor((r-n)/t),a=Math.floor((e-n)/t);return f.isDark(a,i)?0:1}return 1})},f.createImgTag=function(t,r,e){t=t||2,r=void 0===r?4*t:r;var n=f.getModuleCount()*t+2*r,o="";return o+="<img",o+=' src="',o+=f.createDataURL(t,r),o+='"',o+=' width="',o+=n,o+='"',o+=' height="',o+=n,o+='"',e&&(o+=' alt="',o+=y(e),o+='"'),o+="/>"};var y=function(t){for(var r="",e=0;e<t.length;e+=1){var n=t.charAt(e);switch(n){case"<":r+="&lt;";break;case">":r+="&gt;";break;case"&":r+="&amp;";break;case'"':r+="&quot;";break;default:r+=n}}return r};return f.createASCII=function(t,r){if((t=t||1)<2)return function(t){t=void 0===t?2:t;var r,e,n,o,i,a=1*f.getModuleCount()+2*t,u=t,c=a-t,g={"██":"█","█ ":"▀"," █":"▄","  ":" "},l={"██":"▀","█ ":"▀"," █":" ","  ":" "},h="";for(r=0;r<a;r+=2){for(n=Math.floor((r-u)/1),o=Math.floor((r+1-u)/1),e=0;e<a;e+=1)i="█",u<=e&&e<c&&u<=r&&r<c&&f.isDark(n,Math.floor((e-u)/1))&&(i=" "),u<=e&&e<c&&u<=r+1&&r+1<c&&f.isDark(o,Math.floor((e-u)/1))?i+=" ":i+="█",h+=t<1&&r+1>=c?l[i]:g[i];h+="\n"}return a%2&&t>0?h.substring(0,h.length-a-1)+Array(a+1).join("▀"):h.substring(0,h.length-1)}(r);t-=1,r=void 0===r?2*t:r;var e,n,o,i,a=f.getModuleCount()*t+2*r,u=r,c=a-r,g=Array(t+1).join("██"),l=Array(t+1).join("  "),h="",s="";for(e=0;e<a;e+=1){for(o=Math.floor((e-u)/t),s="",n=0;n<a;n+=1)i=1,u<=n&&n<c&&u<=e&&e<c&&f.isDark(o,Math.floor((n-u)/t))&&(i=0),s+=i?g:l;for(o=0;o<t;o+=1)h+=s+"\n"}return h.substring(0,h.length-1)},f.renderTo2dContext=function(t,r){r=r||2;for(var e=f.getModuleCount(),n=0;n<e;n++)for(var o=0;o<e;o++)t.fillStyle=f.isDark(n,o)?"black":"white",t.fillRect(n*r,o*r,r,r)},f};t.stringToBytes=(t.stringToBytesFuncs={default:function(t){for(var r=[],e=0;e<t.length;e+=1){var n=t.charCodeAt(e);r.push(255&n)}return r}}).default,t.createStringToBytes=function(t,r){var e=function(){for(var e=S(t),n=function(){var t=e.read();if(-1==t)throw"eof";return t},o=0,i={};;){var a=e.read();if(-1==a)break;var u=n(),f=n()<<8|n();i[String.fromCharCode(a<<8|u)]=f,o+=1}if(o!=r)throw o+" != "+r;return i}(),n="?".charCodeAt(0);return function(t){for(var r=[],o=0;o<t.length;o+=1){var i=t.charCodeAt(o);if(i<128)r.push(i);else{var a=e[t.charAt(o)];"number"==typeof a?(255&a)==a?r.push(a):(r.push(a>>>8),r.push(255&a)):r.push(n)}}return r}};var r,e,n,o,i,a=1,u=2,f=4,c=8,g={L:1,M:0,Q:3,H:2},l=0,h=1,s=2,v=3,d=4,w=5,p=6,y=7,B=(r=[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],e=1335,n=7973,i=function(t){for(var r=0;0!=t;)r+=1,t>>>=1;return r},(o={}).getBCHTypeInfo=function(t){for(var r=t<<10;i(r)-i(e)>=0;)r^=e<<i(r)-i(e);return 21522^(t<<10|r)},o.getBCHTypeNumber=function(t){for(var r=t<<12;i(r)-i(n)>=0;)r^=n<<i(r)-i(n);return t<<12|r},o.getPatternPosition=function(t){return r[t-1]},o.getMaskFunction=function(t){switch(t){case l:return function(t,r){return(t+r)%2==0};case h:return function(t,r){return t%2==0};case s:return function(t,r){return r%3==0};case v:return function(t,r){return(t+r)%3==0};case d:return function(t,r){return(Math.floor(t/2)+Math.floor(r/3))%2==0};case w:return function(t,r){return t*r%2+t*r%3==0};case p:return function(t,r){return(t*r%2+t*r%3)%2==0};case y:return function(t,r){return(t*r%3+(t+r)%2)%2==0};default:throw"bad maskPattern:"+t}},o.getErrorCorrectPolynomial=function(t){for(var r=k([1],0),e=0;e<t;e+=1)r=r.multiply(k([1,C.gexp(e)],0));return r},o.getLengthInBits=function(t,r){if(1<=r&&r<10)switch(t){case a:return 10;case u:return 9;case f:case c:return 8;default:throw"mode:"+t}else if(r<27)switch(t){case a:return 12;case u:return 11;case f:return 16;case c:return 10;default:throw"mode:"+t}else{if(!(r<41))throw"type:"+r;switch(t){case a:return 14;case u:return 13;case f:return 16;case c:return 12;default:throw"mode:"+t}}},o.getLostPoint=function(t){for(var r=t.getModuleCount(),e=0,n=0;n<r;n+=1)for(var o=0;o<r;o+=1){for(var i=0,a=t.isDark(n,o),u=-1;u<=1;u+=1)if(!(n+u<0||r<=n+u))for(var f=-1;f<=1;f+=1)o+f<0||r<=o+f||0==u&&0==f||a==t.isDark(n+u,o+f)&&(i+=1);i>5&&(e+=3+i-5)}for(n=0;n<r-1;n+=1)for(o=0;o<r-1;o+=1){var c=0;t.isDark(n,o)&&(c+=1),t.isDark(n+1,o)&&(c+=1),t.isDark(n,o+1)&&(c+=1),t.isDark(n+1,o+1)&&(c+=1),0!=c&&4!=c||(e+=3)}for(n=0;n<r;n+=1)for(o=0;o<r-6;o+=1)t.isDark(n,o)&&!t.isDark(n,o+1)&&t.isDark(n,o+2)&&t.isDark(n,o+3)&&t.isDark(n,o+4)&&!t.isDark(n,o+5)&&t.isDark(n,o+6)&&(e+=40);for(o=0;o<r;o+=1)for(n=0;n<r-6;n+=1)t.isDark(n,o)&&!t.isDark(n+1,o)&&t.isDark(n+2,o)&&t.isDark(n+3,o)&&t.isDark(n+4,o)&&!t.isDark(n+5,o)&&t.isDark(n+6,o)&&(e+=40);var g=0;for(o=0;o<r;o+=1)for(n=0;n<r;n+=1)t.isDark(n,o)&&(g+=1);return e+=Math.abs(100*g/r/r-50)/5*10},o),C=function(){for(var t=new Array(256),r=new Array(256),e=0;e<8;e+=1)t[e]=1<<e;for(e=8;e<256;e+=1)t[e]=t[e-4]^t[e-5]^t[e-6]^t[e-8];for(e=0;e<255;e+=1)r[t[e]]=e;var n={glog:function(t){if(t<1)throw"glog("+t+")";return r[t]},gexp:function(r){for(;r<0;)r+=255;for(;r>=256;)r-=255;return t[r]}};return n}();function k(t,r){if(void 0===t.length)throw t.length+"/"+r;var e=function(){for(var e=0;e<t.length&&0==t[e];)e+=1;for(var n=new Array(t.length-e+r),o=0;o<t.length-e;o+=1)n[o]=t[o+e];return n}(),n={getAt:function(t){return e[t]},getLength:function(){return e.length},multiply:function(t){for(var r=new Array(n.getLength()+t.getLength()-1),e=0;e<n.getLength();e+=1)for(var o=0;o<t.getLength();o+=1)r[e+o]^=C.gexp(C.glog(n.getAt(e))+C.glog(t.getAt(o)));return k(r,0)},mod:function(t){if(n.getLength()-t.getLength()<0)return n;for(var r=C.glog(n.getAt(0))-C.glog(t.getAt(0)),e=new Array(n.getLength()),o=0;o<n.getLength();o+=1)e[o]=n.getAt(o);for(o=0;o<t.getLength();o+=1)e[o]^=C.gexp(C.glog(t.getAt(o))+r);return k(e,0).mod(t)}};return n}var A=function(){var t=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12,7,37,13],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],r=function(t,r){var e={};return e.totalCount=t,e.dataCount=r,e},e={};return e.getRSBlocks=function(e,n){var o=function(r,e){switch(e){case g.L:return t[4*(r-1)+0];case g.M:return t[4*(r-1)+1];case g.Q:return t[4*(r-1)+2];case g.H:return t[4*(r-1)+3];default:return}}(e,n);if(void 0===o)throw"bad rs block @ typeNumber:"+e+"/errorCorrectionLevel:"+n;for(var i=o.length/3,a=[],u=0;u<i;u+=1)for(var f=o[3*u+0],c=o[3*u+1],l=o[3*u+2],h=0;h<f;h+=1)a.push(r(c,l));return a},e}(),b=function(){var t=[],r=0,e={getBuffer:function(){return t},getAt:function(r){var e=Math.floor(r/8);return 1==(t[e]>>>7-r%8&1)},put:function(t,r){for(var n=0;n<r;n+=1)e.putBit(1==(t>>>r-n-1&1))},getLengthInBits:function(){return r},putBit:function(e){var n=Math.floor(r/8);t.length<=n&&t.push(0),e&&(t[n]|=128>>>r%8),r+=1}};return e},M=function(t){var r=a,e=t,n={getMode:function(){return r},getLength:function(t){return e.length},write:function(t){for(var r=e,n=0;n+2<r.length;)t.put(o(r.substring(n,n+3)),10),n+=3;n<r.length&&(r.length-n==1?t.put(o(r.substring(n,n+1)),4):r.length-n==2&&t.put(o(r.substring(n,n+2)),7))}},o=function(t){for(var r=0,e=0;e<t.length;e+=1)r=10*r+i(t.charAt(e));return r},i=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);throw"illegal char :"+t};return n},x=function(t){var r=u,e=t,n={getMode:function(){return r},getLength:function(t){return e.length},write:function(t){for(var r=e,n=0;n+1<r.length;)t.put(45*o(r.charAt(n))+o(r.charAt(n+1)),11),n+=2;n<r.length&&t.put(o(r.charAt(n)),6)}},o=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);if("A"<=t&&t<="Z")return t.charCodeAt(0)-"A".charCodeAt(0)+10;switch(t){case" ":return 36;case"$":return 37;case"%":return 38;case"*":return 39;case"+":return 40;case"-":return 41;case".":return 42;case"/":return 43;case":":return 44;default:throw"illegal char :"+t}};return n},m=function(r){var e=f,n=t.stringToBytes(r),o={getMode:function(){return e},getLength:function(t){return n.length},write:function(t){for(var r=0;r<n.length;r+=1)t.put(n[r],8)}};return o},L=function(r){var e=c,n=t.stringToBytesFuncs.SJIS;if(!n)throw"sjis not supported.";!function(){var t=n("友");if(2!=t.length||38726!=(t[0]<<8|t[1]))throw"sjis not supported."}();var o=n(r),i={getMode:function(){return e},getLength:function(t){return~~(o.length/2)},write:function(t){for(var r=o,e=0;e+1<r.length;){var n=(255&r[e])<<8|255&r[e+1];if(33088<=n&&n<=40956)n-=33088;else{if(!(57408<=n&&n<=60351))throw"illegal char at "+(e+1)+"/"+n;n-=49472}n=192*(n>>>8&255)+(255&n),t.put(n,13),e+=2}if(e<r.length)throw"illegal char at "+(e+1)}};return i},D=function(){var t=[],r={writeByte:function(r){t.push(255&r)},writeShort:function(t){r.writeByte(t),r.writeByte(t>>>8)},writeBytes:function(t,e,n){e=e||0,n=n||t.length;for(var o=0;o<n;o+=1)r.writeByte(t[o+e])},writeString:function(t){for(var e=0;e<t.length;e+=1)r.writeByte(t.charCodeAt(e))},toByteArray:function(){return t},toString:function(){var r="";r+="[";for(var e=0;e<t.length;e+=1)e>0&&(r+=","),r+=t[e];return r+="]"}};return r},S=function(t){var r=t,e=0,n=0,o=0,i={read:function(){for(;o<8;){if(e>=r.length){if(0==o)return-1;throw"unexpected end of file./"+o}var t=r.charAt(e);if(e+=1,"="==t)return o=0,-1;t.match(/^\s$/)||(n=n<<6|a(t.charCodeAt(0)),o+=6)}var i=n>>>o-8&255;return o-=8,i}},a=function(t){if(65<=t&&t<=90)return t-65;if(97<=t&&t<=122)return t-97+26;if(48<=t&&t<=57)return t-48+52;if(43==t)return 62;if(47==t)return 63;throw"c:"+t};return i},I=function(t,r,e){for(var n=function(t,r){var e=t,n=r,o=new Array(t*r),i={setPixel:function(t,r,n){o[r*e+t]=n},write:function(t){t.writeString("GIF87a"),t.writeShort(e),t.writeShort(n),t.writeByte(128),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(255),t.writeByte(255),t.writeByte(255),t.writeString(","),t.writeShort(0),t.writeShort(0),t.writeShort(e),t.writeShort(n),t.writeByte(0);var r=a(2);t.writeByte(2);for(var o=0;r.length-o>255;)t.writeByte(255),t.writeBytes(r,o,255),o+=255;t.writeByte(r.length-o),t.writeBytes(r,o,r.length-o),t.writeByte(0),t.writeString(";")}},a=function(t){for(var r=1<<t,e=1+(1<<t),n=t+1,i=u(),a=0;a<r;a+=1)i.add(String.fromCharCode(a));i.add(String.fromCharCode(r)),i.add(String.fromCharCode(e));var f,c,g,l=D(),h=(f=l,c=0,g=0,{write:function(t,r){if(t>>>r!=0)throw"length over";for(;c+r>=8;)f.writeByte(255&(t<<c|g)),r-=8-c,t>>>=8-c,g=0,c=0;g|=t<<c,c+=r},flush:function(){c>0&&f.writeByte(g)}});h.write(r,n);var s=0,v=String.fromCharCode(o[s]);for(s+=1;s<o.length;){var d=String.fromCharCode(o[s]);s+=1,i.contains(v+d)?v+=d:(h.write(i.indexOf(v),n),i.size()<4095&&(i.size()==1<<n&&(n+=1),i.add(v+d)),v=d)}return h.write(i.indexOf(v),n),h.write(e,n),h.flush(),l.toByteArray()},u=function(){var t={},r=0,e={add:function(n){if(e.contains(n))throw"dup key:"+n;t[n]=r,r+=1},size:function(){return r},indexOf:function(r){return t[r]},contains:function(r){return void 0!==t[r]}};return e};return i}(t,r),o=0;o<r;o+=1)for(var i=0;i<t;i+=1)n.setPixel(i,o,e(i,o));var a=D();n.write(a);for(var u=function(){var t=0,r=0,e=0,n="",o={},i=function(t){n+=String.fromCharCode(a(63&t))},a=function(t){if(t<0);else{if(t<26)return 65+t;if(t<52)return t-26+97;if(t<62)return t-52+48;if(62==t)return 43;if(63==t)return 47}throw"n:"+t};return o.writeByte=function(n){for(t=t<<8|255&n,r+=8,e+=1;r>=6;)i(t>>>r-6),r-=6},o.flush=function(){if(r>0&&(i(t<<6-r),t=0,r=0),e%3!=0)for(var o=3-e%3,a=0;a<o;a+=1)n+="="},o.toString=function(){return n},o}(),f=a.toByteArray(),c=0;c<f.length;c+=1)u.writeByte(f[c]);return u.flush(),"data:image/gif;base64,"+u};return t}();qrcode.stringToBytesFuncs["UTF-8"]=function(t){return function(t){for(var r=[],e=0;e<t.length;e++){var n=t.charCodeAt(e);n<128?r.push(n):n<2048?r.push(192|n>>6,128|63&n):n<55296||n>=57344?r.push(224|n>>12,128|n>>6&63,128|63&n):(e++,n=65536+((1023&n)<<10|1023&t.charCodeAt(e)),r.push(240|n>>18,128|n>>12&63,128|n>>6&63,128|63&n))}return r}(t)},function(t){"function"==typeof define&&define.amd?define([],t):"object"==typeof exports&&(module.exports=t())}(function(){return qrcode});
+</script>
+<script>
+/* ===== Friends: find friends, requests, activity feed, friend pages, QR share, privacy ===== */
+(function () {
+  'use strict';
+  var BASE_URL = 'https://followingjesus.com/app';
+  var modal, bodyEl;
+  var view = 'home', viewArg = null, tab = 'find';
+  var settingsCache = null, notice = '', searchSeq = 0, searchTimer = null;
+  var camStream = null, camTimer = null;
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function sb() { return (typeof supabaseClient !== 'undefined') ? supabaseClient : null; }
+  async function session() {
+    try { var c = sb(); if (!c) return null; var r = await c.auth.getSession(); var s = r && r.data && r.data.session; return s && s.user ? s : null; }
+    catch (e) { return null; }
+  }
+  async function rpc(name, args) {
+    var r = await sb().rpc(name, args || {});
+    if (r.error) throw r.error;
+    return r.data;
+  }
+  function errText(e) { return (e && e.message) ? e.message : 'Something went wrong. Please try again.'; }
+
+  var IC = {
+    people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M16.5 14.2c2.7.2 4.5 2.2 4.5 5.3"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    qr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h3M20 17v4"/></svg>',
+    share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7.5 7.5L12 3l4.5 4.5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>',
+    chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>',
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
+    gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>'
+  };
+
+  function avatar(url, name, cls) {
+    var ch = esc(String(name || '?').trim().charAt(0).toUpperCase() || '?');
+    return '<span class="fr-av ' + (cls || '') + '">' + (url ? '<img src="' + esc(url) + '" alt="" loading="lazy" onerror="this.remove()">' : '') + '<b>' + ch + '</b></span>';
+  }
+  function ago(iso) {
+    var s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return 'now';
+    if (s < 3600) return Math.floor(s / 60) + 'm';
+    if (s < 86400) return Math.floor(s / 3600) + 'h';
+    if (s < 604800) return Math.floor(s / 86400) + 'd';
+    return Math.floor(s / 604800) + 'w';
+  }
+  function bookName(id) {
+    try { for (var i = 0; i < BOOKS.length; i++) if (BOOKS[i][0] === id) return BOOKS[i][1]; } catch (e) {}
+    return id;
+  }
+  function refLabel(b, c, f, t) { return bookName(b) + ' ' + c + ':' + f + (t && t !== f ? '-' + t : ''); }
+  function planTitle(k) { try { return (DEVOTIONAL_PLANS_MANIFEST[k] || {}).title || k; } catch (e) { return k; } }
+  function badgeInfo(k) { try { return BADGE_CATALOG.find(function (b) { return b.key === k; }) || null; } catch (e) { return null; } }
+
+  // ---- verse text (BSB) for highlight cards ----
+  var chCache = {};
+  function chapterVerses(id, ch) {
+    var k = id + '/' + ch;
+    if (!chCache[k]) {
+      chCache[k] = fetch('https://bible.helloao.org/api/BSB/' + id + '/' + ch + '.json')
+        .then(function (r) { if (!r.ok) throw new Error('x'); return r.json(); })
+        .then(function (j) {
+          var out = {};
+          ((j.chapter && j.chapter.content) || []).forEach(function (it) {
+            if (it && it.type === 'verse') {
+              var t = '';
+              (it.content || []).forEach(function (p) { if (typeof p === 'string') t += ' ' + p; else if (p && typeof p.text === 'string' && !p.descriptive) t += ' ' + p.text; });
+              out[it.number] = t.replace(/\s+/g, ' ').trim();
+            }
+          });
+          return out;
+        }).catch(function (e) { delete chCache[k]; throw e; });
+    }
+    return chCache[k];
+  }
+  function fillVerseTexts(root) {
+    root.querySelectorAll('.fr-vtext[data-b]').forEach(function (el) {
+      var b = el.dataset.b, c = +el.dataset.c, f = +el.dataset.f, t = +el.dataset.t || f;
+      chapterVerses(b, c).then(function (vs) {
+        var parts = [];
+        for (var v = f; v <= Math.min(t, f + 7); v++) if (vs[v]) parts.push(vs[v]);
+        el.textContent = parts.join(' ');
+      }).catch(function () { el.textContent = ''; });
+    });
+  }
+  function groupHighlights(rows) {
+    var by = {};
+    rows.forEach(function (r) { var k = r.book + '.' + r.chapter; (by[k] = by[k] || { b: r.book, c: r.chapter, vs: [], at: r.created_at }).vs.push(r.verse); if (r.created_at > by[k].at) by[k].at = r.created_at; });
+    var out = [];
+    Object.keys(by).forEach(function (k) {
+      var g = by[k]; g.vs.sort(function (a, b) { return a - b; });
+      var s = g.vs[0], p = s;
+      for (var i = 1; i <= g.vs.length; i++) {
+        if (i < g.vs.length && g.vs[i] === p + 1) { p = g.vs[i]; continue; }
+        out.push({ b: g.b, c: g.c, f: s, t: p, at: g.at });
+        s = g.vs[i]; p = s;
+      }
+    });
+    out.sort(function (a, b) { return a.at < b.at ? 1 : -1; });
+    return out;
+  }
+
+  // ---- navigation ----
+  function go(v, arg) { stopCam(); view = v; viewArg = arg == null ? null : arg; render(); bodyEl.scrollTop = 0; }
+  function wrap(inner, back) {
+    bodyEl.innerHTML = '<div class="fr-wrap"><div class="fr-top"><a class="back-link" id="frBack">' + (back === 'home' ? '← Home' : '← Back') + '</a></div>' + inner + '</div>';
+    $('frBack').addEventListener('click', function () { if (back === 'home') goHome(); else go(back); });
+  }
+  function goHome() { stopCam(); if (typeof goToTab === 'function') goToTab('screen-today'); }
+
+  async function open(skipPush) {
+    modal = $('friendsModal'); bodyEl = $('friendsBody');
+    if (typeof closeAllModals === 'function') closeAllModals();
+    if (typeof hideMainScreens === 'function') hideMainScreens();
+    if (typeof showPageHeader === 'function') showPageHeader('Friends');
+    modal.classList.add('open');
+    if (!skipPush && typeof pushUrlHash === 'function') pushUrlHash('friends');
+    view = 'home'; tab = 'find'; viewArg = null;
+    render();
+  }
+  function stopCam() {
+    if (camTimer) { clearInterval(camTimer); camTimer = null; }
+    if (camStream) { camStream.getTracks().forEach(function (t) { t.stop(); }); camStream = null; }
+  }
+
+  async function render() {
+    if (!bodyEl) return;
+    var s = await session();
+    if (!s) { gate(); return; }
+    try {
+      if (view === 'home') await homeView(s);
+      else if (view === 'list') await listView();
+      else if (view === 'add') await addView();
+      else if (view === 'code') await codeView(s);
+      else if (view === 'friend') await friendView();
+      else if (view === 'settings') await settingsView();
+    } catch (e) {
+      wrap('<div class="fr-empty"><p>' + esc(errText(e)) + '</p><button type="button" class="fr-btn" id="frRetry">Try again</button></div>', view === 'home' ? 'home' : 'home');
+      var rb = $('frRetry'); if (rb) rb.addEventListener('click', render);
+    }
+  }
+  function gate() {
+    wrap('<div class="fr-hero"><div class="fr-title">Friends</div><p class="fr-sub">See what your friends are reading, highlighting and memorizing, and encourage each other to keep following Jesus.</p></div>' +
+      '<div class="fr-empty"><p>Sign in to add friends.</p><button type="button" class="fr-btn fr-btn-dark" id="frSignIn">Sign in</button></div>', 'home');
+    $('frSignIn').addEventListener('click', function () {
+      var b = $('profileTabBtn'); if (b) b.click();
+    });
+  }
+  function noticeHtml() { var n = notice; notice = ''; return n ? '<div class="fr-note">' + esc(n) + '</div>' : ''; }
+
+  // ---- home: pills, requests, feed ----
+  async function homeView(s) {
+    wrap('<div class="fr-loading">Loading…</div>', 'home');
+    var res = await Promise.all([rpc('list_friends'), rpc('list_friend_requests'), rpc('get_friend_feed', { p_limit: 40 })]);
+    var friends = res[0] || [], reqs = res[1] || [], feed = res[2] || [];
+    var incoming = reqs.filter(function (r) { return r.direction === 'incoming'; });
+    var html = '<div class="fr-hero"><div class="fr-title">Friends</div></div>' + noticeHtml() +
+      '<div class="fr-pills"><button type="button" class="fr-pill" id="frList">' + IC.people + '<span>Friends' + (friends.length ? ' · ' + friends.length : '') + '</span></button>' +
+      '<button type="button" class="fr-pill" id="frAdd">' + IC.plus + '<span>Add Friends</span></button></div>';
+    if (incoming.length) {
+      html += '<div class="fr-card"><div class="fr-card-h">Friend requests</div>' + incoming.map(reqRow).join('') + '</div>';
+    }
+    if (!friends.length && !incoming.length) {
+      html += '<div class="fr-empty"><div class="fr-empty-ic">' + IC.people + '</div><p><b>Walk with friends.</b><br>Add a friend to see their highlighted verses, memory verses, badges and the reading plans they choose to share.</p><button type="button" class="fr-btn fr-btn-dark" id="frAdd2">Add Friends</button></div>';
+    } else if (!feed.length) {
+      html += '<div class="fr-empty"><p>Nothing yet. When your friends highlight verses, memorize Scripture or earn badges, you\'ll see it here.</p></div>';
+    } else {
+      html += feed.map(feedCard).join('');
+    }
+    html += '<button type="button" class="fr-link" id="frSettings">' + IC.gear + '<span>What friends can see</span></button>';
+    wrap(html, 'home');
+    $('frList').addEventListener('click', function () { go('list'); });
+    $('frAdd').addEventListener('click', function () { tab = 'find'; go('add'); });
+    var a2 = $('frAdd2'); if (a2) a2.addEventListener('click', function () { tab = 'find'; go('add'); });
+    $('frSettings').addEventListener('click', function () { go('settings'); });
+    wireReqButtons();
+    bodyEl.querySelectorAll('[data-friend]').forEach(function (el) {
+      el.addEventListener('click', function () { go('friend', { id: el.dataset.friend, name: el.dataset.name, photo: el.dataset.photo }); });
+    });
+    fillVerseTexts(bodyEl);
+  }
+  function feedCard(a) {
+    var p = a.payload || {}, verb = '', title = '', text = '';
+    if (a.kind === 'highlight') { verb = 'highlighted'; title = refLabel(p.b, p.c, p.f, p.t); text = '<p class="fr-vtext" data-b="' + esc(p.b) + '" data-c="' + esc(p.c) + '" data-f="' + esc(p.f) + '" data-t="' + esc(p.t || p.f) + '"></p>'; }
+    else if (a.kind === 'memory_verse') { verb = 'memorized'; title = p.ref || 'a verse'; text = p.text ? '<p class="fr-vtext">' + esc(p.text) + '</p>' : ''; }
+    else if (a.kind === 'badge') { verb = 'earned the badge'; title = p.title || 'a badge'; }
+    else if (a.kind === 'course_complete') { verb = 'finished'; title = 'the Following Jesus course'; }
+    else if (a.kind === 'plan_started') { verb = 'started'; title = p.title || planTitle(a.plan_key); }
+    else if (a.kind === 'plan_day') { verb = 'finished day ' + esc(p.day || '') + ' of'; title = p.title || planTitle(a.plan_key); }
+    else return '';
+    return '<div class="fr-card fr-feed" data-friend="' + esc(a.user_id) + '" data-name="' + esc(a.full_name) + '" data-photo="' + esc(a.photo_url || '') + '">' +
+      '<div class="fr-feed-h">' + avatar(a.photo_url, a.full_name) +
+      '<div class="fr-feed-t"><div class="fr-feed-who">' + esc(a.full_name) + ' ' + verb + '</div><div class="fr-feed-ref">' + esc(title) + '</div></div>' +
+      '<div class="fr-ago">' + ago(a.created_at) + '</div></div>' + text + '</div>';
+  }
+  function reqRow(r) {
+    return '<div class="fr-req">' + '<div class="fr-row">' + avatar(r.photo_url, r.full_name) + '<div class="fr-row-t"><div class="fr-name">' + esc(r.full_name) + '</div><div class="fr-meta">Wants to be friends</div></div></div>' +
+      '<div class="fr-reqbtns"><button type="button" class="fr-btn fr-btn-dark fr-sm" data-acc="' + esc(r.request_id) + '">Accept</button>' +
+      '<button type="button" class="fr-btn fr-sm" data-dec="' + esc(r.request_id) + '">Decline</button></div></div>';
+  }
+  function wireReqButtons() {
+    bodyEl.querySelectorAll('[data-acc],[data-dec]').forEach(function (b) {
+      b.addEventListener('click', async function () {
+        var accept = !!b.dataset.acc; b.disabled = true;
+        try {
+          await rpc('respond_friend_request', { p_request: b.dataset.acc || b.dataset.dec, p_accept: accept });
+          notice = accept ? 'Friend added.' : 'Request declined.';
+          render();
+        } catch (e) { b.disabled = false; alert(errText(e)); }
+      });
+    });
+  }
+
+  // ---- friends list ----
+  async function listView() {
+    var friends = await rpc('list_friends') || [];
+    var html = '<div class="fr-hero"><div class="fr-title">Friends</div><p class="fr-sub">' + friends.length + (friends.length === 1 ? ' friend' : ' friends') + '</p></div>';
+    if (!friends.length) html += '<div class="fr-empty"><p>No friends yet.</p><button type="button" class="fr-btn fr-btn-dark" id="frAdd3">Add Friends</button></div>';
+    else html += '<div class="fr-card">' + friends.map(function (f) {
+      return '<button type="button" class="fr-row fr-rowbtn" data-friend="' + esc(f.user_id) + '" data-name="' + esc(f.full_name) + '" data-photo="' + esc(f.photo_url || '') + '">' + avatar(f.photo_url, f.full_name) +
+        '<div class="fr-row-t"><div class="fr-name">' + esc(f.full_name) + '</div></div><span class="fr-chev">' + IC.chev + '</span></button>';
+    }).join('') + '</div>';
+    wrap(html, 'home');
+    var a3 = $('frAdd3'); if (a3) a3.addEventListener('click', function () { tab = 'find'; go('add'); });
+    bodyEl.querySelectorAll('[data-friend]').forEach(function (el) {
+      el.addEventListener('click', function () { go('friend', { id: el.dataset.friend, name: el.dataset.name, photo: el.dataset.photo }); });
+    });
+  }
+
+  // ---- a friend's page ----
+  async function friendView() {
+    var f = viewArg || {};
+    wrap('<div class="fr-loading">Loading…</div>', 'list');
+    var res = await Promise.all([rpc('get_friend_highlights', { p_friend: f.id, p_limit: 120 }), rpc('get_friend_badges', { p_friend: f.id }), rpc('get_friend_plans', { p_friend: f.id })]);
+    var hl = groupHighlights(res[0] || []), badges = res[1] || [], plans = res[2] || [];
+    var html = '<div class="fr-person">' + avatar(f.photo, f.name, 'fr-av-lg') + '<div class="fr-title" style="margin-top:10px">' + esc(f.name) + '</div></div>';
+    html += '<div class="fr-card"><div class="fr-card-h">Highlighted verses</div>';
+    if (!hl.length) html += '<p class="fr-muted">Nothing shared yet.</p>';
+    else html += hl.slice(0, 15).map(function (g) {
+      return '<div class="fr-hl"><div class="fr-feed-ref">' + esc(refLabel(g.b, g.c, g.f, g.t)) + '</div><p class="fr-vtext" data-b="' + esc(g.b) + '" data-c="' + g.c + '" data-f="' + g.f + '" data-t="' + g.t + '"></p></div>';
+    }).join('');
+    html += '</div>';
+    if (badges.length) html += '<div class="fr-card"><div class="fr-card-h">Badges</div><div class="fr-badges">' + badges.map(function (b) {
+      var i = badgeInfo(b.badge_key); if (!i) return '';
+      return '<div class="fr-badge"><svg viewBox="-58 -58 116 116" width="54" height="54">' + i.svg + '</svg><span>' + esc(i.title) + '</span></div>';
+    }).join('') + '</div></div>';
+    if (plans.length) html += '<div class="fr-card"><div class="fr-card-h">Reading plans they share</div>' + plans.map(function (p) { return '<div class="fr-plan">' + esc(planTitle(p.plan_key)) + '</div>'; }).join('') + '</div>';
+    html += '<button type="button" class="fr-link fr-danger" id="frRemove"><span>Remove friend</span></button>';
+    wrap(html, 'list');
+    fillVerseTexts(bodyEl);
+    $('frRemove').addEventListener('click', function () {
+      var b = $('frRemove');
+      if (!b.dataset.sure) { b.dataset.sure = '1'; b.querySelector('span').textContent = 'Tap again to remove ' + f.name; return; }
+      rpc('remove_friend', { p_user: f.id }).then(function () { notice = 'Friend removed.'; go('home'); }).catch(function (e) { alert(errText(e)); });
+    });
+  }
+
+  // ---- add friends ----
+  async function addView() {
+    var reqs = await rpc('list_friend_requests') || [];
+    var incoming = reqs.filter(function (r) { return r.direction === 'incoming'; });
+    var outgoing = reqs.filter(function (r) { return r.direction === 'outgoing'; });
+    var pend = incoming.length + outgoing.length;
+    var html = '<div class="fr-hero"><div class="fr-title">Add Friends</div></div>' + noticeHtml() +
+      '<div class="fr-tabs"><button type="button" class="fr-tab' + (tab === 'find' ? ' on' : '') + '" data-tab="find">Find</button><button type="button" class="fr-tab' + (tab === 'pending' ? ' on' : '') + '" data-tab="pending">Pending' + (pend ? ' · ' + pend : '') + '</button></div>';
+    if (tab === 'find') {
+      html += '<div class="fr-search">' + IC.search + '<input id="frQ" type="search" placeholder="Name or email" autocomplete="off" autocapitalize="off" spellcheck="false"></div>' +
+        '<p class="fr-muted fr-hint">Search by name, or type someone\'s full email address. They only see a request. You can see each other\'s activity once they accept.</p><div id="frResults"></div>';
+    } else {
+      html += '<div class="fr-card">' + (incoming.length ? '<div class="fr-card-h">Requests to you</div>' + incoming.map(reqRow).join('') : '') +
+        (outgoing.length ? '<div class="fr-card-h" style="margin-top:' + (incoming.length ? '14px' : '0') + '">Sent by you</div>' + outgoing.map(function (r) {
+          return '<div class="fr-row">' + avatar(r.photo_url, r.full_name) + '<div class="fr-row-t"><div class="fr-name">' + esc(r.full_name) + '</div><div class="fr-meta">Waiting for them</div></div><button type="button" class="fr-btn fr-sm" data-cancel="' + esc(r.user_id) + '">Cancel</button></div>';
+        }).join('') : '') + (!pend ? '<p class="fr-muted">No pending requests.</p>' : '') + '</div>';
+    }
+    html += '<div class="fr-share-bar"><button type="button" class="fr-btn fr-btn-gold fr-big" id="frShareProfile">' + IC.qr + '<span>Share My Profile</span></button></div>';
+    wrap(html, 'home');
+    bodyEl.querySelectorAll('.fr-tab').forEach(function (b) { b.addEventListener('click', function () { tab = b.dataset.tab; render(); }); });
+    $('frShareProfile').addEventListener('click', function () { go('code', 'mine'); });
+    wireReqButtons();
+    bodyEl.querySelectorAll('[data-cancel]').forEach(function (b) {
+      b.addEventListener('click', async function () { b.disabled = true; try { await rpc('remove_friend', { p_user: b.dataset.cancel }); render(); } catch (e) { b.disabled = false; alert(errText(e)); } });
+    });
+    var q = $('frQ');
+    if (q) q.addEventListener('input', function () {
+      clearTimeout(searchTimer); var v = q.value.trim();
+      searchTimer = setTimeout(function () { doSearch(v); }, 350);
+    });
+  }
+  async function doSearch(v) {
+    var box = $('frResults'); if (!box) return;
+    if (v.length < 3) { box.innerHTML = ''; return; }
+    var my = ++searchSeq;
+    box.innerHTML = '<div class="fr-loading">Searching…</div>';
+    try {
+      var rows = await rpc('search_people', { p_query: v }) || [];
+      if (my !== searchSeq) return;
+      box.innerHTML = rows.length ? '<div class="fr-card">' + rows.map(function (r) {
+        var act = r.relation === 'friends' ? '<span class="fr-state">Friends</span>' : r.relation === 'sent' ? '<span class="fr-state">Requested</span>' :
+          r.relation === 'received' ? '<button type="button" class="fr-btn fr-btn-dark fr-sm" data-add="' + esc(r.user_id) + '">Accept</button>' :
+          '<button type="button" class="fr-btn fr-sm" data-add="' + esc(r.user_id) + '">Add</button>';
+        return '<div class="fr-row">' + avatar(r.photo_url, r.full_name) + '<div class="fr-row-t"><div class="fr-name">' + esc(r.full_name) + '</div></div>' + act + '</div>';
+      }).join('') + '</div>' : '<p class="fr-muted">No one found. Check the spelling, or send them your profile link instead.</p>';
+      box.querySelectorAll('[data-add]').forEach(function (b) {
+        b.addEventListener('click', async function () {
+          b.disabled = true;
+          try {
+            var r = await rpc('send_friend_request', { p_user: b.dataset.add });
+            var st = document.createElement('span'); st.className = 'fr-state';
+            st.textContent = r === 'accepted' || r === 'already_friends' ? 'Friends' : 'Requested';
+            b.replaceWith(st);
+          } catch (e) { b.disabled = false; alert(errText(e)); }
+        });
+      });
+    } catch (e) { if (my === searchSeq) box.innerHTML = '<p class="fr-muted">' + esc(errText(e)) + '</p>'; }
+  }
+
+  // ---- my code / scan ----
+  function qrSvg(text) {
+    try {
+      var qr = qrcode(0, 'M'); qr.addData(text); qr.make();
+      return qr.createSvgTag(4, 0, 'QR code for your friend link', 'Friend link');
+    } catch (e) { return ''; }
+  }
+  async function myLink() { var code = await rpc('get_or_create_friend_code'); return BASE_URL + '?friend=' + encodeURIComponent(code); }
+  async function codeView(s) {
+    var mode = viewArg === 'scan' ? 'scan' : 'mine';
+    var html = '<div class="fr-tabs fr-tabs-c"><button type="button" class="fr-tab' + (mode === 'mine' ? ' on' : '') + '" data-m="mine">My Code</button><button type="button" class="fr-tab' + (mode === 'scan' ? ' on' : '') + '" data-m="scan">Scan</button></div>';
+    var name = (s.user.user_metadata && (s.user.user_metadata.full_name || s.user.user_metadata.name)) || '', photo = (s.user.user_metadata && (s.user.user_metadata.avatar_url || s.user.user_metadata.picture)) || '';
+    try { var acct = await dSafeGet('account'); if (acct) { name = acct.name || name; photo = acct.photoUrl || photo; } } catch (e) {}
+    var link = '';
+    if (mode === 'mine') {
+      link = await myLink();
+      html += '<div class="fr-qrwrap">' + avatar(photo, name, 'fr-av-xl') + '<div class="fr-qrcard"><div class="fr-qr">' + qrSvg(link) + '</div><div class="fr-qrname">' + esc(name || 'My profile') + '</div></div>' +
+        '<p class="fr-qrnote">To send me a friend request, scan this code or open my link.</p></div>' +
+        '<div class="fr-share-bar fr-two"><button type="button" class="fr-btn fr-big" id="frShare">' + IC.share + '<span>Share</span></button><button type="button" class="fr-btn fr-big" id="frCopy">' + IC.copy + '<span>Copy</span></button></div>';
+    } else {
+      html += '<div class="fr-scan"><div class="fr-cam" id="frCam" hidden><video id="frVid" playsinline muted></video><div class="fr-reticle"></div></div>' +
+        '<p class="fr-muted" id="frScanMsg">Point your camera at a friend\'s code.</p>' +
+        '<p class="fr-muted">You can also just open your phone\'s Camera app and scan their code. It opens the app and adds them.</p>' +
+        '<div class="fr-search" style="margin-top:14px"><input id="frCode" type="text" placeholder="Or paste a friend link or code" autocomplete="off" autocapitalize="off" spellcheck="false"></div>' +
+        '<button type="button" class="fr-btn fr-btn-dark fr-big" id="frCodeGo" style="margin-top:10px">Add friend</button></div>';
+    }
+    wrap(html, 'add');
+    bodyEl.querySelectorAll('[data-m]').forEach(function (b) { b.addEventListener('click', function () { go('code', b.dataset.m); }); });
+    if (mode === 'mine') {
+      $('frShare').addEventListener('click', async function () {
+        var text = 'Add me as a friend on the Following Jesus app: ' + link;
+        if (navigator.share) { try { await navigator.share({ title: 'Following Jesus', text: 'Add me as a friend on the Following Jesus app.', url: link }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+        copyText(text, $('frShare'));
+      });
+      $('frCopy').addEventListener('click', function () { copyText(link, $('frCopy')); });
+    } else {
+      $('frCodeGo').addEventListener('click', function () { var v = $('frCode').value.trim(); if (v) addByCode(parseCode(v)); });
+      startCam();
+    }
+  }
+  function copyText(t, btn) {
+    var done = function () { var sp = btn && btn.querySelector('span'); if (sp) { var o = sp.textContent; sp.textContent = 'Copied'; setTimeout(function () { sp.textContent = o; }, 1600); } };
+    try { navigator.clipboard.writeText(t).then(done, function () { window.prompt('Copy this link', t); }); } catch (e) { window.prompt('Copy this link', t); }
+  }
+  function parseCode(v) {
+    var m = /[?&]friend=([^&\s#]+)/.exec(v);
+    return decodeURIComponent(m ? m[1] : v.trim());
+  }
+  async function startCam() {
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.BarcodeDetector)) return;
+    try {
+      var det = new BarcodeDetector({ formats: ['qr_code'] });
+      camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      var vid = $('frVid'), cam = $('frCam'); if (!vid) { stopCam(); return; }
+      vid.srcObject = camStream; cam.hidden = false; await vid.play();
+      camTimer = setInterval(async function () {
+        try {
+          var codes = await det.detect(vid);
+          for (var i = 0; i < codes.length; i++) {
+            var v = codes[i].rawValue || '';
+            if (/[?&]friend=/.test(v)) { stopCam(); addByCode(parseCode(v)); return; }
+          }
+        } catch (e) {}
+      }, 400);
+    } catch (e) { stopCam(); var c = $('frCam'); if (c) c.hidden = true; var m = $('frScanMsg'); if (m) m.textContent = 'Camera is not available here. Use your phone\'s Camera app to scan, or paste a link below.'; }
+  }
+  async function addByCode(code) {
+    try {
+      var rows = await rpc('add_friend_by_code', { p_code: code });
+      var r = rows && rows[0];
+      if (!r) throw new Error('That friend link is not valid.');
+      if (r.result === 'self') notice = 'That\'s your own code.';
+      else if (r.result === 'already_friends') notice = 'You and ' + r.full_name + ' are already friends.';
+      else notice = 'You and ' + r.full_name + ' are now friends.';
+      go('home');
+    } catch (e) { alert(errText(e)); }
+  }
+
+  // ---- privacy settings ----
+  async function loadSettings() { var r = await rpc('get_friend_settings'); settingsCache = (r && r[0]) || r || {}; return settingsCache; }
+  function sw(id, on, label, sub) {
+    return '<button type="button" class="fr-sw-row' + (on ? ' on' : '') + '" data-set="' + id + '"><span class="fr-sw-t"><b>' + esc(label) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span><span class="fr-sw" aria-hidden="true"></span></button>';
+  }
+  async function settingsView() {
+    var s = await loadSettings();
+    var plans = s.shared_plans || [];
+    var keys = []; try { keys = Object.keys(DEVOTIONAL_PLANS_MANIFEST); } catch (e) {}
+    var html = '<div class="fr-hero"><div class="fr-title">What friends can see</div><p class="fr-sub">Only accepted friends can see anything. Change these any time.</p></div><div class="fr-card">' +
+      sw('share_highlights', s.share_highlights !== false, 'Verses I highlight') +
+      sw('share_memory', s.share_memory !== false, 'Verses I memorize') +
+      sw('share_badges', s.share_badges !== false, 'Badges I earn') +
+      sw('share_course', s.share_course !== false, 'Finishing the course') + '</div>' +
+      '<div class="fr-card"><div class="fr-card-h">Reading plans (hidden unless you share)</div>' + keys.map(function (k) { return sw('plan:' + k, plans.indexOf(k) > -1, planTitle(k)); }).join('') + '</div>' +
+      '<div class="fr-card">' + sw('discoverable', s.discoverable !== false, 'Let people find me by name', 'Anyone can still add you with your email or profile link.') + '</div>';
+    wrap(html, 'home');
+    bodyEl.querySelectorAll('[data-set]').forEach(function (b) {
+      b.addEventListener('click', async function () {
+        var key = b.dataset.set, on = !b.classList.contains('on');
+        b.classList.toggle('on', on);
+        try {
+          if (key.indexOf('plan:') === 0) await rpc('set_plan_shared', { p_plan_key: key.slice(5), p_shared: on });
+          else { var a = {}; a['p_' + key] = on; await rpc('update_friend_settings', a); }
+          settingsCache = null;
+        } catch (e) { b.classList.toggle('on', !on); alert(errText(e)); }
+      });
+    });
+  }
+
+  // ---- share-this-plan switch inside a reading plan ----
+  async function planShareRow(planKey, el) {
+    if (!el) return;
+    var s = await session(); if (!s) { el.innerHTML = ''; return; }
+    try {
+      var st = settingsCache || await loadSettings();
+      var on = (st.shared_plans || []).indexOf(planKey) > -1;
+      el.innerHTML = sw('plan', on, 'Share this plan with friends', 'They can see your progress on it.');
+      var b = el.querySelector('[data-set]');
+      b.addEventListener('click', async function () {
+        var now = !b.classList.contains('on'); b.classList.toggle('on', now);
+        try {
+          await rpc('set_plan_shared', { p_plan_key: planKey, p_shared: now });
+          var sp = (settingsCache && settingsCache.shared_plans) || [];
+          settingsCache = Object.assign({}, settingsCache, { shared_plans: now ? sp.concat([planKey]) : sp.filter(function (k) { return k !== planKey; }) });
+        } catch (e) { b.classList.toggle('on', !now); }
+      });
+    } catch (e) { el.innerHTML = ''; }
+  }
+
+  // ---- posting activity (fire and forget) ----
+  async function post(kind, payload, planKey) {
+    try { if (!(await session())) return; await rpc('post_activity', { p_kind: kind, p_payload: payload || {}, p_plan_key: planKey || null }); } catch (e) {}
+  }
+
+  // ---- friend link opened (?friend=CODE) ----
+  async function processPending() {
+    var code = null;
+    try { code = new URLSearchParams(location.search).get('friend'); } catch (e) {}
+    if (code) {
+      try { localStorage.setItem('fj_pending_friend', code); } catch (e) {}
+      try { history.replaceState({}, '', location.pathname + (location.hash || '')); } catch (e) {}
+    } else { try { code = localStorage.getItem('fj_pending_friend'); } catch (e) {} }
+    if (!code) return;
+    await open(true);
+    var s = await session();
+    if (!s) { notice = ''; return; }   // gate shows; code stays saved until they sign in
+    try { localStorage.removeItem('fj_pending_friend'); } catch (e) {}
+    await addByCode(code);
+  }
+
+  window.fjFriendsOpen = open;
+  window.fjFriendsStop = stopCam;
+  window.fjFriendPost = post;
+  window.fjFriendsPlanShareRow = planShareRow;
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('[data-open-friends]');
+    if (t) { e.preventDefault(); open(); }
+  });
+  setTimeout(processPending, 400);
+})();
+
+</script>
 
 <!-- ===== Old-version update banner =====
      Shown ONLY inside the wrapped phone app (Median) when the app version is too old to have the
