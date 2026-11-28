@@ -2723,7 +2723,7 @@ html[data-fr-req]:not([data-fr-req="0"]) .fr-dot { display: block; }
 .fr-home-t b { font-weight: 700; color: #fff; }
 .fr-home-ago { font-size: 12px; color: rgba(255,255,255,0.4); flex: none; }
 /* ---------- BSB audio ---------- */
-#screen-bible .aud-row { margin: 0 0 12px; }
+#screen-bible .aud-row { margin: 28px 0 12px; text-align: center; }
 #screen-bible .aud-credit { font-size: 11px; line-height: 1.4; color: rgba(10,10,10,0.45); text-decoration: none; }
 #screen-bible .aud-credit[hidden], .aud-player[hidden], .aud-player [hidden] { display: none; }
 .aud-player { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 14px); display: flex; align-items: center; justify-content: center; gap: 12px; z-index: 5; }
@@ -14454,7 +14454,15 @@ async function renderDiscipleshipApp() {
       return;
     }
     if (hash === 'videos') { openVideos(true); return; }
-    if (hash === 'friends') { if (window.fjFriendsOpen) window.fjFriendsOpen(true); return; }
+    if (hash === 'friends') {
+      if (window.fjFriendsOpen) { window.fjFriendsOpen(true); return; }
+      // Friends module loads later in the page than this router's first run
+      // (happens on pull-to-refresh/reload while on #friends). Show Today
+      // meanwhile so the screen is never blank; the module opens Friends
+      // itself once it's defined.
+      applyTab('screen-today');
+      return;
+    }
     if (hash === 'player') {
       // Only the one Worship Playlist embed exists today, so this is
       // safe to hardcode — if a second embed is ever added elsewhere,
@@ -15112,6 +15120,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   setTimeout(processPending, 400);
   setTimeout(refreshHome, 1800);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshHome(); });
+  // Reload (e.g. pull-to-refresh) while on #friends: router ran before this module existed.
+  try { if (location.hash === '#friends') open(true); } catch (e) {}
 })();
 
 </script>
@@ -15249,10 +15259,14 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   }
 
   // The reader re-renders on every chapter or translation change: keep the button and audio in step with it.
+  // The audio credit shows only at a few landmark chapters, at the bottom of the page.
+  var CREDIT_AT = { 'Genesis 1': 1, 'Psalms 1': 1, 'Proverbs 1': 1, 'Matthew 1': 1, 'John 1': 1, 'Acts 1': 1, 'Romans 1': 1, 'Revelation 1': 1 };
   function injectRow() {
-    var old = reader.querySelector('.aud-row'); if (old) old.remove();
-    var t = reader.querySelector('.bible-chapter-title'); if (!t) { credit = null; return; }
-    t.insertAdjacentHTML('afterend', '<div class="aud-row"><a id="audCredit" class="aud-credit" href="https://librivox.org/berean-standard-bible/" target="_blank" rel="noopener">Audio: Ron Altman, read for LibriVox (public domain)</a></div>');
+    var old = reader.querySelector('.aud-row');
+    if (!CREDIT_AT[key()]) { if (old) old.remove(); credit = null; return; }
+    if (old && old === reader.lastElementChild) { credit = $('audCredit'); return; }
+    if (old) old.remove();
+    reader.insertAdjacentHTML('beforeend', '<div class="aud-row"><a id="audCredit" class="aud-credit" href="https://librivox.org/berean-standard-bible/" target="_blank" rel="noopener">Audio: Ron Altman, read for LibriVox (public domain)</a></div>');
     credit = $('audCredit');
   }
   function onRender() {
